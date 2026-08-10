@@ -1,0 +1,875 @@
+// Prisma schema — Flexwork
+// Modèle v3 (intermédiaire neutre) — voir etat-consolide-Flexwork.md (arbitrage A11) et
+// modele-skillafrica-v3-Flexwork.md (référence complète, §12 pour le modèle de données).
+// Playbook d'implémentation : Prompts_Sprints_UserStories.md (Phases 1 à 8).
+//
+// Ce schéma remplace intégralement la version précédente (4 filières à badge, escrow
+// détenu en interne, litige arbitré par la plateforme) — voir revue-architecture-v3.md
+// pour le détail de ce qui a été retiré et pourquoi.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Phase 1 — Comptes
+// ---------------------------------------------------------------------------
+
+// 5 profils (etat-consolide-Flexwork.md §1.1) : Client, Expert Digital, Expert BTP/Autres,
+// Artisan, Manœuvre. Ne conditionne plus aucune vérification de la plateforme (contrairement
+// à l'ancien concept de « filière » à badge) — uniquement l'affichage et le domaine des
+// missions proposées.
+enum UserRole {
+  client
+  expert_digital
+  expert_btp_autres
+  artisan
+  manoeuvre
+}
+
+enum UserStatus {
+  active
+  suspended
+  banned
+}
+
+// Séparation des pouvoirs administratifs (modele-skillafrica-v3-Flexwork.md §13) : 4 rôles
+// distincts. `null` = pas un admin. Un admin garde `isAdmin = true` pour compat des guards
+// existants, `adminRole` porte la granularité de pouvoir.
+enum AdminRole {
+  kyc
+  moderation
+  mediation
+  superviseur
+}
+
+model User {
+  id                String     @id @default(cuid())
+  email             String     @unique
+  emailVerified     DateTime?
+  tel               String     @unique
+  telVerified       Boolean    @default(false)
+  passwordHash      String?
+  role              UserRole   @default(client)
+  firstname         String?
+  lastname          String?
+  country           String?
+  state             String?
+  city              String?
+  locality          String?
+  address           String?
+  status            UserStatus @default(active)
+  isAdmin           Boolean    @default(false)
+  adminRole         AdminRole?
+  kycStatus         KycStatus  @default(en_attente)
+  deviceFingerprint String? // US-1308 (héritée) : anti-doublon de comptes
+  // A13 — extraite de la pièce d'identité et saisie par l'Admin KYC au moment de la
+  // décision (jamais déclarée par l'utilisateur lui-même). Seule donnée d'âge faisant foi
+  // pour le contrôle des filières chantier (etat-consolide-Flexwork.md §2, A13).
+  dateNaissance         DateTime?
+  dateNaissanceSetById  String?
+  dateNaissanceSetAt    DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  otpCodes        OtpCode[]
+  kycDocuments    KycDocument[]
+  kycReviewsDone  KycDocument[]     @relation("KycReviewer")
+  livenessChecks  LivenessCheck[]
+  selfieMatchLogs SelfieMatchLog[]
+  profiles        Profile[] // Multi-profils 2026-08-06 : remplace l'ancien profile Profile?
+
+  missionsClient       Mission[]              @relation("MissionClient")
+  proposalsSoumises    MissionProposal[]      @relation("ProposalProvider")
+  missionNotifications MissionNotification[]
+  messagesEnvoyes      Message[]
+  avisRediges          Review[]               @relation("ReviewAuthor")
+  avisRecus            Review[]               @relation("ReviewTarget")
+
+  contractsAsClient   PrestationContract[] @relation("ContractClient")
+  contractsAsProvider PrestationContract[] @relation("ContractProvider")
+
+  digitalCertificates DigitalCertificate[]
+
+  mediationsOuvertes Mediation[] @relation("MediationOpenedBy")
+  mediationsInstruites Mediation[] @relation("MediationAdmin")
+
+  acknowledgementsClient ClientAcknowledgement[] @relation("AcknowledgementClient")
+
+  adminAuditLogs AdminAuditLog[]
+  notifications  Notification[]
+
+  @@index([kycStatus])
+  @@index([role])
+}
+
+// ---------------------------------------------------------------------------
+// Phase 2 — KYC (seule vérification effective, modele-skillafrica-v3-Flexwork.md §9)
+// ---------------------------------------------------------------------------
+
+enum KycStatus {
+  en_attente
+  verifie
+  rejete
+}
+
+enum OtpChannel {
+  sms
+  whatsapp
+  email
+}
+
+enum OtpPurpose {
+  signup
+  login
+  kyc
+}
+
+model OtpCode {
+  id         String     @id @default(cuid())
+  userId     String
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  identifier String // email ou tel au moment de l'envoi (peut différer du profil si changé depuis)
+  channel    OtpChannel
+  purpose    OtpPurpose
+  codeHash   String
+  attempts   Int        @default(0)
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime   @default(now())
+
+  @@index([userId, purpose])
+}
+
+enum KycDocType {
+  piece_identite_recto
+  piece_identite_verso
+  selfie
+  selfie_avec_piece
+}
+
+enum KycDocStatus {
+  en_attente
+  verifie
+  rejete
+}
+
+model KycDocument {
+  id               String       @id @default(cuid())
+  userId           String
+  user             User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type             KycDocType
+  filePath         String
+  idNumberHash     String?
+  status           KycDocStatus @default(en_attente)
+  reviewedById     String?
+  reviewedBy       User?        @relation("KycReviewer", fields: [reviewedById], references: [id])
+  reviewedAt       DateTime?
+  rejectionReason  String?
+  createdAt        DateTime     @default(now())
+
+  @@index([status, createdAt])
+  @@index([idNumberHash])
+}
+
+// Notifications in-app génériques (dashboard) — jusqu'ici seul MissionNotification existait,
+// rattaché obligatoirement à une Mission. Un événement compte (ex. décision KYC) n'a pas de
+// missionId : ce modèle générique permet d'afficher un fil "notifications" côté dashboard
+// utilisateur, indépendamment de tout doublage par e-mail (src/lib/mail.ts).
+enum NotificationType {
+  kyc_verifie
+  kyc_rejete
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType
+  message   String
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  @@index([userId, readAt])
+}
+
+model LivenessCheck {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  passed    Boolean
+  provider  String   @default("stub")
+  metadata  Json?
+  createdAt DateTime @default(now())
+}
+
+model SelfieMatchLog {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  context    String
+  similarity Float
+  passed     Boolean
+  createdAt  DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// A13 — Contrôle d'âge sur les filières chantier (etat-consolide-Flexwork.md §2, A13)
+// Deuxième exception au principe déclaratif (après l'assurance sur le risque élevé, A9) :
+// une VÉRIFICATION EFFECTIVE par la plateforme, pas une déclaration. Seuil administrable
+// par pays, jamais en dessous de 18 ans — contrainte imposée côté application
+// (src/lib/age-gate.ts), pas seulement une convention d'usage.
+// ---------------------------------------------------------------------------
+
+model CountryAgeRequirement {
+  id             String    @id @default(cuid())
+  country        String
+  profileType    UserRole // artisan | manoeuvre | expert_btp_autres uniquement (validé en app)
+  domain         String? // règle spécifique à un domaine (ex. conduite d'engins)
+  minimumAge     Int // >= 18, refusé sinon (src/lib/age-gate.ts::isValidMinimumAge)
+  legalReference String?
+  setByAdminId   String
+  justification  String
+  effectiveFrom  DateTime  @default(now())
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([country, profileType, domain])
+}
+
+// ---------------------------------------------------------------------------
+// Phase 3 — Déclarations professionnelles (modele-skillafrica-v3-Flexwork.md §4-5)
+// ---------------------------------------------------------------------------
+
+enum ProfessionalLevel {
+  debutant
+  intermediaire
+  senior
+  expert
+}
+
+// Profil générique unique (remplace ArtisanProfile/ExpertProfile/ManoeuvreProfile/
+// DigitalProfile) — la plateforme ne vérifie plus rien ici, tout est auto-déclaré (A4).
+model Profile {
+  id                     String            @id @default(cuid())
+  userId                 String
+  user                   User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  label                  String            @default("Principal") // Nom du profil (ex: "Maçon local", "Conseil BTP distance")
+  isDefault              Boolean           @default(false)
+  mainDomain             String
+  subSpecialty           String?
+  secondaryDomain        String?
+  sector                 String?
+  indicativeRate         Float?
+  declaredExperienceYears Int?
+  declaredLevel          ProfessionalLevel?
+  tags                   String[] // Compétences déclarées (ex: "Soudure", "Placo", "Plomberie")
+  // Profil enrichi 2026-08-06 : zone d'intervention, tarification, description, portfolio.
+  description            String?  // Texte libre de présentation (bio, expérience, méthodes)
+  portfolioUrls          String[] // URLs de travaux/réalisations (photos, liens)
+  tarifUnite             String?  // heure | jour | semaine | mois | mission
+  zonePays               String?  // Pays d'intervention (BJ, CI, SN...)
+  zoneVille              String?  // Ville principale
+  zoneRayonKm            Int?     // Rayon de déplacement en km (null = sans limite)
+
+  garants      Garant[]
+  declarations ProfessionalDeclaration[]
+
+  @@unique([userId, label])
+  @@index([userId])
+  @@index([mainDomain])
+}
+
+enum DeclarationType {
+  insurance
+  qualification
+}
+
+// Append-only, chaîné par hash (modele-skillafrica-v3-Flexwork.md §4.2) — jamais de
+// UPDATE/DELETE exposé. Une correction crée une nouvelle déclaration ; l'ancienne reste
+// consultable. Voir src/lib/declaration-chain.ts pour le calcul du hash.
+model ProfessionalDeclaration {
+  id                     String          @id @default(cuid())
+  profileId              String
+  profile                Profile         @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  declarationType        DeclarationType
+  label                  String? // ex. "CQP Plomberie" pour une qualification
+  insurerName            String?
+  policyNumber           String?
+  coverageCeiling        Float?
+  validUntil             DateTime?
+  declaredAt             DateTime        @default(now())
+  declarationTextSnapshot String
+  ipAddress              String?
+  userAgent              String?
+  previousHash           String?
+  currentHash            String          @unique
+  // Retrait par modération (US-306) — métadonnée de visibilité, jamais un UPDATE/DELETE
+  // du contenu chaîné : la déclaration reste dans la chaîne de hash pour l'intégrité de
+  // l'historique, mais n'apparaît plus dans les listes publiques une fois retirée.
+  removedAt              DateTime?
+  removedReason          String?
+
+  documents DeclarationDocument[]
+
+  @@index([profileId, declarationType, declaredAt])
+}
+
+model DeclarationDocument {
+  id            String                   @id @default(cuid())
+  declarationId String
+  declaration   ProfessionalDeclaration  @relation(fields: [declarationId], references: [id], onDelete: Cascade)
+  filePath      String
+  fileName      String
+  createdAt     DateTime                 @default(now())
+}
+
+enum ReferenceAppelStatus {
+  a_appeler
+  confirme
+  injoignable
+}
+
+// 1 obligatoire + 2 optionnelles (etat-consolide-Flexwork.md §1.3) — cardinalité contrôlée
+// côté application (src/lib/garant-rules.ts), pas en base.
+model Garant {
+  id          String               @id @default(cuid())
+  profileId   String
+  profile     Profile              @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  obligatoire Boolean              @default(false)
+  nom         String
+  tel         String
+  statutAppel ReferenceAppelStatus @default(a_appeler)
+  createdAt   DateTime             @default(now())
+
+  @@index([tel])
+}
+
+// ---------------------------------------------------------------------------
+// Phase 4 — Missions & contrat de prestation
+// ---------------------------------------------------------------------------
+
+enum MissionMode {
+  distance
+  presentiel
+  hybride
+}
+
+enum RiskLevel {
+  low
+  medium
+  high
+}
+
+// modele-skillafrica-v3-Flexwork.md §7.2 — insuranceRequired = true uniquement pour high,
+// jamais configurable à false pour ce palier (garde-fou métier, voir US-701/702).
+model DomainRiskLevel {
+  id                String    @id @default(cuid())
+  domain            String
+  country            String
+  riskLevel         RiskLevel
+  insuranceRequired Boolean
+  amountThreshold   Float?
+  justification     String?
+
+  @@unique([domain, country])
+}
+
+// Cycle court aligné sur modele-skillafrica-v3-Flexwork.md §6.3, en remplacement du Kanban
+// à 16 statuts (couplé à l'ancien escrow interne, sans équivalent dans le modèle v3).
+enum MissionStatus {
+  brouillon
+  publiee
+  proposition_acceptee
+  contrat_genere
+  contrat_signe
+  fonds_sous_sequestre
+  en_cours
+  livrable_soumis
+  validee
+  cloturee
+  mediation_ouverte
+}
+
+model Mission {
+  id                String        @id @default(cuid())
+  clientId          String
+  client            User          @relation("MissionClient", fields: [clientId], references: [id], onDelete: Cascade)
+  titre             String
+  description       String
+  domaine           String
+  mode              MissionMode   @default(presentiel)
+  budget            Float
+  currency          String        @default("XOF")
+  delaiJours        Int
+  riskLevel         RiskLevel     @default(low)
+  insuranceRequired Boolean       @default(false)
+  // Quick win 2026-08-06 : champs saisis dans /missions/new mais jusqu'ici silencieusement
+  // jetés par Zod (missionSchema ne les déclarait pas, Mission n'avait pas ces colonnes).
+  professionalType  String? // EXPERT_DIGITAL | EXPERT_BTP | ARTISAN | MANOEUVRE
+  requiredLevel     String? // Débutant | Junior | Intermédiaire | Senior | Expert
+  budgetType        String? // FIXED | RATE | QUOTE
+  tags              String[] // Compétences requises (ex: "Soudure", "Placo", "Électricité BT")
+  status            MissionStatus @default(brouillon)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  proposals            MissionProposal[]
+  notifications        MissionNotification[]
+  attachments          MissionAttachment[]
+  messages             Message[]
+  reviews              Review[]
+  contract             PrestationContract?
+  insurance            MissionInsurance?
+  acknowledgements     ClientAcknowledgement[]
+
+  @@index([status])
+  @@index([domaine])
+}
+
+enum ProposalStatus {
+  envoyee
+  acceptee
+  refusee
+}
+
+// Remplace l'ancien Devis (montant unique, sans jalons ni mode BTP — le cycle v3 §6.3 ne
+// décrit pas de paiement fractionné par jalon, uniquement HOLD -> RELEASE par mission).
+model MissionProposal {
+  id         String         @id @default(cuid())
+  missionId  String
+  mission    Mission        @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  providerId String
+  provider   User           @relation("ProposalProvider", fields: [providerId], references: [id], onDelete: Cascade)
+  montant    Float
+  message    String?
+  status     ProposalStatus @default(envoyee)
+  createdAt  DateTime       @default(now())
+
+  @@unique([missionId, providerId])
+  @@index([missionId, status])
+}
+
+model MissionNotification {
+  id        String   @id @default(cuid())
+  missionId String
+  mission   Mission  @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  channel   String   @default("stub")
+  createdAt DateTime @default(now())
+
+  @@index([missionId])
+}
+
+model MissionAttachment {
+  id         String   @id @default(cuid())
+  missionId  String
+  mission    Mission  @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  // Rattache optionnellement une pièce jointe à un jalon précis (livrable soumis pour CE
+  // jalon) — null pour les pièces jointes génériques (cahier des charges) ou pour les
+  // missions sans jalon (livrable unique de la mission entière).
+  jalonId    String?
+  jalon      Jalon?   @relation(fields: [jalonId], references: [id], onDelete: Cascade)
+  uploaderId String
+  filePath   String
+  createdAt  DateTime @default(now())
+
+  @@index([missionId])
+  @@index([jalonId])
+}
+
+model Message {
+  id             String   @id @default(cuid())
+  missionId      String
+  mission        Mission  @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  senderId       String
+  sender         User     @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  content        String
+  flaggedLeakage Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  @@index([missionId, createdAt])
+}
+
+// US-406 (héritée) : avis 1 à 5. `suspendu` reflète désormais une médiation ouverte au
+// moment de la publication (voir Mediation), plus un ancien champ litigeActif supprimé.
+model Review {
+  id          String   @id @default(cuid())
+  missionId   String
+  mission     Mission  @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  authorId    String
+  author      User     @relation("ReviewAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  targetId    String
+  target      User     @relation("ReviewTarget", fields: [targetId], references: [id], onDelete: Cascade)
+  note        Int
+  commentaire String?
+  suspendu    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@unique([missionId, authorId])
+  @@index([targetId])
+}
+
+// Contenu minimal imposé — modele-skillafrica-v3-Flexwork.md §2.1. Aucun champ
+// `platformSignedAt` : la plateforme n'est jamais signataire (test de conformité §16 pt.2).
+// `termsSnapshot` fige les conditions au moment de la génération, immuable même si le
+// profil du prestataire change ensuite. Chaîné par hash comme les déclarations.
+model PrestationContract {
+  id                    String    @id @default(cuid())
+  missionId             String    @unique
+  mission               Mission   @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  clientId              String
+  client                User      @relation("ContractClient", fields: [clientId], references: [id], onDelete: Cascade)
+  providerId            String
+  provider              User      @relation("ContractProvider", fields: [providerId], references: [id], onDelete: Cascade)
+  contractDocumentUrl   String?
+  termsSnapshot         Json
+  acceptanceDeadlineDays Int      @default(7)
+  clientSignedAt        DateTime?
+  providerSignedAt      DateTime?
+  previousHash          String?
+  currentHash           String    @unique
+  createdAt             DateTime  @default(now())
+
+  // A12 — outil de pointage optionnel. Actif seulement si les DEUX parties consentent —
+  // ce sont elles qui activent, jamais la plateforme (etat-consolide-Flexwork.md §2, A12,
+  // condition impérative n°3). Le refus de l'une ou l'autre est sans conséquence sur le
+  // reste du contrat (condition n°1).
+  clientOptedInCheckIn   Boolean @default(false)
+  providerOptedInCheckIn Boolean @default(false)
+
+  escrowOperations PspEscrowOperation[]
+  mediations       Mediation[]
+  checkInEvents    CheckInEvent[]
+  jalons           Jalon[]
+  signatures       ContractSignature[]
+  auditEntries     ContractAuditEntry[]
+
+  @@index([missionId])
+}
+
+// ---------------------------------------------------------------------------
+// Jalons — paiement fractionné optionnel (2026-08-06, en réponse à principeclient.md).
+// Le cycle v3 §6.3 ne décrivait qu'un seul HOLD → RELEASE par mission (voir le commentaire
+// historique sur MissionProposal) ; un contrat peut désormais, optionnellement, être décomposé
+// en jalons dont les montants somment exactement au prix du contrat — chacun avec son propre
+// cycle HOLD → livrable → RELEASE, sans jamais introduire de solde interne (toujours des
+// instructions PspEscrowOperation, jamais un mouvement de fonds détenu par la plateforme).
+// Un contrat SANS jalon garde exactement l'ancien comportement (PspEscrowOperation.jalonId
+// = null, un seul mouvement HOLD/RELEASE portant sur le prix total) — rien n'est cassé.
+// ---------------------------------------------------------------------------
+
+enum JalonStatus {
+  en_attente           // défini au contrat, pas encore financé
+  fonds_sous_sequestre // HOLD confirmé par le PSP pour ce jalon
+  livrable_soumis
+  valide               // client a validé, RELEASE transmis, en attente de confirmation PSP
+  rejete               // client a rejeté avec motif — le prestataire resoumet
+  libere               // RELEASE confirmé par le PSP — jalon payé
+}
+
+model Jalon {
+  id              String      @id @default(cuid())
+  contractId      String
+  contract        PrestationContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  ordre           Int
+  titre           String
+  montant         Float
+  status          JalonStatus @default(en_attente)
+  rejectionReason String?
+  revisionCount   Int         @default(0)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  escrowOperations PspEscrowOperation[]
+  attachments      MissionAttachment[]
+
+  @@unique([contractId, ordre])
+  @@index([contractId, status])
+}
+
+// ---------------------------------------------------------------------------
+// A12 — Outil de pointage : preuve de présence entre les parties, PAS un système
+// d'information de la plateforme (etat-consolide-Flexwork.md §2, A12).
+// Règle structurante : « Les données de pointage TRANSITENT par la plateforme, elles ne
+// l'INFORMENT PAS. » — aucune route ne doit jamais agréger, scorer, classer ou faire
+// dépendre une décision (paiement, litige, visibilité) de ces évènements. Consultable
+// uniquement par le client et le prestataire de la mission concernée ; producible comme
+// preuve en médiation seulement à l'initiative d'une des parties (jamais consultée d'office
+// par un admin). Horodatage ponctuel arrivée/départ uniquement — jamais de suivi continu
+// (condition impérative n°2).
+// ---------------------------------------------------------------------------
+
+enum CheckInType {
+  arrivee
+  depart
+}
+
+model CheckInEvent {
+  id         String              @id @default(cuid())
+  contractId String
+  contract   PrestationContract  @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  partyId    String // client ou prestataire du contrat — pas nécessairement le prestataire seul
+  type       CheckInType
+  occurredAt DateTime            @default(now())
+  gpsLat     Float?
+  gpsLng     Float?
+  // Rétention courte (prérequis bloquant #7, etat-consolide-Flexwork.md §5) : durée de la
+  // mission + délai de contestation, puis suppression — voir src/lib/checkin-tool.ts pour
+  // le calcul et la fonction de purge (à brancher sur un job planifié, non inclus ici).
+  retainUntil DateTime
+  createdAt   DateTime           @default(now())
+
+  @@index([contractId, occurredAt])
+}
+
+// ---------------------------------------------------------------------------
+// Phase 5 — Séquestre via PSP (modele-skillafrica-v3-Flexwork.md §6)
+// ---------------------------------------------------------------------------
+
+enum EscrowInstructionType {
+  hold
+  release
+  freeze
+  refund
+}
+
+enum PspOperationStatus {
+  pending
+  confirmed
+  failed
+}
+
+// La plateforme instruit, ne détient jamais les fonds (§6.2). Remplace intégralement
+// TransactionEscrow/Wallet/WalletTransaction/Retrait — aucun solde interne n'existe plus.
+model PspEscrowOperation {
+  id                String                @id @default(cuid())
+  contractId        String
+  contract          PrestationContract    @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  // null = mouvement portant sur le prix total du contrat (comportement historique, contrat
+  // sans jalon) ; renseigné = mouvement scopé à UN jalon (montant du jalon, pas du contrat).
+  jalonId           String?
+  jalon             Jalon?                @relation(fields: [jalonId], references: [id], onDelete: Cascade)
+  pspName           String
+  pspReference      String?               @unique
+  amount            Float
+  currency          String                @default("XOF")
+  instructionType   EscrowInstructionType
+  instructionSentAt DateTime              @default(now())
+  pspConfirmedAt    DateTime?
+  webhookReference  String?
+  status            PspOperationStatus    @default(pending)
+
+  @@index([contractId, status])
+  @@index([jalonId])
+}
+
+// ---------------------------------------------------------------------------
+// Phase 6 — Médiation (modele-skillafrica-v3-Flexwork.md §8) — remplace Litige (arbitrage
+// opposable). La plateforme facilite, ne tranche jamais (test de conformité §16 pt.6).
+// ---------------------------------------------------------------------------
+
+enum MediationOutcome {
+  en_cours
+  agreement
+  no_agreement
+  withdrawn
+}
+
+model Mediation {
+  id                 String            @id @default(cuid())
+  contractId         String
+  contract           PrestationContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  openedById         String
+  openedBy           User              @relation("MediationOpenedBy", fields: [openedById], references: [id], onDelete: Cascade)
+  reason             String
+  clientElements     Json?
+  providerElements   Json?
+  proposedResolution String?
+  clientAccepted     Boolean?
+  providerAccepted   Boolean?
+  outcome            MediationOutcome  @default(en_cours)
+  mediatorAdminId    String?
+  mediatorAdmin      User?             @relation("MediationAdmin", fields: [mediatorAdminId], references: [id])
+  createdAt          DateTime          @default(now())
+  closedAt           DateTime?
+
+  @@index([contractId, outcome])
+}
+
+// ---------------------------------------------------------------------------
+// Phase 7 — Risque élevé & assurance à la mission (modele-skillafrica-v3-Flexwork.md §7)
+// Prérequis bloquant : produit d'assurance à la mission disponible au Bénin + statut de
+// distribution validé — ne jamais activer en production sans confirmation (voir US-703).
+// ---------------------------------------------------------------------------
+
+enum ClientAcknowledgementType {
+  no_insurance
+  unverified_qualification
+}
+
+model ClientAcknowledgement {
+  id                 String                    @id @default(cuid())
+  clientId           String
+  client             User                      @relation("AcknowledgementClient", fields: [clientId], references: [id], onDelete: Cascade)
+  missionId          String
+  mission            Mission                   @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  acknowledgementType ClientAcknowledgementType
+  textSnapshot       String
+  acknowledgedAt     DateTime                  @default(now())
+  ipAddress          String?
+
+  @@index([missionId])
+}
+
+enum MissionInsuranceStatus {
+  active
+  expired
+  cancelled
+}
+
+model MissionInsurance {
+  id              String                  @id @default(cuid())
+  missionId       String                  @unique
+  mission         Mission                 @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  insurerName     String
+  policyReference String?
+  premiumAmount   Float
+  coverageCeiling Float
+  coverageStart   DateTime
+  coverageEnd     DateTime
+  status          MissionInsuranceStatus  @default(active)
+}
+
+// ---------------------------------------------------------------------------
+// Phase 8 — Modération & traçabilité
+// ---------------------------------------------------------------------------
+
+// Append-only, justification obligatoire non vide (US-801). Toute route admin doit écrire
+// ici via un helper partagé (src/lib/admin-audit.ts) plutôt qu'une journalisation ad hoc.
+model AdminAuditLog {
+  id            String   @id @default(cuid())
+  adminId       String
+  admin         User     @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  action        String
+  targetType    String
+  targetId      String
+  justification String
+  createdAt     DateTime @default(now())
+
+  @@index([targetType, targetId])
+  @@index([adminId, createdAt])
+}
+
+enum VerificationSubjectType {
+  kyc
+  declaration
+}
+
+// Historique global chaîné (US-804), même mécanisme de hash que ProfessionalDeclaration —
+// couvre KYC et déclarations dans un seul flux consultable en cas de recours.
+model VerificationHistoryEntry {
+  id            String                  @id @default(cuid())
+  subjectType   VerificationSubjectType
+  subjectId     String
+  event         String
+  previousHash  String?
+  currentHash   String                  @unique
+  createdAt     DateTime                @default(now())
+
+  @@index([subjectType, subjectId])
+}
+
+// ---------------------------------------------------------------------------
+// Feature flags — prérequis bloquants (etat-consolide-Flexwork.md §5), pas des filières.
+// Création manuelle uniquement, jamais d'auto-activation par le code applicatif.
+// ---------------------------------------------------------------------------
+
+model FeatureFlag {
+  id        String   @id @default(cuid())
+  key       String
+  zone      String
+  enabled   Boolean  @default(false)
+  note      String?
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  @@unique([key, zone])
+}
+
+// ---------------------------------------------------------------------------
+// Signature numérique — certificats RSA, signatures, piste d'audit
+// Inspiré du modèle eIDAS niveau avancé : chaque partie (client/prestataire)
+// possède un certificat RSA-2048 dont la clé privée est chiffrée AES-256-GCM.
+// ---------------------------------------------------------------------------
+
+enum CertificateStatus {
+  ACTIVE
+  REVOKED
+  EXPIRED
+}
+
+model DigitalCertificate {
+  id                  String            @id @default(cuid())
+  userId              String
+  user                User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  commonName          String
+  email               String
+  organization        String?
+  validFrom           DateTime          @default(now())
+  validUntil          DateTime
+  status              CertificateStatus @default(ACTIVE)
+  publicKey           String
+  encryptedPrivateKey String
+  keyFingerprint      String            @unique
+  keySalt             String
+  keyIv               String
+  keyAuthTag          String
+  revokedAt           DateTime?
+  revokeReason        String?
+  createdAt           DateTime          @default(now())
+
+  signatures ContractSignature[]
+
+  @@index([userId, status])
+}
+
+model ContractSignature {
+  id              String   @id @default(cuid())
+  contractId      String
+  contract        PrestationContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  certificateId   String
+  certificate     DigitalCertificate @relation(fields: [certificateId], references: [id], onDelete: Cascade)
+  signedDataHash  String
+  signature       String
+  signingMethod   String   @default("RSA-SHA256")
+  signedAt        DateTime @default(now())
+  verifiedAt      DateTime?
+  signerIp        String?
+  signerUserAgent String?
+
+  @@index([contractId])
+  @@index([certificateId])
+}
+
+model ContractAuditEntry {
+  id              String   @id @default(cuid())
+  contractId      String
+  contract        PrestationContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  event           String
+  description     String
+  metadata        Json     @default("{}")
+  previousHash    String?
+  currentHash     String   @unique
+  systemSignature String?
+  createdAt       DateTime @default(now())
+
+  @@index([contractId, createdAt])
+}

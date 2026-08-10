@@ -1,0 +1,150 @@
+- generic [ref=f14e1]:
+  - banner [ref=f14e2]:
+    - generic [ref=f14e3]:
+      - link "FlexWork BJ" [ref=f14e4] [cursor=pointer]:
+        - /url: /
+        - generic [ref=f14e10]: FlexWork
+        - generic [ref=f14e11]: BJ
+      - navigation [ref=f14e12]:
+        - link "Talents" [ref=f14e13] [cursor=pointer]:
+          - /url: /recherche
+        - link "Missions" [ref=f14e14] [cursor=pointer]:
+          - /url: /missions
+        - link "Vérification" [ref=f14e15] [cursor=pointer]:
+          - /url: /kyc
+        - link "Dashboard" [ref=f14e16] [cursor=pointer]:
+          - /url: /admin
+      - generic [ref=f14e17]:
+        - link "Dashboard" [ref=f14e18] [cursor=pointer]:
+          - /url: /admin
+        - button "Déconnexion" [ref=f14e19] [cursor=pointer]
+  - generic [ref=f14e21]:
+    - complementary [ref=f14e22]:
+      - generic [ref=f14e25]:
+        - generic [ref=f14e26]: SA
+        - generic [ref=f14e27]:
+          - generic [ref=f14e28]: FlexWork
+          - generic [ref=f14e29]: Espace Admin
+      - generic [ref=f14e30]:
+        - generic [ref=f14e31]:
+          - generic [ref=f14e32]: Pilotage
+          - list [ref=f14e33]:
+            - listitem [ref=f14e34]:
+              - button [ref=f14e35] [cursor=pointer]
+            - listitem [ref=f14e42]:
+              - button [ref=f14e43] [cursor=pointer]
+            - listitem [ref=f14e46]:
+              - button [ref=f14e47] [cursor=pointer]
+        - generic [ref=f14e51]:
+          - generic [ref=f14e52]: Vérifications
+          - list [ref=f14e53]:
+            - listitem [ref=f14e54]:
+              - button "KYC & Identité 5" [active] [ref=f14e127] [cursor=pointer]:
+                - generic [ref=f14e56]: KYC & Identité
+                - generic [ref=f14e128]: "5"
+            - listitem [ref=f14e60]:
+              - button [ref=f14e61] [cursor=pointer]
+        - generic [ref=f14e68]:
+          - generic [ref=f14e69]: Confiance
+          - list [ref=f14e70]:
+            - listitem [ref=f14e71]:
+              - button [ref=f14e72] [cursor=pointer]
+            - listitem [ref=f14e78]:
+              - button [ref=f14e79] [cursor=pointer]
+      - generic [ref=f14e85]:
+        - generic [ref=f14e86]: AF
+        - generic [ref=f14e88]:
+          - generic [ref=f14e89]: Admin FlexWork
+          - generic [ref=f14e90]: Super-administrateur
+    - main [ref=f14e92]:
+      - generic [ref=f14e95]:
+        - generic [ref=f14e97]:
+          - heading "KYC & Identité" [level=1] [ref=f14e131]
+          - generic [ref=f14e99]: Données en direct — Prisma/PostgreSQL
+        - button "Actualiser" [ref=f14e129] [cursor=pointer]
+      - generic [ref=f14e101]:
+        - generic [ref=f14e133]:
+          - generic [ref=f14e134]:
+            - heading "Vérifications KYC en attente" [level=2] [ref=f14e135]
+            - generic [ref=f14e136]: 5 dossiers
+          - table [ref=f14e138]:
+            - rowgroup [ref=f14e139]:
+              - row [ref=f14e140]:
+                - columnheader "Utilisateur" [ref=f14e141]
+                - columnheader "Profil" [ref=f14e142]
+                - columnheader "Documents" [ref=f14e143]
+                - columnheader "Déposé" [ref=f14e144]
+                - columnheader "Action" [ref=f14e145]
+            - rowgroup [ref=f14e146]:
+              - row [ref=f14e147]:
+                - cell "C carlos@gmail.com" [ref=f14e148]:
+                  - generic [ref=f14e149]:
+                    - generic [ref=f14e150]: C
+                    - text: carlos@gmail.com
+                - cell [ref=f14e152]:
+                  - link "Client" [ref=f14e153] [cursor=pointer]:
+                    - /url: /profil/cmsf52ss60000zlozfy9rmltl
+                - cell "piece_identite_recto, piece_identite_verso, selfie, selfie_avec_piece, piece_identite_recto, piece_identite_verso, selfie, selfie_avec_piece" [ref=f14e154]
+                - cell "04/08/2026" [ref=f14e155]
+                - cell [ref=f14e156]:
+                  - button "Valider le KYC" [ref=f14e157] [cursor=pointer]
+                  - button "Rejeter le KYC" [ref=f14e160] [cursor=pointer]
+                  - button "Supprimer le compte" [ref=f14e164] [cursor=pointer]
+              - row [ref=f14e168]:
+                - cell "R remy@gmail.com" [ref=f14e169]:
+                  - generic [ref=f14e170]:
+                    - generic [ref=f14e171]: R
+                    - text: remy@gmail.com
+                - cell [ref=f14e173]:
+                  - link "Expert Digital" [ref=f14e174] [cursor=pointer]:
+                    - /url: /profil/cmsf7po6n000cx3nozt960lcv
+                - cell "—" [ref=f14e175]
+                - cell "05/08/2026" [ref=f14e176]
+                - cell [ref=f14e177]:
+                  - button "Valider le KYC" [ref=f14e178] [cursor=pointer]
+                  - button "Rejeter le KYC" [ref=f14e181] [cursor=pointer]
+                  - button "Supprimer le compte" [ref=f14e185] [cursor=pointer]
+              - row [ref=f14e189]:
+                - cell "B ben@gmail.com" [ref=f14e190]:
+                  - generic [ref=f14e191]:
+                    - generic [ref=f14e192]: B
+                    - text: ben@gmail.com
+                - cell [ref=f14e194]:
+                  - link "Expert Digital" [ref=f14e195] [cursor=pointer]:
+                    - /url: /profil/cmsfy9bji000brpa2wfm2xun7
+                - cell "—" [ref=f14e196]
+                - cell "05/08/2026" [ref=f14e197]
+                - cell [ref=f14e198]:
+                  - button "Valider le KYC" [ref=f14e199] [cursor=pointer]
+                  - button "Rejeter le KYC" [ref=f14e202] [cursor=pointer]
+                  - button "Supprimer le compte" [ref=f14e206] [cursor=pointer]
+              - row [ref=f14e210]:
+                - cell "R repro-403@example.com" [ref=f14e211]:
+                  - generic [ref=f14e212]:
+                    - generic [ref=f14e213]: R
+                    - text: repro-403@example.com
+                - cell [ref=f14e215]:
+                  - link "Artisan" [ref=f14e216] [cursor=pointer]:
+                    - /url: /profil/cmsg966ys000mrpa2r65kubh8
+                - cell "—" [ref=f14e217]
+                - cell "05/08/2026" [ref=f14e218]
+                - cell [ref=f14e219]:
+                  - button "Valider le KYC" [ref=f14e220] [cursor=pointer]
+                  - button "Rejeter le KYC" [ref=f14e223] [cursor=pointer]
+                  - button "Supprimer le compte" [ref=f14e227] [cursor=pointer]
+              - row [ref=f14e231]:
+                - cell "A admin@flexwork.bj" [ref=f14e232]:
+                  - generic [ref=f14e233]:
+                    - generic [ref=f14e234]: A
+                    - text: admin@flexwork.bj
+                - cell [ref=f14e236]:
+                  - link "Client" [ref=f14e237] [cursor=pointer]:
+                    - /url: /profil/cmsgbjir000001lu0r5895f7f
+                - cell "—" [ref=f14e238]
+                - cell "05/08/2026" [ref=f14e239]
+                - cell [ref=f14e240]:
+                  - button "Valider le KYC" [ref=f14e241] [cursor=pointer]
+                  - button "Rejeter le KYC" [ref=f14e244] [cursor=pointer]
+                  - button "Supprimer le compte" [ref=f14e248] [cursor=pointer]
+        - generic [ref=f14e122]: FlexWork — données en direct
+  - alert [ref=f14e130]

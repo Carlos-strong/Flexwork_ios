@@ -1,0 +1,11 @@
+- generic [active] [ref=f7e1]:
+  - banner [ref=f7e2]:
+    - generic [ref=f7e3]:
+      - link "FlexWork BJ" [ref=f7e4] [cursor=pointer]:
+        - /url: /
+        - generic [ref=f7e10]: FlexWork
+        - generic [ref=f7e11]: BJ
+      - generic [ref=f7e12]:
+        - button "Notifications" [ref=f7e14] [cursor=pointer]
+        - button [ref=f7e18] [cursor=pointer]
+  - generic [ref=f7e20]: Chargement...

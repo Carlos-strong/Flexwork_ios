@@ -1,0 +1,51 @@
+import { NextResponse } from "next/server";
+import { auth } from "@/auth";
+import { prisma } from "@/lib/db";
+import { garantSchema } from "@/lib/validation";
+import { canAddGarant } from "@/lib/garant-rules";
+
+// Personnes ressources (Artisan/Manœuvre) — 1 obligatoire + 2 optionnelles
+// (etat-consolide-Flexwork.md §1.3), rattachées au profil générique.
+export async function POST(req: Request) {
+  const session = await auth();
+  if (!session?.user) {
+    return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
+  }
+  const userId = (session.user as typeof session.user & { id: string }).id;
+
+  const profile = await prisma.profile.findUnique({ where: { userId }, include: { garants: true } });
+  if (!profile) {
+    return NextResponse.json({ error: "profile_required" }, { status: 409 });
+  }
+  if (!canAddGarant(profile.garants.length)) {
+    return NextResponse.json({ error: "max_garants_reached" }, { status: 409 });
+  }
+
+  const body = await req.json().catch(() => null);
+  const parsed = garantSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json({ error: "invalid_payload" }, { status: 400 });
+  }
+
+  const garant = await prisma.garant.create({
+    data: {
+      profileId: profile.id,
+      nom: parsed.data.nom,
+      tel: parsed.data.tel,
+      obligatoire: parsed.data.obligatoire ?? profile.garants.length === 0,
+    },
+  });
+
+  return NextResponse.json(garant);
+}
+
+export async function GET() {
+  const session = await auth();
+  if (!session?.user) {
+    return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
+  }
+  const userId = (session.user as typeof session.user & { id: string }).id;
+
+  const profile = await prisma.profile.findUnique({ where: { userId }, include: { garants: true } });
+  return NextResponse.json({ items: profile?.garants ?? [] });
+}

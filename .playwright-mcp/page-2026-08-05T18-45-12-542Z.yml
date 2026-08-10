@@ -1,0 +1,66 @@
+- generic [active] [ref=f28e1]:
+  - banner [ref=f28e2]:
+    - generic [ref=f28e3]:
+      - link "FlexWork BJ" [ref=f28e4] [cursor=pointer]:
+        - /url: /
+        - generic [ref=f28e10]: FlexWork
+        - generic [ref=f28e11]: BJ
+      - navigation [ref=f28e12]:
+        - link "Talents" [ref=f28e13] [cursor=pointer]:
+          - /url: /recherche
+        - link "Missions" [ref=f28e14] [cursor=pointer]:
+          - /url: /missions
+        - link "Vérification" [ref=f28e15] [cursor=pointer]:
+          - /url: /kyc
+        - link "Dashboard" [ref=f28e16] [cursor=pointer]:
+          - /url: /dashboard/client
+      - generic [ref=f28e17]:
+        - button "Notifications" [ref=f28e19] [cursor=pointer]
+        - link "Dashboard" [ref=f28e23] [cursor=pointer]:
+          - /url: /dashboard/client
+        - button "Déconnexion" [ref=f28e24] [cursor=pointer]
+  - generic [ref=f28e26]:
+    - heading "Dashboard Client" [level=1] [ref=f28e27]
+    - paragraph [ref=f28e28]: Gérez vos missions et trouvez le bon talent
+    - generic [ref=f28e29]:
+      - generic [ref=f28e30]:
+        - generic [ref=f28e31]: 📋
+        - generic [ref=f28e32]:
+          - generic [ref=f28e33]: "0"
+          - generic [ref=f28e34]: Missions
+      - generic [ref=f28e35]:
+        - generic [ref=f28e36]: ⏳
+        - generic [ref=f28e37]:
+          - generic [ref=f28e38]: "0"
+          - generic [ref=f28e39]: En cours
+      - generic [ref=f28e40]:
+        - generic [ref=f28e41]: ✅
+        - generic [ref=f28e42]:
+          - generic [ref=f28e43]: "0"
+          - generic [ref=f28e44]: Terminées
+    - generic [ref=f28e45]:
+      - link "📝 Nouvelle mission" [ref=f28e46] [cursor=pointer]:
+        - /url: /missions/new
+        - generic [ref=f28e47]: 📝
+        - generic [ref=f28e48]: Nouvelle mission
+      - link "🔍 Trouver un talent" [ref=f28e49] [cursor=pointer]:
+        - /url: /recherche
+        - generic [ref=f28e50]: 🔍
+        - generic [ref=f28e51]: Trouver un talent
+      - link "📄 Mes contrats" [ref=f28e52] [cursor=pointer]:
+        - /url: /missions
+        - generic [ref=f28e53]: 📄
+        - generic [ref=f28e54]: Mes contrats
+    - generic [ref=f28e55]:
+      - generic [ref=f28e56]:
+        - heading "Mes missions" [level=2] [ref=f28e57]
+        - link "+ Nouvelle" [ref=f28e58] [cursor=pointer]:
+          - /url: /missions/new
+      - table [ref=f28e59]:
+        - rowgroup [ref=f28e60]:
+          - row [ref=f28e61]:
+            - columnheader "Mission" [ref=f28e62]
+            - columnheader "Budget" [ref=f28e63]
+            - columnheader "Statut" [ref=f28e64]
+            - columnheader "Action" [ref=f28e65]
+        - rowgroup

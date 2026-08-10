@@ -1,0 +1,78 @@
+- generic [active] [ref=f4e1]:
+  - banner [ref=f4e2]:
+    - generic [ref=f4e3]:
+      - link "FlexWork BJ" [ref=f4e4] [cursor=pointer]:
+        - /url: /
+        - generic [ref=f4e10]: FlexWork
+        - generic [ref=f4e11]: BJ
+      - navigation [ref=f4e12]:
+        - link "Talents" [ref=f4e13] [cursor=pointer]:
+          - /url: /recherche
+        - link "Missions" [ref=f4e14] [cursor=pointer]:
+          - /url: /missions
+        - link "Vérification" [ref=f4e15] [cursor=pointer]:
+          - /url: /kyc
+        - link "Dashboard" [ref=f4e16] [cursor=pointer]:
+          - /url: /dashboard/client
+      - generic [ref=f4e17]:
+        - button "Notifications" [ref=f4e19] [cursor=pointer]
+        - link "Dashboard" [ref=f4e23] [cursor=pointer]:
+          - /url: /dashboard/client
+        - button "Déconnexion" [ref=f4e24] [cursor=pointer]
+  - generic [ref=f4e25]:
+    - generic [ref=f4e26]:
+      - strong [ref=f4e27]: "⚠️ Avertissement :"
+      - text: Ce prestataire n'a déclaré
+      - strong [ref=f4e28]: aucune assurance
+      - text: de responsabilité civile professionnelle. En cas de dommage pendant les travaux, aucune indemnisation par une assurance ne sera possible.
+    - generic [ref=f4e29]:
+      - generic [ref=f4e30]:
+        - generic [ref=f4e31]: Contrat de prestation
+        - generic [ref=f4e32]: Outil généré par Flexwork
+      - generic [ref=f4e33]:
+        - heading "Article 1 — Objet" [level=3] [ref=f4e34]
+        - paragraph [ref=f4e35]: Test signature — Verification workflow double signature electronique
+        - heading "Article 2 — Prix et modalités" [level=3] [ref=f4e36]
+        - paragraph [ref=f4e37]:
+          - text: "Prix total :"
+          - strong [ref=f4e38]: 150 000 XOF
+        - paragraph [ref=f4e39]: Séquestre via PSP agréé. Libération sur validation explicite du client ou acceptation tacite après 7 jours.
+        - heading "Article 3 — Déclarations du prestataire" [level=3] [ref=f4e40]
+        - paragraph [ref=f4e41]:
+          - text: "Assurance :"
+          - emphasis [ref=f4e42]: Aucune assurance déclarée par ce prestataire
+        - paragraph [ref=f4e43]: "Qualification : Aucune qualification déclarée — non vérifié par Flexwork."
+        - heading "Article 4 — Responsabilités" [level=3] [ref=f4e44]
+        - paragraph [ref=f4e45]:
+          - strong [ref=f4e46]: Flexwork n'est pas partie au présent contrat.
+        - heading "Article 5 — Médiation facultative" [level=3] [ref=f4e47]
+        - paragraph [ref=f4e48]: En cas de contestation, une médiation peut être proposée. Sa proposition n'est pas opposable.
+      - generic [ref=f4e50] [cursor=pointer]:
+        - checkbox "J'ai compris et je choisis ce prestataire en pleine connaissance de cause." [checked] [ref=f4e51]
+        - generic [ref=f4e52]:
+          - strong [ref=f4e53]: J'ai compris et je choisis ce prestataire
+          - text: en pleine connaissance de cause.
+    - generic [ref=f4e54]:
+      - generic [ref=f4e55]:
+        - generic [ref=f4e56]: Signature Client
+        - button "Signer électroniquement" [ref=f4e58] [cursor=pointer]
+      - generic [ref=f4e59]:
+        - generic [ref=f4e60]: Signature Prestataire
+        - paragraph [ref=f4e62]: En attente
+    - generic [ref=f4e65]:
+      - generic [ref=f4e66]:
+        - heading "Contrat signé" [level=2] [ref=f4e90]
+        - button [ref=f4e71] [cursor=pointer]
+      - generic [ref=f4e75]:
+        - paragraph [ref=f4e94]: Signature en cours...
+        - generic [ref=f4e95]:
+          - generic [ref=f4e96]: Signature enregistrée
+          - generic [ref=f4e101]:
+            - img "QR Code de signature" [ref=f4e103]
+            - generic [ref=f4e104]:
+              - paragraph [ref=f4e105]: 874e6f7154765933...
+              - paragraph [ref=f4e106]: "62:3B:9F:F5:B8:D0:25:01:"
+            - generic [ref=f4e107]: Signature vérifiable
+          - paragraph [ref=f4e110]: Ce QR code contient les informations vérifiables de votre signature. Conservez-le comme preuve d'engagement.
+          - button "Fermer" [ref=f4e111] [cursor=pointer]
+  - alert [ref=f4e63]

@@ -1,0 +1,31 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - link "FlexWork BJ" [ref=e4] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e10]: FlexWork
+        - generic [ref=e11]: BJ
+      - navigation [ref=e12]:
+        - link "Talents" [ref=e13] [cursor=pointer]:
+          - /url: /recherche
+        - link "Missions" [ref=e14] [cursor=pointer]:
+          - /url: /missions
+        - link "Vérification" [ref=e15] [cursor=pointer]:
+          - /url: /kyc
+      - generic [ref=e16]:
+        - link "Se connecter" [ref=e17] [cursor=pointer]:
+          - /url: /signin
+        - link "S'inscrire" [ref=e18] [cursor=pointer]:
+          - /url: /signup
+  - generic [ref=e21]:
+    - generic [ref=e22]:
+      - heading "Connexion" [level=1] [ref=e23]
+      - paragraph [ref=e24]: Un code de vérification sera envoyé à votre email.
+    - generic [ref=e25]:
+      - generic [ref=e26]:
+        - generic [ref=e27]: Email ou téléphone
+        - textbox "koffi@exemple.bj ou +229 97 00 00 00" [ref=e28]
+      - button "Recevoir un code de connexion" [ref=e29] [cursor=pointer]
+      - paragraph [ref=e30]:
+        - link "Pas encore de compte ?" [ref=e31] [cursor=pointer]:
+          - /url: /signup

@@ -1,0 +1,22 @@
+- generic [active] [ref=f3e1]:
+  - banner [ref=f3e2]:
+    - generic [ref=f3e3]:
+      - link "FlexWork BJ" [ref=f3e4] [cursor=pointer]:
+        - /url: /
+        - generic [ref=f3e10]: FlexWork
+        - generic [ref=f3e11]: BJ
+      - generic [ref=f3e12]:
+        - button "Notifications" [ref=f3e14] [cursor=pointer]
+        - button [ref=f3e18] [cursor=pointer]
+  - alert [ref=f3e33]
+  - generic [ref=f3e36]:
+    - heading "Vérification" [level=1] [ref=f3e38]
+    - paragraph [ref=f3e40]:
+      - text: Un code a été envoyé à
+      - strong [ref=f3e41]: ben@gmail.com
+      - text: .
+    - generic [ref=f3e42]:
+      - generic [ref=f3e43]:
+        - generic [ref=f3e44]: Code reçu
+        - textbox "123456" [ref=f3e45]: "389131"
+      - button "Valider" [ref=f3e46] [cursor=pointer]

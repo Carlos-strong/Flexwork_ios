@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SkillAfrica — Formulaires tous profils (v3)</title>
+<style>
+  :root {
+    --text-primary: #1a1a1a;
+    --text-secondary: #666;
+    --text-tertiary: #999;
+    --text-quaternary: #bbb;
+    --surface: #fff;
+    --surface-muted: #f5f5f5;
+    --surface-raised: #fafafa;
+    --border: #e5e5e5;
+    --danger: #e53935;
+    --positive: #43a047;
+    --warning: #fb8c00;
+    --accent: #1e88e5;
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --radius-sm: 6px;
+    --radius-md: 8px;
+    --radius-lg: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --text-primary: #f0f0f0; --text-secondary: #aaa; --text-tertiary: #888; --text-quaternary: #666;
+      --surface: #1a1a1a; --surface-muted: #2a2a2a; --surface-raised: #252525; --border: #333;
+      --danger: #ef5350; --positive: #66bb6a; --warning: #ffa726; --accent: #42a5f5;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { font-family: var(--font-sans); background: var(--surface); color: var(--text-primary); margin: 0; padding: 24px; line-height: 1.5; }
+  .container { max-width: 780px; margin: 0 auto; }
+  h1 { font-size: 22px; font-weight: 600; margin-bottom: 4px; }
+  .subtitle { font-size: 14px; color: var(--text-secondary); margin-bottom: 20px; }
+  .profile-selector { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+  .profile-btn { padding: 9px 16px; border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--surface-muted); cursor: pointer; font-size: 13px; font-weight: 500; color: var(--text-secondary); transition: all 0.15s; font-family: inherit; }
+  .profile-btn:hover { background: var(--surface-raised); color: var(--text-primary); }
+  .profile-btn.active { background: var(--text-primary); color: var(--surface); border-color: var(--text-primary); }
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 20px; flex-wrap: wrap; }
+  .tab { padding: 10px 14px; cursor: pointer; border-radius: var(--radius-md) var(--radius-md) 0 0; font-size: 13px; font-weight: 500; color: var(--text-secondary); border: none; border-bottom: 2px solid transparent; background: transparent; transition: all 0.15s; font-family: inherit; }
+  .tab:hover { color: var(--text-primary); background: var(--surface-muted); }
+  .tab.active { color: var(--text-primary); border-bottom-color: var(--text-primary); }
+  .section-title { font-size: 17px; font-weight: 600; margin-bottom: 16px; }
+  .form-group { margin-bottom: 16px; }
+  label { display: block; font-size: 13px; font-weight: 500; color: var(--text-secondary); margin-bottom: 6px; }
+  input, select, textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-lg); font-size: 14px; background: var(--surface); color: var(--text-primary); font-family: inherit; transition: border-color 0.15s; }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--text-primary); }
+  textarea { resize: vertical; min-height: 80px; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+  .badge { display: inline-block; padding: 3px 10px; border-radius: var(--radius-sm); font-size: 12px; font-weight: 500; }
+  .badge-pending { background: rgba(251,140,0,.12); color: var(--warning); }
+  .badge-validated { background: rgba(67,160,71,.12); color: var(--positive); }
+  .badge-rejected { background: rgba(229,57,53,.12); color: var(--danger); }
+  .badge-info { background: rgba(30,136,229,.12); color: var(--accent); }
+  .badge-tier { background: var(--surface-muted); color: var(--text-tertiary); border: 1px solid var(--border); font-size: 11px; }
+  .repeatable-block { border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; margin-bottom: 12px; background: var(--surface-raised); }
+  .btn-add { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border: 1px dashed var(--border); border-radius: var(--radius-md); background: transparent; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--text-secondary); transition: all 0.15s; font-family: inherit; }
+  .btn-add:hover { border-color: var(--text-primary); color: var(--text-primary); background: var(--surface-muted); }
+  .btn-submit { padding: 11px 26px; background: var(--text-primary); color: var(--surface); border: none; border-radius: var(--radius-lg); font-size: 14px; font-weight: 500; cursor: pointer; font-family: inherit; transition: opacity .15s; }
+  .btn-submit:hover { opacity: .85; }
+  .btn-submit.disabled { opacity: .38; cursor: not-allowed; }
+  .status-bar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; padding: 12px; border-radius: var(--radius-lg); background: var(--surface-muted); }
+  .status-item { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .dot-green { background: var(--positive); } .dot-red { background: var(--danger); }
+  .dot-orange { background: var(--warning); } .dot-gray { background: var(--text-quaternary); }
+  .file-input-wrapper { position: relative; }
+  .file-input-wrapper input[type=file] { position: absolute; opacity: 0; width: 100%; height: 100%; cursor: pointer; top: 0; left: 0; }
+  .file-trigger { padding: 12px; border: 1px dashed var(--border); border-radius: var(--radius-lg); text-align: center; font-size: 13px; color: var(--text-secondary); cursor: pointer; background: var(--surface); transition: all .15s; }
+  .file-trigger:hover { border-color: var(--text-primary); color: var(--text-primary); background: var(--surface-muted); }
+  .radio-group { display: flex; gap: 16px; flex-wrap: wrap; }
+  .radio-label { display: flex; align-items: center; gap: 6px; font-size: 14px; cursor: pointer; }
+  .radio-label input { width: auto; }
+  .separator { height: 1px; background: var(--border); margin: 20px 0; }
+  .sub-title { font-size: 14px; font-weight: 600; color: var(--text-secondary); margin: 16px 0 12px; }
+  .reference-block { background: var(--surface-muted); border-radius: var(--radius-md); padding: 14px; margin-top: 12px; }
+  .reference-block.optional { opacity: .93; border-left: 3px solid var(--border); }
+  .info-box { padding: 14px; border-radius: var(--radius-lg); background: var(--surface-muted); font-size: 13px; color: var(--text-secondary); line-height: 1.7; margin-bottom: 16px; }
+  .info-box strong { color: var(--text-primary); }
+  .warn-box { padding: 14px; border-radius: var(--radius-lg); background: rgba(251,140,0,.09); border-left: 3px solid var(--warning); font-size: 13px; color: var(--text-secondary); line-height: 1.7; margin-bottom: 16px; }
+  .warn-box strong { color: var(--text-primary); }
+  .todo-box { padding: 14px; border-radius: var(--radius-lg); background: rgba(30,136,229,.08); border-left: 3px solid var(--accent); font-size: 13px; color: var(--text-secondary); line-height: 1.7; margin-bottom: 16px; }
+  .todo-box strong { color: var(--text-primary); }
+  .result-box { padding: 18px; border-radius: var(--radius-lg); background: var(--surface-muted); margin-bottom: 16px; }
+  .result-box .value { font-size: 25px; font-weight: 600; }
+  .result-box .label { font-size: 14px; font-weight: 500; margin-bottom: 8px; }
+  .progress-steps { display: flex; gap: 6px; margin-bottom: 18px; }
+  .step { flex: 1; text-align: center; font-size: 12px; color: var(--text-tertiary); padding-bottom: 8px; border-bottom: 3px solid var(--border); }
+  .step.current { color: var(--text-primary); border-bottom-color: var(--text-primary); font-weight: 600; }
+  .hint { font-size: 12px; color: var(--text-tertiary); margin-top: 4px; }
+  .timeline-item { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+  .timeline-item:last-child { border-bottom: none; }
+  .timeline-week { font-weight: 600; min-width: 92px; color: var(--text-primary); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 16px; }
+  th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--border); }
+  th { font-weight: 600; color: var(--text-secondary); font-size: 12px; text-transform: uppercase; letter-spacing: .03em; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .92em; background: var(--surface-muted); padding: 1px 5px; border-radius: 4px; }
+  @media (max-width: 600px) { .row, .row-3 { grid-template-columns: 1fr; } .progress-steps { flex-wrap: wrap; } }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>SkillAfrica — Formulaires tous profils</h1>
+  <p class="subtitle">Prototype aligné sur <strong>implementation-skillafrica-securise-v3.md</strong> — 5 profils + Administration · Bénin / XOF</p>
+
+  <div class="profile-selector" id="profile-selector"></div>
+  <div id="tabs-container"></div>
+  <div id="content"></div>
+</div>
+
+<script>
+/* ============================================================
+   CONFIGURATION DES PROFILS
+   ============================================================ */
+var PAYS = ['Bénin', 'Togo', 'Côte d\'Ivoire', 'Burkina Faso', 'Niger', 'Sénégal'];
+
+var PROFILES = {
+  client:   { label: 'Client',            role: 'CLIENT',         tabs: ['inscription','kyc','badge','missions'] },
+  digital:  { label: 'Expert Digital',    role: 'EXPERT_DIGITAL', tabs: ['inscription','kyc','domaine','formation','experiences','test','badge'] },
+  btp:      { label: 'Expert BTP/Autres', role: 'EXPERT_BTP',     tabs: ['inscription','kyc','domaine','formation','experiences','test','badge'] },
+  artisan:  { label: 'Artisan',           role: 'ARTISAN',        tabs: ['inscription','kyc','domaine','formation','experiences','test','badge'] },
+  manoeuvre:{ label: 'Manœuvre',          role: 'MANOEUVRE',      tabs: ['inscription','kyc','securite','experiences','test','badge'] },
+  admin:    { label: 'Administration',    role: 'ADMIN',          tabs: ['roles','validations','audit'] }
+};
+
+var TAB_LABELS = {
+  inscription: 'Inscription', kyc: 'KYC', domaine: 'Domaine', formation: 'Formation',
+  securite: 'Sécurité HSE', experiences: 'Expériences', test: 'Test', badge: 'Badge & VAE',
+  missions: 'Missions', roles: 'Rôles admin', validations: 'Validations', audit: 'Journal d\'audit'
+};
+
+// Caractéristiques métier par profil
+var SPECS = {
+  client:    { pivot: null, vae: null, refs: false, blocks: 'la PUBLICATION d\'une mission' },
+  digital:   { pivot: 'Bac / BTS / Licence / Master (diplôme d\'État)', vae: 'annual', refs: false, blocks: 'la CANDIDATURE aux missions' },
+  btp:       { pivot: 'Bac / BTS / Licence / Master (diplôme d\'État)', vae: 'annual', refs: false, blocks: 'la CANDIDATURE aux missions' },
+  artisan:   { pivot: 'CQM / CQP (diplôme d\'État)', vae: 'short', refs: true, blocks: 'la CANDIDATURE aux missions' },
+  manoeuvre: { pivot: 'Certificat HSE (diplôme d\'État)', vae: 'short', refs: true, blocks: 'la CANDIDATURE aux missions' }
+};
+
+var counters = {};
+function nextId(key) { counters[key] = (counters[key] || 0) + 1; return counters[key]; }
+
+/* ============================================================
+   BLOCS PARTAGÉS
+   ============================================================ */
+function optionsPays(prefix) {
+  return PAYS.map(function (p, i) {
+    return '<option value="' + p + '"' + (i === 0 ? ' selected' : '') + '>' + p + '</option>';
+  }).join('');
+}
+
+function tplInscription(key) {
+  var p = PROFILES[key], s = SPECS[key];
+  var roleOpts = Object.keys(PROFILES).filter(function (k) { return k !== 'admin'; }).map(function (k) {
+    return '<option value="' + PROFILES[k].role + '"' + (k === key ? ' selected' : '') + '>' + PROFILES[k].label + '</option>';
+  }).join('');
+
+  return '<div class="section-title">Inscription — ' + p.label + '</div>' +
+    '<div class="info-box">Le KYC ne bloque <strong>jamais</strong> l\'inscription ni la complétion du profil. ' +
+      'Il conditionne uniquement <strong>' + s.blocks + '</strong>.</div>' +
+    '<form onsubmit="return false;">' +
+      '<div class="form-group"><label>Type de profil *</label>' +
+        '<select name="role" required>' + roleOpts + '</select>' +
+        '<div class="hint">Stocké dans <code>users.role</code></div></div>' +
+      '<div class="row">' +
+        '<div class="form-group"><label>Nom *</label><input type="text" name="lastname" placeholder="Adjovi" required></div>' +
+        '<div class="form-group"><label>Prénom *</label><input type="text" name="firstname" placeholder="Koffi" required></div>' +
+      '</div>' +
+      '<div class="row">' +
+        '<div class="form-group"><label>Pays *</label><select name="country" required>' + optionsPays() + '</select></div>' +
+        '<div class="form-group"><label>Ville *</label><input type="text" name="city" placeholder="Cotonou" required></div>' +
+      '</div>' +
+      '<div class="form-group"><label>Localité</label><input type="text" name="locality" placeholder="Quartier / Arrondissement"></div>' +
+      '<div class="form-group"><label>Adresse</label><textarea name="address" placeholder="Carré 123, Akpakpa"></textarea></div>' +
+      '<div class="row">' +
+        '<div class="form-group"><label>Téléphone *</label><input type="tel" name="phone" placeholder="+229 XX XX XX XX" required>' +
+          '<div class="hint">Vérifié par SMS — 1 seul compte par numéro <span class="badge badge-tier">MVP</span></div></div>' +
+        '<div class="form-group"><label>Email *</label><input type="email" name="email" placeholder="nom@email.com" required>' +
+          '<div class="hint">Double opt-in</div></div>' +
+      '</div>' +
+      '<div class="form-group"><label>Mot de passe *</label><input type="password" name="password" placeholder="••••••••••••" minlength="12" required>' +
+        '<div class="hint">12 caractères minimum · hachage bcrypt/Argon2</div></div>' +
+      '<button type="submit" class="btn-submit">Créer le compte</button>' +
+    '</form>';
+}
+
+function tplKyc(key) {
+  var p = PROFILES[key], s = SPECS[key];
+  return '<div class="section-title">KYC — ' + p.label + ' <span class="badge badge-pending">PENDING</span></div>' +
+    '<div class="progress-steps">' +
+      '<div class="step current">1. Type de pièce</div><div class="step">2. Recto</div>' +
+      '<div class="step">3. Verso</div><div class="step">4. Selfie</div></div>' +
+    '<div class="warn-box"><strong>KYC non validé</strong> — ' + s.blocks + ' est bloquée jusqu\'à validation. ' +
+      'Le reste du compte reste pleinement utilisable.</div>' +
+    '<form onsubmit="return false;">' +
+      '<div class="form-group"><label>Type de pièce d\'identité *</label>' +
+        '<select name="id_document_type" required><option value="">Sélectionner</option>' +
+        '<option value="CNI">Carte Nationale d\'Identité (CNI)</option><option value="PASSEPORT">Passeport</option>' +
+        '<option value="PERMIS">Permis de conduire</option><option value="CIP">Carte d\'identité provisoire</option>' +
+        '</select></div>' +
+      fileField('Pièce d\'identité — Recto *', 'id_document_front', 'Téléverser le recto (PDF, JPG, PNG — max 5 Mo)') +
+      fileField('Pièce d\'identité — Verso *', 'id_document_back', 'Téléverser le verso (PDF, JPG, PNG — max 5 Mo)') +
+      fileField('Selfie *', 'selfie', 'Téléverser le selfie') +
+      fileField('Selfie avec pièce d\'identité *', 'selfie_with_document', 'Téléverser le selfie + pièce d\'identité') +
+      '<div class="status-bar">' +
+        dot('orange', 'Recto : en attente') + dot('orange', 'Verso : en attente') +
+        dot('orange', 'Selfie : en attente') + dot('orange', 'Selfie + ID : en attente') + '</div>' +
+      '<div class="info-box"><strong>Sécurité :</strong> scan antivirus (ClamAV), watermark dynamique, AES-256, bucket privé séparé du portfolio <span class="badge badge-tier">MVP</span> · ' +
+        'OCR et détection de falsification par IA <span class="badge badge-tier">V2</span><br>' +
+        '<strong>Tentatives :</strong> 1 / 3 — après 3 rejets, le <strong>compte</strong> passe en <code>SUSPENDED</code> 30 jours (révision manuelle obligatoire).</div>' +
+      '<button type="submit" class="btn-submit">Soumettre la vérification KYC</button>' +
+    '</form>';
+}
+
+function fileField(label, name, trigger) {
+  return '<div class="form-group"><label>' + label + '</label>' +
+    '<div class="file-input-wrapper"><div class="file-trigger">+ ' + trigger + '</div>' +
+    '<input type="file" name="' + name + '" accept="image/jpeg,image/png,application/pdf"></div></div>';
+}
+
+function dot(color, text) {
+  return '<div class="status-item"><span class="dot dot-' + color + '"></span>' + text + '</div>';
+}
+
+/* ============================================================
+   DOMAINE
+   ============================================================ */
+function tplDomaine(key) {
+  var isDigital = key === 'digital';
+  var html = '<div class="section-title">Domaine d\'intervention — ' + PROFILES[key].label + '</div>';
+
+  if (isDigital) {
+    html += '<div class="todo-box"><strong>[À CONFIRMER]</strong> — la structure à 3 niveaux ' +
+      '(domaine principal / sous-spécialité / domaine secondaire) est confirmée pour Expert BTP et Artisan. ' +
+      'Pour l\'Expert Digital, le plan d\'implémentation ne définit qu\'une liste plate de domaines. ' +
+      'Elle est proposée ici par cohérence, à valider.</div>';
+    html += '<form onsubmit="return false;">' +
+      '<div class="form-group"><label>Domaine d\'intervention (principal) *</label>' +
+      '<select name="main_domain" required><option value="">Sélectionner</option>' +
+      ['Développement Web','Développement Mobile','UI/UX Design','Cybersécurité','Réseaux','Cloud','Data',
+       'Intelligence artificielle','Marketing digital','Community management','Autre métier numérique']
+        .map(function (d) { return '<option>' + d + '</option>'; }).join('') +
+      '</select><div class="hint">Le test de compétences est associé au domaine déclaré</div></div>' +
+      '<div class="form-group"><label>Sous-spécialité</label><input type="text" name="sous_specialite" placeholder="Ex : React / Node.js"></div>' +
+      '<div class="form-group"><label>Domaine d\'intervention secondaire</label><input type="text" name="secondary_domain" placeholder="Ex : Data"></div>' +
+      '<button type="submit" class="btn-submit">Enregistrer le domaine</button></form>';
+    return html;
+  }
+
+  // BTP / Artisan : secteur + modes de devis
+  var ph = key === 'btp' ? 'Ex : Génie civil' : 'Ex : Plomberie';
+  var ph2 = key === 'btp' ? 'Ex : Structures béton' : 'Ex : Chauffage / Sanitaire';
+  html += '<form onsubmit="return false;">' +
+    '<div class="form-group"><label>Domaine d\'intervention (principal) *</label><input type="text" name="main_domain" placeholder="' + ph + '" required></div>' +
+    '<div class="form-group"><label>Sous-spécialité</label><input type="text" name="sous_specialite" placeholder="' + ph2 + '"></div>' +
+    '<div class="form-group"><label>Domaine d\'intervention secondaire</label><input type="text" name="secondary_domain" placeholder="Ex : Électricité"></div>' +
+    '<div class="form-group"><label>Secteur *</label><div class="radio-group">' +
+      '<label class="radio-label"><input type="radio" name="sector" value="BTP" onchange="toggleDevis(\'' + key + '\',true)"> BTP</label>' +
+      '<label class="radio-label"><input type="radio" name="sector" value="AUTRES" onchange="toggleDevis(\'' + key + '\',false)"> Autres</label>' +
+    '</div></div>' +
+    '<div class="form-group" id="devis-' + key + '" style="display:none;">' +
+      '<label>Mode de devis (BTP)</label>' +
+      '<select name="mode_devis"><option value="">Sélectionner un mode</option>' +
+        '<option value="A">Mode A — Devis sur photos directes</option>' +
+        '<option value="B">Mode B — Devis sur plans / cahier des charges (.dwg accepté)</option>' +
+        '<option value="C">Mode C — Devis après visite technique</option>' +
+      '</select>' +
+      '<div class="hint">La visite technique du mode C est conduite de façon autonome par le professionnel</div></div>' +
+    '<button type="submit" class="btn-submit">Enregistrer le domaine</button></form>';
+  return html;
+}
+
+function toggleDevis(key, show) {
+  var el = document.getElementById('devis-' + key);
+  if (el) el.style.display = show ? 'block' : 'none';
+}
+
+/* ============================================================
+   FORMATION / QUALIFICATIONS
+   ============================================================ */
+var DIPLOMES = {
+  digital: [['LICENCE','Licence (État)'],['MASTER','Master (État)'],['BTS','BTS (État)'],['BAC','Baccalauréat (État)'],['CERT','Certification technique'],['AUTRE','Autre']],
+  btp:     [['LICENCE','Licence (État)'],['MASTER','Master (État)'],['BTS','BTS (État)'],['BAC','Baccalauréat (État)'],['DTS','DTS'],['AUTRE','Autre']],
+  artisan: [['CQM','CQM — Certificat de Qualification aux Métiers (État)'],['CQP','CQP — Certificat de Qualification Professionnelle (État)'],['BEP','BEP'],['CAP','CAP'],['DTS','DTS'],['AUTRE','Autre']]
+};
+
+function tplFormation(key) {
+  var s = SPECS[key];
+  var stateLabel = key === 'artisan' ? 'CQM / CQP' : 'Bac / BTS / Licence / Master';
+  return '<div class="section-title">Formation / Qualifications — ' + PROFILES[key].label + '</div>' +
+    '<div class="info-box"><strong>Diplôme pivot du badge :</strong> ' + s.pivot + ', vérifié auprès des organismes officiels de l\'État.<br>' +
+      'Les autres qualifications déclarées (certificats privés, formations professionnelles) n\'ouvrent pas seules le badge.<br>' +
+      '<strong>Validation :</strong> vérification humaine obligatoire · échantillon de 20 % audité manuellement · double validation pour les rejets.</div>' +
+    '<form onsubmit="return false;">' +
+      '<div id="dip-' + key + '"></div>' +
+      '<button type="button" class="btn-add" onclick="addDiplome(\'' + key + '\')">+ Ajouter un diplôme / certificat</button>' +
+      '<div class="separator"></div>' +
+      '<button type="submit" class="btn-submit">Soumettre les qualifications</button>' +
+    '</form>';
+}
+
+function addDiplome(key) {
+  var i = nextId('dip-' + key);
+  var opts = (DIPLOMES[key] || DIPLOMES.artisan).map(function (d) { return '<option value="' + d[0] + '">' + d[1] + '</option>'; }).join('');
+  var stateHint = key === 'artisan' ? 'CQM / CQP' : 'Bac / BTS / Licence / Master';
+  var block = document.createElement('div');
+  block.className = 'repeatable-block';
+  block.innerHTML =
+    '<div class="row">' +
+      '<div class="form-group"><label>Type de diplôme / certificat *</label>' +
+        '<select name="qualification_name[]" required><option value="">Sélectionner</option>' + opts + '</select></div>' +
+      '<div class="form-group"><label>Année d\'obtention *</label><input type="number" name="year[]" placeholder="2018" min="1950" max="2026" required></div>' +
+    '</div>' +
+    '<div class="row">' +
+      '<div class="form-group"><label>Lieu d\'obtention *</label><input type="text" name="location[]" placeholder="Établissement, ville" required></div>' +
+      '<div class="form-group"><label>Organisme émetteur</label><input type="text" name="institution[]" placeholder="Nom de l\'organisme"></div>' +
+    '</div>' +
+    '<div class="form-group"><label>Spécialité</label><input type="text" name="specialty[]" placeholder="Spécialité / filière"></div>' +
+    fileField('Diplôme / certificat joint *', 'document[]', 'Téléverser le justificatif (PDF, JPG, PNG — max 5 Mo)') +
+    '<div class="form-group"><label>Délivré par l\'État ? *</label><div class="radio-group">' +
+      '<label class="radio-label"><input type="radio" name="is_state_issued_' + key + '_' + i + '" value="1"> Oui — ' + stateHint + ' (pivot du badge)</label>' +
+      '<label class="radio-label"><input type="radio" name="is_state_issued_' + key + '_' + i + '" value="0"> Non — déclaratif</label>' +
+    '</div><div class="hint">Seul un diplôme d\'État validé permet de sortir définitivement de la VAE</div></div>' +
+    '<div style="text-align:right;"><span class="badge badge-pending">PENDING</span></div>';
+  document.getElementById('dip-' + key).appendChild(block);
+}
+
+/* ============================================================
+   SÉCURITÉ HSE (Manœuvre)
+   ============================================================ */
+function tplSecurite(key) {
+  return '<div class="section-title">Sécurité HSE — Manœuvre <span class="badge badge-pending">PENDING</span></div>' +
+    '<div class="info-box"><strong>Diplôme pivot du badge :</strong> certificat <strong>HSE</strong> ' +
+      '(Hygiène, Sécurité, Environnement) / sécurité sur chantier, <strong>délivré par l\'État</strong>.<br>' +
+      'Son absence n\'est <strong>jamais bloquante à l\'inscription</strong> : elle déclenche une VAE de 3 mois, ' +
+      'exactement comme le CQM/CQP pour l\'Artisan. Aucune fonction ne rend ce certificat obligatoire sans passage possible par la VAE.</div>' +
+    '<form onsubmit="return false;">' +
+      fileField('Certificat HSE *', 'certificat_hse', 'Téléverser le certificat HSE (PDF, JPG, PNG — max 5 Mo)') +
+      '<div class="row">' +
+        '<div class="form-group"><label>Année d\'obtention</label><input type="number" name="year" placeholder="2022" min="1950" max="2026"></div>' +
+        '<div class="form-group"><label>Lieu d\'obtention</label><input type="text" name="location" placeholder="Centre de formation, ville"></div>' +
+      '</div>' +
+      '<div class="form-group"><label>Organisme émetteur</label><input type="text" name="institution" placeholder="Nom de l\'organisme"></div>' +
+      '<div class="form-group"><label>Délivré par l\'État ? *</label><div class="radio-group">' +
+        '<label class="radio-label"><input type="radio" name="is_state_issued" value="1"> Oui — certificat d\'État (pivot du badge)</label>' +
+        '<label class="radio-label"><input type="radio" name="is_state_issued" value="0"> Non — déclaratif</label>' +
+      '</div></div>' +
+      '<div class="status-bar">' + dot('orange', 'Certificat HSE : PENDING') + '</div>' +
+      '<button type="submit" class="btn-submit">Soumettre le certificat HSE</button>' +
+    '</form>';
+}
+
+/* ============================================================
+   EXPÉRIENCES
+   ============================================================ */
+var POSTES_BTP = ['Chef de Projet','Chef de Chantier','Conducteur de Travaux','Architecte','Ingénieur','Électricien','Autre'];
+
+function tplExperiences(key) {
+  var s = SPECS[key];
+  var intro = '<div class="info-box">Module <strong>critique</strong> : seul le statut <code>VALIDATED</code> intervient dans l\'attribution du badge. ' +
+    'Échantillon de 20 % des expériences audité manuellement.</div>';
+  if (s.refs) {
+    intro += '<div class="info-box">Chaque expérience est rattachée à <strong>1 référent obligatoire + 2 optionnels</strong>. ' +
+      'Un référent <span class="badge badge-rejected">NOT_RECOGNIZED</span> écarte cette expérience du calcul du badge, ' +
+      '<strong>sans affecter les autres</strong> (isolation des rejets).</div>';
+  }
+  return '<div class="section-title">Expériences — ' + PROFILES[key].label + '</div>' + intro +
+    '<form onsubmit="return false;">' +
+      '<div id="xp-' + key + '"></div>' +
+      '<button type="button" class="btn-add" onclick="addExperience(\'' + key + '\')">+ Ajouter une expérience</button>' +
+      '<div class="separator"></div>' +
+      '<button type="submit" class="btn-submit">Soumettre les expériences</button>' +
+    '</form>';
+}
+
+function referenceMarkup(key, i, kind, label, hintText, required) {
+  var req = required ? ' required' : '', star = required ? ' *' : '';
+  return '<div class="reference-block' + (required ? '' : ' optional') + '">' +
+    '<div class="sub-title">' + label + star + '</div>' +
+    '<div class="hint" style="margin-top:-8px;margin-bottom:10px;">' + hintText + '</div>' +
+    '<div class="row">' +
+      '<div class="form-group"><label>Nom' + star + '</label><input type="text" name="ref_' + kind + '_nom[]" placeholder="Nom du référent"' + req + '></div>' +
+      '<div class="form-group"><label>Prénom' + star + '</label><input type="text" name="ref_' + kind + '_prenom[]" placeholder="Prénom"' + req + '></div>' +
+    '</div>' +
+    '<div class="row">' +
+      '<div class="form-group"><label>Téléphone' + star + '</label><input type="tel" name="ref_' + kind + '_tel[]" placeholder="+229 XX XX XX XX"' + req + '></div>' +
+      '<div class="form-group"><label>Email</label><input type="email" name="ref_' + kind + '_email[]" placeholder="email (optionnel)"></div>' +
+    '</div>' +
+    '<div class="form-group"><label>Lien avec l\'expérience' + star + '</label>' +
+      '<input type="text" name="ref_' + kind + '_lien[]" placeholder="Client, chef de chantier, collègue..."' + req + '></div>' +
+    '<div style="margin-top:8px;"><span class="badge badge-pending">reference_status : PENDING</span></div>' +
+  '</div>';
+}
+
+function addExperience(key) {
+  var i = nextId('xp-' + key);
+  var s = SPECS[key];
+  var isTech = (key === 'digital');
+  var isBtpLike = (key === 'btp' || key === 'artisan');
+  var html = '';
+
+  html += '<div class="form-group"><label>Type de client *</label><div class="radio-group">' +
+    '<label class="radio-label"><input type="radio" name="client_type_' + key + '_' + i + '" value="INDIVIDUAL" required> Particulier</label>' +
+    '<label class="radio-label"><input type="radio" name="client_type_' + key + '_' + i + '" value="COMPANY"> Entreprise</label>' +
+  '</div></div>';
+
+  html += '<div class="form-group"><label>Nom du client / entreprise *</label><input type="text" name="client_name[]" placeholder="Nom" required></div>';
+
+  if (isBtpLike) {
+    html += '<div class="form-group"><label>Poste / fonction occupée *</label><select name="role[]" required>' +
+      '<option value="">Sélectionner</option>' + POSTES_BTP.map(function (p) { return '<option>' + p + '</option>'; }).join('') +
+      '</select></div>';
+  } else if (isTech) {
+    html += '<div class="form-group"><label>Fonction / rôle *</label><input type="text" name="role[]" placeholder="Ex : Développeur back-end" required></div>';
+    html += '<div class="form-group"><label>Domaine d\'intervention</label><input type="text" name="domain[]" placeholder="Ex : Développement Web"></div>';
+  }
+
+  html += '<div class="form-group"><label>' + (key === 'manoeuvre' ? 'Tâche / description *' : 'Description *') + '</label>' +
+    '<textarea name="description[]" placeholder="Description..." required></textarea></div>';
+
+  if (isTech) {
+    html += '<div class="form-group"><label>Technologies utilisées</label><input type="text" name="technologies[]" placeholder="React, Node.js, PostgreSQL..."></div>';
+  }
+
+  html += '<div class="row">' +
+    '<div class="form-group"><label>' + (isTech ? 'Période — début' : 'Année *') + '</label>' +
+      (isTech ? '<input type="month" name="start_date[]">' : '<input type="number" name="year[]" placeholder="2023" min="1950" max="2026" required>') + '</div>' +
+    '<div class="form-group"><label>' + (isTech ? 'Période — fin' : 'Livrables / Réalisation') + '</label>' +
+      (isTech ? '<input type="month" name="end_date[]">' : '<input type="text" name="livrables[]" placeholder="Photos, documents...">') + '</div>' +
+  '</div>';
+
+  if (isTech) {
+    html += '<div class="form-group"><label>Lien vers le projet</label><input type="url" name="project_url[]" placeholder="https://..."></div>';
+  }
+
+  html += '<div class="form-group"><label>Portfolio (lien général)</label><input type="url" name="portfolio_url[]" placeholder="https://..."></div>';
+  html += '<div class="form-group"><label>Portfolio (images, documents)</label>' +
+    '<div class="file-input-wrapper"><div class="file-trigger">+ Ajouter des fichiers au portfolio</div>' +
+    '<input type="file" name="portfolio[]" multiple accept="image/jpeg,image/png,application/pdf"></div>' +
+    '<div class="hint">Modération automatique appliquée (<code>moderation_status</code>)</div></div>';
+
+  if (s.refs) {
+    html += '<div class="separator"></div>' +
+      '<div class="sub-title" style="margin-top:0;">Personnes ressources — vérification de terrain</div>' +
+      referenceMarkup(key, i, 'primary', 'Référent principal', 'Contact direct — obligatoire. Vérifié par SMS + question de sécurité aléatoire <span class="badge badge-tier">MVP</span> · appel vocal <span class="badge badge-tier">V2</span>', true) +
+      referenceMarkup(key, i, 'secondary', 'Référent secondaire', 'Collègue ou superviseur — recommandé. Évite le blocage si le référent principal est injoignable.', false) +
+      referenceMarkup(key, i, 'cross', 'Référent croisé', 'Client final du projet — optionnel. Renforce la crédibilité de l\'expérience.', false);
+  }
+
+  html += '<div style="text-align:right;margin-top:12px;"><span class="badge badge-pending">Expérience : PENDING</span></div>';
+
+  var block = document.createElement('div');
+  block.className = 'repeatable-block';
+  block.innerHTML = html;
+  document.getElementById('xp-' + key).appendChild(block);
+}
+
+/* ============================================================
+   TEST
+   ============================================================ */
+function tplTest(key) {
+  var sdPlaceholder = { digital: 'React', btp: 'Lecture de plans', artisan: 'Sanitaire', manoeuvre: 'Règles de sécurité' }[key] || 'Sous-domaine';
+  return '<div class="section-title">Test de compétences — ' + PROFILES[key].label + '</div>' +
+    '<div class="status-bar">' + dot('gray', 'Statut : <strong>PENDING</strong>') + dot('gray', 'Tentative : <strong>1 / 3</strong>') + '</div>' +
+    '<div class="info-box"><strong>Règle critique :</strong> <code>TEST != PASSED → BADGE NON VÉRIFIÉ</code>, ' +
+      'même si le KYC, les expériences et le diplôme sont validés.<br><br>' +
+      '<strong>Anti-triche <span class="badge badge-tier">MVP</span></strong> : randomisation des questions, détection copier-coller / onglets multiples.<br>' +
+      '<strong>Anti-triche <span class="badge badge-tier">V2</span></strong> : proctoring vidéo, empreinte navigateur.<br><br>' +
+      '<strong>Filet humain :</strong> 3 tentatives max (délais 7j → 30j → 90j). Après 3 échecs, entretien technique vidéo ' +
+      'avec un expert senior pouvant outrepasser le test automatique.<br>' +
+      '<strong>Accommodements :</strong> mode oral et temps majoré sur justificatif médical.</div>' +
+    '<form onsubmit="return false;">' +
+      '<div class="row">' +
+        '<div class="form-group"><label>Résultat du test (admin)</label><select name="test_status">' +
+          '<option value="PENDING">PENDING</option><option value="PASSED">PASSED</option><option value="FAILED">FAILED</option></select></div>' +
+        '<div class="form-group"><label>Score global (/100)</label><input type="number" name="score" min="0" max="100" placeholder="78"></div>' +
+      '</div>' +
+      '<div class="sub-title">Détail par sous-domaine (<code>score_breakdown</code>)</div>' +
+      '<div class="row-3">' +
+        '<div class="form-group"><label>Sous-domaine</label><input type="text" name="sd_name[]" placeholder="' + sdPlaceholder + '"></div>' +
+        '<div class="form-group"><label>Note</label><input type="number" name="sd_score[]" min="0" max="10" placeholder="8"></div>' +
+        '<div class="form-group"><label>Sur</label><input type="number" name="sd_max[]" value="10"></div>' +
+      '</div>' +
+      '<div class="hint" style="margin-bottom:16px;">Le détail par sous-domaine permet de cibler la formation de rattrapage proposée pendant la VAE.</div>' +
+      '<button type="submit" class="btn-submit">Enregistrer le résultat</button>' +
+    '</form>';
+}
+
+/* ============================================================
+   BADGE & VAE
+   ============================================================ */
+function tplBadgeClient() {
+  return '<div class="section-title">Badge — Client</div>' +
+    '<div class="status-bar">' + dot('orange', 'KYC : PENDING') + '</div>' +
+    '<div class="result-box"><div class="label">Résultat</div>' +
+      '<div class="value">BADGE = <span style="color:var(--warning)">NON VÉRIFIÉ</span></div>' +
+      '<div style="margin-top:6px;font-size:14px;color:var(--text-secondary);">Droits : brouillon de mission uniquement</div></div>' +
+    '<table><thead><tr><th>KYC</th><th>Badge</th><th>Droits</th></tr></thead><tbody>' +
+      '<tr><td>VALIDATED</td><td><span class="badge badge-validated">Vérifié</span></td><td>Publication + paiement</td></tr>' +
+      '<tr><td>PENDING</td><td><span class="badge badge-pending">Non vérifié</span></td><td>Brouillon uniquement</td></tr>' +
+      '<tr><td>REJECTED (&lt; 3 tentatives)</td><td><span class="badge badge-pending">Non vérifié</span></td><td>Brouillon uniquement</td></tr>' +
+      '<tr><td>REJECTED (3 tentatives)</td><td><span class="badge badge-rejected">Non vérifié</span></td><td>Compte <code>SUSPENDED</code> 30 jours</td></tr>' +
+      '<tr><td>Non effectué</td><td><span class="badge badge-pending">Non vérifié</span></td><td>Brouillon uniquement</td></tr>' +
+    '</tbody></table>' +
+    '<div class="info-box">Le badge Client est un indicateur de confiance visible sur le profil et les missions. ' +
+      'Il ne conditionne que la publication, jamais l\'inscription ni la création de brouillons.</div>';
+}
+
+function tplBadge(key) {
+  if (key === 'client') return tplBadgeClient();
+  var s = SPECS[key];
+  var pivotShort = { digital: 'Diplôme d\'État', btp: 'Diplôme d\'État', artisan: 'CQM/CQP', manoeuvre: 'Certificat HSE' }[key];
+  var html = '<div class="section-title">Moteur de badge &amp; VAE — ' + PROFILES[key].label + '</div>' +
+    '<div class="status-bar">' + dot('green', 'KYC : VALIDATED') + dot('green', 'Expériences : VALIDATED') +
+      dot('green', 'Test : PASSED') + dot('orange', pivotShort + ' : PENDING') + '</div>';
+
+  if (s.vae === 'annual') {
+    html += '<div class="result-box"><div class="label">Résultat du moteur</div>' +
+      '<div class="value">BADGE = <span style="color:var(--positive)">VERIFIED</span></div>' +
+      '<div style="margin-top:6px;font-size:14px;color:var(--text-secondary);">VAE = <span class="badge badge-info">ANNUELLE RENOUVELABLE</span> &nbsp; <code>vae_type = ANNUAL_CERTIFYING</code></div></div>';
+    html += '<div class="info-box">Un Bac/BTS/Licence/Master ne s\'obtient pas en 3 mois. La VAE de l\'Expert prend donc la forme ' +
+      'd\'une <strong>formation certifiante avec partenaire externe, payante, renouvelable chaque année</strong>, ' +
+      'en attendant l\'obtention du diplôme d\'État.</div>';
+    html += '<div class="sub-title">Plafond mou — escalade progressive</div>' +
+      '<div class="timeline">' +
+        '<div class="timeline-item"><span class="timeline-week">Années 1-2</span><span>Renouvellement automatique · formation certifiante standard</span></div>' +
+        '<div class="timeline-item"><span class="timeline-week">Année 3</span><span><strong>Entretien vidéo obligatoire</strong> avec un validateur humain (<code>vae_audit_required = true</code>)</span></div>' +
+        '<div class="timeline-item"><span class="timeline-week">Année 4</span><span><strong>Dernière chance</strong> — diplôme obtenu → sortie définitive · sinon parcours de formation justifié → <strong>1 seule</strong> extension (<code>vae_extension_used</code>) · sinon UNVERIFIED + blocage 6 mois</span></div>' +
+        '<div class="timeline-item"><span class="timeline-week">Année 5</span><span>Plafond <strong>dur</strong> — diplôme absent → UNVERIFIED, aucune exception automatique</span></div>' +
+      '</div>' +
+      '<div class="hint" style="margin-bottom:16px;">Le « mou » du plafond ne s\'applique qu\'une seule fois (extension année 4 → 5).</div>';
+    html += '<div class="separator"></div><div class="sub-title">État actuel de la VAE</div>' +
+      '<form onsubmit="return false;"><div class="row-3">' +
+        '<div class="form-group"><label>Renouvellements</label><input type="number" name="vae_renewal_count" value="1" min="0" max="5"></div>' +
+        '<div class="form-group"><label>Audit requis</label><select name="vae_audit_required"><option>Non</option><option>Oui</option></select></div>' +
+        '<div class="form-group"><label>Extension utilisée</label><select name="vae_extension_used"><option>Non</option><option>Oui</option></select></div>' +
+      '</div></form>';
+  } else {
+    html += '<div class="result-box"><div class="label">Résultat du moteur</div>' +
+      '<div class="value">BADGE = <span style="color:var(--positive)">VERIFIED</span></div>' +
+      '<div style="margin-top:6px;font-size:14px;color:var(--text-secondary);">VAE = <span class="badge badge-info">ACTIVE — 3 mois</span> &nbsp; <code>vae_type = SHORT_3_MONTHS</code></div></div>';
+    html += '<div class="warn-box"><strong>Restrictions pendant la VAE active :</strong><br>' +
+      '• Missions <strong>&gt; 500 000 XOF</strong> ou <strong>&gt; 7 jours</strong> : sélection bloquée<br>' +
+      '• Missions en dessous du seuil : autorisées avec avertissement affiché au client<br>' +
+      '• <strong>Paiement séquestre (escrow) obligatoire</strong> sur toutes les missions pendant la VAE<br>' +
+      '• Si la VAE expire en cours de mission : paiement gelé + médiation automatique<br>' +
+      '<span class="hint">Seuil configurable par pays/devise (<code>vae_mission_threshold_amount</code>)</span></div>';
+    html += '<div class="sub-title">Suivi actif de la VAE (12 semaines)</div>' +
+      '<div class="timeline">' +
+        '<div class="timeline-item"><span class="timeline-week">Semaine 6</span><span>Rappel automatique + proposition de formation de rattrapage</span></div>' +
+        '<div class="timeline-item"><span class="timeline-week">Semaine 10</span><span>Alerte urgente + blocage des nouvelles candidatures</span></div>' +
+        '<div class="timeline-item"><span class="timeline-week">Semaine 12</span><span>Expiration → badge <strong>UNVERIFIED</strong> + missions en cours signalées + escrow gelé</span></div>' +
+      '</div>';
+  }
+
+  html += '<div class="separator"></div><div class="sub-title">Formations de rattrapage proposées</div>' + tplFormationPartenaire(key);
+  return html;
+}
+
+function tplFormationPartenaire(key) {
+  var cat = SPECS[key].vae === 'annual' ? 'ANNUAL_CERTIFYING' : 'SHORT_CERTIFICATION';
+  var catLabel = SPECS[key].vae === 'annual'
+    ? '<option value="ANNUAL_CERTIFYING" selected>ANNUAL_CERTIFYING — formation certifiante annuelle</option><option value="SHORT_CERTIFICATION">SHORT_CERTIFICATION — CQM/CQP/HSE</option>'
+    : '<option value="SHORT_CERTIFICATION" selected>SHORT_CERTIFICATION — CQM/CQP/HSE (3 mois)</option><option value="ANNUAL_CERTIFYING">ANNUAL_CERTIFYING — Experts</option>';
+  var price = { digital: '120000', btp: '120000', artisan: '75000', manoeuvre: '45000' }[key] || '75000';
+  var dom = { digital: 'Développement Web', btp: 'Génie civil', artisan: 'Plomberie', manoeuvre: 'Sécurité chantier' }[key] || '';
+  return '<form onsubmit="return false;"><div class="repeatable-block">' +
+    '<div class="row">' +
+      '<div class="form-group"><label>Partenaire agréé par l\'État</label><input type="text" name="partner_name[]" placeholder="Centre de formation agréé"></div>' +
+      '<div class="form-group"><label>Pays</label><select name="country[]">' + optionsPays() + '</select>' +
+        '<div class="hint">Les partenaires agréés varient par pays</div></div>' +
+    '</div>' +
+    '<div class="row">' +
+      '<div class="form-group"><label>Domaine</label><input type="text" name="domain[]" placeholder="' + dom + '"></div>' +
+      '<div class="form-group"><label>Prix (XOF)</label><input type="number" name="price[]" placeholder="' + price + '" step="500">' +
+        '<div class="hint">Plafonné par pays (<code>price_ceiling_by_country</code>)</div></div>' +
+    '</div>' +
+    '<div class="row">' +
+      '<div class="form-group"><label>Date début</label><input type="date" name="start_date[]"></div>' +
+      '<div class="form-group"><label>Date fin</label><input type="date" name="end_date[]"></div>' +
+    '</div>' +
+    '<div class="form-group"><label>Catégorie</label><select name="training_category[]">' + catLabel + '</select></div>' +
+  '</div><button type="button" class="btn-add">+ Ajouter une formation</button></form>';
+}
+
+/* ============================================================
+   MISSIONS (Client)
+   ============================================================ */
+function tplMissions() {
+  return '<div class="section-title">Publication de mission — Client</div>' +
+    '<div class="warn-box"><strong>KYC PENDING</strong> — la mission peut être créée et enregistrée en brouillon, ' +
+      'mais le bouton <em>Publier</em> reste désactivé jusqu\'à validation du KYC.</div>' +
+    '<form onsubmit="return false;">' +
+      '<div class="form-group"><label>Titre de la mission *</label><input type="text" name="title" maxlength="120" placeholder="Réfection plomberie villa" required></div>' +
+      '<div class="form-group"><label>Description *</label><textarea name="description" placeholder="Décrire le besoin (200 caractères minimum)..." minlength="200" required></textarea></div>' +
+      '<div class="row">' +
+        '<div class="form-group"><label>Type de professionnel recherché *</label><select name="professional_type" required>' +
+          '<option value="">Sélectionner</option><option value="EXPERT_DIGITAL">Expert Digital</option>' +
+          '<option value="EXPERT_BTP">Expert BTP / Autres</option><option value="ARTISAN">Artisan</option>' +
+          '<option value="MANOEUVRE">Manœuvre</option></select></div>' +
+        '<div class="form-group"><label>Niveau *</label><select name="level" required>' +
+          '<option value="">Sélectionner</option><option>Débutant</option><option>Junior</option>' +
+          '<option>Intermédiaire</option><option>Senior</option><option>Expert</option></select></div>' +
+      '</div>' +
+      '<div class="form-group"><label>Domaine *</label><input type="text" name="domain" placeholder="Ex : Plomberie" required></div>' +
+      '<div class="row">' +
+        '<div class="form-group"><label>Mode de rémunération *</label><select name="budget_type" required>' +
+          '<option value="FIXED">Prix fixe</option><option value="RATE">Taux (horaire/journalier)</option>' +
+          '<option value="QUOTE">Demande de devis</option></select></div>' +
+        '<div class="form-group"><label>Budget (XOF)</label><input type="number" name="amount" placeholder="450000" step="500">' +
+          '<div class="hint">Fourchette de marché indicative affichée selon le domaine</div></div>' +
+      '</div>' +
+      '<div class="row">' +
+        '<div class="form-group"><label>Date de début *</label><input type="date" name="start_date" required></div>' +
+        '<div class="form-group"><label>Date de fin *</label><input type="date" name="end_date" required></div>' +
+      '</div>' +
+      '<div class="form-group"><label>Pièces jointes</label>' +
+        '<div class="file-input-wrapper"><div class="file-trigger">+ Cahier des charges, plans, maquettes (max 10 fichiers)</div>' +
+        '<input type="file" name="attachments[]" multiple accept="image/jpeg,image/png,application/pdf"></div>' +
+        '<div class="hint">Scan antivirus + stockage chiffré, accès par URL signée</div></div>' +
+      '<div class="info-box"><strong>Sécurité mission :</strong> CGV intégrées, smart contract simplifié (conditions, livrables, paiement), ' +
+        '<strong>paiement séquestre (escrow) activé par défaut</strong>.<br>' +
+        'Si le professionnel sélectionné est en VAE active, un avertissement est affiché et l\'escrow devient obligatoire.</div>' +
+      '<button type="submit" class="btn-submit">Enregistrer le brouillon</button> ' +
+      '<button type="button" class="btn-submit disabled" disabled title="KYC non validé">Publier la mission</button>' +
+    '</form>';
+}
+
+/* ============================================================
+   ADMINISTRATION
+   ============================================================ */
+function tplAdminRoles() {
+  var rows = [
+    ['Admin KYC', 'Valide / rejette le KYC uniquement', 'Max 30 validations/heure · flag si dépassement'],
+    ['Admin Qualification', 'Valide / rejette les diplômes uniquement', 'Double validation obligatoire pour les rejets'],
+    ['Admin Expérience', 'Valide / rejette les expériences + référents', 'Écoute d\'un échantillon de 10 % des appels <span class="badge badge-tier">V2</span>'],
+    ['Admin Superviseur', 'Lit tout, ne modifie rien (auditeur)', 'Revue mensuelle aléatoire de 5 % des actions'],
+    ['Admin Technique', 'Gère les formations partenaires', 'Aucun accès aux données utilisateurs ni aux validations']
+  ].map(function (r) { return '<tr><td><strong>' + r[0] + '</strong></td><td>' + r[1] + '</td><td>' + r[2] + '</td></tr>'; }).join('');
+
+  return '<div class="section-title">Séparation des pouvoirs — 5 rôles admin</div>' +
+    '<div class="info-box">Aucun administrateur ne cumule tous les pouvoirs de validation. ' +
+      'Cette segmentation limite le risque de corruption interne et rend chaque décision attribuable.</div>' +
+    '<table><thead><tr><th>Rôle</th><th>Pouvoirs</th><th>Contraintes</th></tr></thead><tbody>' + rows + '</tbody></table>' +
+    '<div class="separator"></div>' +
+    '<div class="sub-title">Créer un compte administrateur</div>' +
+    '<form onsubmit="return false;">' +
+      '<div class="row">' +
+        '<div class="form-group"><label>Nom complet *</label><input type="text" name="admin_name" placeholder="Nom Prénom" required></div>' +
+        '<div class="form-group"><label>Rôle *</label><select name="admin_role" required>' +
+          '<option value="">Sélectionner</option><option>Admin KYC</option><option>Admin Qualification</option>' +
+          '<option>Admin Expérience</option><option>Admin Superviseur</option><option>Admin Technique</option></select></div>' +
+      '</div>' +
+      '<div class="form-group"><label>Email professionnel *</label><input type="email" name="admin_email" placeholder="admin@skillafrica.com" required></div>' +
+      '<button type="submit" class="btn-submit">Créer le compte admin</button>' +
+    '</form>';
+}
+
+function tplAdminValidations() {
+  return '<div class="section-title">File de validation</div>' +
+    '<div class="info-box">Chaque action requiert une <strong>justification textuelle obligatoire</strong> <span class="badge badge-tier">MVP</span>. ' +
+      'Les rejets requièrent une <strong>double validation</strong> (Admin A propose, Admin B confirme) <span class="badge badge-tier">MVP</span>. ' +
+      'Enregistrement vidéo-écran <span class="badge badge-tier">V3</span> — validation juridique préalable requise.</div>' +
+    '<form onsubmit="return false;">' +
+      '<div class="row">' +
+        '<div class="form-group"><label>Type d\'élément *</label><select name="target_type" required>' +
+          '<option value="KYC">KYC</option><option value="QUALIFICATION">Qualification / Diplôme</option>' +
+          '<option value="EXPERIENCE">Expérience</option><option value="REFERENCE">Personne ressource</option>' +
+          '<option value="BADGE">Badge (override)</option></select></div>' +
+        '<div class="form-group"><label>Décision *</label><select name="action" required>' +
+          '<option value="VALIDATE">Valider</option><option value="REJECT">Rejeter (double validation requise)</option>' +
+          '<option value="OVERRIDE">Override manuel</option></select></div>' +
+      '</div>' +
+      '<div class="form-group"><label>Statut du référent (Artisan / Manœuvre)</label><select name="reference_status">' +
+        '<option value="PENDING">PENDING — non encore contacté</option>' +
+        '<option value="CONFIRMED">CONFIRMED — expérience confirmée par le référent</option>' +
+        '<option value="NOT_RECOGNIZED">NOT_RECOGNIZED — référent injoignable ou nie l\'expérience</option>' +
+      '</select><div class="hint">Un référent <code>NOT_RECOGNIZED</code> écarte l\'expérience du calcul du badge, sans affecter les autres</div></div>' +
+      '<div class="form-group"><label>Justification *</label><textarea name="justification" placeholder="Motif détaillé de la décision (obligatoire, archivé dans admin_audit_log)..." required></textarea></div>' +
+      '<div class="form-group"><label>Second validateur (rejets uniquement)</label><input type="text" name="admin_validator_id" placeholder="Identifiant de l\'admin confirmateur"></div>' +
+      '<button type="submit" class="btn-submit">Enregistrer la décision</button>' +
+    '</form>' +
+    '<div class="separator"></div>' +
+    '<div class="sub-title">Garde-fous automatiques</div>' +
+    '<div class="warn-box">• Un admin qui valide <strong>&gt; 50 profils/heure</strong> déclenche un flag automatique<br>' +
+      '• Limite de <strong>30 validations/heure</strong> par Admin KYC<br>' +
+      '• Revue mensuelle aléatoire de <strong>5 %</strong> des actions par l\'Admin Superviseur</div>';
+}
+
+function tplAdminAudit() {
+  return '<div class="section-title">Journal d\'audit immuable</div>' +
+    '<div class="info-box"><strong>Deux journaux distincts :</strong><br>' +
+      '• <code>badge_history</code> — toute transition de badge, avec la raison et le déclencheur (SYSTEM / ADMIN / CRON)<br>' +
+      '• <code>admin_audit_log</code> — toute action administrative, avec justification obligatoire</div>' +
+    '<div class="sub-title">Contraintes d\'immuabilité</div>' +
+    '<table><thead><tr><th>Mesure</th><th>Palier</th></tr></thead><tbody>' +
+      '<tr><td>Table en <strong>append-only</strong> (aucun UPDATE/DELETE via API)</td><td><span class="badge badge-tier">MVP</span></td></tr>' +
+      '<tr><td>Hash cryptographique <strong>chaîné</strong> par ligne (SHA-256)</td><td><span class="badge badge-tier">MVP</span></td></tr>' +
+      '<tr><td>Réplication sur stockage WORM</td><td><span class="badge badge-tier">V3</span></td></tr>' +
+      '<tr><td>Export journalier vers registre immuable</td><td><span class="badge badge-tier">V3</span></td></tr>' +
+    '</tbody></table>' +
+    '<div class="sub-title">Exemple d\'entrées <code>badge_history</code></div>' +
+    '<table><thead><tr><th>Date</th><th>Transition</th><th>Raison</th><th>Déclencheur</th></tr></thead><tbody>' +
+      '<tr><td>2026-07-15</td><td>UNVERIFIED → VERIFIED</td><td>TEST_PASSED</td><td>SYSTEM</td></tr>' +
+      '<tr><td>2026-07-15</td><td>—</td><td>VAE_GRANTED</td><td>SYSTEM</td></tr>' +
+      '<tr><td>2026-10-15</td><td>VERIFIED → UNVERIFIED</td><td>VAE_EXPIRED</td><td>CRON</td></tr>' +
+    '</tbody></table>' +
+    '<div class="separator"></div>' +
+    '<div class="sub-title">Plan de réponse aux incidents</div>' +
+    '<table><thead><tr><th>Niveau</th><th>Déclencheur</th><th>Réponse</th></tr></thead><tbody>' +
+      '<tr><td><strong>1</strong></td><td>Badge faussé individuel (&lt; 5 profils)</td><td>Correction manuelle + notification + log</td></tr>' +
+      '<tr><td><strong>2</strong></td><td>Fraude systémique (5–100 profils)</td><td>Audit complet + recalcul batch + revue manuelle</td></tr>' +
+      '<tr><td><strong>3</strong></td><td>Compromission majeure (&gt; 100 profils ou admin corrompu)</td><td>Arrêt du moteur + mode manuel + communication publique + recalcul complet</td></tr>' +
+    '</tbody></table>';
+}
+
+/* ============================================================
+   ROUTEUR
+   ============================================================ */
+var RENDERERS = {
+  inscription: tplInscription, kyc: tplKyc, domaine: tplDomaine, formation: tplFormation,
+  securite: tplSecurite, experiences: tplExperiences, test: tplTest, badge: tplBadge,
+  missions: tplMissions,
+  roles: tplAdminRoles, validations: tplAdminValidations, audit: tplAdminAudit
+};
+
+var currentProfile = 'client';
+var currentTab = 'inscription';
+
+function renderProfileSelector() {
+  document.getElementById('profile-selector').innerHTML = Object.keys(PROFILES).map(function (k) {
+    return '<button class="profile-btn' + (k === currentProfile ? ' active' : '') + '" onclick="selectProfile(\'' + k + '\')">' + PROFILES[k].label + '</button>';
+  }).join('');
+}
+
+function renderTabs() {
+  document.getElementById('tabs-container').innerHTML = '<div class="tabs">' +
+    PROFILES[currentProfile].tabs.map(function (t) {
+      return '<button class="tab' + (t === currentTab ? ' active' : '') + '" onclick="selectTab(\'' + t + '\')">' + TAB_LABELS[t] + '</button>';
+    }).join('') + '</div>';
+}
+
+function renderContent() {
+  var fn = RENDERERS[currentTab];
+  document.getElementById('content').innerHTML = fn ? fn(currentProfile) : '';
+  // Amorcer les blocs répétables
+  if (currentTab === 'formation') addDiplome(currentProfile);
+  if (currentTab === 'experiences') addExperience(currentProfile);
+}
+
+function selectProfile(k) {
+  currentProfile = k;
+  currentTab = PROFILES[k].tabs[0];
+  counters = {};
+  renderProfileSelector(); renderTabs(); renderContent();
+}
+
+function selectTab(t) {
+  currentTab = t;
+  counters = {};
+  renderTabs(); renderContent();
+}
+
+renderProfileSelector(); renderTabs(); renderContent();
+</script>
+</body>
+</html>

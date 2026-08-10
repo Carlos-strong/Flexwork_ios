@@ -1,0 +1,1206 @@
+[    1564ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom.development.js:38559
+[  465505ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[  467939ms] [LOG] [Fast Refresh] done in 2436ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[  469549ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[  470870ms] [LOG] [Fast Refresh] done in 1322ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[ 1860316ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[ 1866303ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[ 1867151ms] [LOG] [Fast Refresh] done in 848ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[ 1873077ms] [LOG] [Fast Refresh] done in 6775ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[ 1948181ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[ 1950942ms] [LOG] [Fast Refresh] done in 2760ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[ 2102238ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[ 2103529ms] [LOG] [Fast Refresh] done in 1290ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[ 2484704ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[ 2487279ms] [ERROR] ./src/app/dashboard/expert-digital/page.tsx
+Error: 
+  x Return statement is not allowed here
+     ,-[C:\laragon\www\Flexwork\src\app\dashboard\expert-digital\page.tsx:470:1]
+ 470 |       );
+ 471 |     }
+ 472 |     
+ 473 | ,->   return (
+ 474 | |       <div className="min-h-screen bg-[#f8fafc] text-zinc-900 antialiased selection:bg-[#008751]/20 selection:text-[#008751] relative overflow-x-hidden">
+ 475 | |         <div className="pointer-events-none fixed inset-0">
+ 476 | |           <div className="absolute -top-32 -left-32 w-[560px] h-[560px] rounded-full blur-[120px] opacity-[0.06] bg-[#008751]"/><div className="absolute top-20 -right-24 w-[480px] h-[480px] rounded-full blur-[110px] opacity-[0.07] bg-[#FCD116]"/><div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[900px] h-[400px] rounded-full blur-[130px] opacity-[0.05] bg-[#008751]"/>
+ 477 | |         </div>
+ 478 | |         <div className="relative max-w-6xl mx-auto px-4 md:px-6 pb-28 md:pb-10">
+ 479 | |           {/* Header */}
+ 480 | |           <header className="sticky top-0 z-30 -mx-4 md:mx-0 px-4 md:px-0 py-3 md:py-5 backdrop-blur-xl bg-[#f8fafc]/80 border-b border-gray-100/60 md:border-0">
+ 481 | |             <div className="flex items-center justify-between gap-3">
+ 482 | |               <Link href="/" className="flex items-center gap-3 shrink-0" style={{textDecoration:"none"}}><BeninFlag/><span className="font-bold text-[22px] tracking-tight text-zinc-900">Flex<span style={{color:"#008751"}}>Work</span></span></Link>
+ 483 | |               <div className="relative flex-1 max-w-[420px] mx-auto">
+ 484 | |                 <div className="relative flex bg-white rounded-full p-1 shadow-[0_2px_12px_rgba(0,0,0,0.06)] border border-gray-100">
+ 485 | |                   <div className="absolute top-1 bottom-1 rounded-full bg-zinc-900 shadow-sm transition-all duration-300" style={{width:"calc((100% - 8px)/3)",transform:`translateX(${tab==="missions"?"0%":tab==="wallet"?"100%":"200%"})`,left:4}}/>
+ 486 | |                   {[{id:"missions"as const,label:"Mes missions",Icon:Briefcase},{id:"wallet"as const,label:"Wallet",Icon:Wallet},{id:"profil"as const,label:"Profil",Icon:User}].map(({id,label,Icon})=><button key={id} onClick={()=>{setTab(id);tick(t=>t+1)}} className={`relative z-10 flex-1 h-8 rounded-full text-[13px] font-medium flex items-center justify-center gap-1.5 transition-colors duration-200 ${tab===id?"text-white":"text-zinc-600"}`}><Icon className="w-4 h-4"/><span className="hidden sm:inline">{label}</span></button>)}
+ 487 | |                 </div>
+ 488 | |               </div>
+ 489 | |               <div className="flex items-center gap-2.5 shrink-0">
+ 490 | |                 <div className="hidden md:flex items-center gap-2 text-[13px] font-medium text-zinc-500"><span className="w-8 h-8 rounded-full bg-gradient-to-br from-[#008751] to-[#FCD116] flex items-center justify-center text-white text-[11px] font-bold">ED</span><span className="text-zinc-700">Expert Digital</span><BadgeCheck className="w-4 h-4 text-[#008751]"/></div>
+ 491 | |               </div>
+ 492 | |             </div>
+ 493 | |           </header>
+ 494 | |   
+ 495 | |           <div className="mt-6 relative">
+ 496 | |             <div className="animate-[fadeIn_300ms_cubic-bezier(0.2,0.8,0.2,1)]">
+ 497 | |   
+ 498 | |               {/* MISSIONS */}
+ 499 | |               {tab==="missions"&&<>
+ 500 | |                 <div className="flex items-center gap-3">
+ 501 | |                   <div className="relative flex-1"><Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400"/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Rechercher une mission..." className="w-full h-12 pl-11 pr-11 rounded-full bg-white border border-gray-100 shadow-[0_2px_12px_rgba(0,0,0,0.04)] text-[14px] placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-[#008751] focus:border-transparent transition-all"/>{search&&<button onClick={()=>setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors"><X className="w-4 h-4"/></button>}</div>
+ 502 | |                   <Link href="/missions/new" className="hidden md:flex w-12 h-12 rounded-full bg-[#008751] text-white shadow-[0_4px_14px_rgba(0,135,81,0.25)] items-center justify-center hover:shadow-md hover:brightness-110 transition-all"><Plus className="w-5 h-5"/></Link>
+ 503 | |                 </div>
+ 504 | |                 <div className="mt-5 -mx-4 px-4 md:mx-0 md:px-0 overflow-x-auto scrollbar-none"><div className="flex gap-2.5 w-max pb-2">{STATUS_TABS.map(s=>{const a=filter===s.id;return<button key={s.id} onClick={()=>setFilter(s.id)} className={`h-9 px-4 rounded-full text-[13px] font-medium inline-flex items-center gap-2 border transition-all duration-200 whitespace-nowrap ${a?"bg-[#008751] text-white border-[#008751] shadow-[0_4px_14px_rgba(0,135,81,0.25)]":"bg-white text-zinc-600 border-gray-100 hover:border-gray-200 hover:shadow-sm"}`}>{s.label}<span className={`px-1.5 py-0.5 rounded-full text-[11px] font-semibold ${a?"bg-white/20 text-white":"bg-gray-100 text-zinc-600"}`}>{counts[s.id]??0}</span></button>})}</div></div>
+ 505 | |                 <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+ 506 | |                   {filtered.map(m=><button key={m.id} onClick={()=>openMission(m)} className={`text-left group relative bg-white rounded-[20px] border border-gray-100 shadow-[0_4px_20px_rgba(0,0,0,0.04)] p-5 flex flex-col gap-4 hover:shadow-[0_8px_30px_rgba(0,0,0,0.08)] hover:-translate-y-[2px] active:scale-[0.98] transition-all duration-300 ${pressingId===m.id?"scale-[0.98] opacity-80":""}`}>
+ 507 | |                     <div className="flex items-start justify-between gap-3"><h3 className="font-semibold text-[16px] leading-[1.25] line-clamp-2 pr-2 tracking-tight text-zinc-900">{m.title}</h3><span className={`shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold ${STATUS_STYLE[m.status].bg} ${STATUS_STYLE[m.status].text}`}><span className={`w-1.5 h-1.5 rounded-full ${STATUS_STYLE[m.status].dot}`}/>{m.status}</span></div>
+ 508 | |                     <div className="flex items-center gap-3"><div className="relative"><div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#008751] to-[#FCD116] flex items-center justify-center text-white text-[11px] font-bold">{m.clientInitials}</div><div className="absolute -bottom-1 -right-1 w-4 h-4 bg-white rounded-full border border-gray-100 flex items-center justify-center"><Check className="w-2.5 h-2.5 text-[#008751]"/></div></div><div className="flex items-center gap-1.5 text-[13px]"><span className="font-medium text-zinc-800">{m.client}</span><span>{m.flag}</span><span className="text-zinc-300">•</span><span className="text-zinc-500">Vérifié</span></div></div>
+ 509 | |                     <div><div className="flex items-center justify-between mb-1.5"><span className="text-[11px] uppercase tracking-widest text-zinc-400 font-semibold">Avancement</span><span className="text-[12px] font-semibold text-zinc-700">{m.progress}%</span></div><div className="h-1.5 w-full rounded-full bg-gray-100 overflow-hidden"><div className="h-full rounded-full transition-all duration-700" style={{width:`${m.progress}%`,background:m.status==="Clôturé"?"#111827":m.status==="En attente"?"#FCD116":m.status==="Révision"?"#E8112D":"#008751"}}/></div><div className="mt-3 flex items-center gap-1.5">{m.jalons.map((j,i)=>{const done=j.status==="Clôturé";const act=j.status==="En cours"||j.status==="En attente";return<div key={j.id} className={`w-2 h-2 rounded-full transition-all duration-300 ${done?"bg-[#008751]":act?"bg-[#FCD116] animate-pulse":j.status==="Révision"?"bg-[#E8112D]":"bg-gray-200"}`} style={{transitionDelay:`${i*40}ms`}}/>})}<span className="ml-2 text-[11px] text-zinc-400">{m.jalons.filter(j=>j.status==="Clôturé").length}/{m.jalons.length} jalons</span></div></div>
+ 510 | |                     <div className="flex items-center justify-between pt-1 border-t border-gray-50 mt-1"><span className="font-semibold text-[15px] tracking-tight text-zinc-800">{m.amount}</span><span className="w-8 h-8 rounded-full bg-zinc-900 text-white flex items-center justify-center group-hover:translate-x-0.5 transition-transform"><ChevronRight className="w-4 h-4"/></span></div>
+ 511 | |                   </button>)}
+ 512 | |                   {filtered.length===0&&<div className="mt-16 text-center col-span-full"><div className="mx-auto w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-3"><Search className="w-5 h-5 text-zinc-400"/></div><p className="text-[14px] text-zinc-500">Aucune mission trouvée</p></div>}
+ 513 | |                 </div>
+ 514 | |               </>}
+ 515 | |   
+ 516 | |               {/* WALLET */}
+ 517 | |               {tab==="wallet"&&<div className="grid md:grid-cols-2 gap-4">
+ 518 | |                 <div className="bg-zinc-900 rounded-[24px] p-6 text-white relative overflow-hidden"><div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-[#008751]/30 to-[#FCD116]/20 rounded-full blur-3xl"/><div className="relative"><div className="text-[12px] uppercase tracking-widest opacity-60 font-semibold">Solde disponible</div><div className="text-[36px] font-bold tracking-tight mt-2">1 842 500 FCFA</div><div className="mt-4 flex gap-2"><button className="h-10 px-5 rounded-full bg-white text-zinc-900 text-[13px] font-semibold hover:bg-gray-100 transition-colors">Retirer</button><button className="h-10 px-5 rounded-full bg-white/15 text-white text-[13px] font-medium hover:bg-white/20 transition-colors backdrop-blur">Historique</button></div><div className="mt-8 grid grid-cols-3 gap-3">{[{k:"En séquestre",v:"620k"},{k:"En attente",v:"340k"},{k:"Ce mois",v:"+1.2M"}].map(s=><div key={s.k} className="bg-white/10 rounded-[16px] p-3 backdrop-blur"><div className="text-[11px] opacity-60">{s.k}</div><div className="font-semibold mt-1">{s.v}</div></div>)}</div></div></div>
+ 519 | |                 <div className="bg-white rounded-[20px] border border-gray-100 shadow-sm p-5"><div className="font-semibold">Transactions récentes</div><div className="mt-4 space-y-3">{[{title:"Paiement jalon 3 — Refonte UX/UI",amount:"+420k",time:"Il y a 2h"},{title:"Retrait Mobile Money",amount:"-500k",time:"Hier"},{title:"Frais FlexWork",amount:"-12k",time:"Hier"}].map((t,i)=><div key={i} className="flex items-center gap-3 p-3 rounded-2xl bg-gray-50"><div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm"><Wallet className="w-4 h-4"/></div><div className="flex-1 min-w-0"><div className="text-[13px] font-medium truncate">{t.title}</div><div className="text-[11px] text-zinc-500">{t.time}</div></div><div className={`text-[13px] font-semibold ${t.amount.startsWith("+")?"text-[#008751]":"text-zinc-700"}`}>{t.amount}</div></div>)}</div></div>
+ 520 | |               </div>}
+ 521 | |   
+ 522 | |               {/* PROFIL */}
+ 523 | |               {tab==="profil"&&<div className="max-w-[560px] mx-auto"><div className="bg-white rounded-[24px] border border-gray-100 shadow-sm p-6"><div className="flex items-center gap-4"><div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#008751] to-[#FCD116] flex items-center justify-center text-white font-bold text-[18px]">ED</div><div><div className="font-semibold flex items-center gap-2">Expert Digital <BadgeCheck className="w-4 h-4 text-[#008751]"/></div><div className="text-[13px] text-zinc-500">Développement, Design, Marketing • Cotonou • 4.9 ★</div></div></div><div className="mt-6 grid grid-cols-3 gap-3">{[{label:"Missions",val:"23"},{label:"Taux succès",val:"98%"},{label:"Réponse",val:"<2h"}].map(s=><div key={s.label} className="rounded-2xl bg-gray-50 p-3 text-center"><div className="font-bold text-[18px]">{s.val}</div><div className="text-[11px] text-zinc-500 uppercase tracking-widest font-semibold mt-1">{s.label}</div></div>)}</div><div className="mt-5 space-y-2"><Link href="/profile" className="block w-full h-11 rounded-full bg-gray-100 text-zinc-700 text-[13px] font-semibold flex items-center justify-center hover:bg-gray-200 transition-colors" style={{textDecoration:"none"}}>Modifier le profil</Link></div></div></div>}
+ 524 | |             </div>
+ 525 | |           </div>
+ 526 | |         </div>
+ 527 | |   
+ 528 | |         {/* MODAL Détail mission */}
+ 529 | |         <div className={`fixed inset-0 z-40 flex items-center justify-center p-4 md:p-6 transition-all duration-300 ${modal?"pointer-events-auto":"pointer-events-none"}`}><div onClick={closeMission} className={`absolute inset-0 bg-black/40 backdrop-blur-md transition-opacity duration-300 ${modal?"opacity-100":"opacity-0"}`}/><div ref={modalRef} className={`relative w-full max-w-2xl max-h-[85vh] bg-white rounded-[24px] shadow-2xl flex flex-col overflow-hidden transition-all duration-[300ms] ${modal?"opacity-100 scale-100":"opacity-0 scale-[0.95]"}`}>{selected&&<>
+ 530 | |           <div className="shrink-0 px-6 pt-5 pb-5 border-b border-gray-100"><div className="flex items-center justify-between gap-3"><button onClick={closeMission} className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors"><ArrowLeft className="w-4 h-4"/></button><div className="flex items-center gap-2"><span className={`px-3 py-1 rounded-full text-[12px] font-semibold ${STATUS_STYLE[selected.status].bg} ${STATUS_STYLE[selected.status].text}`}>{selected.status}</span><button onClick={closeMission} className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors"><X className="w-4 h-4"/></button></div></div><h2 className="mt-5 text-[22px] font-bold leading-tight tracking-tight text-zinc-900">{selected.title}</h2><div className="mt-5 flex items-center gap-3 p-3 rounded-[18px] bg-gray-50 border border-gray-100"><div className="relative"><div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#008751] to-[#FCD116] flex items-center justify-center text-white font-bold">{selected.clientInitials}</div><div className="absolute -bottom-1 -right-1 w-5 h-5 bg-white rounded-full border flex items-center justify-center shadow-sm"><BadgeCheck className="w-3.5 h-3.5 text-[#008751]"/></div></div><div className="flex-1 min-w-0"><div className="font-medium text-[14px] flex items-center gap-1.5">{selected.client} <span>{selected.flag}</span></div><div className="text-[12px] text-zinc-500">Client • Paiement sécurisé • 4.9★</div></div><button className="h-9 px-4 rounded-full bg-zinc-900 text-white text-[12px] font-semibold hover:bg-black transition-colors">Contacter</button></div></div>
+ 531 | |           <div className="flex-1 overflow-y-auto px-6 py-6 space-y-3 overscroll-contain"><div className="flex items-center justify-between"><h3 className="font-semibold text-[15px]">Jalons</h3><span className="text-[12px] text-zinc-500">{selected.jalons.filter(j=>j.status==="Clôturé").length}/{selected.jalons.length} complétés</span></div>
+ 532 | |           {selected.jalons.map((j,i)=>{const s=STATUS_STYLE[j.status]??STATUS_STYLE["À faire"];return<div key={j.id} className="group bg-white rounded-[18px] border border-gray-100 shadow-[0_2px_14px_rgba(0,0,0,0.03)] p-4 flex gap-3 items-center animate-[slideIn_400ms_cubic-bezier(0.2,0.8,0.2,1)_both]" style={{animationDelay:`${i*60}ms`}}><div className={`w-8 h-8 rounded-full flex items-center justify-center text-[12px] font-bold shrink-0 transition-colors ${j.status==="Clôturé"?"bg-[#008751] text-white":"bg-gray-100 text-zinc-600"}`}>{j.status==="Clôturé"?<Check className="w-4 h-4"/>:i+1}</div><div className="flex-1 min-w-0"><div className="font-medium text-[13px] leading-tight truncate">{j.name}</div><div className="mt-2 flex items-center gap-2"><div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden max-w-[120px]"><div className="h-full rounded-full transition-all duration-700" style={{width:`${j.progress}%`,background:j.status==="Clôturé"?"#008751":j.status==="Révision"?"#E8112D":"#111827"}}/></div><span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${s.bg} ${s.text}`}>{j.status}</span></div>{j.revisionComment&&<div className="mt-2 text-[11px] text-[#E8112D] bg-red-50 border border-red-100 rounded-xl p-2 leading-snug">{j.revisionComment}</div>}</div><div className="shrink-0">{j.status==="À faire"?<button onClick={()=>startJalon(j.id)} disabled={!!submitting} className="h-8 px-3.5 rounded-full bg-[#008751] text-white text-[12px] font-semibold shadow-[0_4px_12px_rgba(0,135,81,0.25)] hover:brightness-110 active:scale-[0.96] transition-all flex items-center gap-1.5">{submitting===j.id?<LoaderCircle className="w-3.5 h-3.5 animate-spin"/>:<Sparkles className="w-3.5 h-3.5"/>}Démarrer</button>:j.status==="En cours"?<button onClick={()=>openProof(j)} className="h-8 px-3.5 rounded-full bg-[#FCD116] text-zinc-900 text-[12px] font-semibold shadow-sm hover:brightness-105 active:scale-[0.96] transition-all">Soumettre preuves</button>:j.status==="Révision"?<button onClick={()=>openProof(j)} className="h-8 px-3.5 rounded-full border border-[#E8112D] text-[#E8112D] text-[12px] font-semibold hover:bg-red-50 active:scale-[0.96] transition-all">Faire révision</button>:j.status==="En attente"?<span className="h-8 px-3 rounded-full bg-gray-100 text-zinc-500 text-[11px] font-medium inline-flex items-center gap-1.5"><Clock className="w-3 h-3"/> En attente</span>:<span className="w-8 h-8 rounded-full bg-[#008751] text-white flex items-center justify-center"><CircleCheck className="w-5 h-5"/></span>}</div></div>})}
+ 533 | |           <div className="mt-6 rounded-[18px] bg-zinc-900 text-white p-4 flex items-center justify-between"><div><div className="text-[11px] uppercase tracking-widest opacity-60 font-semibold">Total mission</div><div className="font-bold text-[18px] mt-1">{selected.amount}</div></div><div className="text-right"><div className="text-[12px] opacity-70">Avancement global</div><div className="font-semibold mt-1">{selected.progress}%</div></div></div></div>
+ 534 | |         </>}</div></div>
+ 535 | |   
+ 536 | |         {/* MODAL Soumission preuves */}
+ 537 | |         <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 md:p-6 transition-all duration-300 ${proofModal?"pointer-events-auto":"pointer-events-none"}`}><div onClick={()=>setProofModal(false)} className={`absolute inset-0 bg-black/50 backdrop-blur-md transition-opacity duration-300 ${proofModal?"opacity-100":"opacity-0"}`}/><div className={`relative w-full max-w-xl max-h-[86vh] bg-white rounded-[24px] shadow-2xl flex flex-col overflow-hidden transition-all duration-[300ms] ${proofModal?"opacity-100 scale-100":"opacity-0 scale-[0.9]"}`}>{proofJalon&&<>
+ 538 | |           <div className="shrink-0 px-6 pt-5 pb-4 border-b border-gray-100"><div className="flex items-center justify-between"><div><h3 className="font-bold text-[18px] tracking-tight">{proofJalon.status==="Révision"?"Corriger & resoumettre":"Soumettre les preuves"}</h3><p className="text-[12px] text-zinc-500 mt-0.5">{proofJalon.name}</p></div><button onClick={()=>setProofModal(false)} className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors"><X className="w-4 h-4"/></button></div>{proofJalon.status==="Révision"&&proofJalon.revisionComment&&<div className="mt-4 p-3 rounded-2xl bg-red-50 border border-red-200 flex gap-2.5 text-left"><CircleAlert className="w-4 h-4 text-[#E8112D] shrink-0 mt-0.5"/><div><div className="text-[12px] font-semibold text-[#E8112D]">Commentaire client</div><div className="text-[12px] text-red-900/80 mt-1 leading-snug">{proofJalon.revisionComment}</div></div></div>}</div>
+ 539 | |           <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5 overscroll-contain">
+ 540 | |             <div><label className="text-[11px] uppercase tracking-widest font-semibold text-zinc-500">Description du travail réalisé</label><textarea placeholder="Décrivez ce qui a été fait..." defaultValue={proofJalon.status==="Révision"?"Correction effectuée suite au retour client.":""} className="mt-2 w-full min-h-[96px] rounded-2xl bg-gray-50 border-0 p-4 text-[13px] placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-[#008751] resize-none"/></div>
+ 541 | |             <div><label className="text-[11px] uppercase tracking-widest font-semibold text-zinc-500">Preuves visuelles</label><div className="mt-2 grid grid-cols-2 gap-3"><button onClick={()=>setProofFiles(p=>[...p,`photo_${p.length+1}.jpg`])} className="group relative rounded-[18px] border-2 border-dashed border-gray-200 bg-gray-50/70 p-4 flex flex-col items-center justify-center gap-2 h-[104px] hover:bg-gray-50 hover:border-gray-300 transition-colors"><div className="w-9 h-9 rounded-full bg-white shadow-sm flex items-center justify-center group-hover:scale-105 transition-transform"><Image className="w-4 h-4"/></div><span className="text-[11px] font-medium text-zinc-600">Ajouter photos</span></button><button onClick={()=>setProofFiles(p=>[...p,`doc_${p.length+1}.pdf`])} className="group relative rounded-[18px] border-2 border-dashed border-gray-200 bg-gray-50/70 p-4 flex flex-col items-center justify-center gap-2 h-[104px] hover:bg-gray-50 hover:border-gray-300 transition-colors"><div className="w-9 h-9 rounded-full bg-white shadow-sm flex items-center justify-center group-hover:scale-105 transition-transform"><FileText className="w-4 h-4"/></div><span className="text-[11px] font-medium text-zinc-600">Ajouter fichier</span></button></div>{proofFiles.length>0&&<div className="mt-3 flex flex-wrap gap-2">{proofFiles.map((f,i)=><span key={i} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-zinc-900 text-white text-[11px] font-medium"><Upload className="w-3 h-3"/>{f}<button onClick={()=>setProofFiles(p=>p.filter((_,j)=>j!==i))} className="ml-1 w-4 h-4 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30"><X className="w-3 h-3"/></button></span>)}</div>}</div>
+ 542 | |             <div><label className="text-[11px] uppercase tracking-widest font-semibold text-zinc-500">Localisation & preuve terrain</label><div className="mt-2 p-3 rounded-2xl bg-gray-50 border border-gray-100 flex items-center justify-between"><div className="flex items-center gap-2.5"><div className={`w-9 h-9 rounded-full flex items-center justify-center ${geoOn?"bg-[#008751] text-white":"bg-white text-zinc-600 shadow-sm"}`}><MapPin className="w-4 h-4"/></div><div><div className="text-[12px] font-medium">{geoOn?"Localisation activée":"Ajouter géolocalisation"}</div><div className="text-[11px] text-zinc-500">{geoOn?"Cotonou, Haie Vive • Précis à 12m":"Recommandé pour validation rapide"}</div></div></div><button onClick={()=>setGeoOn(!geoOn)} className={`h-8 px-3.5 rounded-full text-[11px] font-semibold transition-all ${geoOn?"bg-zinc-900 text-white":"bg-white border border-gray-200 text-zinc-700 shadow-sm"}`}>{geoOn?"Activée":"Activer"}</button></div></div>
+ 543 | |           </div>
+ 544 | |           <div className="shrink-0 p-4 border-t border-gray-100 bg-white rounded-b-[24px] flex gap-3"><button onClick={()=>setProofModal(false)} className="flex-1 h-12 rounded-full bg-gray-100 text-zinc-700 text-[14px] font-semibold hover:bg-gray-200 transition-colors">Annuler</button><button onClick={submitProof} disabled={!!submitting} className="flex-1 h-12 rounded-full bg-[#008751] text-white text-[14px] font-semibold shadow-[0_8px_24px_rgba(0,135,81,0.3)] hover:brightness-105 active:scale-[0.98] transition-all flex items-center justify-center gap-2">{submitting?<LoaderCircle className="w-4 h-4 animate-spin"/>:<Check className="w-4 h-4"/>}Soumettre</button></div>
+ 545 | |         </>}</div></div>
+ 546 | |   
+ 547 | |         {/* TOASTS */}
+ 548 | |         <div className="fixed bottom-24 md:bottom-8 left-1/2 -translate-x-1/2 z-[60] flex flex-col gap-2 items-center pointer-events-none">{toasts.map(t=><div key={t.id} className="pointer-events-auto bg-zinc-900 text-white rounded-full px-5 py-3 shadow-[0_8px_30px_rgba(0,0,0,0.25)] flex items-center gap-2.5 text-[13px] font-medium animate-[toastIn_300ms_cubic-bezier(0.2,0.8,0.2,1)]"><span className="text-[14px]">{t.icon}</span>{t.msg}</div>)}</div>
+ 549 | |   
+ 550 | |         {/* MOBILE BOTTOM NAV */}
+ 551 | |         <div className="md:hidden fixed bottom-0 left-0 right-0 z-30"><div className="mx-3 mb-3 rounded-[24px] bg-white/90 backdrop-blur-xl border border-gray-100 shadow-[0_8px_40px_rgba(0,0,0,0.12)] flex items-center justify-around p-2">{[{id:"missions"as const,Icon:Briefcase,label:"Missions"},{id:"wallet"as const,Icon:Wallet,label:"Wallet"},{id:"profil"as const,Icon:User,label:"Profil"}].map(({id,Icon,label})=><button key={id} onClick={()=>{setTab(id);tick(t=>t+1)}} className={`flex-1 h-12 rounded-full flex flex-col items-center justify-center gap-0.5 transition-all duration-200 ${tab===id?"bg-zinc-900 text-white shadow-sm":"text-zinc-500"}`}><Icon className="w-4 h-4"/><span className="text-[10px] font-medium">{label}</span></button>)}</div></div>
+ 552 | |   
+ 553 | |         <style>{`.scrollbar-none::-webkit-scrollbar{display:none}.scrollbar-none{-ms-overflow-style:none;scrollbar-width:none}@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}@keyframes slideIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}@keyframes toastIn{from{opacity:0;transform:translate(-50%,12px) scale(0.96)}to{opacity:1;transform:translate(-50%,0) scale(1)}}`}</style>
+ 554 | |       </div>
+ 555 | `->   );
+ 556 |     }
+     `----
+
+  x Expression expected
+     ,-[C:\laragon\www\Flexwork\src\app\dashboard\expert-digital\page.tsx:553:1]
+ 553 |       <style>{`.scrollbar-none::-webkit-scrollbar{display:none}.scrollbar-none{-ms-overflow-style:none;scrollbar-width:none}@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}@keyframes slideIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}@keyframes toastIn{from{opacity:0;transform:translate(-50%,12px) scale(0.96)}to{opacity:1;transform:translate(-50%,0) scale(1)}}`}</style>
+ 554 |     </div>
+ 555 |   );
+ 556 | }
+     : ^
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/app/dashboard/expert-digital/page.tsx @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/app-index.js:32
+[ 2487956ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[ 2489517ms] [ERROR] ./src/app/dashboard/expert-digital/page.tsx
+Error: 
+  x Return statement is not allowed here
+     ,-[C:\laragon\www\Flexwork\src\app\dashboard\expert-digital\page.tsx:470:1]
+ 470 |       );
+ 471 |     }
+ 472 |     
+ 473 | ,->   return (
+ 474 | |       <div className="min-h-screen bg-[#f8fafc] text-zinc-900 antialiased selection:bg-[#008751]/20 selection:text-[#008751] relative overflow-x-hidden">
+ 475 | |         <div className="pointer-events-none fixed inset-0">
+ 476 | |           <div className="absolute -top-32 -left-32 w-[560px] h-[560px] rounded-full blur-[120px] opacity-[0.06] bg-[#008751]"/><div className="absolute top-20 -right-24 w-[480px] h-[480px] rounded-full blur-[110px] opacity-[0.07] bg-[#FCD116]"/><div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[900px] h-[400px] rounded-full blur-[130px] opacity-[0.05] bg-[#008751]"/>
+ 477 | |         </div>
+ 478 | |         <div className="relative max-w-6xl mx-auto px-4 md:px-6 pb-28 md:pb-10">
+ 479 | |           {/* Header */}
+ 480 | |           <header className="sticky top-0 z-30 -mx-4 md:mx-0 px-4 md:px-0 py-3 md:py-5 backdrop-blur-xl bg-[#f8fafc]/80 border-b border-gray-100/60 md:border-0">
+ 481 | |             <div className="flex items-center justify-between gap-3">
+ 482 | |               <Link href="/" className="flex items-center gap-3 shrink-0" style={{textDecoration:"none"}}><BeninFlag/><span className="font-bold text-[22px] tracking-tight text-zinc-900">Flex<span style={{color:"#008751"}}>Work</span></span></Link>
+ 483 | |               <div className="relative flex-1 max-w-[420px] mx-auto">
+ 484 | |                 <div className="relative flex bg-white rounded-full p-1 shadow-[0_2px_12px_rgba(0,0,0,0.06)] border border-gray-100">
+ 485 | |                   <div className="absolute top-1 bottom-1 rounded-full bg-zinc-900 shadow-sm transition-all duration-300" style={{width:"calc((100% - 8px)/3)",transform:`translateX(${tab==="missions"?"0%":tab==="wallet"?"100%":"200%"})`,left:4}}/>
+ 486 | |                   {[{id:"missions"as const,label:"Mes missions",Icon:Briefcase},{id:"wallet"as const,label:"Wallet",Icon:Wallet},{id:"profil"as const,label:"Profil",Icon:User}].map(({id,label,Icon})=><button key={id} onClick={()=>{setTab(id);tick(t=>t+1)}} className={`relative z-10 flex-1 h-8 rounded-full text-[13px] font-medium flex items-center justify-center gap-1.5 transition-colors duration-200 ${tab===id?"text-white":"text-zinc-600"}`}><Icon className="w-4 h-4"/><span className="hidden sm:inline">{label}</span></button>)}
+ 487 | |                 </div>
+ 488 | |               </div>
+ 489 | |               <div className="flex items-center gap-2.5 shrink-0">
+ 490 | |                 <div className="hidden md:flex items-center gap-2 text-[13px] font-medium text-zinc-500"><span className="w-8 h-8 rounded-full bg-gradient-to-br from-[#008751] to-[#FCD116] flex items-center justify-center text-white text-[11px] font-bold">ED</span><span className="text-zinc-700">Expert Digital</span><BadgeCheck className="w-4 h-4 text-[#008751]"/></div>
+ 491 | |               </div>
+ 492 | |             </div>
+ 493 | |           </header>
+ 494 | |   
+ 495 | |           <div className="mt-6 relative">
+ 496 | |             <div className="animate-[fadeIn_300ms_cubic-bezier(0.2,0.8,0.2,1)]">
+ 497 | |   
+ 498 | |               {/* MISSIONS */}
+ 499 | |               {tab==="missions"&&<>
+ 500 | |                 <div className="flex items-center gap-3">
+ 501 | |                   <div className="relative flex-1"><Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400"/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Rechercher une mission..." className="w-full h-12 pl-11 pr-11 rounded-full bg-white border border-gray-100 shadow-[0_2px_12px_rgba(0,0,0,0.04)] text-[14px] placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-[#008751] focus:border-transparent transition-all"/>{search&&<button onClick={()=>setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors"><X className="w-4 h-4"/></button>}</div>
+ 502 | |                   <Link href="/missions/new" className="hidden md:flex w-12 h-12 rounded-full bg-[#008751] text-white shadow-[0_4px_14px_rgba(0,135,81,0.25)] items-center justify-center hover:shadow-md hover:brightness-110 transition-all"><Plus className="w-5 h-5"/></Link>
+ 503 | |                 </div>
+ 504 | |                 <div className="mt-5 -mx-4 px-4 md:mx-0 md:px-0 overflow-x-auto scrollbar-none"><div className="flex gap-2.5 w-max pb-2">{STATUS_TABS.map(s=>{const a=filter===s.id;return<button key={s.id} onClick={()=>setFilter(s.id)} className={`h-9 px-4 rounded-full text-[13px] font-medium inline-flex items-center gap-2 border transition-all duration-200 whitespace-nowrap ${a?"bg-[#008751] text-white border-[#008751] shadow-[0_4px_14px_rgba(0,135,81,0.25)]":"bg-white text-zinc-600 border-gray-100 hover:border-gray-200 hover:shadow-sm"}`}>{s.label}<span className={`px-1.5 py-0.5 rounded-full text-[11px] font-semibold ${a?"bg-white/20 text-white":"bg-gray-100 text-zinc-600"}`}>{counts[s.id]??0}</span></button>})}</div></div>
+ 505 | |                 <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+ 506 | |                   {filtered.map(m=><button key={m.id} onClick={()=>openMission(m)} className={`text-left group relative bg-white rounded-[20px] border border-gray-100 shadow-[0_4px_20px_rgba(0,0,0,0.04)] p-5 flex flex-col gap-4 hover:shadow-[0_8px_30px_rgba(0,0,0,0.08)] hover:-translate-y-[2px] active:scale-[0.98] transition-all duration-300 ${pressingId===m.id?"scale-[0.98] opacity-80":""}`}>
+ 507 | |                     <div className="flex items-start justify-between gap-3"><h3 className="font-semibold text-[16px] leading-[1.25] line-clamp-2 pr-2 tracking-tight text-zinc-900">{m.title}</h3><span className={`shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold ${STATUS_STYLE[m.status].bg} ${STATUS_STYLE[m.status].text}`}><span className={`w-1.5 h-1.5 rounded-full ${STATUS_STYLE[m.status].dot}`}/>{m.status}</span></div>
+ 508 | |                     <div className="flex items-center gap-3"><div className="relative"><div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#008751] to-[#FCD116] flex items-center justify-center text-white text-[11px] font-bold">{m.clientInitials}</div><div className="absolute -bottom-1 -right-1 w-4 h-4 bg-white rounded-full border border-gray-100 flex items-center justify-center"><Check className="w-2.5 h-2.5 text-[#008751]"/></div></div><div className="flex items-center gap-1.5 text-[13px]"><span className="font-medium text-zinc-800">{m.client}</span><span>{m.flag}</span><span className="text-zinc-300">•</span><span className="text-zinc-500">Vérifié</span></div></div>
+ 509 | |                     <div><div className="flex items-center justify-between mb-1.5"><span className="text-[11px] uppercase tracking-widest text-zinc-400 font-semibold">Avancement</span><span className="text-[12px] font-semibold text-zinc-700">{m.progress}%</span></div><div className="h-1.5 w-full rounded-full bg-gray-100 overflow-hidden"><div className="h-full rounded-full transition-all duration-700" style={{width:`${m.progress}%`,background:m.status==="Clôturé"?"#111827":m.status==="En attente"?"#FCD116":m.status==="Révision"?"#E8112D":"#008751"}}/></div><div className="mt-3 flex items-center gap-1.5">{m.jalons.map((j,i)=>{const done=j.status==="Clôturé";const act=j.status==="En cours"||j.status==="En attente";return<div key={j.id} className={`w-2 h-2 rounded-full transition-all duration-300 ${done?"bg-[#008751]":act?"bg-[#FCD116] animate-pulse":j.status==="Révision"?"bg-[#E8112D]":"bg-gray-200"}`} style={{transitionDelay:`${i*40}ms`}}/>})}<span className="ml-2 text-[11px] text-zinc-400">{m.jalons.filter(j=>j.status==="Clôturé").length}/{m.jalons.length} jalons</span></div></div>
+ 510 | |                     <div className="flex items-center justify-between pt-1 border-t border-gray-50 mt-1"><span className="font-semibold text-[15px] tracking-tight text-zinc-800">{m.amount}</span><span className="w-8 h-8 rounded-full bg-zinc-900 text-white flex items-center justify-center group-hover:translate-x-0.5 transition-transform"><ChevronRight className="w-4 h-4"/></span></div>
+ 511 | |                   </button>)}
+ 512 | |                   {filtered.length===0&&<div className="mt-16 text-center col-span-full"><div className="mx-auto w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-3"><Search className="w-5 h-5 text-zinc-400"/></div><p className="text-[14px] text-zinc-500">Aucune mission trouvée</p></div>}
+ 513 | |                 </div>
+ 514 | |               </>}
+ 515 | |   
+ 516 | |               {/* WALLET */}
+ 517 | |               {tab==="wallet"&&<div className="grid md:grid-cols-2 gap-4">
+ 518 | |                 <div className="bg-zinc-900 rounded-[24px] p-6 text-white relative overflow-hidden"><div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-[#008751]/30 to-[#FCD116]/20 rounded-full blur-3xl"/><div className="relative"><div className="text-[12px] uppercase tracking-widest opacity-60 font-semibold">Solde disponible</div><div className="text-[36px] font-bold tracking-tight mt-2">1 842 500 FCFA</div><div className="mt-4 flex gap-2"><button className="h-10 px-5 rounded-full bg-white text-zinc-900 text-[13px] font-semibold hover:bg-gray-100 transition-colors">Retirer</button><button className="h-10 px-5 rounded-full bg-white/15 text-white text-[13px] font-medium hover:bg-white/20 transition-colors backdrop-blur">Historique</button></div><div className="mt-8 grid grid-cols-3 gap-3">{[{k:"En séquestre",v:"620k"},{k:"En attente",v:"340k"},{k:"Ce mois",v:"+1.2M"}].map(s=><div key={s.k} className="bg-white/10 rounded-[16px] p-3 backdrop-blur"><div className="text-[11px] opacity-60">{s.k}</div><div className="font-semibold mt-1">{s.v}</div></div>)}</div></div></div>
+ 519 | |                 <div className="bg-white rounded-[20px] border border-gray-100 shadow-sm p-5"><div className="font-semibold">Transactions récentes</div><div className="mt-4 space-y-3">{[{title:"Paiement jalon 3 — Refonte UX/UI",amount:"+420k",time:"Il y a 2h"},{title:"Retrait Mobile Money",amount:"-500k",time:"Hier"},{title:"Frais FlexWork",amount:"-12k",time:"Hier"}].map((t,i)=><div key={i} className="flex items-center gap-3 p-3 rounded-2xl bg-gray-50"><div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm"><Wallet className="w-4 h-4"/></div><div className="flex-1 min-w-0"><div className="text-[13px] font-medium truncate">{t.title}</div><div className="text-[11px] text-zinc-500">{t.time}</div></div><div className={`text-[13px] font-semibold ${t.amount.startsWith("+")?"text-[#008751]":"text-zinc-700"}`}>{t.amount}</div></div>)}</div></div>
+ 520 | |               </div>}
+ 521 | |   
+ 522 | |               {/* PROFIL */}
+ 523 | |               {tab==="profil"&&<div className="max-w-[560px] mx-auto"><div className="bg-white rounded-[24px] border border-gray-100 shadow-sm p-6"><div className="flex items-center gap-4"><div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#008751] to-[#FCD116] flex items-center justify-center text-white font-bold text-[18px]">ED</div><div><div className="font-semibold flex items-center gap-2">Expert Digital <BadgeCheck className="w-4 h-4 text-[#008751]"/></div><div className="text-[13px] text-zinc-500">Développement, Design, Marketing • Cotonou • 4.9 ★</div></div></div><div className="mt-6 grid grid-cols-3 gap-3">{[{label:"Missions",val:"23"},{label:"Taux succès",val:"98%"},{label:"Réponse",val:"<2h"}].map(s=><div key={s.label} className="rounded-2xl bg-gray-50 p-3 text-center"><div className="font-bold text-[18px]">{s.val}</div><div className="text-[11px] text-zinc-500 uppercase tracking-widest font-semibold mt-1">{s.label}</div></div>)}</div><div className="mt-5 space-y-2"><Link href="/profile" className="block w-full h-11 rounded-full bg-gray-100 text-zinc-700 text-[13px] font-semibold flex items-center justify-center hover:bg-gray-200 transition-colors" style={{textDecoration:"none"}}>Modifier le profil</Link></div></div></div>}
+ 524 | |             </div>
+ 525 | |           </div>
+ 526 | |         </div>
+ 527 | |   
+ 528 | |         {/* MODAL Détail mission */}
+ 529 | |         <div className={`fixed inset-0 z-40 flex items-center justify-center p-4 md:p-6 transition-all duration-300 ${modal?"pointer-events-auto":"pointer-events-none"}`}><div onClick={closeMission} className={`absolute inset-0 bg-black/40 backdrop-blur-md transition-opacity duration-300 ${modal?"opacity-100":"opacity-0"}`}/><div ref={modalRef} className={`relative w-full max-w-2xl max-h-[85vh] bg-white rounded-[24px] shadow-2xl flex flex-col overflow-hidden transition-all duration-[300ms] ${modal?"opacity-100 scale-100":"opacity-0 scale-[0.95]"}`}>{selected&&<>
+ 530 | |           <div className="shrink-0 px-6 pt-5 pb-5 border-b border-gray-100"><div className="flex items-center justify-between gap-3"><button onClick={closeMission} className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors"><ArrowLeft className="w-4 h-4"/></button><div className="flex items-center gap-2"><span className={`px-3 py-1 rounded-full text-[12px] font-semibold ${STATUS_STYLE[selected.status].bg} ${STATUS_STYLE[selected.status].text}`}>{selected.status}</span><button onClick={closeMission} className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors"><X className="w-4 h-4"/></button></div></div><h2 className="mt-5 text-[22px] font-bold leading-tight tracking-tight text-zinc-900">{selected.title}</h2><div className="mt-5 flex items-center gap-3 p-3 rounded-[18px] bg-gray-50 border border-gray-100"><div className="relative"><div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#008751] to-[#FCD116] flex items-center justify-center text-white font-bold">{selected.clientInitials}</div><div className="absolute -bottom-1 -right-1 w-5 h-5 bg-white rounded-full border flex items-center justify-center shadow-sm"><BadgeCheck className="w-3.5 h-3.5 text-[#008751]"/></div></div><div className="flex-1 min-w-0"><div className="font-medium text-[14px] flex items-center gap-1.5">{selected.client} <span>{selected.flag}</span></div><div className="text-[12px] text-zinc-500">Client • Paiement sécurisé • 4.9★</div></div><button className="h-9 px-4 rounded-full bg-zinc-900 text-white text-[12px] font-semibold hover:bg-black transition-colors">Contacter</button></div></div>
+ 531 | |           <div className="flex-1 overflow-y-auto px-6 py-6 space-y-3 overscroll-contain"><div className="flex items-center justify-between"><h3 className="font-semibold text-[15px]">Jalons</h3><span className="text-[12px] text-zinc-500">{selected.jalons.filter(j=>j.status==="Clôturé").length}/{selected.jalons.length} complétés</span></div>
+ 532 | |           {selected.jalons.map((j,i)=>{const s=STATUS_STYLE[j.status]??STATUS_STYLE["À faire"];return<div key={j.id} className="group bg-white rounded-[18px] border border-gray-100 shadow-[0_2px_14px_rgba(0,0,0,0.03)] p-4 flex gap-3 items-center animate-[slideIn_400ms_cubic-bezier(0.2,0.8,0.2,1)_both]" style={{animationDelay:`${i*60}ms`}}><div className={`w-8 h-8 rounded-full flex items-center justify-center text-[12px] font-bold shrink-0 transition-colors ${j.status==="Clôturé"?"bg-[#008751] text-white":"bg-gray-100 text-zinc-600"}`}>{j.status==="Clôturé"?<Check className="w-4 h-4"/>:i+1}</div><div className="flex-1 min-w-0"><div className="font-medium text-[13px] leading-tight truncate">{j.name}</div><div className="mt-2 flex items-center gap-2"><div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden max-w-[120px]"><div className="h-full rounded-full transition-all duration-700" style={{width:`${j.progress}%`,background:j.status==="Clôturé"?"#008751":j.status==="Révision"?"#E8112D":"#111827"}}/></div><span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${s.bg} ${s.text}`}>{j.status}</span></div>{j.revisionComment&&<div className="mt-2 text-[11px] text-[#E8112D] bg-red-50 border border-red-100 rounded-xl p-2 leading-snug">{j.revisionComment}</div>}</div><div className="shrink-0">{j.status==="À faire"?<button onClick={()=>startJalon(j.id)} disabled={!!submitting} className="h-8 px-3.5 rounded-full bg-[#008751] text-white text-[12px] font-semibold shadow-[0_4px_12px_rgba(0,135,81,0.25)] hover:brightness-110 active:scale-[0.96] transition-all flex items-center gap-1.5">{submitting===j.id?<LoaderCircle className="w-3.5 h-3.5 animate-spin"/>:<Sparkles className="w-3.5 h-3.5"/>}Démarrer</button>:j.status==="En cours"?<button onClick={()=>openProof(j)} className="h-8 px-3.5 rounded-full bg-[#FCD116] text-zinc-900 text-[12px] font-semibold shadow-sm hover:brightness-105 active:scale-[0.96] transition-all">Soumettre preuves</button>:j.status==="Révision"?<button onClick={()=>openProof(j)} className="h-8 px-3.5 rounded-full border border-[#E8112D] text-[#E8112D] text-[12px] font-semibold hover:bg-red-50 active:scale-[0.96] transition-all">Faire révision</button>:j.status==="En attente"?<span className="h-8 px-3 rounded-full bg-gray-100 text-zinc-500 text-[11px] font-medium inline-flex items-center gap-1.5"><Clock className="w-3 h-3"/> En attente</span>:<span className="w-8 h-8 rounded-full bg-[#008751] text-white flex items-center justify-center"><CircleCheck className="w-5 h-5"/></span>}</div></div>})}
+ 533 | |           <div className="mt-6 rounded-[18px] bg-zinc-900 text-white p-4 flex items-center justify-between"><div><div className="text-[11px] uppercase tracking-widest opacity-60 font-semibold">Total mission</div><div className="font-bold text-[18px] mt-1">{selected.amount}</div></div><div className="text-right"><div className="text-[12px] opacity-70">Avancement global</div><div className="font-semibold mt-1">{selected.progress}%</div></div></div></div>
+ 534 | |         </>}</div></div>
+ 535 | |   
+ 536 | |         {/* MODAL Soumission preuves */}
+ 537 | |         <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 md:p-6 transition-all duration-300 ${proofModal?"pointer-events-auto":"pointer-events-none"}`}><div onClick={()=>setProofModal(false)} className={`absolute inset-0 bg-black/50 backdrop-blur-md transition-opacity duration-300 ${proofModal?"opacity-100":"opacity-0"}`}/><div className={`relative w-full max-w-xl max-h-[86vh] bg-white rounded-[24px] shadow-2xl flex flex-col overflow-hidden transition-all duration-[300ms] ${proofModal?"opacity-100 scale-100":"opacity-0 scale-[0.9]"}`}>{proofJalon&&<>
+ 538 | |           <div className="shrink-0 px-6 pt-5 pb-4 border-b border-gray-100"><div className="flex items-center justify-between"><div><h3 className="font-bold text-[18px] tracking-tight">{proofJalon.status==="Révision"?"Corriger & resoumettre":"Soumettre les preuves"}</h3><p className="text-[12px] text-zinc-500 mt-0.5">{proofJalon.name}</p></div><button onClick={()=>setProofModal(false)} className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors"><X className="w-4 h-4"/></button></div>{proofJalon.status==="Révision"&&proofJalon.revisionComment&&<div className="mt-4 p-3 rounded-2xl bg-red-50 border border-red-200 flex gap-2.5 text-left"><CircleAlert className="w-4 h-4 text-[#E8112D] shrink-0 mt-0.5"/><div><div className="text-[12px] font-semibold text-[#E8112D]">Commentaire client</div><div className="text-[12px] text-red-900/80 mt-1 leading-snug">{proofJalon.revisionComment}</div></div></div>}</div>
+ 539 | |           <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5 overscroll-contain">
+ 540 | |             <div><label className="text-[11px] uppercase tracking-widest font-semibold text-zinc-500">Description du travail réalisé</label><textarea placeholder="Décrivez ce qui a été fait..." defaultValue={proofJalon.status==="Révision"?"Correction effectuée suite au retour client.":""} className="mt-2 w-full min-h-[96px] rounded-2xl bg-gray-50 border-0 p-4 text-[13px] placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-[#008751] resize-none"/></div>
+ 541 | |             <div><label className="text-[11px] uppercase tracking-widest font-semibold text-zinc-500">Preuves visuelles</label><div className="mt-2 grid grid-cols-2 gap-3"><button onClick={()=>setProofFiles(p=>[...p,`photo_${p.length+1}.jpg`])} className="group relative rounded-[18px] border-2 border-dashed border-gray-200 bg-gray-50/70 p-4 flex flex-col items-center justify-center gap-2 h-[104px] hover:bg-gray-50 hover:border-gray-300 transition-colors"><div className="w-9 h-9 rounded-full bg-white shadow-sm flex items-center justify-center group-hover:scale-105 transition-transform"><Image className="w-4 h-4"/></div><span className="text-[11px] font-medium text-zinc-600">Ajouter photos</span></button><button onClick={()=>setProofFiles(p=>[...p,`doc_${p.length+1}.pdf`])} className="group relative rounded-[18px] border-2 border-dashed border-gray-200 bg-gray-50/70 p-4 flex flex-col items-center justify-center gap-2 h-[104px] hover:bg-gray-50 hover:border-gray-300 transition-colors"><div className="w-9 h-9 rounded-full bg-white shadow-sm flex items-center justify-center group-hover:scale-105 transition-transform"><FileText className="w-4 h-4"/></div><span className="text-[11px] font-medium text-zinc-600">Ajouter fichier</span></button></div>{proofFiles.length>0&&<div className="mt-3 flex flex-wrap gap-2">{proofFiles.map((f,i)=><span key={i} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-zinc-900 text-white text-[11px] font-medium"><Upload className="w-3 h-3"/>{f}<button onClick={()=>setProofFiles(p=>p.filter((_,j)=>j!==i))} className="ml-1 w-4 h-4 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30"><X className="w-3 h-3"/></button></span>)}</div>}</div>
+ 542 | |             <div><label className="text-[11px] uppercase tracking-widest font-semibold text-zinc-500">Localisation & preuve terrain</label><div className="mt-2 p-3 rounded-2xl bg-gray-50 border border-gray-100 flex items-center justify-between"><div className="flex items-center gap-2.5"><div className={`w-9 h-9 rounded-full flex items-center justify-center ${geoOn?"bg-[#008751] text-white":"bg-white text-zinc-600 shadow-sm"}`}><MapPin className="w-4 h-4"/></div><div><div className="text-[12px] font-medium">{geoOn?"Localisation activée":"Ajouter géolocalisation"}</div><div className="text-[11px] text-zinc-500">{geoOn?"Cotonou, Haie Vive • Précis à 12m":"Recommandé pour validation rapide"}</div></div></div><button onClick={()=>setGeoOn(!geoOn)} className={`h-8 px-3.5 rounded-full text-[11px] font-semibold transition-all ${geoOn?"bg-zinc-900 text-white":"bg-white border border-gray-200 text-zinc-700 shadow-sm"}`}>{geoOn?"Activée":"Activer"}</button></div></div>
+ 543 | |           </div>
+ 544 | |           <div className="shrink-0 p-4 border-t border-gray-100 bg-white rounded-b-[24px] flex gap-3"><button onClick={()=>setProofModal(false)} className="flex-1 h-12 rounded-full bg-gray-100 text-zinc-700 text-[14px] font-semibold hover:bg-gray-200 transition-colors">Annuler</button><button onClick={submitProof} disabled={!!submitting} className="flex-1 h-12 rounded-full bg-[#008751] text-white text-[14px] font-semibold shadow-[0_8px_24px_rgba(0,135,81,0.3)] hover:brightness-105 active:scale-[0.98] transition-all flex items-center justify-center gap-2">{submitting?<LoaderCircle className="w-4 h-4 animate-spin"/>:<Check className="w-4 h-4"/>}Soumettre</button></div>
+ 545 | |         </>}</div></div>
+ 546 | |   
+ 547 | |         {/* TOASTS */}
+ 548 | |         <div className="fixed bottom-24 md:bottom-8 left-1/2 -translate-x-1/2 z-[60] flex flex-col gap-2 items-center pointer-events-none">{toasts.map(t=><div key={t.id} className="pointer-events-auto bg-zinc-900 text-white rounded-full px-5 py-3 shadow-[0_8px_30px_rgba(0,0,0,0.25)] flex items-center gap-2.5 text-[13px] font-medium animate-[toastIn_300ms_cubic-bezier(0.2,0.8,0.2,1)]"><span className="text-[14px]">{t.icon}</span>{t.msg}</div>)}</div>
+ 549 | |   
+ 550 | |         {/* MOBILE BOTTOM NAV */}
+ 551 | |         <div className="md:hidden fixed bottom-0 left-0 right-0 z-30"><div className="mx-3 mb-3 rounded-[24px] bg-white/90 backdrop-blur-xl border border-gray-100 shadow-[0_8px_40px_rgba(0,0,0,0.12)] flex items-center justify-around p-2">{[{id:"missions"as const,Icon:Briefcase,label:"Missions"},{id:"wallet"as const,Icon:Wallet,label:"Wallet"},{id:"profil"as const,Icon:User,label:"Profil"}].map(({id,Icon,label})=><button key={id} onClick={()=>{setTab(id);tick(t=>t+1)}} className={`flex-1 h-12 rounded-full flex flex-col items-center justify-center gap-0.5 transition-all duration-200 ${tab===id?"bg-zinc-900 text-white shadow-sm":"text-zinc-500"}`}><Icon className="w-4 h-4"/><span className="text-[10px] font-medium">{label}</span></button>)}</div></div>
+ 552 | |   
+ 553 | |         <style>{`.scrollbar-none::-webkit-scrollbar{display:none}.scrollbar-none{-ms-overflow-style:none;scrollbar-width:none}@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}@keyframes slideIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}@keyframes toastIn{from{opacity:0;transform:translate(-50%,12px) scale(0.96)}to{opacity:1;transform:translate(-50%,0) scale(1)}}`}</style>
+ 554 | |       </div>
+ 555 | `->   );
+ 556 |     }
+     `----
+
+  x Expression expected
+     ,-[C:\laragon\www\Flexwork\src\app\dashboard\expert-digital\page.tsx:553:1]
+ 553 |       <style>{`.scrollbar-none::-webkit-scrollbar{display:none}.scrollbar-none{-ms-overflow-style:none;scrollbar-width:none}@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}@keyframes slideIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}@keyframes toastIn{from{opacity:0;transform:translate(-50%,12px) scale(0.96)}to{opacity:1;transform:translate(-50%,0) scale(1)}}`}</style>
+ 554 |     </div>
+ 555 |   );
+ 556 | }
+     : ^
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/app/dashboard/expert-digital/page.tsx @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/app-index.js:32
+[ 2489710ms] [ERROR] ./src/app/dashboard/expert-digital/page.tsx
+Error: 
+  x Return statement is not allowed here
+     ,-[C:\laragon\www\Flexwork\src\app\dashboard\expert-digital\page.tsx:470:1]
+ 470 |       );
+ 471 |     }
+ 472 |     
+ 473 | ,->   return (
+ 474 | |       <div className="min-h-screen bg-[#f8fafc] text-zinc-900 antialiased selection:bg-[#008751]/20 selection:text-[#008751] relative overflow-x-hidden">
+ 475 | |         <div className="pointer-events-none fixed inset-0">
+ 476 | |           <div className="absolute -top-32 -left-32 w-[560px] h-[560px] rounded-full blur-[120px] opacity-[0.06] bg-[#008751]"/><div className="absolute top-20 -right-24 w-[480px] h-[480px] rounded-full blur-[110px] opacity-[0.07] bg-[#FCD116]"/><div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[900px] h-[400px] rounded-full blur-[130px] opacity-[0.05] bg-[#008751]"/>
+ 477 | |         </div>
+ 478 | |         <div className="relative max-w-6xl mx-auto px-4 md:px-6 pb-28 md:pb-10">
+ 479 | |           {/* Header */}
+ 480 | |           <header className="sticky top-0 z-30 -mx-4 md:mx-0 px-4 md:px-0 py-3 md:py-5 backdrop-blur-xl bg-[#f8fafc]/80 border-b border-gray-100/60 md:border-0">
+ 481 | |             <div className="flex items-center justify-between gap-3">
+ 482 | |               <Link href="/" className="flex items-center gap-3 shrink-0" style={{textDecoration:"none"}}><BeninFlag/><span className="font-bold text-[22px] tracking-tight text-zinc-900">Flex<span style={{color:"#008751"}}>Work</span></span></Link>
+ 483 | |               <div className="relative flex-1 max-w-[420px] mx-auto">
+ 484 | |                 <div className="relative flex bg-white rounded-full p-1 shadow-[0_2px_12px_rgba(0,0,0,0.06)] border border-gray-100">
+ 485 | |                   <div className="absolute top-1 bottom-1 rounded-full bg-zinc-900 shadow-sm transition-all duration-300" style={{width:"calc((100% - 8px)/3)",transform:`translateX(${tab==="missions"?"0%":tab==="wallet"?"100%":"200%"})`,left:4}}/>
+ 486 | |                   {[{id:"missions"as const,label:"Mes missions",Icon:Briefcase},{id:"wallet"as const,label:"Wallet",Icon:Wallet},{id:"profil"as const,label:"Profil",Icon:User}].map(({id,label,Icon})=><button key={id} onClick={()=>{setTab(id);tick(t=>t+1)}} className={`relative z-10 flex-1 h-8 rounded-full text-[13px] font-medium flex items-center justify-center gap-1.5 transition-colors duration-200 ${tab===id?"text-white":"text-zinc-600"}`}><Icon className="w-4 h-4"/><span className="hidden sm:inline">{label}</span></button>)}
+ 487 | |                 </div>
+ 488 | |               </div>
+ 489 | |               <div className="flex items-center gap-2.5 shrink-0">
+ 490 | |                 <div className="hidden md:flex items-center gap-2 text-[13px] font-medium text-zinc-500"><span className="w-8 h-8 rounded-full bg-gradient-to-br from-[#008751] to-[#FCD116] flex items-center justify-center text-white text-[11px] font-bold">ED</span><span className="text-zinc-700">Expert Digital</span><BadgeCheck className="w-4 h-4 text-[#008751]"/></div>
+ 491 | |               </div>
+ 492 | |             </div>
+ 493 | |           </header>
+ 494 | |   
+ 495 | |           <div className="mt-6 relative">
+ 496 | |             <div className="animate-[fadeIn_300ms_cubic-bezier(0.2,0.8,0.2,1)]">
+ 497 | |   
+ 498 | |               {/* MISSIONS */}
+ 499 | |               {tab==="missions"&&<>
+ 500 | |                 <div className="flex items-center gap-3">
+ 501 | |                   <div className="relative flex-1"><Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400"/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Rechercher une mission..." className="w-full h-12 pl-11 pr-11 rounded-full bg-white border border-gray-100 shadow-[0_2px_12px_rgba(0,0,0,0.04)] text-[14px] placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-[#008751] focus:border-transparent transition-all"/>{search&&<button onClick={()=>setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors"><X className="w-4 h-4"/></button>}</div>
+ 502 | |                   <Link href="/missions/new" className="hidden md:flex w-12 h-12 rounded-full bg-[#008751] text-white shadow-[0_4px_14px_rgba(0,135,81,0.25)] items-center justify-center hover:shadow-md hover:brightness-110 transition-all"><Plus className="w-5 h-5"/></Link>
+ 503 | |                 </div>
+ 504 | |                 <div className="mt-5 -mx-4 px-4 md:mx-0 md:px-0 overflow-x-auto scrollbar-none"><div className="flex gap-2.5 w-max pb-2">{STATUS_TABS.map(s=>{const a=filter===s.id;return<button key={s.id} onClick={()=>setFilter(s.id)} className={`h-9 px-4 rounded-full text-[13px] font-medium inline-flex items-center gap-2 border transition-all duration-200 whitespace-nowrap ${a?"bg-[#008751] text-white border-[#008751] shadow-[0_4px_14px_rgba(0,135,81,0.25)]":"bg-white text-zinc-600 border-gray-100 hover:border-gray-200 hover:shadow-sm"}`}>{s.label}<span className={`px-1.5 py-0.5 rounded-full text-[11px] font-semibold ${a?"bg-white/20 text-white":"bg-gray-100 text-zinc-600"}`}>{counts[s.id]??0}</span></button>})}</div></div>
+ 505 | |                 <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+ 506 | |                   {filtered.map(m=><button key={m.id} onClick={()=>openMission(m)} className={`text-left group relative bg-white rounded-[20px] border border-gray-100 shadow-[0_4px_20px_rgba(0,0,0,0.04)] p-5 flex flex-col gap-4 hover:shadow-[0_8px_30px_rgba(0,0,0,0.08)] hover:-translate-y-[2px] active:scale-[0.98] transition-all duration-300 ${pressingId===m.id?"scale-[0.98] opacity-80":""}`}>
+ 507 | |                     <div className="flex items-start justify-between gap-3"><h3 className="font-semibold text-[16px] leading-[1.25] line-clamp-2 pr-2 tracking-tight text-zinc-900">{m.title}</h3><span className={`shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold ${STATUS_STYLE[m.status].bg} ${STATUS_STYLE[m.status].text}`}><span className={`w-1.5 h-1.5 rounded-full ${STATUS_STYLE[m.status].dot}`}/>{m.status}</span></div>
+ 508 | |                     <div className="flex items-center gap-3"><div className="relative"><div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#008751] to-[#FCD116] flex items-center justify-center text-white text-[11px] font-bold">{m.clientInitials}</div><div className="absolute -bottom-1 -right-1 w-4 h-4 bg-white rounded-full border border-gray-100 flex items-center justify-center"><Check className="w-2.5 h-2.5 text-[#008751]"/></div></div><div className="flex items-center gap-1.5 text-[13px]"><span className="font-medium text-zinc-800">{m.client}</span><span>{m.flag}</span><span className="text-zinc-300">•</span><span className="text-zinc-500">Vérifié</span></div></div>
+ 509 | |                     <div><div className="flex items-center justify-between mb-1.5"><span className="text-[11px] uppercase tracking-widest text-zinc-400 font-semibold">Avancement</span><span className="text-[12px] font-semibold text-zinc-700">{m.progress}%</span></div><div className="h-1.5 w-full rounded-full bg-gray-100 overflow-hidden"><div className="h-full rounded-full transition-all duration-700" style={{width:`${m.progress}%`,background:m.status==="Clôturé"?"#111827":m.status==="En attente"?"#FCD116":m.status==="Révision"?"#E8112D":"#008751"}}/></div><div className="mt-3 flex items-center gap-1.5">{m.jalons.map((j,i)=>{const done=j.status==="Clôturé";const act=j.status==="En cours"||j.status==="En attente";return<div key={j.id} className={`w-2 h-2 rounded-full transition-all duration-300 ${done?"bg-[#008751]":act?"bg-[#FCD116] animate-pulse":j.status==="Révision"?"bg-[#E8112D]":"bg-gray-200"}`} style={{transitionDelay:`${i*40}ms`}}/>})}<span className="ml-2 text-[11px] text-zinc-400">{m.jalons.filter(j=>j.status==="Clôturé").length}/{m.jalons.length} jalons</span></div></div>
+ 510 | |                     <div className="flex items-center justify-between pt-1 border-t border-gray-50 mt-1"><span className="font-semibold text-[15px] tracking-tight text-zinc-800">{m.amount}</span><span className="w-8 h-8 rounded-full bg-zinc-900 text-white flex items-center justify-center group-hover:translate-x-0.5 transition-transform"><ChevronRight className="w-4 h-4"/></span></div>
+ 511 | |                   </button>)}
+ 512 | |                   {filtered.length===0&&<div className="mt-16 text-center col-span-full"><div className="mx-auto w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-3"><Search className="w-5 h-5 text-zinc-400"/></div><p className="text-[14px] text-zinc-500">Aucune mission trouvée</p></div>}
+ 513 | |                 </div>
+ 514 | |               </>}
+ 515 | |   
+ 516 | |               {/* WALLET */}
+ 517 | |               {tab==="wallet"&&<div className="grid md:grid-cols-2 gap-4">
+ 518 | |                 <div className="bg-zinc-900 rounded-[24px] p-6 text-white relative overflow-hidden"><div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-[#008751]/30 to-[#FCD116]/20 rounded-full blur-3xl"/><div className="relative"><div className="text-[12px] uppercase tracking-widest opacity-60 font-semibold">Solde disponible</div><div className="text-[36px] font-bold tracking-tight mt-2">1 842 500 FCFA</div><div className="mt-4 flex gap-2"><button className="h-10 px-5 rounded-full bg-white text-zinc-900 text-[13px] font-semibold hover:bg-gray-100 transition-colors">Retirer</button><button className="h-10 px-5 rounded-full bg-white/15 text-white text-[13px] font-medium hover:bg-white/20 transition-colors backdrop-blur">Historique</button></div><div className="mt-8 grid grid-cols-3 gap-3">{[{k:"En séquestre",v:"620k"},{k:"En attente",v:"340k"},{k:"Ce mois",v:"+1.2M"}].map(s=><div key={s.k} className="bg-white/10 rounded-[16px] p-3 backdrop-blur"><div className="text-[11px] opacity-60">{s.k}</div><div className="font-semibold mt-1">{s.v}</div></div>)}</div></div></div>
+ 519 | |                 <div className="bg-white rounded-[20px] border border-gray-100 shadow-sm p-5"><div className="font-semibold">Transactions récentes</div><div className="mt-4 space-y-3">{[{title:"Paiement jalon 3 — Refonte UX/UI",amount:"+420k",time:"Il y a 2h"},{title:"Retrait Mobile Money",amount:"-500k",time:"Hier"},{title:"Frais FlexWork",amount:"-12k",time:"Hier"}].map((t,i)=><div key={i} className="flex items-center gap-3 p-3 rounded-2xl bg-gray-50"><div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm"><Wallet className="w-4 h-4"/></div><div className="flex-1 min-w-0"><div className="text-[13px] font-medium truncate">{t.title}</div><div className="text-[11px] text-zinc-500">{t.time}</div></div><div className={`text-[13px] font-semibold ${t.amount.startsWith("+")?"text-[#008751]":"text-zinc-700"}`}>{t.amount}</div></div>)}</div></div>
+ 520 | |               </div>}
+ 521 | |   
+ 522 | |               {/* PROFIL */}
+ 523 | |               {tab==="profil"&&<div className="max-w-[560px] mx-auto"><div className="bg-white rounded-[24px] border border-gray-100 shadow-sm p-6"><div className="flex items-center gap-4"><div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#008751] to-[#FCD116] flex items-center justify-center text-white font-bold text-[18px]">ED</div><div><div className="font-semibold flex items-center gap-2">Expert Digital <BadgeCheck className="w-4 h-4 text-[#008751]"/></div><div className="text-[13px] text-zinc-500">Développement, Design, Marketing • Cotonou • 4.9 ★</div></div></div><div className="mt-6 grid grid-cols-3 gap-3">{[{label:"Missions",val:"23"},{label:"Taux succès",val:"98%"},{label:"Réponse",val:"<2h"}].map(s=><div key={s.label} className="rounded-2xl bg-gray-50 p-3 text-center"><div className="font-bold text-[18px]">{s.val}</div><div className="text-[11px] text-zinc-500 uppercase tracking-widest font-semibold mt-1">{s.label}</div></div>)}</div><div className="mt-5 space-y-2"><Link href="/profile" className="block w-full h-11 rounded-full bg-gray-100 text-zinc-700 text-[13px] font-semibold flex items-center justify-center hover:bg-gray-200 transition-colors" style={{textDecoration:"none"}}>Modifier le profil</Link></div></div></div>}
+ 524 | |             </div>
+ 525 | |           </div>
+ 526 | |         </div>
+ 527 | |   
+ 528 | |         {/* MODAL Détail mission */}
+ 529 | |         <div className={`fixed inset-0 z-40 flex items-center justify-center p-4 md:p-6 transition-all duration-300 ${modal?"pointer-events-auto":"pointer-events-none"}`}><div onClick={closeMission} className={`absolute inset-0 bg-black/40 backdrop-blur-md transition-opacity duration-300 ${modal?"opacity-100":"opacity-0"}`}/><div ref={modalRef} className={`relative w-full max-w-2xl max-h-[85vh] bg-white rounded-[24px] shadow-2xl flex flex-col overflow-hidden transition-all duration-[300ms] ${modal?"opacity-100 scale-100":"opacity-0 scale-[0.95]"}`}>{selected&&<>
+ 530 | |           <div className="shrink-0 px-6 pt-5 pb-5 border-b border-gray-100"><div className="flex items-center justify-between gap-3"><button onClick={closeMission} className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors"><ArrowLeft className="w-4 h-4"/></button><div className="flex items-center gap-2"><span className={`px-3 py-1 rounded-full text-[12px] font-semibold ${STATUS_STYLE[selected.status].bg} ${STATUS_STYLE[selected.status].text}`}>{selected.status}</span><button onClick={closeMission} className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors"><X className="w-4 h-4"/></button></div></div><h2 className="mt-5 text-[22px] font-bold leading-tight tracking-tight text-zinc-900">{selected.title}</h2><div className="mt-5 flex items-center gap-3 p-3 rounded-[18px] bg-gray-50 border border-gray-100"><div className="relative"><div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#008751] to-[#FCD116] flex items-center justify-center text-white font-bold">{selected.clientInitials}</div><div className="absolute -bottom-1 -right-1 w-5 h-5 bg-white rounded-full border flex items-center justify-center shadow-sm"><BadgeCheck className="w-3.5 h-3.5 text-[#008751]"/></div></div><div className="flex-1 min-w-0"><div className="font-medium text-[14px] flex items-center gap-1.5">{selected.client} <span>{selected.flag}</span></div><div className="text-[12px] text-zinc-500">Client • Paiement sécurisé • 4.9★</div></div><button className="h-9 px-4 rounded-full bg-zinc-900 text-white text-[12px] font-semibold hover:bg-black transition-colors">Contacter</button></div></div>
+ 531 | |           <div className="flex-1 overflow-y-auto px-6 py-6 space-y-3 overscroll-contain"><div className="flex items-center justify-between"><h3 className="font-semibold text-[15px]">Jalons</h3><span className="text-[12px] text-zinc-500">{selected.jalons.filter(j=>j.status==="Clôturé").length}/{selected.jalons.length} complétés</span></div>
+ 532 | |           {selected.jalons.map((j,i)=>{const s=STATUS_STYLE[j.status]??STATUS_STYLE["À faire"];return<div key={j.id} className="group bg-white rounded-[18px] border border-gray-100 shadow-[0_2px_14px_rgba(0,0,0,0.03)] p-4 flex gap-3 items-center animate-[slideIn_400ms_cubic-bezier(0.2,0.8,0.2,1)_both]" style={{animationDelay:`${i*60}ms`}}><div className={`w-8 h-8 rounded-full flex items-center justify-center text-[12px] font-bold shrink-0 transition-colors ${j.status==="Clôturé"?"bg-[#008751] text-white":"bg-gray-100 text-zinc-600"}`}>{j.status==="Clôturé"?<Check className="w-4 h-4"/>:i+1}</div><div className="flex-1 min-w-0"><div className="font-medium text-[13px] leading-tight truncate">{j.name}</div><div className="mt-2 flex items-center gap-2"><div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden max-w-[120px]"><div className="h-full rounded-full transition-all duration-700" style={{width:`${j.progress}%`,background:j.status==="Clôturé"?"#008751":j.status==="Révision"?"#E8112D":"#111827"}}/></div><span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${s.bg} ${s.text}`}>{j.status}</span></div>{j.revisionComment&&<div className="mt-2 text-[11px] text-[#E8112D] bg-red-50 border border-red-100 rounded-xl p-2 leading-snug">{j.revisionComment}</div>}</div><div className="shrink-0">{j.status==="À faire"?<button onClick={()=>startJalon(j.id)} disabled={!!submitting} className="h-8 px-3.5 rounded-full bg-[#008751] text-white text-[12px] font-semibold shadow-[0_4px_12px_rgba(0,135,81,0.25)] hover:brightness-110 active:scale-[0.96] transition-all flex items-center gap-1.5">{submitting===j.id?<LoaderCircle className="w-3.5 h-3.5 animate-spin"/>:<Sparkles className="w-3.5 h-3.5"/>}Démarrer</button>:j.status==="En cours"?<button onClick={()=>openProof(j)} className="h-8 px-3.5 rounded-full bg-[#FCD116] text-zinc-900 text-[12px] font-semibold shadow-sm hover:brightness-105 active:scale-[0.96] transition-all">Soumettre preuves</button>:j.status==="Révision"?<button onClick={()=>openProof(j)} className="h-8 px-3.5 rounded-full border border-[#E8112D] text-[#E8112D] text-[12px] font-semibold hover:bg-red-50 active:scale-[0.96] transition-all">Faire révision</button>:j.status==="En attente"?<span className="h-8 px-3 rounded-full bg-gray-100 text-zinc-500 text-[11px] font-medium inline-flex items-center gap-1.5"><Clock className="w-3 h-3"/> En attente</span>:<span className="w-8 h-8 rounded-full bg-[#008751] text-white flex items-center justify-center"><CircleCheck className="w-5 h-5"/></span>}</div></div>})}
+ 533 | |           <div className="mt-6 rounded-[18px] bg-zinc-900 text-white p-4 flex items-center justify-between"><div><div className="text-[11px] uppercase tracking-widest opacity-60 font-semibold">Total mission</div><div className="font-bold text-[18px] mt-1">{selected.amount}</div></div><div className="text-right"><div className="text-[12px] opacity-70">Avancement global</div><div className="font-semibold mt-1">{selected.progress}%</div></div></div></div>
+ 534 | |         </>}</div></div>
+ 535 | |   
+ 536 | |         {/* MODAL Soumission preuves */}
+ 537 | |         <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 md:p-6 transition-all duration-300 ${proofModal?"pointer-events-auto":"pointer-events-none"}`}><div onClick={()=>setProofModal(false)} className={`absolute inset-0 bg-black/50 backdrop-blur-md transition-opacity duration-300 ${proofModal?"opacity-100":"opacity-0"}`}/><div className={`relative w-full max-w-xl max-h-[86vh] bg-white rounded-[24px] shadow-2xl flex flex-col overflow-hidden transition-all duration-[300ms] ${proofModal?"opacity-100 scale-100":"opacity-0 scale-[0.9]"}`}>{proofJalon&&<>
+ 538 | |           <div className="shrink-0 px-6 pt-5 pb-4 border-b border-gray-100"><div className="flex items-center justify-between"><div><h3 className="font-bold text-[18px] tracking-tight">{proofJalon.status==="Révision"?"Corriger & resoumettre":"Soumettre les preuves"}</h3><p className="text-[12px] text-zinc-500 mt-0.5">{proofJalon.name}</p></div><button onClick={()=>setProofModal(false)} className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors"><X className="w-4 h-4"/></button></div>{proofJalon.status==="Révision"&&proofJalon.revisionComment&&<div className="mt-4 p-3 rounded-2xl bg-red-50 border border-red-200 flex gap-2.5 text-left"><CircleAlert className="w-4 h-4 text-[#E8112D] shrink-0 mt-0.5"/><div><div className="text-[12px] font-semibold text-[#E8112D]">Commentaire client</div><div className="text-[12px] text-red-900/80 mt-1 leading-snug">{proofJalon.revisionComment}</div></div></div>}</div>
+ 539 | |           <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5 overscroll-contain">
+ 540 | |             <div><label className="text-[11px] uppercase tracking-widest font-semibold text-zinc-500">Description du travail réalisé</label><textarea placeholder="Décrivez ce qui a été fait..." defaultValue={proofJalon.status==="Révision"?"Correction effectuée suite au retour client.":""} className="mt-2 w-full min-h-[96px] rounded-2xl bg-gray-50 border-0 p-4 text-[13px] placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-[#008751] resize-none"/></div>
+ 541 | |             <div><label className="text-[11px] uppercase tracking-widest font-semibold text-zinc-500">Preuves visuelles</label><div className="mt-2 grid grid-cols-2 gap-3"><button onClick={()=>setProofFiles(p=>[...p,`photo_${p.length+1}.jpg`])} className="group relative rounded-[18px] border-2 border-dashed border-gray-200 bg-gray-50/70 p-4 flex flex-col items-center justify-center gap-2 h-[104px] hover:bg-gray-50 hover:border-gray-300 transition-colors"><div className="w-9 h-9 rounded-full bg-white shadow-sm flex items-center justify-center group-hover:scale-105 transition-transform"><Image className="w-4 h-4"/></div><span className="text-[11px] font-medium text-zinc-600">Ajouter photos</span></button><button onClick={()=>setProofFiles(p=>[...p,`doc_${p.length+1}.pdf`])} className="group relative rounded-[18px] border-2 border-dashed border-gray-200 bg-gray-50/70 p-4 flex flex-col items-center justify-center gap-2 h-[104px] hover:bg-gray-50 hover:border-gray-300 transition-colors"><div className="w-9 h-9 rounded-full bg-white shadow-sm flex items-center justify-center group-hover:scale-105 transition-transform"><FileText className="w-4 h-4"/></div><span className="text-[11px] font-medium text-zinc-600">Ajouter fichier</span></button></div>{proofFiles.length>0&&<div className="mt-3 flex flex-wrap gap-2">{proofFiles.map((f,i)=><span key={i} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-zinc-900 text-white text-[11px] font-medium"><Upload className="w-3 h-3"/>{f}<button onClick={()=>setProofFiles(p=>p.filter((_,j)=>j!==i))} className="ml-1 w-4 h-4 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30"><X className="w-3 h-3"/></button></span>)}</div>}</div>
+ 542 | |             <div><label className="text-[11px] uppercase tracking-widest font-semibold text-zinc-500">Localisation & preuve terrain</label><div className="mt-2 p-3 rounded-2xl bg-gray-50 border border-gray-100 flex items-center justify-between"><div className="flex items-center gap-2.5"><div className={`w-9 h-9 rounded-full flex items-center justify-center ${geoOn?"bg-[#008751] text-white":"bg-white text-zinc-600 shadow-sm"}`}><MapPin className="w-4 h-4"/></div><div><div className="text-[12px] font-medium">{geoOn?"Localisation activée":"Ajouter géolocalisation"}</div><div className="text-[11px] text-zinc-500">{geoOn?"Cotonou, Haie Vive • Précis à 12m":"Recommandé pour validation rapide"}</div></div></div><button onClick={()=>setGeoOn(!geoOn)} className={`h-8 px-3.5 rounded-full text-[11px] font-semibold transition-all ${geoOn?"bg-zinc-900 text-white":"bg-white border border-gray-200 text-zinc-700 shadow-sm"}`}>{geoOn?"Activée":"Activer"}</button></div></div>
+ 543 | |           </div>
+ 544 | |           <div className="shrink-0 p-4 border-t border-gray-100 bg-white rounded-b-[24px] flex gap-3"><button onClick={()=>setProofModal(false)} className="flex-1 h-12 rounded-full bg-gray-100 text-zinc-700 text-[14px] font-semibold hover:bg-gray-200 transition-colors">Annuler</button><button onClick={submitProof} disabled={!!submitting} className="flex-1 h-12 rounded-full bg-[#008751] text-white text-[14px] font-semibold shadow-[0_8px_24px_rgba(0,135,81,0.3)] hover:brightness-105 active:scale-[0.98] transition-all flex items-center justify-center gap-2">{submitting?<LoaderCircle className="w-4 h-4 animate-spin"/>:<Check className="w-4 h-4"/>}Soumettre</button></div>
+ 545 | |         </>}</div></div>
+ 546 | |   
+ 547 | |         {/* TOASTS */}
+ 548 | |         <div className="fixed bottom-24 md:bottom-8 left-1/2 -translate-x-1/2 z-[60] flex flex-col gap-2 items-center pointer-events-none">{toasts.map(t=><div key={t.id} className="pointer-events-auto bg-zinc-900 text-white rounded-full px-5 py-3 shadow-[0_8px_30px_rgba(0,0,0,0.25)] flex items-center gap-2.5 text-[13px] font-medium animate-[toastIn_300ms_cubic-bezier(0.2,0.8,0.2,1)]"><span className="text-[14px]">{t.icon}</span>{t.msg}</div>)}</div>
+ 549 | |   
+ 550 | |         {/* MOBILE BOTTOM NAV */}
+ 551 | |         <div className="md:hidden fixed bottom-0 left-0 right-0 z-30"><div className="mx-3 mb-3 rounded-[24px] bg-white/90 backdrop-blur-xl border border-gray-100 shadow-[0_8px_40px_rgba(0,0,0,0.12)] flex items-center justify-around p-2">{[{id:"missions"as const,Icon:Briefcase,label:"Missions"},{id:"wallet"as const,Icon:Wallet,label:"Wallet"},{id:"profil"as const,Icon:User,label:"Profil"}].map(({id,Icon,label})=><button key={id} onClick={()=>{setTab(id);tick(t=>t+1)}} className={`flex-1 h-12 rounded-full flex flex-col items-center justify-center gap-0.5 transition-all duration-200 ${tab===id?"bg-zinc-900 text-white shadow-sm":"text-zinc-500"}`}><Icon className="w-4 h-4"/><span className="text-[10px] font-medium">{label}</span></button>)}</div></div>
+ 552 | |   
+ 553 | |         <style>{`.scrollbar-none::-webkit-scrollbar{display:none}.scrollbar-none{-ms-overflow-style:none;scrollbar-width:none}@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}@keyframes slideIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}@keyframes toastIn{from{opacity:0;transform:translate(-50%,12px) scale(0.96)}to{opacity:1;transform:translate(-50%,0) scale(1)}}`}</style>
+ 554 | |       </div>
+ 555 | `->   );
+ 556 |     }
+     `----
+
+  x Expression expected
+     ,-[C:\laragon\www\Flexwork\src\app\dashboard\expert-digital\page.tsx:553:1]
+ 553 |       <style>{`.scrollbar-none::-webkit-scrollbar{display:none}.scrollbar-none{-ms-overflow-style:none;scrollbar-width:none}@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}@keyframes slideIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}@keyframes toastIn{from{opacity:0;transform:translate(-50%,12px) scale(0.96)}to{opacity:1;transform:translate(-50%,0) scale(1)}}`}</style>
+ 554 |     </div>
+ 555 |   );
+ 556 | }
+     : ^
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/app/dashboard/expert-digital/page.tsx @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/app-index.js:32
+[ 2491868ms] [LOG] [Fast Refresh] done in 3911ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[ 2492651ms] [ERROR] ./src/app/dashboard/expert-digital/page.tsx
+Error: 
+  x Return statement is not allowed here
+     ,-[C:\laragon\www\Flexwork\src\app\dashboard\expert-digital\page.tsx:470:1]
+ 470 |       );
+ 471 |     }
+ 472 |     
+ 473 | ,->   return (
+ 474 | |       <div className="min-h-screen bg-[#f8fafc] text-zinc-900 antialiased selection:bg-[#008751]/20 selection:text-[#008751] relative overflow-x-hidden">
+ 475 | |         <div className="pointer-events-none fixed inset-0">
+ 476 | |           <div className="absolute -top-32 -left-32 w-[560px] h-[560px] rounded-full blur-[120px] opacity-[0.06] bg-[#008751]"/><div className="absolute top-20 -right-24 w-[480px] h-[480px] rounded-full blur-[110px] opacity-[0.07] bg-[#FCD116]"/><div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[900px] h-[400px] rounded-full blur-[130px] opacity-[0.05] bg-[#008751]"/>
+ 477 | |         </div>
+ 478 | |         <div className="relative max-w-6xl mx-auto px-4 md:px-6 pb-28 md:pb-10">
+ 479 | |           {/* Header */}
+ 480 | |           <header className="sticky top-0 z-30 -mx-4 md:mx-0 px-4 md:px-0 py-3 md:py-5 backdrop-blur-xl bg-[#f8fafc]/80 border-b border-gray-100/60 md:border-0">
+ 481 | |             <div className="flex items-center justify-between gap-3">
+ 482 | |               <Link href="/" className="flex items-center gap-3 shrink-0" style={{textDecoration:"none"}}><BeninFlag/><span className="font-bold text-[22px] tracking-tight text-zinc-900">Flex<span style={{color:"#008751"}}>Work</span></span></Link>
+ 483 | |               <div className="relative flex-1 max-w-[420px] mx-auto">
+ 484 | |                 <div className="relative flex bg-white rounded-full p-1 shadow-[0_2px_12px_rgba(0,0,0,0.06)] border border-gray-100">
+ 485 | |                   <div className="absolute top-1 bottom-1 rounded-full bg-zinc-900 shadow-sm transition-all duration-300" style={{width:"calc((100% - 8px)/3)",transform:`translateX(${tab==="missions"?"0%":tab==="wallet"?"100%":"200%"})`,left:4}}/>
+ 486 | |                   {[{id:"missions"as const,label:"Mes missions",Icon:Briefcase},{id:"wallet"as const,label:"Wallet",Icon:Wallet},{id:"profil"as const,label:"Profil",Icon:User}].map(({id,label,Icon})=><button key={id} onClick={()=>{setTab(id);tick(t=>t+1)}} className={`relative z-10 flex-1 h-8 rounded-full text-[13px] font-medium flex items-center justify-center gap-1.5 transition-colors duration-200 ${tab===id?"text-white":"text-zinc-600"}`}><Icon className="w-4 h-4"/><span className="hidden sm:inline">{label}</span></button>)}
+ 487 | |                 </div>
+ 488 | |               </div>
+ 489 | |               <div className="flex items-center gap-2.5 shrink-0">
+ 490 | |                 <div className="hidden md:flex items-center gap-2 text-[13px] font-medium text-zinc-500"><span className="w-8 h-8 rounded-full bg-gradient-to-br from-[#008751] to-[#FCD116] flex items-center justify-center text-white text-[11px] font-bold">ED</span><span className="text-zinc-700">Expert Digital</span><BadgeCheck className="w-4 h-4 text-[#008751]"/></div>
+ 491 | |               </div>
+ 492 | |             </div>
+ 493 | |           </header>
+ 494 | |   
+ 495 | |           <div className="mt-6 relative">
+ 496 | |             <div className="animate-[fadeIn_300ms_cubic-bezier(0.2,0.8,0.2,1)]">
+ 497 | |   
+ 498 | |               {/* MISSIONS */}
+ 499 | |               {tab==="missions"&&<>
+ 500 | |                 <div className="flex items-center gap-3">
+ 501 | |                   <div className="relative flex-1"><Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400"/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Rechercher une mission..." className="w-full h-12 pl-11 pr-11 rounded-full bg-white border border-gray-100 shadow-[0_2px_12px_rgba(0,0,0,0.04)] text-[14px] placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-[#008751] focus:border-transparent transition-all"/>{search&&<button onClick={()=>setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors"><X className="w-4 h-4"/></button>}</div>
+ 502 | |                   <Link href="/missions/new" className="hidden md:flex w-12 h-12 rounded-full bg-[#008751] text-white shadow-[0_4px_14px_rgba(0,135,81,0.25)] items-center justify-center hover:shadow-md hover:brightness-110 transition-all"><Plus className="w-5 h-5"/></Link>
+ 503 | |                 </div>
+ 504 | |                 <div className="mt-5 -mx-4 px-4 md:mx-0 md:px-0 overflow-x-auto scrollbar-none"><div className="flex gap-2.5 w-max pb-2">{STATUS_TABS.map(s=>{const a=filter===s.id;return<button key={s.id} onClick={()=>setFilter(s.id)} className={`h-9 px-4 rounded-full text-[13px] font-medium inline-flex items-center gap-2 border transition-all duration-200 whitespace-nowrap ${a?"bg-[#008751] text-white border-[#008751] shadow-[0_4px_14px_rgba(0,135,81,0.25)]":"bg-white text-zinc-600 border-gray-100 hover:border-gray-200 hover:shadow-sm"}`}>{s.label}<span className={`px-1.5 py-0.5 rounded-full text-[11px] font-semibold ${a?"bg-white/20 text-white":"bg-gray-100 text-zinc-600"}`}>{counts[s.id]??0}</span></button>})}</div></div>
+ 505 | |                 <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+ 506 | |                   {filtered.map(m=><button key={m.id} onClick={()=>openMission(m)} className={`text-left group relative bg-white rounded-[20px] border border-gray-100 shadow-[0_4px_20px_rgba(0,0,0,0.04)] p-5 flex flex-col gap-4 hover:shadow-[0_8px_30px_rgba(0,0,0,0.08)] hover:-translate-y-[2px] active:scale-[0.98] transition-all duration-300 ${pressingId===m.id?"scale-[0.98] opacity-80":""}`}>
+ 507 | |                     <div className="flex items-start justify-between gap-3"><h3 className="font-semibold text-[16px] leading-[1.25] line-clamp-2 pr-2 tracking-tight text-zinc-900">{m.title}</h3><span className={`shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold ${STATUS_STYLE[m.status].bg} ${STATUS_STYLE[m.status].text}`}><span className={`w-1.5 h-1.5 rounded-full ${STATUS_STYLE[m.status].dot}`}/>{m.status}</span></div>
+ 508 | |                     <div className="flex items-center gap-3"><div className="relative"><div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#008751] to-[#FCD116] flex items-center justify-center text-white text-[11px] font-bold">{m.clientInitials}</div><div className="absolute -bottom-1 -right-1 w-4 h-4 bg-white rounded-full border border-gray-100 flex items-center justify-center"><Check className="w-2.5 h-2.5 text-[#008751]"/></div></div><div className="flex items-center gap-1.5 text-[13px]"><span className="font-medium text-zinc-800">{m.client}</span><span>{m.flag}</span><span className="text-zinc-300">•</span><span className="text-zinc-500">Vérifié</span></div></div>
+ 509 | |                     <div><div className="flex items-center justify-between mb-1.5"><span className="text-[11px] uppercase tracking-widest text-zinc-400 font-semibold">Avancement</span><span className="text-[12px] font-semibold text-zinc-700">{m.progress}%</span></div><div className="h-1.5 w-full rounded-full bg-gray-100 overflow-hidden"><div className="h-full rounded-full transition-all duration-700" style={{width:`${m.progress}%`,background:m.status==="Clôturé"?"#111827":m.status==="En attente"?"#FCD116":m.status==="Révision"?"#E8112D":"#008751"}}/></div><div className="mt-3 flex items-center gap-1.5">{m.jalons.map((j,i)=>{const done=j.status==="Clôturé";const act=j.status==="En cours"||j.status==="En attente";return<div key={j.id} className={`w-2 h-2 rounded-full transition-all duration-300 ${done?"bg-[#008751]":act?"bg-[#FCD116] animate-pulse":j.status==="Révision"?"bg-[#E8112D]":"bg-gray-200"}`} style={{transitionDelay:`${i*40}ms`}}/>})}<span className="ml-2 text-[11px] text-zinc-400">{m.jalons.filter(j=>j.status==="Clôturé").length}/{m.jalons.length} jalons</span></div></div>
+ 510 | |                     <div className="flex items-center justify-between pt-1 border-t border-gray-50 mt-1"><span className="font-semibold text-[15px] tracking-tight text-zinc-800">{m.amount}</span><span className="w-8 h-8 rounded-full bg-zinc-900 text-white flex items-center justify-center group-hover:translate-x-0.5 transition-transform"><ChevronRight className="w-4 h-4"/></span></div>
+ 511 | |                   </button>)}
+ 512 | |                   {filtered.length===0&&<div className="mt-16 text-center col-span-full"><div className="mx-auto w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-3"><Search className="w-5 h-5 text-zinc-400"/></div><p className="text-[14px] text-zinc-500">Aucune mission trouvée</p></div>}
+ 513 | |                 </div>
+ 514 | |               </>}
+ 515 | |   
+ 516 | |               {/* WALLET */}
+ 517 | |               {tab==="wallet"&&<div className="grid md:grid-cols-2 gap-4">
+ 518 | |                 <div className="bg-zinc-900 rounded-[24px] p-6 text-white relative overflow-hidden"><div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-[#008751]/30 to-[#FCD116]/20 rounded-full blur-3xl"/><div className="relative"><div className="text-[12px] uppercase tracking-widest opacity-60 font-semibold">Solde disponible</div><div className="text-[36px] font-bold tracking-tight mt-2">1 842 500 FCFA</div><div className="mt-4 flex gap-2"><button className="h-10 px-5 rounded-full bg-white text-zinc-900 text-[13px] font-semibold hover:bg-gray-100 transition-colors">Retirer</button><button className="h-10 px-5 rounded-full bg-white/15 text-white text-[13px] font-medium hover:bg-white/20 transition-colors backdrop-blur">Historique</button></div><div className="mt-8 grid grid-cols-3 gap-3">{[{k:"En séquestre",v:"620k"},{k:"En attente",v:"340k"},{k:"Ce mois",v:"+1.2M"}].map(s=><div key={s.k} className="bg-white/10 rounded-[16px] p-3 backdrop-blur"><div className="text-[11px] opacity-60">{s.k}</div><div className="font-semibold mt-1">{s.v}</div></div>)}</div></div></div>
+ 519 | |                 <div className="bg-white rounded-[20px] border border-gray-100 shadow-sm p-5"><div className="font-semibold">Transactions récentes</div><div className="mt-4 space-y-3">{[{title:"Paiement jalon 3 — Refonte UX/UI",amount:"+420k",time:"Il y a 2h"},{title:"Retrait Mobile Money",amount:"-500k",time:"Hier"},{title:"Frais FlexWork",amount:"-12k",time:"Hier"}].map((t,i)=><div key={i} className="flex items-center gap-3 p-3 rounded-2xl bg-gray-50"><div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm"><Wallet className="w-4 h-4"/></div><div className="flex-1 min-w-0"><div className="text-[13px] font-medium truncate">{t.title}</div><div className="text-[11px] text-zinc-500">{t.time}</div></div><div className={`text-[13px] font-semibold ${t.amount.startsWith("+")?"text-[#008751]":"text-zinc-700"}`}>{t.amount}</div></div>)}</div></div>
+ 520 | |               </div>}
+ 521 | |   
+ 522 | |               {/* PROFIL */}
+ 523 | |               {tab==="profil"&&<div className="max-w-[560px] mx-auto"><div className="bg-white rounded-[24px] border border-gray-100 shadow-sm p-6"><div className="flex items-center gap-4"><div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#008751] to-[#FCD116] flex items-center justify-center text-white font-bold text-[18px]">ED</div><div><div className="font-semibold flex items-center gap-2">Expert Digital <BadgeCheck className="w-4 h-4 text-[#008751]"/></div><div className="text-[13px] text-zinc-500">Développement, Design, Marketing • Cotonou • 4.9 ★</div></div></div><div className="mt-6 grid grid-cols-3 gap-3">{[{label:"Missions",val:"23"},{label:"Taux succès",val:"98%"},{label:"Réponse",val:"<2h"}].map(s=><div key={s.label} className="rounded-2xl bg-gray-50 p-3 text-center"><div className="font-bold text-[18px]">{s.val}</div><div className="text-[11px] text-zinc-500 uppercase tracking-widest font-semibold mt-1">{s.label}</div></div>)}</div><div className="mt-5 space-y-2"><Link href="/profile" className="block w-full h-11 rounded-full bg-gray-100 text-zinc-700 text-[13px] font-semibold flex items-center justify-center hover:bg-gray-200 transition-colors" style={{textDecoration:"none"}}>Modifier le profil</Link></div></div></div>}
+ 524 | |             </div>
+ 525 | |           </div>
+ 526 | |         </div>
+ 527 | |   
+ 528 | |         {/* MODAL Détail mission */}
+ 529 | |         <div className={`fixed inset-0 z-40 flex items-center justify-center p-4 md:p-6 transition-all duration-300 ${modal?"pointer-events-auto":"pointer-events-none"}`}><div onClick={closeMission} className={`absolute inset-0 bg-black/40 backdrop-blur-md transition-opacity duration-300 ${modal?"opacity-100":"opacity-0"}`}/><div ref={modalRef} className={`relative w-full max-w-2xl max-h-[85vh] bg-white rounded-[24px] shadow-2xl flex flex-col overflow-hidden transition-all duration-[300ms] ${modal?"opacity-100 scale-100":"opacity-0 scale-[0.95]"}`}>{selected&&<>
+ 530 | |           <div className="shrink-0 px-6 pt-5 pb-5 border-b border-gray-100"><div className="flex items-center justify-between gap-3"><button onClick={closeMission} className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors"><ArrowLeft className="w-4 h-4"/></button><div className="flex items-center gap-2"><span className={`px-3 py-1 rounded-full text-[12px] font-semibold ${STATUS_STYLE[selected.status].bg} ${STATUS_STYLE[selected.status].text}`}>{selected.status}</span><button onClick={closeMission} className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors"><X className="w-4 h-4"/></button></div></div><h2 className="mt-5 text-[22px] font-bold leading-tight tracking-tight text-zinc-900">{selected.title}</h2><div className="mt-5 flex items-center gap-3 p-3 rounded-[18px] bg-gray-50 border border-gray-100"><div className="relative"><div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#008751] to-[#FCD116] flex items-center justify-center text-white font-bold">{selected.clientInitials}</div><div className="absolute -bottom-1 -right-1 w-5 h-5 bg-white rounded-full border flex items-center justify-center shadow-sm"><BadgeCheck className="w-3.5 h-3.5 text-[#008751]"/></div></div><div className="flex-1 min-w-0"><div className="font-medium text-[14px] flex items-center gap-1.5">{selected.client} <span>{selected.flag}</span></div><div className="text-[12px] text-zinc-500">Client • Paiement sécurisé • 4.9★</div></div><button className="h-9 px-4 rounded-full bg-zinc-900 text-white text-[12px] font-semibold hover:bg-black transition-colors">Contacter</button></div></div>
+ 531 | |           <div className="flex-1 overflow-y-auto px-6 py-6 space-y-3 overscroll-contain"><div className="flex items-center justify-between"><h3 className="font-semibold text-[15px]">Jalons</h3><span className="text-[12px] text-zinc-500">{selected.jalons.filter(j=>j.status==="Clôturé").length}/{selected.jalons.length} complétés</span></div>
+ 532 | |           {selected.jalons.map((j,i)=>{const s=STATUS_STYLE[j.status]??STATUS_STYLE["À faire"];return<div key={j.id} className="group bg-white rounded-[18px] border border-gray-100 shadow-[0_2px_14px_rgba(0,0,0,0.03)] p-4 flex gap-3 items-center animate-[slideIn_400ms_cubic-bezier(0.2,0.8,0.2,1)_both]" style={{animationDelay:`${i*60}ms`}}><div className={`w-8 h-8 rounded-full flex items-center justify-center text-[12px] font-bold shrink-0 transition-colors ${j.status==="Clôturé"?"bg-[#008751] text-white":"bg-gray-100 text-zinc-600"}`}>{j.status==="Clôturé"?<Check className="w-4 h-4"/>:i+1}</div><div className="flex-1 min-w-0"><div className="font-medium text-[13px] leading-tight truncate">{j.name}</div><div className="mt-2 flex items-center gap-2"><div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden max-w-[120px]"><div className="h-full rounded-full transition-all duration-700" style={{width:`${j.progress}%`,background:j.status==="Clôturé"?"#008751":j.status==="Révision"?"#E8112D":"#111827"}}/></div><span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${s.bg} ${s.text}`}>{j.status}</span></div>{j.revisionComment&&<div className="mt-2 text-[11px] text-[#E8112D] bg-red-50 border border-red-100 rounded-xl p-2 leading-snug">{j.revisionComment}</div>}</div><div className="shrink-0">{j.status==="À faire"?<button onClick={()=>startJalon(j.id)} disabled={!!submitting} className="h-8 px-3.5 rounded-full bg-[#008751] text-white text-[12px] font-semibold shadow-[0_4px_12px_rgba(0,135,81,0.25)] hover:brightness-110 active:scale-[0.96] transition-all flex items-center gap-1.5">{submitting===j.id?<LoaderCircle className="w-3.5 h-3.5 animate-spin"/>:<Sparkles className="w-3.5 h-3.5"/>}Démarrer</button>:j.status==="En cours"?<button onClick={()=>openProof(j)} className="h-8 px-3.5 rounded-full bg-[#FCD116] text-zinc-900 text-[12px] font-semibold shadow-sm hover:brightness-105 active:scale-[0.96] transition-all">Soumettre preuves</button>:j.status==="Révision"?<button onClick={()=>openProof(j)} className="h-8 px-3.5 rounded-full border border-[#E8112D] text-[#E8112D] text-[12px] font-semibold hover:bg-red-50 active:scale-[0.96] transition-all">Faire révision</button>:j.status==="En attente"?<span className="h-8 px-3 rounded-full bg-gray-100 text-zinc-500 text-[11px] font-medium inline-flex items-center gap-1.5"><Clock className="w-3 h-3"/> En attente</span>:<span className="w-8 h-8 rounded-full bg-[#008751] text-white flex items-center justify-center"><CircleCheck className="w-5 h-5"/></span>}</div></div>})}
+ 533 | |           <div className="mt-6 rounded-[18px] bg-zinc-900 text-white p-4 flex items-center justify-between"><div><div className="text-[11px] uppercase tracking-widest opacity-60 font-semibold">Total mission</div><div className="font-bold text-[18px] mt-1">{selected.amount}</div></div><div className="text-right"><div className="text-[12px] opacity-70">Avancement global</div><div className="font-semibold mt-1">{selected.progress}%</div></div></div></div>
+ 534 | |         </>}</div></div>
+ 535 | |   
+ 536 | |         {/* MODAL Soumission preuves */}
+ 537 | |         <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 md:p-6 transition-all duration-300 ${proofModal?"pointer-events-auto":"pointer-events-none"}`}><div onClick={()=>setProofModal(false)} className={`absolute inset-0 bg-black/50 backdrop-blur-md transition-opacity duration-300 ${proofModal?"opacity-100":"opacity-0"}`}/><div className={`relative w-full max-w-xl max-h-[86vh] bg-white rounded-[24px] shadow-2xl flex flex-col overflow-hidden transition-all duration-[300ms] ${proofModal?"opacity-100 scale-100":"opacity-0 scale-[0.9]"}`}>{proofJalon&&<>
+ 538 | |           <div className="shrink-0 px-6 pt-5 pb-4 border-b border-gray-100"><div className="flex items-center justify-between"><div><h3 className="font-bold text-[18px] tracking-tight">{proofJalon.status==="Révision"?"Corriger & resoumettre":"Soumettre les preuves"}</h3><p className="text-[12px] text-zinc-500 mt-0.5">{proofJalon.name}</p></div><button onClick={()=>setProofModal(false)} className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors"><X className="w-4 h-4"/></button></div>{proofJalon.status==="Révision"&&proofJalon.revisionComment&&<div className="mt-4 p-3 rounded-2xl bg-red-50 border border-red-200 flex gap-2.5 text-left"><CircleAlert className="w-4 h-4 text-[#E8112D] shrink-0 mt-0.5"/><div><div className="text-[12px] font-semibold text-[#E8112D]">Commentaire client</div><div className="text-[12px] text-red-900/80 mt-1 leading-snug">{proofJalon.revisionComment}</div></div></div>}</div>
+ 539 | |           <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5 overscroll-contain">
+ 540 | |             <div><label className="text-[11px] uppercase tracking-widest font-semibold text-zinc-500">Description du travail réalisé</label><textarea placeholder="Décrivez ce qui a été fait..." defaultValue={proofJalon.status==="Révision"?"Correction effectuée suite au retour client.":""} className="mt-2 w-full min-h-[96px] rounded-2xl bg-gray-50 border-0 p-4 text-[13px] placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-[#008751] resize-none"/></div>
+ 541 | |             <div><label className="text-[11px] uppercase tracking-widest font-semibold text-zinc-500">Preuves visuelles</label><div className="mt-2 grid grid-cols-2 gap-3"><button onClick={()=>setProofFiles(p=>[...p,`photo_${p.length+1}.jpg`])} className="group relative rounded-[18px] border-2 border-dashed border-gray-200 bg-gray-50/70 p-4 flex flex-col items-center justify-center gap-2 h-[104px] hover:bg-gray-50 hover:border-gray-300 transition-colors"><div className="w-9 h-9 rounded-full bg-white shadow-sm flex items-center justify-center group-hover:scale-105 transition-transform"><Image className="w-4 h-4"/></div><span className="text-[11px] font-medium text-zinc-600">Ajouter photos</span></button><button onClick={()=>setProofFiles(p=>[...p,`doc_${p.length+1}.pdf`])} className="group relative rounded-[18px] border-2 border-dashed border-gray-200 bg-gray-50/70 p-4 flex flex-col items-center justify-center gap-2 h-[104px] hover:bg-gray-50 hover:border-gray-300 transition-colors"><div className="w-9 h-9 rounded-full bg-white shadow-sm flex items-center justify-center group-hover:scale-105 transition-transform"><FileText className="w-4 h-4"/></div><span className="text-[11px] font-medium text-zinc-600">Ajouter fichier</span></button></div>{proofFiles.length>0&&<div className="mt-3 flex flex-wrap gap-2">{proofFiles.map((f,i)=><span key={i} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-zinc-900 text-white text-[11px] font-medium"><Upload className="w-3 h-3"/>{f}<button onClick={()=>setProofFiles(p=>p.filter((_,j)=>j!==i))} className="ml-1 w-4 h-4 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30"><X className="w-3 h-3"/></button></span>)}</div>}</div>
+ 542 | |             <div><label className="text-[11px] uppercase tracking-widest font-semibold text-zinc-500">Localisation & preuve terrain</label><div className="mt-2 p-3 rounded-2xl bg-gray-50 border border-gray-100 flex items-center justify-between"><div className="flex items-center gap-2.5"><div className={`w-9 h-9 rounded-full flex items-center justify-center ${geoOn?"bg-[#008751] text-white":"bg-white text-zinc-600 shadow-sm"}`}><MapPin className="w-4 h-4"/></div><div><div className="text-[12px] font-medium">{geoOn?"Localisation activée":"Ajouter géolocalisation"}</div><div className="text-[11px] text-zinc-500">{geoOn?"Cotonou, Haie Vive • Précis à 12m":"Recommandé pour validation rapide"}</div></div></div><button onClick={()=>setGeoOn(!geoOn)} className={`h-8 px-3.5 rounded-full text-[11px] font-semibold transition-all ${geoOn?"bg-zinc-900 text-white":"bg-white border border-gray-200 text-zinc-700 shadow-sm"}`}>{geoOn?"Activée":"Activer"}</button></div></div>
+ 543 | |           </div>
+ 544 | |           <div className="shrink-0 p-4 border-t border-gray-100 bg-white rounded-b-[24px] flex gap-3"><button onClick={()=>setProofModal(false)} className="flex-1 h-12 rounded-full bg-gray-100 text-zinc-700 text-[14px] font-semibold hover:bg-gray-200 transition-colors">Annuler</button><button onClick={submitProof} disabled={!!submitting} className="flex-1 h-12 rounded-full bg-[#008751] text-white text-[14px] font-semibold shadow-[0_8px_24px_rgba(0,135,81,0.3)] hover:brightness-105 active:scale-[0.98] transition-all flex items-center justify-center gap-2">{submitting?<LoaderCircle className="w-4 h-4 animate-spin"/>:<Check className="w-4 h-4"/>}Soumettre</button></div>
+ 545 | |         </>}</div></div>
+ 546 | |   
+ 547 | |         {/* TOASTS */}
+ 548 | |         <div className="fixed bottom-24 md:bottom-8 left-1/2 -translate-x-1/2 z-[60] flex flex-col gap-2 items-center pointer-events-none">{toasts.map(t=><div key={t.id} className="pointer-events-auto bg-zinc-900 text-white rounded-full px-5 py-3 shadow-[0_8px_30px_rgba(0,0,0,0.25)] flex items-center gap-2.5 text-[13px] font-medium animate-[toastIn_300ms_cubic-bezier(0.2,0.8,0.2,1)]"><span className="text-[14px]">{t.icon}</span>{t.msg}</div>)}</div>
+ 549 | |   
+ 550 | |         {/* MOBILE BOTTOM NAV */}
+ 551 | |         <div className="md:hidden fixed bottom-0 left-0 right-0 z-30"><div className="mx-3 mb-3 rounded-[24px] bg-white/90 backdrop-blur-xl border border-gray-100 shadow-[0_8px_40px_rgba(0,0,0,0.12)] flex items-center justify-around p-2">{[{id:"missions"as const,Icon:Briefcase,label:"Missions"},{id:"wallet"as const,Icon:Wallet,label:"Wallet"},{id:"profil"as const,Icon:User,label:"Profil"}].map(({id,Icon,label})=><button key={id} onClick={()=>{setTab(id);tick(t=>t+1)}} className={`flex-1 h-12 rounded-full flex flex-col items-center justify-center gap-0.5 transition-all duration-200 ${tab===id?"bg-zinc-900 text-white shadow-sm":"text-zinc-500"}`}><Icon className="w-4 h-4"/><span className="text-[10px] font-medium">{label}</span></button>)}</div></div>
+ 552 | |   
+ 553 | |         <style>{`.scrollbar-none::-webkit-scrollbar{display:none}.scrollbar-none{-ms-overflow-style:none;scrollbar-width:none}@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}@keyframes slideIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}@keyframes toastIn{from{opacity:0;transform:translate(-50%,12px) scale(0.96)}to{opacity:1;transform:translate(-50%,0) scale(1)}}`}</style>
+ 554 | |       </div>
+ 555 | `->   );
+ 556 |     }
+     `----
+
+  x Expression expected
+     ,-[C:\laragon\www\Flexwork\src\app\dashboard\expert-digital\page.tsx:553:1]
+ 553 |       <style>{`.scrollbar-none::-webkit-scrollbar{display:none}.scrollbar-none{-ms-overflow-style:none;scrollbar-width:none}@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}@keyframes slideIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}@keyframes toastIn{from{opacity:0;transform:translate(-50%,12px) scale(0.96)}to{opacity:1;transform:translate(-50%,0) scale(1)}}`}</style>
+ 554 |     </div>
+ 555 |   );
+ 556 | }
+     : ^
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/app/dashboard/expert-digital/page.tsx @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/app-index.js:32
+[ 2506513ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[ 2510172ms] [LOG] [Fast Refresh] done in 3659ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[ 2523906ms] [ERROR] ./src/app/dashboard/expert-digital/page.tsx
+Error: 
+  x Return statement is not allowed here
+     ,-[C:\laragon\www\Flexwork\src\app\dashboard\expert-digital\page.tsx:470:1]
+ 470 |       );
+ 471 |     }
+ 472 |     
+ 473 | ,->   return (
+ 474 | |       <div className="min-h-screen bg-[#f8fafc] text-zinc-900 antialiased selection:bg-[#008751]/20 selection:text-[#008751] relative overflow-x-hidden">
+ 475 | |         <div className="pointer-events-none fixed inset-0">
+ 476 | |           <div className="absolute -top-32 -left-32 w-[560px] h-[560px] rounded-full blur-[120px] opacity-[0.06] bg-[#008751]"/><div className="absolute top-20 -right-24 w-[480px] h-[480px] rounded-full blur-[110px] opacity-[0.07] bg-[#FCD116]"/><div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[900px] h-[400px] rounded-full blur-[130px] opacity-[0.05] bg-[#008751]"/>
+ 477 | |         </div>
+ 478 | |         <div className="relative max-w-6xl mx-auto px-4 md:px-6 pb-28 md:pb-10">
+ 479 | |           {/* Header */}
+ 480 | |           <header className="sticky top-0 z-30 -mx-4 md:mx-0 px-4 md:px-0 py-3 md:py-5 backdrop-blur-xl bg-[#f8fafc]/80 border-b border-gray-100/60 md:border-0">
+ 481 | |             <div className="flex items-center justify-between gap-3">
+ 482 | |               <Link href="/" className="flex items-center gap-3 shrink-0" style={{textDecoration:"none"}}><BeninFlag/><span className="font-bold text-[22px] tracking-tight text-zinc-900">Flex<span style={{color:"#008751"}}>Work</span></span></Link>
+ 483 | |               <div className="relative flex-1 max-w-[420px] mx-auto">
+ 484 | |                 <div className="relative flex bg-white rounded-full p-1 shadow-[0_2px_12px_rgba(0,0,0,0.06)] border border-gray-100">
+ 485 | |                   <div className="absolute top-1 bottom-1 rounded-full bg-zinc-900 shadow-sm transition-all duration-300" style={{width:"calc((100% - 8px)/3)",transform:`translateX(${tab==="missions"?"0%":tab==="wallet"?"100%":"200%"})`,left:4}}/>
+ 486 | |                   {[{id:"missions"as const,label:"Mes missions",Icon:Briefcase},{id:"wallet"as const,label:"Wallet",Icon:Wallet},{id:"profil"as const,label:"Profil",Icon:User}].map(({id,label,Icon})=><button key={id} onClick={()=>{setTab(id);tick(t=>t+1)}} className={`relative z-10 flex-1 h-8 rounded-full text-[13px] font-medium flex items-center justify-center gap-1.5 transition-colors duration-200 ${tab===id?"text-white":"text-zinc-600"}`}><Icon className="w-4 h-4"/><span className="hidden sm:inline">{label}</span></button>)}
+ 487 | |                 </div>
+ 488 | |               </div>
+ 489 | |               <div className="flex items-center gap-2.5 shrink-0">
+ 490 | |                 <div className="hidden md:flex items-center gap-2 text-[13px] font-medium text-zinc-500"><span className="w-8 h-8 rounded-full bg-gradient-to-br from-[#008751] to-[#FCD116] flex items-center justify-center text-white text-[11px] font-bold">ED</span><span className="text-zinc-700">Expert Digital</span><BadgeCheck className="w-4 h-4 text-[#008751]"/></div>
+ 491 | |               </div>
+ 492 | |             </div>
+ 493 | |           </header>
+ 494 | |   
+ 495 | |           <div className="mt-6 relative">
+ 496 | |             <div className="animate-[fadeIn_300ms_cubic-bezier(0.2,0.8,0.2,1)]">
+ 497 | |   
+ 498 | |               {/* MISSIONS */}
+ 499 | |               {tab==="missions"&&<>
+ 500 | |                 <div className="flex items-center gap-3">
+ 501 | |                   <div className="relative flex-1"><Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400"/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Rechercher une mission..." className="w-full h-12 pl-11 pr-11 rounded-full bg-white border border-gray-100 shadow-[0_2px_12px_rgba(0,0,0,0.04)] text-[14px] placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-[#008751] focus:border-transparent transition-all"/>{search&&<button onClick={()=>setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors"><X className="w-4 h-4"/></button>}</div>
+ 502 | |                   <Link href="/missions/new" className="hidden md:flex w-12 h-12 rounded-full bg-[#008751] text-white shadow-[0_4px_14px_rgba(0,135,81,0.25)] items-center justify-center hover:shadow-md hover:brightness-110 transition-all"><Plus className="w-5 h-5"/></Link>
+ 503 | |                 </div>
+ 504 | |                 <div className="mt-5 -mx-4 px-4 md:mx-0 md:px-0 overflow-x-auto scrollbar-none"><div className="flex gap-2.5 w-max pb-2">{STATUS_TABS.map(s=>{const a=filter===s.id;return<button key={s.id} onClick={()=>setFilter(s.id)} className={`h-9 px-4 rounded-full text-[13px] font-medium inline-flex items-center gap-2 border transition-all duration-200 whitespace-nowrap ${a?"bg-[#008751] text-white border-[#008751] shadow-[0_4px_14px_rgba(0,135,81,0.25)]":"bg-white text-zinc-600 border-gray-100 hover:border-gray-200 hover:shadow-sm"}`}>{s.label}<span className={`px-1.5 py-0.5 rounded-full text-[11px] font-semibold ${a?"bg-white/20 text-white":"bg-gray-100 text-zinc-600"}`}>{counts[s.id]??0}</span></button>})}</div></div>
+ 505 | |                 <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+ 506 | |                   {filtered.map(m=><button key={m.id} onClick={()=>openMission(m)} className={`text-left group relative bg-white rounded-[20px] border border-gray-100 shadow-[0_4px_20px_rgba(0,0,0,0.04)] p-5 flex flex-col gap-4 hover:shadow-[0_8px_30px_rgba(0,0,0,0.08)] hover:-translate-y-[2px] active:scale-[0.98] transition-all duration-300 ${pressingId===m.id?"scale-[0.98] opacity-80":""}`}>
+ 507 | |                     <div className="flex items-start justify-between gap-3"><h3 className="font-semibold text-[16px] leading-[1.25] line-clamp-2 pr-2 tracking-tight text-zinc-900">{m.title}</h3><span className={`shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold ${STATUS_STYLE[m.status].bg} ${STATUS_STYLE[m.status].text}`}><span className={`w-1.5 h-1.5 rounded-full ${STATUS_STYLE[m.status].dot}`}/>{m.status}</span></div>
+ 508 | |                     <div className="flex items-center gap-3"><div className="relative"><div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#008751] to-[#FCD116] flex items-center justify-center text-white text-[11px] font-bold">{m.clientInitials}</div><div className="absolute -bottom-1 -right-1 w-4 h-4 bg-white rounded-full border border-gray-100 flex items-center justify-center"><Check className="w-2.5 h-2.5 text-[#008751]"/></div></div><div className="flex items-center gap-1.5 text-[13px]"><span className="font-medium text-zinc-800">{m.client}</span><span>{m.flag}</span><span className="text-zinc-300">•</span><span className="text-zinc-500">Vérifié</span></div></div>
+ 509 | |                     <div><div className="flex items-center justify-between mb-1.5"><span className="text-[11px] uppercase tracking-widest text-zinc-400 font-semibold">Avancement</span><span className="text-[12px] font-semibold text-zinc-700">{m.progress}%</span></div><div className="h-1.5 w-full rounded-full bg-gray-100 overflow-hidden"><div className="h-full rounded-full transition-all duration-700" style={{width:`${m.progress}%`,background:m.status==="Clôturé"?"#111827":m.status==="En attente"?"#FCD116":m.status==="Révision"?"#E8112D":"#008751"}}/></div><div className="mt-3 flex items-center gap-1.5">{m.jalons.map((j,i)=>{const done=j.status==="Clôturé";const act=j.status==="En cours"||j.status==="En attente";return<div key={j.id} className={`w-2 h-2 rounded-full transition-all duration-300 ${done?"bg-[#008751]":act?"bg-[#FCD116] animate-pulse":j.status==="Révision"?"bg-[#E8112D]":"bg-gray-200"}`} style={{transitionDelay:`${i*40}ms`}}/>})}<span className="ml-2 text-[11px] text-zinc-400">{m.jalons.filter(j=>j.status==="Clôturé").length}/{m.jalons.length} jalons</span></div></div>
+ 510 | |                     <div className="flex items-center justify-between pt-1 border-t border-gray-50 mt-1"><span className="font-semibold text-[15px] tracking-tight text-zinc-800">{m.amount}</span><span className="w-8 h-8 rounded-full bg-zinc-900 text-white flex items-center justify-center group-hover:translate-x-0.5 transition-transform"><ChevronRight className="w-4 h-4"/></span></div>
+ 511 | |                   </button>)}
+ 512 | |                   {filtered.length===0&&<div className="mt-16 text-center col-span-full"><div className="mx-auto w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-3"><Search className="w-5 h-5 text-zinc-400"/></div><p className="text-[14px] text-zinc-500">Aucune mission trouvée</p></div>}
+ 513 | |                 </div>
+ 514 | |               </>}
+ 515 | |   
+ 516 | |               {/* WALLET */}
+ 517 | |               {tab==="wallet"&&<div className="grid md:grid-cols-2 gap-4">
+ 518 | |                 <div className="bg-zinc-900 rounded-[24px] p-6 text-white relative overflow-hidden"><div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-[#008751]/30 to-[#FCD116]/20 rounded-full blur-3xl"/><div className="relative"><div className="text-[12px] uppercase tracking-widest opacity-60 font-semibold">Solde disponible</div><div className="text-[36px] font-bold tracking-tight mt-2">1 842 500 FCFA</div><div className="mt-4 flex gap-2"><button className="h-10 px-5 rounded-full bg-white text-zinc-900 text-[13px] font-semibold hover:bg-gray-100 transition-colors">Retirer</button><button className="h-10 px-5 rounded-full bg-white/15 text-white text-[13px] font-medium hover:bg-white/20 transition-colors backdrop-blur">Historique</button></div><div className="mt-8 grid grid-cols-3 gap-3">{[{k:"En séquestre",v:"620k"},{k:"En attente",v:"340k"},{k:"Ce mois",v:"+1.2M"}].map(s=><div key={s.k} className="bg-white/10 rounded-[16px] p-3 backdrop-blur"><div className="text-[11px] opacity-60">{s.k}</div><div className="font-semibold mt-1">{s.v}</div></div>)}</div></div></div>
+ 519 | |                 <div className="bg-white rounded-[20px] border border-gray-100 shadow-sm p-5"><div className="font-semibold">Transactions récentes</div><div className="mt-4 space-y-3">{[{title:"Paiement jalon 3 — Refonte UX/UI",amount:"+420k",time:"Il y a 2h"},{title:"Retrait Mobile Money",amount:"-500k",time:"Hier"},{title:"Frais FlexWork",amount:"-12k",time:"Hier"}].map((t,i)=><div key={i} className="flex items-center gap-3 p-3 rounded-2xl bg-gray-50"><div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm"><Wallet className="w-4 h-4"/></div><div className="flex-1 min-w-0"><div className="text-[13px] font-medium truncate">{t.title}</div><div className="text-[11px] text-zinc-500">{t.time}</div></div><div className={`text-[13px] font-semibold ${t.amount.startsWith("+")?"text-[#008751]":"text-zinc-700"}`}>{t.amount}</div></div>)}</div></div>
+ 520 | |               </div>}
+ 521 | |   
+ 522 | |               {/* PROFIL */}
+ 523 | |               {tab==="profil"&&<div className="max-w-[560px] mx-auto"><div className="bg-white rounded-[24px] border border-gray-100 shadow-sm p-6"><div className="flex items-center gap-4"><div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#008751] to-[#FCD116] flex items-center justify-center text-white font-bold text-[18px]">ED</div><div><div className="font-semibold flex items-center gap-2">Expert Digital <BadgeCheck className="w-4 h-4 text-[#008751]"/></div><div className="text-[13px] text-zinc-500">Développement, Design, Marketing • Cotonou • 4.9 ★</div></div></div><div className="mt-6 grid grid-cols-3 gap-3">{[{label:"Missions",val:"23"},{label:"Taux succès",val:"98%"},{label:"Réponse",val:"<2h"}].map(s=><div key={s.label} className="rounded-2xl bg-gray-50 p-3 text-center"><div className="font-bold text-[18px]">{s.val}</div><div className="text-[11px] text-zinc-500 uppercase tracking-widest font-semibold mt-1">{s.label}</div></div>)}</div><div className="mt-5 space-y-2"><Link href="/profile" className="block w-full h-11 rounded-full bg-gray-100 text-zinc-700 text-[13px] font-semibold flex items-center justify-center hover:bg-gray-200 transition-colors" style={{textDecoration:"none"}}>Modifier le profil</Link></div></div></div>}
+ 524 | |             </div>
+ 525 | |           </div>
+ 526 | |         </div>
+ 527 | |   
+ 528 | |         {/* MODAL Détail mission */}
+ 529 | |         <div className={`fixed inset-0 z-40 flex items-center justify-center p-4 md:p-6 transition-all duration-300 ${modal?"pointer-events-auto":"pointer-events-none"}`}><div onClick={closeMission} className={`absolute inset-0 bg-black/40 backdrop-blur-md transition-opacity duration-300 ${modal?"opacity-100":"opacity-0"}`}/><div ref={modalRef} className={`relative w-full max-w-2xl max-h-[85vh] bg-white rounded-[24px] shadow-2xl flex flex-col overflow-hidden transition-all duration-[300ms] ${modal?"opacity-100 scale-100":"opacity-0 scale-[0.95]"}`}>{selected&&<>
+ 530 | |           <div className="shrink-0 px-6 pt-5 pb-5 border-b border-gray-100"><div className="flex items-center justify-between gap-3"><button onClick={closeMission} className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors"><ArrowLeft className="w-4 h-4"/></button><div className="flex items-center gap-2"><span className={`px-3 py-1 rounded-full text-[12px] font-semibold ${STATUS_STYLE[selected.status].bg} ${STATUS_STYLE[selected.status].text}`}>{selected.status}</span><button onClick={closeMission} className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors"><X className="w-4 h-4"/></button></div></div><h2 className="mt-5 text-[22px] font-bold leading-tight tracking-tight text-zinc-900">{selected.title}</h2><div className="mt-5 flex items-center gap-3 p-3 rounded-[18px] bg-gray-50 border border-gray-100"><div className="relative"><div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#008751] to-[#FCD116] flex items-center justify-center text-white font-bold">{selected.clientInitials}</div><div className="absolute -bottom-1 -right-1 w-5 h-5 bg-white rounded-full border flex items-center justify-center shadow-sm"><BadgeCheck className="w-3.5 h-3.5 text-[#008751]"/></div></div><div className="flex-1 min-w-0"><div className="font-medium text-[14px] flex items-center gap-1.5">{selected.client} <span>{selected.flag}</span></div><div className="text-[12px] text-zinc-500">Client • Paiement sécurisé • 4.9★</div></div><button className="h-9 px-4 rounded-full bg-zinc-900 text-white text-[12px] font-semibold hover:bg-black transition-colors">Contacter</button></div></div>
+ 531 | |           <div className="flex-1 overflow-y-auto px-6 py-6 space-y-3 overscroll-contain"><div className="flex items-center justify-between"><h3 className="font-semibold text-[15px]">Jalons</h3><span className="text-[12px] text-zinc-500">{selected.jalons.filter(j=>j.status==="Clôturé").length}/{selected.jalons.length} complétés</span></div>
+ 532 | |           {selected.jalons.map((j,i)=>{const s=STATUS_STYLE[j.status]??STATUS_STYLE["À faire"];return<div key={j.id} className="group bg-white rounded-[18px] border border-gray-100 shadow-[0_2px_14px_rgba(0,0,0,0.03)] p-4 flex gap-3 items-center animate-[slideIn_400ms_cubic-bezier(0.2,0.8,0.2,1)_both]" style={{animationDelay:`${i*60}ms`}}><div className={`w-8 h-8 rounded-full flex items-center justify-center text-[12px] font-bold shrink-0 transition-colors ${j.status==="Clôturé"?"bg-[#008751] text-white":"bg-gray-100 text-zinc-600"}`}>{j.status==="Clôturé"?<Check className="w-4 h-4"/>:i+1}</div><div className="flex-1 min-w-0"><div className="font-medium text-[13px] leading-tight truncate">{j.name}</div><div className="mt-2 flex items-center gap-2"><div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden max-w-[120px]"><div className="h-full rounded-full transition-all duration-700" style={{width:`${j.progress}%`,background:j.status==="Clôturé"?"#008751":j.status==="Révision"?"#E8112D":"#111827"}}/></div><span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${s.bg} ${s.text}`}>{j.status}</span></div>{j.revisionComment&&<div className="mt-2 text-[11px] text-[#E8112D] bg-red-50 border border-red-100 rounded-xl p-2 leading-snug">{j.revisionComment}</div>}</div><div className="shrink-0">{j.status==="À faire"?<button onClick={()=>startJalon(j.id)} disabled={!!submitting} className="h-8 px-3.5 rounded-full bg-[#008751] text-white text-[12px] font-semibold shadow-[0_4px_12px_rgba(0,135,81,0.25)] hover:brightness-110 active:scale-[0.96] transition-all flex items-center gap-1.5">{submitting===j.id?<LoaderCircle className="w-3.5 h-3.5 animate-spin"/>:<Sparkles className="w-3.5 h-3.5"/>}Démarrer</button>:j.status==="En cours"?<button onClick={()=>openProof(j)} className="h-8 px-3.5 rounded-full bg-[#FCD116] text-zinc-900 text-[12px] font-semibold shadow-sm hover:brightness-105 active:scale-[0.96] transition-all">Soumettre preuves</button>:j.status==="Révision"?<button onClick={()=>openProof(j)} className="h-8 px-3.5 rounded-full border border-[#E8112D] text-[#E8112D] text-[12px] font-semibold hover:bg-red-50 active:scale-[0.96] transition-all">Faire révision</button>:j.status==="En attente"?<span className="h-8 px-3 rounded-full bg-gray-100 text-zinc-500 text-[11px] font-medium inline-flex items-center gap-1.5"><Clock className="w-3 h-3"/> En attente</span>:<span className="w-8 h-8 rounded-full bg-[#008751] text-white flex items-center justify-center"><CircleCheck className="w-5 h-5"/></span>}</div></div>})}
+ 533 | |           <div className="mt-6 rounded-[18px] bg-zinc-900 text-white p-4 flex items-center justify-between"><div><div className="text-[11px] uppercase tracking-widest opacity-60 font-semibold">Total mission</div><div className="font-bold text-[18px] mt-1">{selected.amount}</div></div><div className="text-right"><div className="text-[12px] opacity-70">Avancement global</div><div className="font-semibold mt-1">{selected.progress}%</div></div></div></div>
+ 534 | |         </>}</div></div>
+ 535 | |   
+ 536 | |         {/* MODAL Soumission preuves */}
+ 537 | |         <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 md:p-6 transition-all duration-300 ${proofModal?"pointer-events-auto":"pointer-events-none"}`}><div onClick={()=>setProofModal(false)} className={`absolute inset-0 bg-black/50 backdrop-blur-md transition-opacity duration-300 ${proofModal?"opacity-100":"opacity-0"}`}/><div className={`relative w-full max-w-xl max-h-[86vh] bg-white rounded-[24px] shadow-2xl flex flex-col overflow-hidden transition-all duration-[300ms] ${proofModal?"opacity-100 scale-100":"opacity-0 scale-[0.9]"}`}>{proofJalon&&<>
+ 538 | |           <div className="shrink-0 px-6 pt-5 pb-4 border-b border-gray-100"><div className="flex items-center justify-between"><div><h3 className="font-bold text-[18px] tracking-tight">{proofJalon.status==="Révision"?"Corriger & resoumettre":"Soumettre les preuves"}</h3><p className="text-[12px] text-zinc-500 mt-0.5">{proofJalon.name}</p></div><button onClick={()=>setProofModal(false)} className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors"><X className="w-4 h-4"/></button></div>{proofJalon.status==="Révision"&&proofJalon.revisionComment&&<div className="mt-4 p-3 rounded-2xl bg-red-50 border border-red-200 flex gap-2.5 text-left"><CircleAlert className="w-4 h-4 text-[#E8112D] shrink-0 mt-0.5"/><div><div className="text-[12px] font-semibold text-[#E8112D]">Commentaire client</div><div className="text-[12px] text-red-900/80 mt-1 leading-snug">{proofJalon.revisionComment}</div></div></div>}</div>
+ 539 | |           <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5 overscroll-contain">
+ 540 | |             <div><label className="text-[11px] uppercase tracking-widest font-semibold text-zinc-500">Description du travail réalisé</label><textarea placeholder="Décrivez ce qui a été fait..." defaultValue={proofJalon.status==="Révision"?"Correction effectuée suite au retour client.":""} className="mt-2 w-full min-h-[96px] rounded-2xl bg-gray-50 border-0 p-4 text-[13px] placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-[#008751] resize-none"/></div>
+ 541 | |             <div><label className="text-[11px] uppercase tracking-widest font-semibold text-zinc-500">Preuves visuelles</label><div className="mt-2 grid grid-cols-2 gap-3"><button onClick={()=>setProofFiles(p=>[...p,`photo_${p.length+1}.jpg`])} className="group relative rounded-[18px] border-2 border-dashed border-gray-200 bg-gray-50/70 p-4 flex flex-col items-center justify-center gap-2 h-[104px] hover:bg-gray-50 hover:border-gray-300 transition-colors"><div className="w-9 h-9 rounded-full bg-white shadow-sm flex items-center justify-center group-hover:scale-105 transition-transform"><Image className="w-4 h-4"/></div><span className="text-[11px] font-medium text-zinc-600">Ajouter photos</span></button><button onClick={()=>setProofFiles(p=>[...p,`doc_${p.length+1}.pdf`])} className="group relative rounded-[18px] border-2 border-dashed border-gray-200 bg-gray-50/70 p-4 flex flex-col items-center justify-center gap-2 h-[104px] hover:bg-gray-50 hover:border-gray-300 transition-colors"><div className="w-9 h-9 rounded-full bg-white shadow-sm flex items-center justify-center group-hover:scale-105 transition-transform"><FileText className="w-4 h-4"/></div><span className="text-[11px] font-medium text-zinc-600">Ajouter fichier</span></button></div>{proofFiles.length>0&&<div className="mt-3 flex flex-wrap gap-2">{proofFiles.map((f,i)=><span key={i} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-zinc-900 text-white text-[11px] font-medium"><Upload className="w-3 h-3"/>{f}<button onClick={()=>setProofFiles(p=>p.filter((_,j)=>j!==i))} className="ml-1 w-4 h-4 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30"><X className="w-3 h-3"/></button></span>)}</div>}</div>
+ 542 | |             <div><label className="text-[11px] uppercase tracking-widest font-semibold text-zinc-500">Localisation & preuve terrain</label><div className="mt-2 p-3 rounded-2xl bg-gray-50 border border-gray-100 flex items-center justify-between"><div className="flex items-center gap-2.5"><div className={`w-9 h-9 rounded-full flex items-center justify-center ${geoOn?"bg-[#008751] text-white":"bg-white text-zinc-600 shadow-sm"}`}><MapPin className="w-4 h-4"/></div><div><div className="text-[12px] font-medium">{geoOn?"Localisation activée":"Ajouter géolocalisation"}</div><div className="text-[11px] text-zinc-500">{geoOn?"Cotonou, Haie Vive • Précis à 12m":"Recommandé pour validation rapide"}</div></div></div><button onClick={()=>setGeoOn(!geoOn)} className={`h-8 px-3.5 rounded-full text-[11px] font-semibold transition-all ${geoOn?"bg-zinc-900 text-white":"bg-white border border-gray-200 text-zinc-700 shadow-sm"}`}>{geoOn?"Activée":"Activer"}</button></div></div>
+ 543 | |           </div>
+ 544 | |           <div className="shrink-0 p-4 border-t border-gray-100 bg-white rounded-b-[24px] flex gap-3"><button onClick={()=>setProofModal(false)} className="flex-1 h-12 rounded-full bg-gray-100 text-zinc-700 text-[14px] font-semibold hover:bg-gray-200 transition-colors">Annuler</button><button onClick={submitProof} disabled={!!submitting} className="flex-1 h-12 rounded-full bg-[#008751] text-white text-[14px] font-semibold shadow-[0_8px_24px_rgba(0,135,81,0.3)] hover:brightness-105 active:scale-[0.98] transition-all flex items-center justify-center gap-2">{submitting?<LoaderCircle className="w-4 h-4 animate-spin"/>:<Check className="w-4 h-4"/>}Soumettre</button></div>
+ 545 | |         </>}</div></div>
+ 546 | |   
+ 547 | |         {/* TOASTS */}
+ 548 | |         <div className="fixed bottom-24 md:bottom-8 left-1/2 -translate-x-1/2 z-[60] flex flex-col gap-2 items-center pointer-events-none">{toasts.map(t=><div key={t.id} className="pointer-events-auto bg-zinc-900 text-white rounded-full px-5 py-3 shadow-[0_8px_30px_rgba(0,0,0,0.25)] flex items-center gap-2.5 text-[13px] font-medium animate-[toastIn_300ms_cubic-bezier(0.2,0.8,0.2,1)]"><span className="text-[14px]">{t.icon}</span>{t.msg}</div>)}</div>
+ 549 | |   
+ 550 | |         {/* MOBILE BOTTOM NAV */}
+ 551 | |         <div className="md:hidden fixed bottom-0 left-0 right-0 z-30"><div className="mx-3 mb-3 rounded-[24px] bg-white/90 backdrop-blur-xl border border-gray-100 shadow-[0_8px_40px_rgba(0,0,0,0.12)] flex items-center justify-around p-2">{[{id:"missions"as const,Icon:Briefcase,label:"Missions"},{id:"wallet"as const,Icon:Wallet,label:"Wallet"},{id:"profil"as const,Icon:User,label:"Profil"}].map(({id,Icon,label})=><button key={id} onClick={()=>{setTab(id);tick(t=>t+1)}} className={`flex-1 h-12 rounded-full flex flex-col items-center justify-center gap-0.5 transition-all duration-200 ${tab===id?"bg-zinc-900 text-white shadow-sm":"text-zinc-500"}`}><Icon className="w-4 h-4"/><span className="text-[10px] font-medium">{label}</span></button>)}</div></div>
+ 552 | |   
+ 553 | |         <style>{`.scrollbar-none::-webkit-scrollbar{display:none}.scrollbar-none{-ms-overflow-style:none;scrollbar-width:none}@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}@keyframes slideIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}@keyframes toastIn{from{opacity:0;transform:translate(-50%,12px) scale(0.96)}to{opacity:1;transform:translate(-50%,0) scale(1)}}`}</style>
+ 554 | |       </div>
+ 555 | `->   );
+ 556 |     }
+     `----
+
+  x Expression expected
+     ,-[C:\laragon\www\Flexwork\src\app\dashboard\expert-digital\page.tsx:553:1]
+ 553 |       <style>{`.scrollbar-none::-webkit-scrollbar{display:none}.scrollbar-none{-ms-overflow-style:none;scrollbar-width:none}@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}@keyframes slideIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}@keyframes toastIn{from{opacity:0;transform:translate(-50%,12px) scale(0.96)}to{opacity:1;transform:translate(-50%,0) scale(1)}}`}</style>
+ 554 |     </div>
+ 555 |   );
+ 556 | }
+     : ^
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/app/dashboard/expert-digital/page.tsx @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/app-index.js:32
+[ 2554955ms] [LOG] [Fast Refresh] done in 48443ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[ 2605590ms] [ERROR] ./src/app/dashboard/expert-digital/page.tsx
+Error: 
+  x Expression expected
+     ,-[C:\laragon\www\Flexwork\src\app\dashboard\expert-digital\page.tsx:469:1]
+ 469 |     </div>
+ 470 |   );
+ 471 | }
+ 472 |       <div className="pointer-events-none fixed inset-0">
+     :                                                         ^
+ 473 |         <div className="absolute -top-32 -left-32 w-[560px] h-[560px] rounded-full blur-[120px] opacity-[0.06] bg-[#008751]"/><div className="absolute top-20 -right-24 w-[480px] h-[480px] rounded-full blur-[110px] opacity-[0.07] bg-[#FCD116]"/><div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[900px] h-[400px] rounded-full blur-[130px] opacity-[0.05] bg-[#008751]"/>
+ 474 |       </div>
+ 474 |       <div className="relative max-w-6xl mx-auto px-4 md:px-6 pb-28 md:pb-10">
+     `----
+
+  x Expected ';', '}' or <eof>
+     ,-[C:\laragon\www\Flexwork\src\app\dashboard\expert-digital\page.tsx:469:1]
+ 469 |         </div>
+ 470 |       );
+ 471 |     }
+ 472 | ,->       <div className="pointer-events-none fixed inset-0">
+ 473 | |->         <div className="absolute -top-32 -left-32 w-[560px] h-[560px] rounded-full blur-[120px] opacity-[0.06] bg-[#008751]"/><div className="absolute top-20 -right-24 w-[480px] h-[480px] rounded-full blur-[110px] opacity-[0.07] bg-[#FCD116]"/><div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[900px] h-[400px] rounded-full blur-[130px] opacity-[0.05] bg-[#008751]"/>
+     : `---                                                                                                                                   ^^^^^^^^^
+     : `---- This is the expression part of an expression statement
+ 474 |           </div>
+ 475 |           <div className="relative max-w-6xl mx-auto px-4 md:px-6 pb-28 md:pb-10">
+ 475 |             {/* Header */}
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/app/dashboard/expert-digital/page.tsx @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/app-index.js:32
+[ 2606437ms] [ERROR] ./src/app/dashboard/expert-digital/page.tsx
+Error: 
+  x Expression expected
+     ,-[C:\laragon\www\Flexwork\src\app\dashboard\expert-digital\page.tsx:469:1]
+ 469 |     </div>
+ 470 |   );
+ 471 | }
+ 472 |       <div className="pointer-events-none fixed inset-0">
+     :                                                         ^
+ 473 |         <div className="absolute -top-32 -left-32 w-[560px] h-[560px] rounded-full blur-[120px] opacity-[0.06] bg-[#008751]"/><div className="absolute top-20 -right-24 w-[480px] h-[480px] rounded-full blur-[110px] opacity-[0.07] bg-[#FCD116]"/><div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[900px] h-[400px] rounded-full blur-[130px] opacity-[0.05] bg-[#008751]"/>
+ 474 |       </div>
+ 474 |       <div className="relative max-w-6xl mx-auto px-4 md:px-6 pb-28 md:pb-10">
+     `----
+
+  x Expected ';', '}' or <eof>
+     ,-[C:\laragon\www\Flexwork\src\app\dashboard\expert-digital\page.tsx:469:1]
+ 469 |         </div>
+ 470 |       );
+ 471 |     }
+ 472 | ,->       <div className="pointer-events-none fixed inset-0">
+ 473 | |->         <div className="absolute -top-32 -left-32 w-[560px] h-[560px] rounded-full blur-[120px] opacity-[0.06] bg-[#008751]"/><div className="absolute top-20 -right-24 w-[480px] h-[480px] rounded-full blur-[110px] opacity-[0.07] bg-[#FCD116]"/><div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[900px] h-[400px] rounded-full blur-[130px] opacity-[0.05] bg-[#008751]"/>
+     : `---                                                                                                                                   ^^^^^^^^^
+     : `---- This is the expression part of an expression statement
+ 474 |           </div>
+ 475 |           <div className="relative max-w-6xl mx-auto px-4 md:px-6 pb-28 md:pb-10">
+ 475 |             {/* Header */}
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/app/dashboard/expert-digital/page.tsx @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/app-index.js:32
+[ 2607681ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/dashboard/expert-digital?_rsc=ecrwr:0
+[ 2607693ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/notifications:0
+[ 2608431ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/notifications:0
+[ 2608432ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/notifications:0
+[ 2608934ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/notifications:0
+[ 2609165ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/dashboard/expert-digital?_rsc=ecrwr:0
+[ 2610497ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/dashboard/expert-digital?_rsc=ecrwr:0
+[ 2611115ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/dashboard/expert-digital:0
+[ 2612942ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ webpack-internal:///./node_modules/react-dom/cjs/react-dom.development.js:29889
+[ 2613247ms] ModuleBuildError: Module build failed (from ./node_modules/next/dist/build/webpack/loaders/next-swc-loader.js):
+Error: 
+  x Expression expected
+     ,-[C:\laragon\www\Flexwork\src\app\dashboard\expert-digital\page.tsx:469:1]
+ 469 |     </div>
+ 470 |   );
+ 471 | }
+ 472 |       <div className="pointer-events-none fixed inset-0">
+     :                                                         ^
+ 473 |         <div className="absolute -top-32 -left-32 w-[560px] h-[560px] rounded-full blur-[120px] opacity-[0.06] bg-[#008751]"/><div className="absolute top-20 -right-24 w-[480px] h-[480px] rounded-full blur-[110px] opacity-[0.07] bg-[#FCD116]"/><div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[900px] h-[400px] rounded-full blur-[130px] opacity-[0.05] bg-[#008751]"/>
+ 474 |       </div>
+ 474 |       <div className="relative max-w-6xl mx-auto px-4 md:px-6 pb-28 md:pb-10">
+     `----
+
+  x Expected ';', '}' or <eof>
+     ,-[C:\laragon\www\Flexwork\src\app\dashboard\expert-digital\page.tsx:469:1]
+ 469 |         </div>
+ 470 |       );
+ 471 |     }
+ 472 | ,->       <div className="pointer-events-none fixed inset-0">
+ 473 | |->         <div className="absolute -top-32 -left-32 w-[560px] h-[560px] rounded-full blur-[120px] opacity-[0.06] bg-[#008751]"/><div className="absolute top-20 -right-24 w-[480px] h-[480px] rounded-full blur-[110px] opacity-[0.07] bg-[#FCD116]"/><div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[900px] h-[400px] rounded-full blur-[130px] opacity-[0.05] bg-[#008751]"/>
+     : `---                                                                                                                                   ^^^^^^^^^
+     : `---- This is the expression part of an expression statement
+ 474 |           </div>
+ 475 |           <div className="relative max-w-6xl mx-auto px-4 md:px-6 pb-28 md:pb-10">
+ 475 |             {/* Header */}
+     `----
+
+
+Caused by:
+    Syntax Error
+    at processResult (file://C:\laragon\www\Flexwork\node_modules\next\dist\compiled\webpack\bundle5.js:28:400590)
+    at <unknown> (file://C:\laragon\www\Flexwork\node_modules\next\dist\compiled\webpack\bundle5.js:28:402302)
+    at <unknown> (file://C:\laragon\www\Flexwork\node_modules\next\dist\compiled\loader-runner\LoaderRunner.js:1:8645)
+    at <unknown> (file://C:\laragon\www\Flexwork\node_modules\next\dist\compiled\loader-runner\LoaderRunner.js:1:5019)
+    at r.callback (file://C:\laragon\www\Flexwork\node_modules\next\dist\compiled\loader-runner\LoaderRunner.js:1:4039)
+[ 2613381ms] [LOG] [HMR] connected @ webpack-internal:///./node_modules/next/dist/client/components/react-dev-overlay/pages/websocket.js:38
+[ 2614559ms] [ERROR] ./src/app/dashboard/expert-digital/page.tsx
+Error: 
+  x Expression expected
+     ,-[C:\laragon\www\Flexwork\src\app\dashboard\expert-digital\page.tsx:469:1]
+ 469 |     </div>
+ 470 |   );
+ 471 | }
+ 472 |       <div className="pointer-events-none fixed inset-0">
+     :                                                         ^
+ 473 |         <div className="absolute -top-32 -left-32 w-[560px] h-[560px] rounded-full blur-[120px] opacity-[0.06] bg-[#008751]"/><div className="absolute top-20 -right-24 w-[480px] h-[480px] rounded-full blur-[110px] opacity-[0.07] bg-[#FCD116]"/><div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[900px] h-[400px] rounded-full blur-[130px] opacity-[0.05] bg-[#008751]"/>
+ 474 |       </div>
+ 474 |       <div className="relative max-w-6xl mx-auto px-4 md:px-6 pb-28 md:pb-10">
+     `----
+
+  x Expected ';', '}' or <eof>
+     ,-[C:\laragon\www\Flexwork\src\app\dashboard\expert-digital\page.tsx:469:1]
+ 469 |         </div>
+ 470 |       );
+ 471 |     }
+ 472 | ,->       <div className="pointer-events-none fixed inset-0">
+ 473 | |->         <div className="absolute -top-32 -left-32 w-[560px] h-[560px] rounded-full blur-[120px] opacity-[0.06] bg-[#008751]"/><div className="absolute top-20 -right-24 w-[480px] h-[480px] rounded-full blur-[110px] opacity-[0.07] bg-[#FCD116]"/><div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[900px] h-[400px] rounded-full blur-[130px] opacity-[0.05] bg-[#008751]"/>
+     : `---                                                                                                                                   ^^^^^^^^^
+     : `---- This is the expression part of an expression statement
+ 474 |           </div>
+ 475 |           <div className="relative max-w-6xl mx-auto px-4 md:px-6 pb-28 md:pb-10">
+ 475 |             {/* Header */}
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/app/dashboard/expert-digital/page.tsx @ webpack-internal:///./node_modules/next/dist/client/components/react-dev-overlay/internal/helpers/hydration-error-info.js:62
+[ 2617314ms] [ERROR] ./src/app/dashboard/expert-digital/page.tsx
+Error: 
+  x Expression expected
+     ,-[C:\laragon\www\Flexwork\src\app\dashboard\expert-digital\page.tsx:469:1]
+ 469 |     </div>
+ 470 |   );
+ 471 | }
+ 472 |       <div className="pointer-events-none fixed inset-0">
+     :                                                         ^
+ 473 |         <div className="absolute -top-32 -left-32 w-[560px] h-[560px] rounded-full blur-[120px] opacity-[0.06] bg-[#008751]"/><div className="absolute top-20 -right-24 w-[480px] h-[480px] rounded-full blur-[110px] opacity-[0.07] bg-[#FCD116]"/><div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[900px] h-[400px] rounded-full blur-[130px] opacity-[0.05] bg-[#008751]"/>
+ 474 |       </div>
+ 474 |       <div className="relative max-w-6xl mx-auto px-4 md:px-6 pb-28 md:pb-10">
+     `----
+
+  x Expected ';', '}' or <eof>
+     ,-[C:\laragon\www\Flexwork\src\app\dashboard\expert-digital\page.tsx:469:1]
+ 469 |         </div>
+ 470 |       );
+ 471 |     }
+ 472 | ,->       <div className="pointer-events-none fixed inset-0">
+ 473 | |->         <div className="absolute -top-32 -left-32 w-[560px] h-[560px] rounded-full blur-[120px] opacity-[0.06] bg-[#008751]"/><div className="absolute top-20 -right-24 w-[480px] h-[480px] rounded-full blur-[110px] opacity-[0.07] bg-[#FCD116]"/><div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[900px] h-[400px] rounded-full blur-[130px] opacity-[0.05] bg-[#008751]"/>
+     : `---                                                                                                                                   ^^^^^^^^^
+     : `---- This is the expression part of an expression statement
+ 474 |           </div>
+ 475 |           <div className="relative max-w-6xl mx-auto px-4 md:px-6 pb-28 md:pb-10">
+ 475 |             {/* Header */}
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/app/dashboard/expert-digital/page.tsx @ webpack-internal:///./node_modules/next/dist/client/components/react-dev-overlay/internal/helpers/hydration-error-info.js:62
+[ 2617729ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/_next/static/webpack/9b0b490d9f8eb6bf.webpack.hot-update.json:0
+[ 2617732ms] [WARNING] [Fast Refresh] performing full reload
+
+Fast Refresh will perform a full reload when you edit a file that's imported by modules outside of the React rendering tree.
+You might have a file which exports a React component but also exports a value that is imported by a non-React component file.
+Consider migrating the non-React component export to a separate file and importing it into both files.
+
+It is also possible the parent component of the component you edited is a class component, which disables Fast Refresh.
+Fast Refresh requires at least one parent function component in your React tree. @ webpack-internal:///./node_modules/next/dist/client/components/react-dev-overlay/pages/hot-reloader-client.js:347
+[ 2618815ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/dashboard/expert-digital:0
+[ 2620726ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ webpack-internal:///./node_modules/react-dom/cjs/react-dom.development.js:29889
+[ 2621133ms] ModuleBuildError: Module build failed (from ./node_modules/next/dist/build/webpack/loaders/next-swc-loader.js):
+Error: 
+  x Expression expected
+     ,-[C:\laragon\www\Flexwork\src\app\dashboard\expert-digital\page.tsx:469:1]
+ 469 |     </div>
+ 470 |   );
+ 471 | }
+ 472 |       <div className="pointer-events-none fixed inset-0">
+     :                                                         ^
+ 473 |         <div className="absolute -top-32 -left-32 w-[560px] h-[560px] rounded-full blur-[120px] opacity-[0.06] bg-[#008751]"/><div className="absolute top-20 -right-24 w-[480px] h-[480px] rounded-full blur-[110px] opacity-[0.07] bg-[#FCD116]"/><div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[900px] h-[400px] rounded-full blur-[130px] opacity-[0.05] bg-[#008751]"/>
+ 474 |       </div>
+ 474 |       <div className="relative max-w-6xl mx-auto px-4 md:px-6 pb-28 md:pb-10">
+     `----
+
+  x Expected ';', '}' or <eof>
+     ,-[C:\laragon\www\Flexwork\src\app\dashboard\expert-digital\page.tsx:469:1]
+ 469 |         </div>
+ 470 |       );
+ 471 |     }
+ 472 | ,->       <div className="pointer-events-none fixed inset-0">
+ 473 | |->         <div className="absolute -top-32 -left-32 w-[560px] h-[560px] rounded-full blur-[120px] opacity-[0.06] bg-[#008751]"/><div className="absolute top-20 -right-24 w-[480px] h-[480px] rounded-full blur-[110px] opacity-[0.07] bg-[#FCD116]"/><div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[900px] h-[400px] rounded-full blur-[130px] opacity-[0.05] bg-[#008751]"/>
+     : `---                                                                                                                                   ^^^^^^^^^
+     : `---- This is the expression part of an expression statement
+ 474 |           </div>
+ 475 |           <div className="relative max-w-6xl mx-auto px-4 md:px-6 pb-28 md:pb-10">
+ 475 |             {/* Header */}
+     `----
+
+
+Caused by:
+    Syntax Error
+    at processResult (file://C:\laragon\www\Flexwork\node_modules\next\dist\compiled\webpack\bundle5.js:28:400590)
+    at <unknown> (file://C:\laragon\www\Flexwork\node_modules\next\dist\compiled\webpack\bundle5.js:28:402302)
+    at <unknown> (file://C:\laragon\www\Flexwork\node_modules\next\dist\compiled\loader-runner\LoaderRunner.js:1:8645)
+    at <unknown> (file://C:\laragon\www\Flexwork\node_modules\next\dist\compiled\loader-runner\LoaderRunner.js:1:5019)
+    at r.callback (file://C:\laragon\www\Flexwork\node_modules\next\dist\compiled\loader-runner\LoaderRunner.js:1:4039)
+[ 2621080ms] [LOG] [HMR] connected @ webpack-internal:///./node_modules/next/dist/client/components/react-dev-overlay/pages/websocket.js:38
+[ 2621085ms] [ERROR] ./src/app/dashboard/expert-digital/page.tsx
+Error: 
+  x Expression expected
+     ,-[C:\laragon\www\Flexwork\src\app\dashboard\expert-digital\page.tsx:469:1]
+ 469 |     </div>
+ 470 |   );
+ 471 | }
+ 472 |       <div className="pointer-events-none fixed inset-0">
+     :                                                         ^
+ 473 |         <div className="absolute -top-32 -left-32 w-[560px] h-[560px] rounded-full blur-[120px] opacity-[0.06] bg-[#008751]"/><div className="absolute top-20 -right-24 w-[480px] h-[480px] rounded-full blur-[110px] opacity-[0.07] bg-[#FCD116]"/><div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[900px] h-[400px] rounded-full blur-[130px] opacity-[0.05] bg-[#008751]"/>
+ 474 |       </div>
+ 474 |       <div className="relative max-w-6xl mx-auto px-4 md:px-6 pb-28 md:pb-10">
+     `----
+
+  x Expected ';', '}' or <eof>
+     ,-[C:\laragon\www\Flexwork\src\app\dashboard\expert-digital\page.tsx:469:1]
+ 469 |         </div>
+ 470 |       );
+ 471 |     }
+ 472 | ,->       <div className="pointer-events-none fixed inset-0">
+ 473 | |->         <div className="absolute -top-32 -left-32 w-[560px] h-[560px] rounded-full blur-[120px] opacity-[0.06] bg-[#008751]"/><div className="absolute top-20 -right-24 w-[480px] h-[480px] rounded-full blur-[110px] opacity-[0.07] bg-[#FCD116]"/><div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[900px] h-[400px] rounded-full blur-[130px] opacity-[0.05] bg-[#008751]"/>
+     : `---                                                                                                                                   ^^^^^^^^^
+     : `---- This is the expression part of an expression statement
+ 474 |           </div>
+ 475 |           <div className="relative max-w-6xl mx-auto px-4 md:px-6 pb-28 md:pb-10">
+ 475 |             {/* Header */}
+     `----
+
+Caused by:
+    Syntax Error @ webpack-internal:///./node_modules/next/dist/client/components/react-dev-overlay/internal/helpers/hydration-error-info.js:62
+[ 2621090ms] [ERROR] ./src/app/dashboard/expert-digital/page.tsx
+Error: 
+  x Expression expected
+     ,-[C:\laragon\www\Flexwork\src\app\dashboard\expert-digital\page.tsx:469:1]
+ 469 |     </div>
+ 470 |   );
+ 471 | }
+ 472 |       <div className="pointer-events-none fixed inset-0">
+     :                                                         ^
+ 473 |         <div className="absolute -top-32 -left-32 w-[560px] h-[560px] rounded-full blur-[120px] opacity-[0.06] bg-[#008751]"/><div className="absolute top-20 -right-24 w-[480px] h-[480px] rounded-full blur-[110px] opacity-[0.07] bg-[#FCD116]"/><div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[900px] h-[400px] rounded-full blur-[130px] opacity-[0.05] bg-[#008751]"/>
+ 474 |       </div>
+ 474 |       <div className="relative max-w-6xl mx-auto px-4 md:px-6 pb-28 md:pb-10">
+     `----
+
+  x Expected ';', '}' or <eof>
+     ,-[C:\laragon\www\Flexwork\src\app\dashboard\expert-digital\page.tsx:469:1]
+ 469 |         </div>
+ 470 |       );
+ 471 |     }
+ 472 | ,->       <div className="pointer-events-none fixed inset-0">
+ 473 | |->         <div className="absolute -top-32 -left-32 w-[560px] h-[560px] rounded-full blur-[120px] opacity-[0.06] bg-[#008751]"/><div className="absolute top-20 -right-24 w-[480px] h-[480px] rounded-full blur-[110px] opacity-[0.07] bg-[#FCD116]"/><div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[900px] h-[400px] rounded-full blur-[130px] opacity-[0.05] bg-[#008751]"/>
+     : `---                                                                                                                                   ^^^^^^^^^
+     : `---- This is the expression part of an expression statement
+ 474 |           </div>
+ 475 |           <div className="relative max-w-6xl mx-auto px-4 md:px-6 pb-28 md:pb-10">
+ 475 |             {/* Header */}
+     `----
+
+Caused by:
+    Syntax Error @ webpack-internal:///./node_modules/next/dist/client/components/react-dev-overlay/internal/helpers/hydration-error-info.js:62
+[ 2621094ms] [ERROR] ./src/app/dashboard/expert-digital/page.tsx
+Error: 
+  x Expression expected
+     ,-[C:\laragon\www\Flexwork\src\app\dashboard\expert-digital\page.tsx:469:1]
+ 469 |     </div>
+ 470 |   );
+ 471 | }
+ 472 |       <div className="pointer-events-none fixed inset-0">
+     :                                                         ^
+ 473 |         <div className="absolute -top-32 -left-32 w-[560px] h-[560px] rounded-full blur-[120px] opacity-[0.06] bg-[#008751]"/><div className="absolute top-20 -right-24 w-[480px] h-[480px] rounded-full blur-[110px] opacity-[0.07] bg-[#FCD116]"/><div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[900px] h-[400px] rounded-full blur-[130px] opacity-[0.05] bg-[#008751]"/>
+ 474 |       </div>
+ 474 |       <div className="relative max-w-6xl mx-auto px-4 md:px-6 pb-28 md:pb-10">
+     `----
+
+  x Expected ';', '}' or <eof>
+     ,-[C:\laragon\www\Flexwork\src\app\dashboard\expert-digital\page.tsx:469:1]
+ 469 |         </div>
+ 470 |       );
+ 471 |     }
+ 472 | ,->       <div className="pointer-events-none fixed inset-0">
+ 473 | |->         <div className="absolute -top-32 -left-32 w-[560px] h-[560px] rounded-full blur-[120px] opacity-[0.06] bg-[#008751]"/><div className="absolute top-20 -right-24 w-[480px] h-[480px] rounded-full blur-[110px] opacity-[0.07] bg-[#FCD116]"/><div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[900px] h-[400px] rounded-full blur-[130px] opacity-[0.05] bg-[#008751]"/>
+     : `---                                                                                                                                   ^^^^^^^^^
+     : `---- This is the expression part of an expression statement
+ 474 |           </div>
+ 475 |           <div className="relative max-w-6xl mx-auto px-4 md:px-6 pb-28 md:pb-10">
+ 475 |             {/* Header */}
+     `----
+
+Caused by:
+    Syntax Error @ webpack-internal:///./node_modules/next/dist/client/components/react-dev-overlay/internal/helpers/hydration-error-info.js:62
+[ 2621127ms] [ERROR] ./src/app/dashboard/expert-digital/page.tsx
+Error: 
+  x Expression expected
+     ,-[C:\laragon\www\Flexwork\src\app\dashboard\expert-digital\page.tsx:469:1]
+ 469 |     </div>
+ 470 |   );
+ 471 | }
+ 472 |       <div className="pointer-events-none fixed inset-0">
+     :                                                         ^
+ 473 |         <div className="absolute -top-32 -left-32 w-[560px] h-[560px] rounded-full blur-[120px] opacity-[0.06] bg-[#008751]"/><div className="absolute top-20 -right-24 w-[480px] h-[480px] rounded-full blur-[110px] opacity-[0.07] bg-[#FCD116]"/><div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[900px] h-[400px] rounded-full blur-[130px] opacity-[0.05] bg-[#008751]"/>
+ 474 |       </div>
+ 474 |       <div className="relative max-w-6xl mx-auto px-4 md:px-6 pb-28 md:pb-10">
+     `----
+
+  x Expected ';', '}' or <eof>
+     ,-[C:\laragon\www\Flexwork\src\app\dashboard\expert-digital\page.tsx:469:1]
+ 469 |         </div>
+ 470 |       );
+ 471 |     }
+ 472 | ,->       <div className="pointer-events-none fixed inset-0">
+ 473 | |->         <div className="absolute -top-32 -left-32 w-[560px] h-[560px] rounded-full blur-[120px] opacity-[0.06] bg-[#008751]"/><div className="absolute top-20 -right-24 w-[480px] h-[480px] rounded-full blur-[110px] opacity-[0.07] bg-[#FCD116]"/><div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[900px] h-[400px] rounded-full blur-[130px] opacity-[0.05] bg-[#008751]"/>
+     : `---                                                                                                                                   ^^^^^^^^^
+     : `---- This is the expression part of an expression statement
+ 474 |           </div>
+ 475 |           <div className="relative max-w-6xl mx-auto px-4 md:px-6 pb-28 md:pb-10">
+ 475 |             {/* Header */}
+     `----
+
+Caused by:
+    Syntax Error @ webpack-internal:///./node_modules/next/dist/client/components/react-dev-overlay/internal/helpers/hydration-error-info.js:62
+[ 2621371ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3000/favicon.ico:0
+[ 2679776ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///./node_modules/next/dist/client/components/react-dev-overlay/pages/hot-reloader-client.js:221
+[ 2681545ms] [ERROR] ./src/app/dashboard/expert-digital/page.tsx
+Error: 
+  x Expression expected
+     ,-[C:\laragon\www\Flexwork\src\app\dashboard\expert-digital\page.tsx:469:1]
+ 469 |     </div>
+ 470 |   );
+ 471 | }
+ 472 |       <div className="pointer-events-none fixed inset-0">
+     :                                                         ^
+ 473 |         <div className="absolute -top-32 -left-32 w-[560px] h-[560px] rounded-full blur-[120px] opacity-[0.06] bg-[#008751]"/><div className="absolute top-20 -right-24 w-[480px] h-[480px] rounded-full blur-[110px] opacity-[0.07] bg-[#FCD116]"/><div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[900px] h-[400px] rounded-full blur-[130px] opacity-[0.05] bg-[#008751]"/>
+     `----
+
+  x Expected ';', '}' or <eof>
+     ,-[C:\laragon\www\Flexwork\src\app\dashboard\expert-digital\page.tsx:469:1]
+ 469 |         </div>
+ 470 |       );
+ 471 |     }
+ 472 | ,->       <div className="pointer-events-none fixed inset-0">
+ 473 | |->         <div className="absolute -top-32 -left-32 w-[560px] h-[560px] rounded-full blur-[120px] opacity-[0.06] bg-[#008751]"/><div className="absolute top-20 -right-24 w-[480px] h-[480px] rounded-full blur-[110px] opacity-[0.07] bg-[#FCD116]"/><div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[900px] h-[400px] rounded-full blur-[130px] opacity-[0.05] bg-[#008751]"/>
+     : `---                                                                                                                                   ^^^^^^^^^
+     : `---- This is the expression part of an expression statement
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/app/dashboard/expert-digital/page.tsx @ webpack-internal:///./node_modules/next/dist/client/components/react-dev-overlay/internal/helpers/hydration-error-info.js:62
+[ 2684164ms] [ERROR] ./src/app/dashboard/expert-digital/page.tsx
+Error: 
+  x Expression expected
+     ,-[C:\laragon\www\Flexwork\src\app\dashboard\expert-digital\page.tsx:469:1]
+ 469 |     </div>
+ 470 |   );
+ 471 | }
+ 472 |       <div className="pointer-events-none fixed inset-0">
+     :                                                         ^
+ 473 |         <div className="absolute -top-32 -left-32 w-[560px] h-[560px] rounded-full blur-[120px] opacity-[0.06] bg-[#008751]"/><div className="absolute top-20 -right-24 w-[480px] h-[480px] rounded-full blur-[110px] opacity-[0.07] bg-[#FCD116]"/><div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[900px] h-[400px] rounded-full blur-[130px] opacity-[0.05] bg-[#008751]"/>
+     `----
+
+  x Expected ';', '}' or <eof>
+     ,-[C:\laragon\www\Flexwork\src\app\dashboard\expert-digital\page.tsx:469:1]
+ 469 |         </div>
+ 470 |       );
+ 471 |     }
+ 472 | ,->       <div className="pointer-events-none fixed inset-0">
+ 473 | |->         <div className="absolute -top-32 -left-32 w-[560px] h-[560px] rounded-full blur-[120px] opacity-[0.06] bg-[#008751]"/><div className="absolute top-20 -right-24 w-[480px] h-[480px] rounded-full blur-[110px] opacity-[0.07] bg-[#FCD116]"/><div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[900px] h-[400px] rounded-full blur-[130px] opacity-[0.05] bg-[#008751]"/>
+     : `---                                                                                                                                   ^^^^^^^^^
+     : `---- This is the expression part of an expression statement
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/app/dashboard/expert-digital/page.tsx @ webpack-internal:///./node_modules/next/dist/client/components/react-dev-overlay/internal/helpers/hydration-error-info.js:62
+[ 2684563ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/_next/static/webpack/9b0b490d9f8eb6bf.webpack.hot-update.json:0
+[ 2684564ms] [WARNING] [Fast Refresh] performing full reload
+
+Fast Refresh will perform a full reload when you edit a file that's imported by modules outside of the React rendering tree.
+You might have a file which exports a React component but also exports a value that is imported by a non-React component file.
+Consider migrating the non-React component export to a separate file and importing it into both files.
+
+It is also possible the parent component of the component you edited is a class component, which disables Fast Refresh.
+Fast Refresh requires at least one parent function component in your React tree. @ webpack-internal:///./node_modules/next/dist/client/components/react-dev-overlay/pages/hot-reloader-client.js:347
+[ 2685968ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/dashboard/expert-digital:0
+[ 2687432ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ webpack-internal:///./node_modules/react-dom/cjs/react-dom.development.js:29889
+[ 2687585ms] ModuleBuildError: Module build failed (from ./node_modules/next/dist/build/webpack/loaders/next-swc-loader.js):
+Error: 
+  x Expression expected
+     ,-[C:\laragon\www\Flexwork\src\app\dashboard\expert-digital\page.tsx:469:1]
+ 469 |     </div>
+ 470 |   );
+ 471 | }
+ 472 |       <div className="pointer-events-none fixed inset-0">
+     :                                                         ^
+ 473 |         <div className="absolute -top-32 -left-32 w-[560px] h-[560px] rounded-full blur-[120px] opacity-[0.06] bg-[#008751]"/><div className="absolute top-20 -right-24 w-[480px] h-[480px] rounded-full blur-[110px] opacity-[0.07] bg-[#FCD116]"/><div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[900px] h-[400px] rounded-full blur-[130px] opacity-[0.05] bg-[#008751]"/>
+     `----
+
+  x Expected ';', '}' or <eof>
+     ,-[C:\laragon\www\Flexwork\src\app\dashboard\expert-digital\page.tsx:469:1]
+ 469 |         </div>
+ 470 |       );
+ 471 |     }
+ 472 | ,->       <div className="pointer-events-none fixed inset-0">
+ 473 | |->         <div className="absolute -top-32 -left-32 w-[560px] h-[560px] rounded-full blur-[120px] opacity-[0.06] bg-[#008751]"/><div className="absolute top-20 -right-24 w-[480px] h-[480px] rounded-full blur-[110px] opacity-[0.07] bg-[#FCD116]"/><div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[900px] h-[400px] rounded-full blur-[130px] opacity-[0.05] bg-[#008751]"/>
+     : `---                                                                                                                                   ^^^^^^^^^
+     : `---- This is the expression part of an expression statement
+     `----
+
+
+Caused by:
+    Syntax Error
+    at processResult (file://C:\laragon\www\Flexwork\node_modules\next\dist\compiled\webpack\bundle5.js:28:400590)
+    at <unknown> (file://C:\laragon\www\Flexwork\node_modules\next\dist\compiled\webpack\bundle5.js:28:402302)
+    at <unknown> (file://C:\laragon\www\Flexwork\node_modules\next\dist\compiled\loader-runner\LoaderRunner.js:1:8645)
+    at <unknown> (file://C:\laragon\www\Flexwork\node_modules\next\dist\compiled\loader-runner\LoaderRunner.js:1:5019)
+    at r.callback (file://C:\laragon\www\Flexwork\node_modules\next\dist\compiled\loader-runner\LoaderRunner.js:1:4039)
+[ 2687528ms] [LOG] [HMR] connected @ webpack-internal:///./node_modules/next/dist/client/components/react-dev-overlay/pages/websocket.js:38
+[ 2687531ms] [ERROR] ./src/app/dashboard/expert-digital/page.tsx
+Error: 
+  x Expression expected
+     ,-[C:\laragon\www\Flexwork\src\app\dashboard\expert-digital\page.tsx:469:1]
+ 469 |     </div>
+ 470 |   );
+ 471 | }
+ 472 |       <div className="pointer-events-none fixed inset-0">
+     :                                                         ^
+ 473 |         <div className="absolute -top-32 -left-32 w-[560px] h-[560px] rounded-full blur-[120px] opacity-[0.06] bg-[#008751]"/><div className="absolute top-20 -right-24 w-[480px] h-[480px] rounded-full blur-[110px] opacity-[0.07] bg-[#FCD116]"/><div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[900px] h-[400px] rounded-full blur-[130px] opacity-[0.05] bg-[#008751]"/>
+     `----
+
+  x Expected ';', '}' or <eof>
+     ,-[C:\laragon\www\Flexwork\src\app\dashboard\expert-digital\page.tsx:469:1]
+ 469 |         </div>
+ 470 |       );
+ 471 |     }
+ 472 | ,->       <div className="pointer-events-none fixed inset-0">
+ 473 | |->         <div className="absolute -top-32 -left-32 w-[560px] h-[560px] rounded-full blur-[120px] opacity-[0.06] bg-[#008751]"/><div className="absolute top-20 -right-24 w-[480px] h-[480px] rounded-full blur-[110px] opacity-[0.07] bg-[#FCD116]"/><div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[900px] h-[400px] rounded-full blur-[130px] opacity-[0.05] bg-[#008751]"/>
+     : `---                                                                                                                                   ^^^^^^^^^
+     : `---- This is the expression part of an expression statement
+     `----
+
+Caused by:
+    Syntax Error @ webpack-internal:///./node_modules/next/dist/client/components/react-dev-overlay/internal/helpers/hydration-error-info.js:62
+[ 2687560ms] [ERROR] ./src/app/dashboard/expert-digital/page.tsx
+Error: 
+  x Expression expected
+     ,-[C:\laragon\www\Flexwork\src\app\dashboard\expert-digital\page.tsx:469:1]
+ 469 |     </div>
+ 470 |   );
+ 471 | }
+ 472 |       <div className="pointer-events-none fixed inset-0">
+     :                                                         ^
+ 473 |         <div className="absolute -top-32 -left-32 w-[560px] h-[560px] rounded-full blur-[120px] opacity-[0.06] bg-[#008751]"/><div className="absolute top-20 -right-24 w-[480px] h-[480px] rounded-full blur-[110px] opacity-[0.07] bg-[#FCD116]"/><div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[900px] h-[400px] rounded-full blur-[130px] opacity-[0.05] bg-[#008751]"/>
+     `----
+
+  x Expected ';', '}' or <eof>
+     ,-[C:\laragon\www\Flexwork\src\app\dashboard\expert-digital\page.tsx:469:1]
+ 469 |         </div>
+ 470 |       );
+ 471 |     }
+ 472 | ,->       <div className="pointer-events-none fixed inset-0">
+ 473 | |->         <div className="absolute -top-32 -left-32 w-[560px] h-[560px] rounded-full blur-[120px] opacity-[0.06] bg-[#008751]"/><div className="absolute top-20 -right-24 w-[480px] h-[480px] rounded-full blur-[110px] opacity-[0.07] bg-[#FCD116]"/><div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[900px] h-[400px] rounded-full blur-[130px] opacity-[0.05] bg-[#008751]"/>
+     : `---                                                                                                                                   ^^^^^^^^^
+     : `---- This is the expression part of an expression statement
+     `----
+
+Caused by:
+    Syntax Error @ webpack-internal:///./node_modules/next/dist/client/components/react-dev-overlay/internal/helpers/hydration-error-info.js:62
+[ 2726295ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///./node_modules/next/dist/client/components/react-dev-overlay/pages/hot-reloader-client.js:221
+[ 2727211ms] [ERROR] ./src/app/dashboard/expert-digital/page.tsx
+Error: 
+  x Expected '}', got '<eof>'
+     ,-[C:\laragon\www\Flexwork\src\app\dashboard\expert-digital\page.tsx:467:1]
+ 467 | 
+ 468 |       <style>{`.scrollbar-none::-webkit-scrollbar{display:none}.scrollbar-none{-ms-overflow-style:none;scrollbar-width:none}@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}@keyframes toastIn{from{opacity:0;transform:translate(-50%,12px) scale(0.96)}to{opacity:1;transform:translate(-50%,0) scale(1)}}`}</style>
+ 469 |     </div>
+ 470 |   );
+     :    ^
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/app/dashboard/expert-digital/page.tsx @ webpack-internal:///./node_modules/next/dist/client/components/react-dev-overlay/internal/helpers/hydration-error-info.js:62
+[ 2729075ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/_next/static/webpack/9b0b490d9f8eb6bf.webpack.hot-update.json:0
+[ 2729076ms] [WARNING] [Fast Refresh] performing full reload
+
+Fast Refresh will perform a full reload when you edit a file that's imported by modules outside of the React rendering tree.
+You might have a file which exports a React component but also exports a value that is imported by a non-React component file.
+Consider migrating the non-React component export to a separate file and importing it into both files.
+
+It is also possible the parent component of the component you edited is a class component, which disables Fast Refresh.
+Fast Refresh requires at least one parent function component in your React tree. @ webpack-internal:///./node_modules/next/dist/client/components/react-dev-overlay/pages/hot-reloader-client.js:347
+[ 2729975ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/dashboard/expert-digital:0
+[ 2731259ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ webpack-internal:///./node_modules/react-dom/cjs/react-dom.development.js:29889
+[ 2731385ms] ModuleBuildError: Module build failed (from ./node_modules/next/dist/build/webpack/loaders/next-swc-loader.js):
+Error: 
+  x Expected '}', got '<eof>'
+     ,-[C:\laragon\www\Flexwork\src\app\dashboard\expert-digital\page.tsx:467:1]
+ 467 | 
+ 468 |       <style>{`.scrollbar-none::-webkit-scrollbar{display:none}.scrollbar-none{-ms-overflow-style:none;scrollbar-width:none}@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}@keyframes toastIn{from{opacity:0;transform:translate(-50%,12px) scale(0.96)}to{opacity:1;transform:translate(-50%,0) scale(1)}}`}</style>
+ 469 |     </div>
+ 470 |   );
+     :    ^
+     `----
+
+
+Caused by:
+    Syntax Error
+    at processResult (file://C:\laragon\www\Flexwork\node_modules\next\dist\compiled\webpack\bundle5.js:28:400590)
+    at <unknown> (file://C:\laragon\www\Flexwork\node_modules\next\dist\compiled\webpack\bundle5.js:28:402302)
+    at <unknown> (file://C:\laragon\www\Flexwork\node_modules\next\dist\compiled\loader-runner\LoaderRunner.js:1:8645)
+    at <unknown> (file://C:\laragon\www\Flexwork\node_modules\next\dist\compiled\loader-runner\LoaderRunner.js:1:5019)
+    at r.callback (file://C:\laragon\www\Flexwork\node_modules\next\dist\compiled\loader-runner\LoaderRunner.js:1:4039)
+[ 2731332ms] [LOG] [HMR] connected @ webpack-internal:///./node_modules/next/dist/client/components/react-dev-overlay/pages/websocket.js:38
+[ 2731334ms] [ERROR] ./src/app/dashboard/expert-digital/page.tsx
+Error: 
+  x Expected '}', got '<eof>'
+     ,-[C:\laragon\www\Flexwork\src\app\dashboard\expert-digital\page.tsx:467:1]
+ 467 | 
+ 468 |       <style>{`.scrollbar-none::-webkit-scrollbar{display:none}.scrollbar-none{-ms-overflow-style:none;scrollbar-width:none}@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}@keyframes toastIn{from{opacity:0;transform:translate(-50%,12px) scale(0.96)}to{opacity:1;transform:translate(-50%,0) scale(1)}}`}</style>
+ 469 |     </div>
+ 470 |   );
+     :    ^
+     `----
+
+Caused by:
+    Syntax Error @ webpack-internal:///./node_modules/next/dist/client/components/react-dev-overlay/internal/helpers/hydration-error-info.js:62
+[ 2731336ms] [ERROR] ./src/app/dashboard/expert-digital/page.tsx
+Error: 
+  x Expected '}', got '<eof>'
+     ,-[C:\laragon\www\Flexwork\src\app\dashboard\expert-digital\page.tsx:467:1]
+ 467 | 
+ 468 |       <style>{`.scrollbar-none::-webkit-scrollbar{display:none}.scrollbar-none{-ms-overflow-style:none;scrollbar-width:none}@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}@keyframes toastIn{from{opacity:0;transform:translate(-50%,12px) scale(0.96)}to{opacity:1;transform:translate(-50%,0) scale(1)}}`}</style>
+ 469 |     </div>
+ 470 |   );
+     :    ^
+     `----
+
+Caused by:
+    Syntax Error @ webpack-internal:///./node_modules/next/dist/client/components/react-dev-overlay/internal/helpers/hydration-error-info.js:62
+[ 2731439ms] [ERROR] ./src/app/dashboard/expert-digital/page.tsx
+Error: 
+  x Expected '}', got '<eof>'
+     ,-[C:\laragon\www\Flexwork\src\app\dashboard\expert-digital\page.tsx:467:1]
+ 467 | 
+ 468 |       <style>{`.scrollbar-none::-webkit-scrollbar{display:none}.scrollbar-none{-ms-overflow-style:none;scrollbar-width:none}@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}@keyframes toastIn{from{opacity:0;transform:translate(-50%,12px) scale(0.96)}to{opacity:1;transform:translate(-50%,0) scale(1)}}`}</style>
+ 469 |     </div>
+ 470 |   );
+     :    ^
+     `----
+
+Caused by:
+    Syntax Error @ webpack-internal:///./node_modules/next/dist/client/components/react-dev-overlay/internal/helpers/hydration-error-info.js:62
+[ 2731492ms] [ERROR] ./src/app/dashboard/expert-digital/page.tsx
+Error: 
+  x Expected '}', got '<eof>'
+     ,-[C:\laragon\www\Flexwork\src\app\dashboard\expert-digital\page.tsx:467:1]
+ 467 | 
+ 468 |       <style>{`.scrollbar-none::-webkit-scrollbar{display:none}.scrollbar-none{-ms-overflow-style:none;scrollbar-width:none}@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}@keyframes toastIn{from{opacity:0;transform:translate(-50%,12px) scale(0.96)}to{opacity:1;transform:translate(-50%,0) scale(1)}}`}</style>
+ 469 |     </div>
+ 470 |   );
+     :    ^
+     `----
+
+Caused by:
+    Syntax Error @ webpack-internal:///./node_modules/next/dist/client/components/react-dev-overlay/internal/helpers/hydration-error-info.js:62
+[ 2760887ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///./node_modules/next/dist/client/components/react-dev-overlay/pages/hot-reloader-client.js:221
+[ 2767385ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///./node_modules/next/dist/client/components/react-dev-overlay/pages/hot-reloader-client.js:221
+[ 2773254ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3000/_next/static/webpack/9b0b490d9f8eb6bf.webpack.hot-update.json:0
+[ 2773255ms] [WARNING] [Fast Refresh] performing full reload because your application had an unrecoverable error @ webpack-internal:///./node_modules/next/dist/client/components/react-dev-overlay/pages/hot-reloader-client.js:349
+[ 2779128ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom.development.js:38559
+[ 3056240ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[ 3072492ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[ 3073070ms] [LOG] [Fast Refresh] done in 578ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[ 3080683ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[ 3080893ms] [LOG] [Fast Refresh] done in 209ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[ 3086670ms] [LOG] [Fast Refresh] done in 5986ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[ 3099511ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[ 3103483ms] [LOG] [Fast Refresh] done in 3972ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[ 3105647ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[ 3108955ms] [LOG] [Fast Refresh] done in 3309ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[ 3111473ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[ 3113715ms] [LOG] [Fast Refresh] done in 2241ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[ 3536560ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[ 3542996ms] [LOG] [Fast Refresh] done in 6440ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[ 3557058ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[ 3559464ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[ 3559741ms] [LOG] [Fast Refresh] done in 276ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[ 3563798ms] [LOG] [Fast Refresh] done in 4333ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[ 3568860ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[ 3570830ms] [LOG] [Fast Refresh] done in 1971ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[ 3587581ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[ 3591883ms] [LOG] [Fast Refresh] done in 4302ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[ 3597817ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[ 3600725ms] [LOG] [Fast Refresh] done in 2907ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[ 4103597ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[ 4106798ms] [LOG] [Fast Refresh] done in 3202ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[ 4143862ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[ 4146032ms] [LOG] [Fast Refresh] done in 2170ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[ 4333671ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[ 4336941ms] [LOG] [Fast Refresh] done in 3271ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[ 4346070ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[ 4349142ms] [LOG] [Fast Refresh] done in 3073ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[ 4405193ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[ 4406125ms] [LOG] [Fast Refresh] done in 932ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[ 4976108ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[ 4982629ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[ 4983436ms] [LOG] [Fast Refresh] done in 807ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[ 4991982ms] [LOG] [Fast Refresh] done in 9354ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[ 5038056ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[ 5041911ms] [LOG] [Fast Refresh] done in 3855ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[ 5041967ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[ 5045684ms] [LOG] [Fast Refresh] done in 3717ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[ 5110744ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[ 5116921ms] [LOG] [Fast Refresh] done in 6177ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[ 5119087ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[ 5122786ms] [LOG] [Fast Refresh] done in 3699ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[ 5516825ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[ 5523550ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[ 5524097ms] [LOG] [Fast Refresh] done in 547ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[ 5527532ms] [LOG] [Fast Refresh] done in 3983ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43

@@ -1,0 +1,17 @@
+{
+  "name": "Flexwork / Tasker",
+  "short_name": "Flexwork",
+  "description": "Plateforme de mise en relation missions & talents",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#EFEAE0",
+  "theme_color": "#16233E",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

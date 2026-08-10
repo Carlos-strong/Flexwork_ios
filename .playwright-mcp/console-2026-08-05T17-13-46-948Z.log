@@ -1,0 +1,190 @@
+[    1953ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom.development.js:38559
+[  216302ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[  218515ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[  223842ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[  224644ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3000/_next/static/webpack/662465da918e6e88.webpack.hot-update.json:0
+[  226418ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[  226589ms] [LOG] [Fast Refresh] done in 170ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[  234410ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom.development.js:38559
+[  238662ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[  247563ms] [LOG] [Fast Refresh] done in 8902ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[  258808ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[  259724ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[  259839ms] [LOG] [Fast Refresh] done in 115ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[  260593ms] [ERROR] ./src/app/admin/page.tsx
+Error: 
+  x Unexpected token `div`. Expected jsx identifier
+     ,-[C:\laragon\www\Flexwork\src\app\admin\page.tsx:215:1]
+ 215 |   const activeLabel = navGroups.flatMap(g => g.items).find(i => i.id === activeSection)?.label ?? "";
+ 216 | 
+ 217 |   return (
+ 218 |     <div className="min-h-screen bg-[#f9fafb] text-gray-900 antialiased" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
+     :      ^^^
+ 219 |       {toast && (
+ 220 |         <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[100] bg-gray-900 text-white px-4 py-2.5 rounded-full text-sm font-medium shadow-2xl flex items-center gap-2 max-w-[90vw]">
+ 221 |           <span className="w-2 h-2 rounded-full bg-[#FCD116] animate-pulse shrink-0" />{toast}
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/app/admin/page.tsx @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/app-index.js:32
+[  261619ms] [LOG] [Fast Refresh] done in 1895ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[  261985ms] [ERROR] ./src/app/admin/page.tsx
+Error: 
+  x Unexpected token `div`. Expected jsx identifier
+     ,-[C:\laragon\www\Flexwork\src\app\admin\page.tsx:215:1]
+ 215 |   const activeLabel = navGroups.flatMap(g => g.items).find(i => i.id === activeSection)?.label ?? "";
+ 216 | 
+ 217 |   return (
+ 218 |     <div className="min-h-screen bg-[#f9fafb] text-gray-900 antialiased" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
+     :      ^^^
+ 219 |       {toast && (
+ 220 |         <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[100] bg-gray-900 text-white px-4 py-2.5 rounded-full text-sm font-medium shadow-2xl flex items-center gap-2 max-w-[90vw]">
+ 221 |           <span className="w-2 h-2 rounded-full bg-[#FCD116] animate-pulse shrink-0" />{toast}
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/app/admin/page.tsx @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/app-index.js:32
+[  262657ms] [ERROR] ./src/app/admin/page.tsx
+Error: 
+  x Unexpected token `div`. Expected jsx identifier
+     ,-[C:\laragon\www\Flexwork\src\app\admin\page.tsx:215:1]
+ 215 |   const activeLabel = navGroups.flatMap(g => g.items).find(i => i.id === activeSection)?.label ?? "";
+ 216 | 
+ 217 |   return (
+ 218 |     <div className="min-h-screen bg-[#f9fafb] text-gray-900 antialiased" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
+     :      ^^^
+ 219 |       {toast && (
+ 220 |         <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[100] bg-gray-900 text-white px-4 py-2.5 rounded-full text-sm font-medium shadow-2xl flex items-center gap-2 max-w-[90vw]">
+ 221 |           <span className="w-2 h-2 rounded-full bg-[#FCD116] animate-pulse shrink-0" />{toast}
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/app/admin/page.tsx @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/app-index.js:32
+[  263288ms] [ERROR] ./src/app/admin/page.tsx
+Error: 
+  x Unexpected token `div`. Expected jsx identifier
+     ,-[C:\laragon\www\Flexwork\src\app\admin\page.tsx:215:1]
+ 215 |   const activeLabel = navGroups.flatMap(g => g.items).find(i => i.id === activeSection)?.label ?? "";
+ 216 | 
+ 217 |   return (
+ 218 |     <div className="min-h-screen bg-[#f9fafb] text-gray-900 antialiased" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
+     :      ^^^
+ 219 |       {toast && (
+ 220 |         <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[100] bg-gray-900 text-white px-4 py-2.5 rounded-full text-sm font-medium shadow-2xl flex items-center gap-2 max-w-[90vw]">
+ 221 |           <span className="w-2 h-2 rounded-full bg-[#FCD116] animate-pulse shrink-0" />{toast}
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/app/admin/page.tsx @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/app-index.js:32
+[  263767ms] [ERROR] ./src/app/admin/page.tsx
+Error: 
+  x Unexpected token `div`. Expected jsx identifier
+     ,-[C:\laragon\www\Flexwork\src\app\admin\page.tsx:215:1]
+ 215 |   const activeLabel = navGroups.flatMap(g => g.items).find(i => i.id === activeSection)?.label ?? "";
+ 216 | 
+ 217 |   return (
+ 218 |     <div className="min-h-screen bg-[#f9fafb] text-gray-900 antialiased" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
+     :      ^^^
+ 219 |       {toast && (
+ 220 |         <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[100] bg-gray-900 text-white px-4 py-2.5 rounded-full text-sm font-medium shadow-2xl flex items-center gap-2 max-w-[90vw]">
+ 221 |           <span className="w-2 h-2 rounded-full bg-[#FCD116] animate-pulse shrink-0" />{toast}
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/app/admin/page.tsx @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/app-index.js:32
+[  265917ms] [ERROR] ./src/app/admin/page.tsx
+Error: 
+  x Unexpected token `div`. Expected jsx identifier
+     ,-[C:\laragon\www\Flexwork\src\app\admin\page.tsx:215:1]
+ 215 |   const activeLabel = navGroups.flatMap(g => g.items).find(i => i.id === activeSection)?.label ?? "";
+ 216 | 
+ 217 |   return (
+ 218 |     <div className="min-h-screen bg-[#f9fafb] text-gray-900 antialiased" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
+     :      ^^^
+ 219 |       {toast && (
+ 220 |         <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[100] bg-gray-900 text-white px-4 py-2.5 rounded-full text-sm font-medium shadow-2xl flex items-center gap-2 max-w-[90vw]">
+ 221 |           <span className="w-2 h-2 rounded-full bg-[#FCD116] animate-pulse shrink-0" />{toast}
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/app/admin/page.tsx @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/app-index.js:32
+[  271229ms] [LOG] [Fast Refresh] done in 11505ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[  272962ms] [ERROR] ./src/app/admin/page.tsx
+Error: 
+  x Unexpected token `div`. Expected jsx identifier
+     ,-[C:\laragon\www\Flexwork\src\app\admin\page.tsx:215:1]
+ 215 |   const activeLabel = navGroups.flatMap(g => g.items).find(i => i.id === activeSection)?.label ?? "";
+ 216 | 
+ 217 |   return (
+ 218 |     <div className="min-h-screen bg-[#f9fafb] text-gray-900 antialiased" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
+     :      ^^^
+ 219 |       {toast && (
+ 220 |         <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[100] bg-gray-900 text-white px-4 py-2.5 rounded-full text-sm font-medium shadow-2xl flex items-center gap-2 max-w-[90vw]">
+ 221 |           <span className="w-2 h-2 rounded-full bg-[#FCD116] animate-pulse shrink-0" />{toast}
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/app/admin/page.tsx @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/app-index.js:32
+[  283107ms] [LOG] [Fast Refresh] done in 23384ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[  285804ms] [ERROR] ./src/app/admin/page.tsx
+Error: 
+  x Unexpected token `div`. Expected jsx identifier
+     ,-[C:\laragon\www\Flexwork\src\app\admin\page.tsx:215:1]
+ 215 |   const activeLabel = navGroups.flatMap(g => g.items).find(i => i.id === activeSection)?.label ?? "";
+ 216 | 
+ 217 |   return (
+ 218 |     <div className="min-h-screen bg-[#f9fafb] text-gray-900 antialiased" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
+     :      ^^^
+ 219 |       {toast && (
+ 220 |         <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[100] bg-gray-900 text-white px-4 py-2.5 rounded-full text-sm font-medium shadow-2xl flex items-center gap-2 max-w-[90vw]">
+ 221 |           <span className="w-2 h-2 rounded-full bg-[#FCD116] animate-pulse shrink-0" />{toast}
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/app/admin/page.tsx @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/app-index.js:32
+[  293256ms] [LOG] [Fast Refresh] done in 33533ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[  295891ms] [ERROR] ./src/app/admin/page.tsx
+Error: 
+  x Unexpected token `div`. Expected jsx identifier
+     ,-[C:\laragon\www\Flexwork\src\app\admin\page.tsx:215:1]
+ 215 |   const activeLabel = navGroups.flatMap(g => g.items).find(i => i.id === activeSection)?.label ?? "";
+ 216 | 
+ 217 |   return (
+ 218 |     <div className="min-h-screen bg-[#f9fafb] text-gray-900 antialiased" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
+     :      ^^^
+ 219 |       {toast && (
+ 220 |         <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[100] bg-gray-900 text-white px-4 py-2.5 rounded-full text-sm font-medium shadow-2xl flex items-center gap-2 max-w-[90vw]">
+ 221 |           <span className="w-2 h-2 rounded-full bg-[#FCD116] animate-pulse shrink-0" />{toast}
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/app/admin/page.tsx @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/app-index.js:32
+[  307858ms] [LOG] [Fast Refresh] done in 48135ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[  311072ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186

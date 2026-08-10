@@ -1,0 +1,33 @@
+- generic [active] [ref=f25e1]:
+  - banner [ref=f25e2]:
+    - generic [ref=f25e3]:
+      - link "FlexWork BJ" [ref=f25e4] [cursor=pointer]:
+        - /url: /
+        - generic [ref=f25e10]: FlexWork
+        - generic [ref=f25e11]: BJ
+      - navigation [ref=f25e12]:
+        - link "Talents" [ref=f25e13] [cursor=pointer]:
+          - /url: /recherche
+        - link "Missions" [ref=f25e14] [cursor=pointer]:
+          - /url: /missions
+        - link "Vérification" [ref=f25e15] [cursor=pointer]:
+          - /url: /kyc
+        - link "Dashboard" [ref=f25e46] [cursor=pointer]:
+          - /url: /dashboard/client
+      - generic [ref=f25e16]:
+        - button "Notifications" [ref=f25e48] [cursor=pointer]
+        - link "Dashboard" [ref=f25e52] [cursor=pointer]:
+          - /url: /dashboard/client
+        - button "Déconnexion" [ref=f25e53] [cursor=pointer]
+  - alert [ref=f25e32]
+  - generic [ref=f25e35]:
+    - heading "Vérification" [level=1] [ref=f25e37]
+    - paragraph [ref=f25e39]:
+      - text: Un code a été envoyé à
+      - strong [ref=f25e40]: carlos@gmail.com
+      - text: .
+    - generic [ref=f25e41]:
+      - generic [ref=f25e42]:
+        - generic [ref=f25e43]: Code reçu
+        - textbox "123456" [ref=f25e44]: "525576"
+      - button "Valider" [ref=f25e45] [cursor=pointer]

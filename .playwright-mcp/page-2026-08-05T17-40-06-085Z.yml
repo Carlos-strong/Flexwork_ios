@@ -1,0 +1,164 @@
+- generic [active] [ref=f13e1]:
+  - banner [ref=f13e2]:
+    - generic [ref=f13e3]:
+      - link "FlexWork BJ" [ref=f13e4] [cursor=pointer]:
+        - /url: /
+        - generic [ref=f13e10]: FlexWork
+        - generic [ref=f13e11]: BJ
+      - navigation [ref=f13e12]:
+        - link "Talents" [ref=f13e13] [cursor=pointer]:
+          - /url: /recherche
+        - link "Missions" [ref=f13e14] [cursor=pointer]:
+          - /url: /missions
+        - link "Vérification" [ref=f13e15] [cursor=pointer]:
+          - /url: /kyc
+        - link "Dashboard" [ref=f13e16] [cursor=pointer]:
+          - /url: /admin
+      - generic [ref=f13e17]:
+        - link "Dashboard" [ref=f13e18] [cursor=pointer]:
+          - /url: /admin
+        - button "Déconnexion" [ref=f13e19] [cursor=pointer]
+  - generic [ref=f13e21]:
+    - complementary [ref=f13e22]:
+      - generic [ref=f13e25]:
+        - generic [ref=f13e26]: SA
+        - generic [ref=f13e27]:
+          - generic [ref=f13e28]: FlexWork
+          - generic [ref=f13e29]: Espace Admin
+      - generic [ref=f13e30]:
+        - generic [ref=f13e31]:
+          - generic [ref=f13e32]: Pilotage
+          - list [ref=f13e33]:
+            - listitem [ref=f13e34]:
+              - button [ref=f13e35] [cursor=pointer]
+            - listitem [ref=f13e42]:
+              - button [ref=f13e43] [cursor=pointer]
+            - listitem [ref=f13e46]:
+              - button [ref=f13e47] [cursor=pointer]
+        - generic [ref=f13e51]:
+          - generic [ref=f13e52]: Vérifications
+          - list [ref=f13e53]:
+            - listitem [ref=f13e54]:
+              - button "KYC & Identité 6" [ref=f13e127] [cursor=pointer]:
+                - generic [ref=f13e56]: KYC & Identité
+                - generic [ref=f13e128]: "6"
+            - listitem [ref=f13e60]:
+              - button [ref=f13e61] [cursor=pointer]
+        - generic [ref=f13e68]:
+          - generic [ref=f13e69]: Confiance
+          - list [ref=f13e70]:
+            - listitem [ref=f13e71]:
+              - button [ref=f13e72] [cursor=pointer]
+            - listitem [ref=f13e78]:
+              - button [ref=f13e79] [cursor=pointer]
+      - generic [ref=f13e85]:
+        - generic [ref=f13e86]: AF
+        - generic [ref=f13e88]:
+          - generic [ref=f13e89]: Admin FlexWork
+          - generic [ref=f13e90]: Super-administrateur
+    - main [ref=f13e92]:
+      - generic [ref=f13e95]:
+        - generic [ref=f13e97]:
+          - heading "KYC & Identité" [level=1] [ref=f13e131]
+          - generic [ref=f13e99]: Données en direct — Prisma/PostgreSQL
+        - button "Actualiser" [ref=f13e129] [cursor=pointer]
+      - generic [ref=f13e101]:
+        - generic [ref=f13e133]:
+          - generic [ref=f13e134]:
+            - heading "Vérifications KYC en attente" [level=2] [ref=f13e135]
+            - generic [ref=f13e136]: 6 dossiers
+          - table [ref=f13e138]:
+            - rowgroup [ref=f13e139]:
+              - row [ref=f13e140]:
+                - columnheader "Utilisateur" [ref=f13e141]
+                - columnheader "Profil" [ref=f13e142]
+                - columnheader "Documents" [ref=f13e143]
+                - columnheader "Déposé" [ref=f13e144]
+                - columnheader "Action" [ref=f13e145]
+            - rowgroup [ref=f13e146]:
+              - row [ref=f13e147]:
+                - cell "T test-smoke@example.com" [ref=f13e148]:
+                  - generic [ref=f13e149]:
+                    - generic [ref=f13e150]: T
+                    - text: test-smoke@example.com
+                - cell [ref=f13e152]:
+                  - link "Voir le profil →" [ref=f13e153] [cursor=pointer]:
+                    - /url: /profil/cmsevutsf0000v81ubu27r0ac
+                - cell "—" [ref=f13e154]
+                - cell "04/08/2026" [ref=f13e155]
+                - cell [ref=f13e156]:
+                  - button "Valider" [ref=f13e157] [cursor=pointer]
+                  - button "Rejeter" [ref=f13e158] [cursor=pointer]
+                  - button "Supprimer" [ref=f13e159] [cursor=pointer]
+              - row [ref=f13e160]:
+                - cell "C carlos@gmail.com" [ref=f13e161]:
+                  - generic [ref=f13e162]:
+                    - generic [ref=f13e163]: C
+                    - text: carlos@gmail.com
+                - cell [ref=f13e165]:
+                  - link "Voir le profil →" [ref=f13e166] [cursor=pointer]:
+                    - /url: /profil/cmsf52ss60000zlozfy9rmltl
+                - cell "piece_identite_recto, piece_identite_verso, selfie, selfie_avec_piece, piece_identite_recto, piece_identite_verso, selfie, selfie_avec_piece" [ref=f13e167]
+                - cell "04/08/2026" [ref=f13e168]
+                - cell [ref=f13e169]:
+                  - button "Valider" [ref=f13e170] [cursor=pointer]
+                  - button "Rejeter" [ref=f13e171] [cursor=pointer]
+                  - button "Supprimer" [ref=f13e172] [cursor=pointer]
+              - row [ref=f13e173]:
+                - cell "R remy@gmail.com" [ref=f13e174]:
+                  - generic [ref=f13e175]:
+                    - generic [ref=f13e176]: R
+                    - text: remy@gmail.com
+                - cell [ref=f13e178]:
+                  - link "Voir le profil →" [ref=f13e179] [cursor=pointer]:
+                    - /url: /profil/cmsf7po6n000cx3nozt960lcv
+                - cell "—" [ref=f13e180]
+                - cell "05/08/2026" [ref=f13e181]
+                - cell [ref=f13e182]:
+                  - button "Valider" [ref=f13e183] [cursor=pointer]
+                  - button "Rejeter" [ref=f13e184] [cursor=pointer]
+                  - button "Supprimer" [ref=f13e185] [cursor=pointer]
+              - row [ref=f13e186]:
+                - cell "B ben@gmail.com" [ref=f13e187]:
+                  - generic [ref=f13e188]:
+                    - generic [ref=f13e189]: B
+                    - text: ben@gmail.com
+                - cell [ref=f13e191]:
+                  - link "Voir le profil →" [ref=f13e192] [cursor=pointer]:
+                    - /url: /profil/cmsfy9bji000brpa2wfm2xun7
+                - cell "—" [ref=f13e193]
+                - cell "05/08/2026" [ref=f13e194]
+                - cell [ref=f13e195]:
+                  - button "Valider" [ref=f13e196] [cursor=pointer]
+                  - button "Rejeter" [ref=f13e197] [cursor=pointer]
+                  - button "Supprimer" [ref=f13e198] [cursor=pointer]
+              - row [ref=f13e199]:
+                - cell "R repro-403@example.com" [ref=f13e200]:
+                  - generic [ref=f13e201]:
+                    - generic [ref=f13e202]: R
+                    - text: repro-403@example.com
+                - cell [ref=f13e204]:
+                  - link "Voir le profil →" [ref=f13e205] [cursor=pointer]:
+                    - /url: /profil/cmsg966ys000mrpa2r65kubh8
+                - cell "—" [ref=f13e206]
+                - cell "05/08/2026" [ref=f13e207]
+                - cell [ref=f13e208]:
+                  - button "Valider" [ref=f13e209] [cursor=pointer]
+                  - button "Rejeter" [ref=f13e210] [cursor=pointer]
+                  - button "Supprimer" [ref=f13e211] [cursor=pointer]
+              - row [ref=f13e212]:
+                - cell "A admin@flexwork.bj" [ref=f13e213]:
+                  - generic [ref=f13e214]:
+                    - generic [ref=f13e215]: A
+                    - text: admin@flexwork.bj
+                - cell [ref=f13e217]:
+                  - link "Voir le profil →" [ref=f13e218] [cursor=pointer]:
+                    - /url: /profil/cmsgbjir000001lu0r5895f7f
+                - cell "—" [ref=f13e219]
+                - cell "05/08/2026" [ref=f13e220]
+                - cell [ref=f13e221]:
+                  - button "Valider" [ref=f13e222] [cursor=pointer]
+                  - button "Rejeter" [ref=f13e223] [cursor=pointer]
+                  - button "Supprimer" [ref=f13e224] [cursor=pointer]
+        - generic [ref=f13e122]: FlexWork — données en direct
+  - alert [ref=f13e130]

@@ -1,0 +1,104 @@
+- generic [ref=f20e1]:
+  - banner [ref=f20e2]:
+    - generic [ref=f20e3]:
+      - link "FlexWork BJ" [ref=f20e4] [cursor=pointer]:
+        - /url: /
+        - generic [ref=f20e10]: FlexWork
+        - generic [ref=f20e11]: BJ
+      - navigation [ref=f20e12]:
+        - link "Talents" [ref=f20e13] [cursor=pointer]:
+          - /url: /recherche
+        - link "Missions" [ref=f20e14] [cursor=pointer]:
+          - /url: /missions
+        - link "Vérification" [ref=f20e15] [cursor=pointer]:
+          - /url: /kyc
+        - link "Dashboard" [ref=f20e46] [cursor=pointer]:
+          - /url: /admin
+      - generic [ref=f20e16]:
+        - button "Notifications" [ref=f20e48] [cursor=pointer]
+        - link "Dashboard" [ref=f20e52] [cursor=pointer]:
+          - /url: /admin
+        - button "Déconnexion" [ref=f20e53] [cursor=pointer]
+  - alert [ref=f20e32]: Admin — FlexWork
+  - generic [ref=f20e54]:
+    - generic [ref=f20e55]:
+      - complementary [ref=f20e56]:
+        - generic [ref=f20e59]:
+          - generic [ref=f20e60]: SA
+          - generic [ref=f20e61]:
+            - generic [ref=f20e62]: FlexWork
+            - generic [ref=f20e63]: Espace Admin
+        - generic [ref=f20e64]:
+          - generic [ref=f20e65]:
+            - generic [ref=f20e66]: Pilotage
+            - list [ref=f20e67]:
+              - listitem [ref=f20e68]:
+                - button [ref=f20e69] [cursor=pointer]
+              - listitem [ref=f20e76]:
+                - button [ref=f20e77] [cursor=pointer]
+              - listitem [ref=f20e80]:
+                - button [ref=f20e81] [cursor=pointer]
+          - generic [ref=f20e85]:
+            - generic [ref=f20e86]: Vérifications
+            - list [ref=f20e87]:
+              - listitem [ref=f20e88]:
+                - button "KYC & Identité 1" [ref=f20e161] [cursor=pointer]:
+                  - generic [ref=f20e90]: KYC & Identité
+                  - generic [ref=f20e162]: "1"
+              - listitem [ref=f20e94]:
+                - button [ref=f20e95] [cursor=pointer]
+          - generic [ref=f20e102]:
+            - generic [ref=f20e103]: Confiance
+            - list [ref=f20e104]:
+              - listitem [ref=f20e105]:
+                - button [ref=f20e106] [cursor=pointer]
+              - listitem [ref=f20e112]:
+                - button [ref=f20e113] [cursor=pointer]
+        - generic [ref=f20e119]:
+          - generic [ref=f20e120]: AF
+          - generic [ref=f20e122]:
+            - generic [ref=f20e123]: Admin FlexWork
+            - generic [ref=f20e124]: Super-administrateur
+      - main [ref=f20e126]:
+        - generic [ref=f20e129]:
+          - generic [ref=f20e131]:
+            - heading "KYC & Identité" [level=1] [ref=f20e164]
+            - generic [ref=f20e133]: Données en direct — Prisma/PostgreSQL
+          - button "Actualiser" [ref=f20e163] [cursor=pointer]
+        - generic [ref=f20e135]:
+          - generic [ref=f20e166]:
+            - generic [ref=f20e167]:
+              - heading "Vérifications KYC en attente" [level=2] [ref=f20e168]
+              - generic [ref=f20e169]: 1 dossiers
+            - table [ref=f20e171]:
+              - rowgroup [ref=f20e172]:
+                - row [ref=f20e173]:
+                  - columnheader "Utilisateur" [ref=f20e174]
+                  - columnheader "Profil" [ref=f20e175]
+                  - columnheader "Documents" [ref=f20e176]
+                  - columnheader "Déposé" [ref=f20e177]
+                  - columnheader "Action" [ref=f20e178]
+              - rowgroup [ref=f20e179]:
+                - row [ref=f20e180]:
+                  - cell "N notif-test@example.com" [ref=f20e181]:
+                    - generic [ref=f20e182]:
+                      - generic [ref=f20e183]: "N"
+                      - text: notif-test@example.com
+                  - cell [ref=f20e185]:
+                    - link "Client" [ref=f20e186] [cursor=pointer]:
+                      - /url: /profil/cmsgeqes3000092635evzn6zc
+                  - cell "piece_identite_recto" [ref=f20e187]
+                  - cell "05/08/2026" [ref=f20e188]
+                  - cell [ref=f20e189]:
+                    - button "Valider le KYC" [active] [ref=f20e190] [cursor=pointer]
+                    - button "Rejeter le KYC" [ref=f20e193] [cursor=pointer]
+                    - button "Supprimer le compte" [ref=f20e197] [cursor=pointer]
+          - generic [ref=f20e156]: FlexWork — données en direct
+    - generic [ref=f20e202]:
+      - heading "Valider le dossier KYC" [level=3] [ref=f20e203]
+      - generic [ref=f20e205]:
+        - generic [ref=f20e206]: Justification *
+        - textbox "Motif de la décision, consigné dans le journal d'audit..." [ref=f20e207]
+      - generic [ref=f20e208]:
+        - button "Annuler" [ref=f20e209] [cursor=pointer]
+        - button "Confirmer" [disabled] [ref=f20e210]

@@ -1,0 +1,31 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - link "FlexWork BJ" [ref=e4] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e10]: FlexWork
+        - generic [ref=e11]: BJ
+      - navigation [ref=e12]:
+        - link "Talents" [ref=e13] [cursor=pointer]:
+          - /url: /recherche
+        - link "Missions" [ref=e14] [cursor=pointer]:
+          - /url: /missions
+        - link "Vérification" [ref=e15] [cursor=pointer]:
+          - /url: /kyc
+      - generic [ref=e16]:
+        - link "Se connecter" [ref=e17] [cursor=pointer]:
+          - /url: /signin
+        - link "S'inscrire" [ref=e18] [cursor=pointer]:
+          - /url: /signup
+  - alert [ref=e32]
+  - generic [ref=e35]:
+    - heading "Vérification" [level=1] [ref=e37]
+    - paragraph [ref=e39]:
+      - text: Un code a été envoyé à
+      - strong [ref=e40]: admin@flexwork.bj
+      - text: .
+    - generic [ref=e41]:
+      - generic [ref=e42]:
+        - generic [ref=e43]: Code reçu
+        - textbox "123456" [ref=e44]
+      - button "Valider" [ref=e45] [cursor=pointer]
