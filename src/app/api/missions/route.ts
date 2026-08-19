@@ -63,12 +63,21 @@ export async function POST(req: Request) {
       requiredLevel: parsed.data.level,
       budgetType: parsed.data.budgetType,
       tags: parsed.data.tags ?? [],
+      maxRevisionRounds: parsed.data.maxRevisionRounds ?? 3,
+      dateExpiration: parsed.data.dateExpiration ?? null,
       status: wantsPublish ? "publiee" : "brouillon",
     },
   });
 
   if (wantsPublish) {
-    await notifyMatchingProviders(mission.id, mission.domaine);
+    // La notification est un effet secondaire non bloquant : si elle échoue, la mission
+    // est déjà publiée — ne pas faire échouer la requête (sinon le client retente et
+    // crée des doublons, la création ayant déjà été committée).
+    try {
+      await notifyMatchingProviders(mission.id, mission.domaine);
+    } catch (e) {
+      console.error("notifyMatchingProviders failed (non fatal):", e);
+    }
   }
 
   return NextResponse.json({ id: mission.id, status: mission.status, riskLevel: mission.riskLevel });
@@ -84,17 +93,20 @@ export async function GET() {
   }
   const userId = (session.user as typeof session.user & { id: string }).id;
 
-  const user = await prisma.user.findUnique({ where: { id: userId }, include: { profile: true } });
+  const user = await prisma.user.findUnique({ where: { id: userId }, include: { profiles: true } });
   if (user?.role === "client") {
     const missions = await prisma.mission.findMany({
       where: { clientId: userId },
       orderBy: { createdAt: "desc" },
+      include: { _count: { select: { proposals: true } } },
     });
     return NextResponse.json({ items: missions });
   }
 
+  const mainDomain =
+    user.profiles.find((p) => p.isDefault)?.mainDomain ?? user.profiles[0]?.mainDomain ?? null;
   const missions = await prisma.mission.findMany({
-    where: { status: "publiee", ...(user?.profile?.mainDomain ? { domaine: user.profile.mainDomain } : {}) },
+    where: { status: "publiee", ...(mainDomain ? { domaine: mainDomain } : {}) },
     orderBy: { createdAt: "desc" },
   });
   return NextResponse.json({ items: missions });

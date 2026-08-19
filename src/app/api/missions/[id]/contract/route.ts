@@ -34,7 +34,8 @@ export async function POST(
     where: { id: missionId },
     include: {
       client: true,
-      proposals: { where: { status: "acceptee" }, include: { provider: { include: { profile: { include: { declarations: true } } } } } },
+      // Accepte aussi "devis_valide" (mode QUOTE) : le devis validé tient lieu de sélection.
+      proposals: { where: { status: { in: ["acceptee", "devis_valide"] } }, include: { provider: { include: { profiles: { include: { declarations: true } } } } } },
       contract: true,
     },
   });
@@ -77,10 +78,11 @@ export async function POST(
     declarationAge = `Le prestataire déclare être âgé de ${age} ans et satisfaire l'âge minimum de ${minimumAge} ans requis au ${proposal.provider.country ?? "pays de la mission"}. Le client reconnaît avoir été informé de cette exigence légale.`;
   }
 
-  const latestInsurance = proposal.provider.profile?.declarations
+  const providerDeclarations = proposal.provider.profiles.flatMap((p) => p.declarations);
+  const latestInsurance = providerDeclarations
     .filter((d) => d.declarationType === "insurance")
     .sort((a, b) => b.declaredAt.getTime() - a.declaredAt.getTime())[0];
-  const latestQualification = proposal.provider.profile?.declarations
+  const latestQualification = providerDeclarations
     .filter((d) => d.declarationType === "qualification")
     .sort((a, b) => b.declaredAt.getTime() - a.declaredAt.getTime())[0];
 
@@ -108,6 +110,8 @@ export async function POST(
     clausePlateformeNonPartie: PLATFORM_NOT_A_PARTY_CLAUSE,
     // Figé dans le snapshot immuable au même titre que le reste des conditions — un jalon
     // ajouté/modifié après génération du contrat n'existe pas (aucune route ne le permet).
+    // Mode devis (QUOTE) : le détail du devis validé est figé intégralement.
+    devis: proposal.devisData ?? null,
     jalons: jalons ?? null,
   };
 

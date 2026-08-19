@@ -5,10 +5,8 @@
 /* ═══════════════════════════════════════════════════════════
    DESIGN SYSTEM — FlexWork 🇧🇯
    Couleurs drapeau Bénin : Vert #008751 · Jaune #FCD116 · Rouge #E8112D
-   Police : Inter + Fraunces (display)
+   Police : Inter (auto-hébergée via next/font, voir layout.tsx)
    ═══════════════════════════════════════════════════════════ */
-
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,700&display=swap');
 
 :root {
   --primary: #008751;
@@ -51,7 +49,7 @@
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
   background: #fff;
   color: var(--text);
   line-height: 1.5;
@@ -278,7 +276,6 @@ tr:hover { background: var(--surface-raised); }
 /* ═══════════════════════════════════════════════════════════
    AFRILLANCE Design System
    ═══════════════════════════════════════════════════════════ */
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
 .scrollbar-hide::-webkit-scrollbar { display: none; }
 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }

@@ -34,6 +34,7 @@ export default function PublishMissionPage() {
   // Une fois le KYC vérifié, la bannière "publication désactivée jusqu'à validation du
   // KYC" est fausse pour ce compte — /api/kyc/status (déjà exposé pour /kyc) la masque.
   const [kycVerified, setKycVerified] = useState(false);
+  const [budgetType, setBudgetType] = useState("FIXED");
 
   useEffect(() => {
     fetch("/api/kyc/status")
@@ -73,6 +74,10 @@ export default function PublishMissionPage() {
         tags: String(form.get("tags") ?? "").split(",").map((t) => t.trim()).filter(Boolean),
         budget: form.get("amount") ? Number(form.get("amount")) : undefined,
         delaiJours,
+        maxRevisionRounds: Number(form.get("max_revisions") || 3),
+        dateExpiration: form.get("date_expiration")
+          ? new Date(`${form.get("date_expiration")}T23:59:59`).toISOString()
+          : undefined,
         status: publish ? "publiee" : "brouillon",
       }),
     });
@@ -159,7 +164,7 @@ export default function PublishMissionPage() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Mode de rémunération <span className="text-[#E8112D]">*</span></label>
-                <select name="budget_type" required className={inputClass}>
+                <select name="budget_type" required value={budgetType} onChange={(e) => setBudgetType(e.target.value)} className={inputClass}>
                   {BUDGET_TYPES.map((bt) => <option key={bt.value} value={bt.value}>{bt.label}</option>)}
                 </select>
               </div>
@@ -169,6 +174,21 @@ export default function PublishMissionPage() {
                 <p className="text-[11px] text-zinc-400 mt-1">Fourchette de marché indicative affichée selon le domaine.</p>
               </div>
             </div>
+
+            {budgetType === "QUOTE" && (
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Rounds de négociation autorisés</label>
+                  <input type="number" name="max_revisions" min={1} max={20} defaultValue={3} className={inputClass} />
+                  <p className="text-[11px] text-zinc-400 mt-1">Nombre maximal de révisions du devis par candidature.</p>
+                </div>
+                <div>
+                  <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Date limite de devis</label>
+                  <input type="date" name="date_expiration" className={inputClass} />
+                  <p className="text-[11px] text-zinc-400 mt-1">Après cette date, les candidatures en négociation sont annulées.</p>
+                </div>
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-4">
               <div>

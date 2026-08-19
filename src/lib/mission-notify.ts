@@ -13,7 +13,7 @@ export async function notifyMatchingProviders(missionId: string, domaine: string
     where: {
       role: { not: "client" },
       kycStatus: "verifie",
-      profile: { mainDomain: domaine },
+      profiles: { some: { mainDomain: domaine } },
     },
     take: MATCH_COUNT,
   });

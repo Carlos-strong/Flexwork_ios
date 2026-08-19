@@ -64,5 +64,33 @@ export async function GET(
     });
   }
 
+  // Fichier joint à un message de chat — restreint au client et au(x) prestataire(s)
+  // liés à la mission, comme les pièces jointes de mission.
+  if (decoded.kind === "message_file") {
+    const message = await prisma.message.findUnique({
+      where: { id: decoded.id },
+      include: { mission: { include: { proposals: { where: { providerId: requesterId }, select: { id: true } } } } },
+    });
+    if (!message || !message.filePath) return NextResponse.json({ error: "not_found" }, { status: 404 });
+
+    const isParticipant = message.mission.clientId === requesterId || message.mission.proposals.length > 0;
+    if (!isParticipant) {
+      return NextResponse.json({ error: "forbidden" }, { status: 403 });
+    }
+
+    const buffer = await readStoredFile(message.filePath);
+    const inline = message.mimeType?.startsWith("image/");
+    const disposition = inline
+      ? `inline; filename="${encodeURIComponent(message.fileName ?? "fichier")}"`
+      : `attachment; filename="${encodeURIComponent(message.fileName ?? "fichier")}"`;
+
+    return new NextResponse(new Uint8Array(buffer), {
+      headers: {
+        "Content-Type": message.mimeType ?? "application/octet-stream",
+        "Content-Disposition": disposition,
+      },
+    });
+  }
+
   return NextResponse.json({ error: "unknown_kind" }, { status: 400 });
 }

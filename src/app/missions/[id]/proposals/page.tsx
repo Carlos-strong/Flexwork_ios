@@ -3,13 +3,19 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import { DevisDetails, ValidateDevis } from "@/components/devis/devis-panel";
+import type { DevisProposalPayload } from "@/components/devis/types";
 
-type Proposal = {
-  id: string;
-  montant: number;
-  message: string | null;
-  createdAt: string;
-  provider: { id: string; email: string };
+type MissionMeta = { budgetType: string | null; maxRevisionRounds: number };
+
+const PROPOSAL_STATUS_LABEL: Record<string, string> = {
+  envoyee: "Candidature envoyée",
+  preselectionnee: "Présélectionné",
+  en_negociation: "En négociation",
+  devis_valide: "Devis validé",
+  acceptee: "Acceptée",
+  refusee: "Refusée",
+  annulee_definitive: "Annulée",
 };
 
 // Gestion des propositions reçues — réservé au client propriétaire de la mission.
@@ -18,13 +24,20 @@ export default function ProposalsPage() {
   const params = useParams();
   const missionId = params.id as string;
 
-  const [proposals, setProposals] = useState<Proposal[] | null>(null);
+  const [proposals, setProposals] = useState<DevisProposalPayload[] | null>(null);
+  const [missionMeta, setMissionMeta] = useState<MissionMeta | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const isQuote = missionMeta?.budgetType === "QUOTE";
+
   async function load() {
     const res = await fetch(`/api/missions/${missionId}/proposals`);
-    if (res.ok) setProposals((await res.json()).items);
+    if (res.ok) {
+      const d = await res.json();
+      setProposals(d.items ?? []);
+      setMissionMeta(d.mission ?? null);
+    }
     setLoading(false);
   }
 
@@ -83,13 +96,19 @@ export default function ProposalsPage() {
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
               <div>
-                <strong style={{ fontSize: "1.1rem" }}>
-                  {p.montant.toLocaleString("fr-FR")} XOF
-                </strong>
+                {isQuote ? (
+                  <strong style={{ fontSize: "1.1rem" }}>{p.provider.email}</strong>
+                ) : (
+                  <strong style={{ fontSize: "1.1rem" }}>
+                    {p.montant.toLocaleString("fr-FR")} XOF
+                  </strong>
+                )}
                 <p style={{ color: "var(--muted)", fontSize: "0.85rem", marginTop: 4 }}>
-                  {p.provider.email}
+                  {isQuote
+                    ? `Round ${p.roundActuel}/${missionMeta?.maxRevisionRounds ?? 3} — ${PROPOSAL_STATUS_LABEL[p.status] ?? p.status}`
+                    : p.provider.email}
                 </p>
-                {p.message && (
+                {!isQuote && p.message && (
                   <p style={{ marginTop: 8, fontSize: "0.9rem" }}>{p.message}</p>
                 )}
                 <p style={{ color: "var(--muted)", fontSize: "0.8rem", marginTop: 6 }}>
@@ -104,15 +123,28 @@ export default function ProposalsPage() {
                 >
                   Profil
                 </Link>
-                <button
-                  className="btn btn-primary"
-                  style={{ padding: "6px 14px", fontSize: "0.85rem" }}
-                  onClick={() => acceptProposal(p.id, p.provider.id)}
-                >
-                  Accepter
-                </button>
+                {!isQuote && (
+                  <button
+                    className="btn btn-primary"
+                    style={{ padding: "6px 14px", fontSize: "0.85rem" }}
+                    onClick={() => acceptProposal(p.id, p.provider.id)}
+                  >
+                    Accepter
+                  </button>
+                )}
               </div>
             </div>
+
+            {isQuote && p.devisData && (
+              <div style={{ marginTop: 12 }}>
+                <DevisDetails devis={p.devisData} />
+                {p.status === "en_negociation" && (
+                  <div style={{ marginTop: 12 }}>
+                    <ValidateDevis missionId={missionId} proposalId={p.id} onValidated={load} />
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         ))}
       </div>

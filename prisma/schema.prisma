@@ -49,61 +49,65 @@ enum AdminRole {
 }
 
 model User {
-  id                String     @id @default(cuid())
-  email             String     @unique
-  emailVerified     DateTime?
-  tel               String     @unique
-  telVerified       Boolean    @default(false)
-  passwordHash      String?
-  role              UserRole   @default(client)
-  firstname         String?
-  lastname          String?
-  country           String?
-  state             String?
-  city              String?
-  locality          String?
-  address           String?
-  status            UserStatus @default(active)
-  isAdmin           Boolean    @default(false)
-  adminRole         AdminRole?
-  kycStatus         KycStatus  @default(en_attente)
-  deviceFingerprint String? // US-1308 (héritée) : anti-doublon de comptes
+  id                   String     @id @default(cuid())
+  email                String     @unique
+  emailVerified        DateTime?
+  tel                  String     @unique
+  telVerified          Boolean    @default(false)
+  passwordHash         String?
+  role                 UserRole   @default(client)
+  firstname            String?
+  lastname             String?
+  country              String?
+  state                String?
+  city                 String?
+  locality             String?
+  address              String?
+  status               UserStatus @default(active)
+  isAdmin              Boolean    @default(false)
+  adminRole            AdminRole?
+  kycStatus            KycStatus  @default(en_attente)
+  deviceFingerprint    String? // US-1308 (héritée) : anti-doublon de comptes
   // A13 — extraite de la pièce d'identité et saisie par l'Admin KYC au moment de la
   // décision (jamais déclarée par l'utilisateur lui-même). Seule donnée d'âge faisant foi
   // pour le contrôle des filières chantier (etat-consolide-Flexwork.md §2, A13).
-  dateNaissance         DateTime?
-  dateNaissanceSetById  String?
-  dateNaissanceSetAt    DateTime?
+  dateNaissance        DateTime?
+  dateNaissanceSetById String?
+  dateNaissanceSetAt   DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   otpCodes        OtpCode[]
   kycDocuments    KycDocument[]
-  kycReviewsDone  KycDocument[]     @relation("KycReviewer")
+  kycReviewsDone  KycDocument[]    @relation("KycReviewer")
   livenessChecks  LivenessCheck[]
   selfieMatchLogs SelfieMatchLog[]
   profiles        Profile[] // Multi-profils 2026-08-06 : remplace l'ancien profile Profile?
 
-  missionsClient       Mission[]              @relation("MissionClient")
-  proposalsSoumises    MissionProposal[]      @relation("ProposalProvider")
+  missionsClient       Mission[]             @relation("MissionClient")
+  proposalsSoumises    MissionProposal[]     @relation("ProposalProvider")
   missionNotifications MissionNotification[]
   messagesEnvoyes      Message[]
-  avisRediges          Review[]               @relation("ReviewAuthor")
-  avisRecus            Review[]               @relation("ReviewTarget")
+  avisRediges          Review[]              @relation("ReviewAuthor")
+  avisRecus            Review[]              @relation("ReviewTarget")
 
   contractsAsClient   PrestationContract[] @relation("ContractClient")
   contractsAsProvider PrestationContract[] @relation("ContractProvider")
 
   digitalCertificates DigitalCertificate[]
 
-  mediationsOuvertes Mediation[] @relation("MediationOpenedBy")
+  mediationsOuvertes   Mediation[] @relation("MediationOpenedBy")
   mediationsInstruites Mediation[] @relation("MediationAdmin")
 
   acknowledgementsClient ClientAcknowledgement[] @relation("AcknowledgementClient")
 
   adminAuditLogs AdminAuditLog[]
   notifications  Notification[]
+
+  devisRevisions   DevisRevision[] @relation("DevisRevisionAuthor")
+  offersAsClient   Offer[]         @relation("OfferClient")
+  offersAsProvider Offer[]         @relation("OfferProvider")
 
   @@index([kycStatus])
   @@index([role])
@@ -161,18 +165,18 @@ enum KycDocStatus {
 }
 
 model KycDocument {
-  id               String       @id @default(cuid())
-  userId           String
-  user             User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type             KycDocType
-  filePath         String
-  idNumberHash     String?
-  status           KycDocStatus @default(en_attente)
-  reviewedById     String?
-  reviewedBy       User?        @relation("KycReviewer", fields: [reviewedById], references: [id])
-  reviewedAt       DateTime?
-  rejectionReason  String?
-  createdAt        DateTime     @default(now())
+  id              String       @id @default(cuid())
+  userId          String
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type            KycDocType
+  filePath        String
+  idNumberHash    String?
+  status          KycDocStatus @default(en_attente)
+  reviewedById    String?
+  reviewedBy      User?        @relation("KycReviewer", fields: [reviewedById], references: [id])
+  reviewedAt      DateTime?
+  rejectionReason String?
+  createdAt       DateTime     @default(now())
 
   @@index([status, createdAt])
   @@index([idNumberHash])
@@ -228,7 +232,7 @@ model SelfieMatchLog {
 // ---------------------------------------------------------------------------
 
 model CountryAgeRequirement {
-  id             String    @id @default(cuid())
+  id             String   @id @default(cuid())
   country        String
   profileType    UserRole // artisan | manoeuvre | expert_btp_autres uniquement (validé en app)
   domain         String? // règle spécifique à un domaine (ex. conduite d'engins)
@@ -236,9 +240,9 @@ model CountryAgeRequirement {
   legalReference String?
   setByAdminId   String
   justification  String
-  effectiveFrom  DateTime  @default(now())
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  effectiveFrom  DateTime @default(now())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   @@unique([country, profileType, domain])
 }
@@ -257,26 +261,26 @@ enum ProfessionalLevel {
 // Profil générique unique (remplace ArtisanProfile/ExpertProfile/ManoeuvreProfile/
 // DigitalProfile) — la plateforme ne vérifie plus rien ici, tout est auto-déclaré (A4).
 model Profile {
-  id                     String            @id @default(cuid())
-  userId                 String
-  user                   User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  label                  String            @default("Principal") // Nom du profil (ex: "Maçon local", "Conseil BTP distance")
-  isDefault              Boolean           @default(false)
-  mainDomain             String
-  subSpecialty           String?
-  secondaryDomain        String?
-  sector                 String?
-  indicativeRate         Float?
+  id                      String             @id @default(cuid())
+  userId                  String
+  user                    User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  label                   String             @default("Principal") // Nom du profil (ex: "Maçon local", "Conseil BTP distance")
+  isDefault               Boolean            @default(false)
+  mainDomain              String
+  subSpecialty            String?
+  secondaryDomain         String?
+  sector                  String?
+  indicativeRate          Float?
   declaredExperienceYears Int?
-  declaredLevel          ProfessionalLevel?
-  tags                   String[] // Compétences déclarées (ex: "Soudure", "Placo", "Plomberie")
+  declaredLevel           ProfessionalLevel?
+  tags                    String[] // Compétences déclarées (ex: "Soudure", "Placo", "Plomberie")
   // Profil enrichi 2026-08-06 : zone d'intervention, tarification, description, portfolio.
-  description            String?  // Texte libre de présentation (bio, expérience, méthodes)
-  portfolioUrls          String[] // URLs de travaux/réalisations (photos, liens)
-  tarifUnite             String?  // heure | jour | semaine | mois | mission
-  zonePays               String?  // Pays d'intervention (BJ, CI, SN...)
-  zoneVille              String?  // Ville principale
-  zoneRayonKm            Int?     // Rayon de déplacement en km (null = sans limite)
+  description             String? // Texte libre de présentation (bio, expérience, méthodes)
+  portfolioUrls           String[] // URLs de travaux/réalisations (photos, liens)
+  tarifUnite              String? // heure | jour | semaine | mois | mission
+  zonePays                String? // Pays d'intervention (BJ, CI, SN...)
+  zoneVille               String? // Ville principale
+  zoneRayonKm             Int? // Rayon de déplacement en km (null = sans limite)
 
   garants      Garant[]
   declarations ProfessionalDeclaration[]
@@ -295,26 +299,26 @@ enum DeclarationType {
 // UPDATE/DELETE exposé. Une correction crée une nouvelle déclaration ; l'ancienne reste
 // consultable. Voir src/lib/declaration-chain.ts pour le calcul du hash.
 model ProfessionalDeclaration {
-  id                     String          @id @default(cuid())
-  profileId              String
-  profile                Profile         @relation(fields: [profileId], references: [id], onDelete: Cascade)
-  declarationType        DeclarationType
-  label                  String? // ex. "CQP Plomberie" pour une qualification
-  insurerName            String?
-  policyNumber           String?
-  coverageCeiling        Float?
-  validUntil             DateTime?
-  declaredAt             DateTime        @default(now())
+  id                      String          @id @default(cuid())
+  profileId               String
+  profile                 Profile         @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  declarationType         DeclarationType
+  label                   String? // ex. "CQP Plomberie" pour une qualification
+  insurerName             String?
+  policyNumber            String?
+  coverageCeiling         Float?
+  validUntil              DateTime?
+  declaredAt              DateTime        @default(now())
   declarationTextSnapshot String
-  ipAddress              String?
-  userAgent              String?
-  previousHash           String?
-  currentHash            String          @unique
+  ipAddress               String?
+  userAgent               String?
+  previousHash            String?
+  currentHash             String          @unique
   // Retrait par modération (US-306) — métadonnée de visibilité, jamais un UPDATE/DELETE
   // du contenu chaîné : la déclaration reste dans la chaîne de hash pour l'intégrité de
   // l'historique, mais n'apparaît plus dans les listes publiques une fois retirée.
-  removedAt              DateTime?
-  removedReason          String?
+  removedAt               DateTime?
+  removedReason           String?
 
   documents DeclarationDocument[]
 
@@ -322,12 +326,12 @@ model ProfessionalDeclaration {
 }
 
 model DeclarationDocument {
-  id            String                   @id @default(cuid())
+  id            String                  @id @default(cuid())
   declarationId String
-  declaration   ProfessionalDeclaration  @relation(fields: [declarationId], references: [id], onDelete: Cascade)
+  declaration   ProfessionalDeclaration @relation(fields: [declarationId], references: [id], onDelete: Cascade)
   filePath      String
   fileName      String
-  createdAt     DateTime                 @default(now())
+  createdAt     DateTime                @default(now())
 }
 
 enum ReferenceAppelStatus {
@@ -372,7 +376,7 @@ enum RiskLevel {
 model DomainRiskLevel {
   id                String    @id @default(cuid())
   domain            String
-  country            String
+  country           String
   riskLevel         RiskLevel
   insuranceRequired Boolean
   amountThreshold   Float?
@@ -414,46 +418,127 @@ model Mission {
   // jetés par Zod (missionSchema ne les déclarait pas, Mission n'avait pas ces colonnes).
   professionalType  String? // EXPERT_DIGITAL | EXPERT_BTP | ARTISAN | MANOEUVRE
   requiredLevel     String? // Débutant | Junior | Intermédiaire | Senior | Expert
-  budgetType        String? // FIXED | RATE | QUOTE
+  budgetType        String? // FIXED | RATE | QUOTE — "QUOTE" EST le mode devis (pas de booléen redondant)
   tags              String[] // Compétences requises (ex: "Soudure", "Placo", "Électricité BT")
   status            MissionStatus @default(brouillon)
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
 
-  proposals            MissionProposal[]
-  notifications        MissionNotification[]
-  attachments          MissionAttachment[]
-  messages             Message[]
-  reviews              Review[]
-  contract             PrestationContract?
-  insurance            MissionInsurance?
-  acknowledgements     ClientAcknowledgement[]
+  // ── Mode devis BTP (négociation multi-round) ──────────────────────────
+  maxRevisionRounds Int       @default(3) // rounds de négociation autorisés
+  dateExpiration    DateTime? // échéance de candidature/devis
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  proposals        MissionProposal[]
+  offers           Offer[]
+  notifications    MissionNotification[]
+  attachments      MissionAttachment[]
+  messages         Message[]
+  reviews          Review[]
+  contract         PrestationContract?
+  insurance        MissionInsurance?
+  acknowledgements ClientAcknowledgement[]
 
   @@index([status])
   @@index([domaine])
 }
 
 enum ProposalStatus {
-  envoyee
-  acceptee
-  refusee
+  envoyee // candidature envoyée (pending)
+  preselectionnee // shortlisté par le client (shortlisted)
+  en_negociation // devis en discussion
+  devis_valide // devis validé, en attente de génération de contrat
+  acceptee // sélection finale (existante — déclenche le contrat)
+  refusee // refusée (existante)
+  annulee_definitive // négociation annulée (rounds max ou expiration)
 }
 
 // Remplace l'ancien Devis (montant unique, sans jalons ni mode BTP — le cycle v3 §6.3 ne
 // décrit pas de paiement fractionné par jalon, uniquement HOLD -> RELEASE par mission).
+// Mode devis BTP : `montant` est mis à jour à chaque soumission (= totalTTC), la
+// négociation est tracée par round (`roundActuel`, `devisData`) et l'historique est
+// conservé dans DevisRevision (append-only).
 model MissionProposal {
   id         String         @id @default(cuid())
   missionId  String
   mission    Mission        @relation(fields: [missionId], references: [id], onDelete: Cascade)
   providerId String
   provider   User           @relation("ProposalProvider", fields: [providerId], references: [id], onDelete: Cascade)
-  montant    Float
+  montant    Float          @default(0)
   message    String?
   status     ProposalStatus @default(envoyee)
-  createdAt  DateTime       @default(now())
+
+  // ── Négociation de devis ─────────────────────────────────────────────
+  roundActuel   Int       @default(0)
+  devisData     Json? // { lineItems[], totalHT, tva, totalTTC, delay, notes }
+  devisValideAt DateTime?
+
+  // Pas de `updatedAt` : l'historique des changements de devis est déjà porté par
+  // DevisRevision (append-only) — inutile de le dupliquer ici.
+  createdAt DateTime @default(now())
+
+  revisions DevisRevision[]
+  offers    Offer[]
 
   @@unique([missionId, providerId])
   @@index([missionId, status])
+  @@index([providerId, status])
+}
+
+// Historique append-only des rounds de négociation d'un devis. Chaque soumission/counter
+// crée une nouvelle révision ; la précédente reste consultable (même principe que
+// ProfessionalDeclaration / ContractAuditEntry : jamais d'UPDATE du contenu).
+model DevisRevision {
+  id          String          @id @default(cuid())
+  proposalId  String
+  proposal    MissionProposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  roundNumber Int
+  authorId    String
+  author      User            @relation("DevisRevisionAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  devisData   Json // snapshot immuable du devis à ce round
+  comment     String?
+  createdAt   DateTime        @default(now())
+
+  @@index([proposalId, roundNumber])
+}
+
+// Offres directes client → prestataire (invitation hors candidature).
+// Les postes pré-contractuels sont stockés en JSON (pas de modèle dédié) pour ne pas
+// dupliquer `Jalon` : une fois l'offre acceptée, le contrat est généré et les postes
+// deviennent des `Jalon` existants.
+enum OfferStatus {
+  brouillon
+  envoyee
+  acceptee
+  refusee
+  expiree
+  annulee
+}
+
+model Offer {
+  id          String           @id @default(cuid())
+  missionId   String
+  mission     Mission          @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  clientId    String
+  client      User             @relation("OfferClient", fields: [clientId], references: [id], onDelete: Cascade)
+  providerId  String
+  provider    User             @relation("OfferProvider", fields: [providerId], references: [id], onDelete: Cascade)
+  proposalId  String?
+  proposal    MissionProposal? @relation(fields: [proposalId], references: [id], onDelete: SetNull)
+  titre       String
+  description String
+  montant     Float
+  currency    String           @default("XOF")
+  milestones  Json? // [{ ordre, description, unite, montant }]
+  status      OfferStatus      @default(brouillon)
+  sentAt      DateTime?
+  acceptedAt  DateTime?
+  declinedAt  DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@index([providerId, status])
+  @@index([missionId])
 }
 
 model MissionNotification {
@@ -492,6 +577,11 @@ model Message {
   senderId       String
   sender         User     @relation(fields: [senderId], references: [id], onDelete: Cascade)
   content        String
+  type           String   @default("text") // "text" | "file"
+  fileName       String?
+  filePath       String?
+  fileSize       Int?
+  mimeType       String?
   flaggedLeakage Boolean  @default(false)
   createdAt      DateTime @default(now())
 
@@ -522,21 +612,21 @@ model Review {
 // `termsSnapshot` fige les conditions au moment de la génération, immuable même si le
 // profil du prestataire change ensuite. Chaîné par hash comme les déclarations.
 model PrestationContract {
-  id                    String    @id @default(cuid())
-  missionId             String    @unique
-  mission               Mission   @relation(fields: [missionId], references: [id], onDelete: Cascade)
-  clientId              String
-  client                User      @relation("ContractClient", fields: [clientId], references: [id], onDelete: Cascade)
-  providerId            String
-  provider              User      @relation("ContractProvider", fields: [providerId], references: [id], onDelete: Cascade)
-  contractDocumentUrl   String?
-  termsSnapshot         Json
-  acceptanceDeadlineDays Int      @default(7)
-  clientSignedAt        DateTime?
-  providerSignedAt      DateTime?
-  previousHash          String?
-  currentHash           String    @unique
-  createdAt             DateTime  @default(now())
+  id                     String    @id @default(cuid())
+  missionId              String    @unique
+  mission                Mission   @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  clientId               String
+  client                 User      @relation("ContractClient", fields: [clientId], references: [id], onDelete: Cascade)
+  providerId             String
+  provider               User      @relation("ContractProvider", fields: [providerId], references: [id], onDelete: Cascade)
+  contractDocumentUrl    String?
+  termsSnapshot          Json
+  acceptanceDeadlineDays Int       @default(7)
+  clientSignedAt         DateTime?
+  providerSignedAt       DateTime?
+  previousHash           String?
+  currentHash            String    @unique
+  createdAt              DateTime  @default(now())
 
   // A12 — outil de pointage optionnel. Actif seulement si les DEUX parties consentent —
   // ce sont elles qui activent, jamais la plateforme (etat-consolide-Flexwork.md §2, A12,
@@ -567,26 +657,26 @@ model PrestationContract {
 // ---------------------------------------------------------------------------
 
 enum JalonStatus {
-  en_attente           // défini au contrat, pas encore financé
+  en_attente // défini au contrat, pas encore financé
   fonds_sous_sequestre // HOLD confirmé par le PSP pour ce jalon
   livrable_soumis
-  valide               // client a validé, RELEASE transmis, en attente de confirmation PSP
-  rejete               // client a rejeté avec motif — le prestataire resoumet
-  libere               // RELEASE confirmé par le PSP — jalon payé
+  valide // client a validé, RELEASE transmis, en attente de confirmation PSP
+  rejete // client a rejeté avec motif — le prestataire resoumet
+  libere // RELEASE confirmé par le PSP — jalon payé
 }
 
 model Jalon {
-  id              String      @id @default(cuid())
+  id              String             @id @default(cuid())
   contractId      String
   contract        PrestationContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
   ordre           Int
   titre           String
   montant         Float
-  status          JalonStatus @default(en_attente)
+  status          JalonStatus        @default(en_attente)
   rejectionReason String?
-  revisionCount   Int         @default(0)
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
+  revisionCount   Int                @default(0)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
 
   escrowOperations PspEscrowOperation[]
   attachments      MissionAttachment[]
@@ -613,14 +703,14 @@ enum CheckInType {
 }
 
 model CheckInEvent {
-  id         String              @id @default(cuid())
-  contractId String
-  contract   PrestationContract  @relation(fields: [contractId], references: [id], onDelete: Cascade)
-  partyId    String // client ou prestataire du contrat — pas nécessairement le prestataire seul
-  type       CheckInType
-  occurredAt DateTime            @default(now())
-  gpsLat     Float?
-  gpsLng     Float?
+  id          String             @id @default(cuid())
+  contractId  String
+  contract    PrestationContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  partyId     String // client ou prestataire du contrat — pas nécessairement le prestataire seul
+  type        CheckInType
+  occurredAt  DateTime           @default(now())
+  gpsLat      Float?
+  gpsLng      Float?
   // Rétention courte (prérequis bloquant #7, etat-consolide-Flexwork.md §5) : durée de la
   // mission + délai de contestation, puis suppression — voir src/lib/checkin-tool.ts pour
   // le calcul et la fonction de purge (à brancher sur un job planifié, non inclus ici).
@@ -684,21 +774,21 @@ enum MediationOutcome {
 }
 
 model Mediation {
-  id                 String            @id @default(cuid())
+  id                 String             @id @default(cuid())
   contractId         String
   contract           PrestationContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
   openedById         String
-  openedBy           User              @relation("MediationOpenedBy", fields: [openedById], references: [id], onDelete: Cascade)
+  openedBy           User               @relation("MediationOpenedBy", fields: [openedById], references: [id], onDelete: Cascade)
   reason             String
   clientElements     Json?
   providerElements   Json?
   proposedResolution String?
   clientAccepted     Boolean?
   providerAccepted   Boolean?
-  outcome            MediationOutcome  @default(en_cours)
+  outcome            MediationOutcome   @default(en_cours)
   mediatorAdminId    String?
-  mediatorAdmin      User?             @relation("MediationAdmin", fields: [mediatorAdminId], references: [id])
-  createdAt          DateTime          @default(now())
+  mediatorAdmin      User?              @relation("MediationAdmin", fields: [mediatorAdminId], references: [id])
+  createdAt          DateTime           @default(now())
   closedAt           DateTime?
 
   @@index([contractId, outcome])
@@ -716,15 +806,15 @@ enum ClientAcknowledgementType {
 }
 
 model ClientAcknowledgement {
-  id                 String                    @id @default(cuid())
-  clientId           String
-  client             User                      @relation("AcknowledgementClient", fields: [clientId], references: [id], onDelete: Cascade)
-  missionId          String
-  mission            Mission                   @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  id                  String                    @id @default(cuid())
+  clientId            String
+  client              User                      @relation("AcknowledgementClient", fields: [clientId], references: [id], onDelete: Cascade)
+  missionId           String
+  mission             Mission                   @relation(fields: [missionId], references: [id], onDelete: Cascade)
   acknowledgementType ClientAcknowledgementType
-  textSnapshot       String
-  acknowledgedAt     DateTime                  @default(now())
-  ipAddress          String?
+  textSnapshot        String
+  acknowledgedAt      DateTime                  @default(now())
+  ipAddress           String?
 
   @@index([missionId])
 }
@@ -736,16 +826,16 @@ enum MissionInsuranceStatus {
 }
 
 model MissionInsurance {
-  id              String                  @id @default(cuid())
-  missionId       String                  @unique
-  mission         Mission                 @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  id              String                 @id @default(cuid())
+  missionId       String                 @unique
+  mission         Mission                @relation(fields: [missionId], references: [id], onDelete: Cascade)
   insurerName     String
   policyReference String?
   premiumAmount   Float
   coverageCeiling Float
   coverageStart   DateTime
   coverageEnd     DateTime
-  status          MissionInsuranceStatus  @default(active)
+  status          MissionInsuranceStatus @default(active)
 }
 
 // ---------------------------------------------------------------------------
@@ -776,13 +866,13 @@ enum VerificationSubjectType {
 // Historique global chaîné (US-804), même mécanisme de hash que ProfessionalDeclaration —
 // couvre KYC et déclarations dans un seul flux consultable en cas de recours.
 model VerificationHistoryEntry {
-  id            String                  @id @default(cuid())
-  subjectType   VerificationSubjectType
-  subjectId     String
-  event         String
-  previousHash  String?
-  currentHash   String                  @unique
-  createdAt     DateTime                @default(now())
+  id           String                  @id @default(cuid())
+  subjectType  VerificationSubjectType
+  subjectId    String
+  event        String
+  previousHash String?
+  currentHash  String                  @unique
+  createdAt    DateTime                @default(now())
 
   @@index([subjectType, subjectId])
 }
@@ -842,15 +932,15 @@ model DigitalCertificate {
 }
 
 model ContractSignature {
-  id              String   @id @default(cuid())
+  id              String             @id @default(cuid())
   contractId      String
   contract        PrestationContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
   certificateId   String
   certificate     DigitalCertificate @relation(fields: [certificateId], references: [id], onDelete: Cascade)
   signedDataHash  String
   signature       String
-  signingMethod   String   @default("RSA-SHA256")
-  signedAt        DateTime @default(now())
+  signingMethod   String             @default("RSA-SHA256")
+  signedAt        DateTime           @default(now())
   verifiedAt      DateTime?
   signerIp        String?
   signerUserAgent String?
@@ -860,16 +950,16 @@ model ContractSignature {
 }
 
 model ContractAuditEntry {
-  id              String   @id @default(cuid())
+  id              String             @id @default(cuid())
   contractId      String
   contract        PrestationContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
   event           String
   description     String
-  metadata        Json     @default("{}")
+  metadata        Json               @default("{}")
   previousHash    String?
-  currentHash     String   @unique
+  currentHash     String             @unique
   systemSignature String?
-  createdAt       DateTime @default(now())
+  createdAt       DateTime           @default(now())
 
   @@index([contractId, createdAt])
 }

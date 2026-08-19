@@ -6,6 +6,8 @@ import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { MISSION_STATUS_STYLE } from "@/lib/mission-status";
 import { canAttachLivrable } from "@/lib/attachments";
+import { DevisPanel } from "@/components/devis/devis-panel";
+import type { DevisProposalPayload } from "@/components/devis/types";
 
 type MissionDetail = {
   id: string;
@@ -25,6 +27,8 @@ type MissionDetail = {
   requiredLevel: string | null;
   budgetType: string | null;
   tags: string[];
+  maxRevisionRounds: number;
+  dateExpiration: string | null;
 };
 
 const PROFESSIONAL_TYPE_LABEL: Record<string, string> = {
@@ -57,6 +61,20 @@ export default function MissionDetailPage() {
   const [attachments, setAttachments] = useState<AttachmentItem[] | null>(null);
   const [attachError, setAttachError] = useState<string | null>(null);
   const [uploadingAttachment, setUploadingAttachment] = useState(false);
+  const [myProposal, setMyProposal] = useState<DevisProposalPayload | null | undefined>(undefined);
+
+  const loadMyProposal = async () => {
+    if (!userId || isClient) {
+      setMyProposal(null);
+      return;
+    }
+    try {
+      const res = await fetch(`/api/missions/${missionId}/my-proposal`);
+      setMyProposal(res.ok ? await res.json() : null);
+    } catch {
+      setMyProposal(null);
+    }
+  };
 
   useEffect(() => {
     fetch(`/api/missions/${missionId}`)
@@ -71,6 +89,11 @@ export default function MissionDetailPage() {
       .then((d) => setAttachments(d.items))
       .catch(() => setAttachments([]));
   }, [missionId]);
+
+  useEffect(() => {
+    loadMyProposal();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [missionId, userId, isClient]);
 
   async function handleAttachmentUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -190,7 +213,7 @@ export default function MissionDetailPage() {
           <span className="card-title">Actions</span>
         </div>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          {canApply && (
+          {canApply && mission.budgetType !== "QUOTE" && (
             <Link
               href={`/dashboard/${role === "expert_digital" ? "expert-digital" : role === "expert_btp_autres" ? "expert-btp" : role === "artisan" ? "artisan" : role === "manoeuvre" ? "manoeuvre" : "provider"}`}
               className="btn btn-primary"
@@ -200,7 +223,7 @@ export default function MissionDetailPage() {
           )}
           {mission.isOwner && mission.status === "publiee" && (
             <Link href={`/missions/${mission.id}/proposals`} className="btn btn-secondary">
-              Voir les propositions
+              {mission.budgetType === "QUOTE" ? "Voir les devis reçus" : "Voir les propositions"}
             </Link>
           )}
           {mission.status !== "brouillon" && mission.status !== "publiee" && (
@@ -223,6 +246,22 @@ export default function MissionDetailPage() {
           )}
         </div>
       </div>
+
+      {/* ── Mode devis (QUOTE) ── */}
+      {mission.budgetType === "QUOTE" && !mission.isOwner && !isClient && (myProposal === undefined ? (
+        <div className="card">
+          <p className="text-sm text-zinc-500">Chargement de votre candidature...</p>
+        </div>
+      ) : (
+        <DevisPanel
+          missionId={mission.id}
+          maxRounds={mission.maxRevisionRounds ?? 3}
+          proposal={myProposal}
+          isClient={false}
+          canSubmit={mission.status === "publiee"}
+          onChanged={loadMyProposal}
+        />
+      ))}
 
       {/* ── Pièces jointes ── */}
       <div className="card">

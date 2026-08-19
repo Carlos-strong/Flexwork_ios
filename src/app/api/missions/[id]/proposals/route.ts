@@ -3,7 +3,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { proposalSchema } from "@/lib/validation";
 import { requireVerifiedKyc } from "@/lib/kycGuard";
-import { hasRequiredGarants } from "@/lib/garant-rules";
+import { checkCandidatureEligibility } from "@/lib/candidature-guard";
 
 // Phase 4 : un prestataire propose un prix sur une mission (remplace l'ancien devis).
 // US-203 : bloqué tant que le KYC du prestataire n'est pas vérifié — l'autre des deux
@@ -26,37 +26,15 @@ export async function POST(
   if (!mission) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
-  if (mission.status !== "publiee") {
-    return NextResponse.json({ error: "mission_not_open" }, { status: 409 });
-  }
 
-  // Candidature sur mission présentiel/hybride : garant obligatoire requis
-  if (mission.mode !== "distance") {
-    const garants = await prisma.garant.findMany({ where: { profile: { userId: providerId } } });
-    if (!hasRequiredGarants(garants)) {
-      return NextResponse.json({
-        error: "garant_required",
-        message: "Un garant obligatoire est requis pour candidater à une mission en présentiel ou hybride.",
-      }, { status: 403 });
-    }
-
-    // Candidature sur mission présentiel/hybride à risque HIGH : le prestataire doit avoir
-    // déclaré au moins une assurance RC Pro valide (non retirée par modération).
-    if (mission.riskLevel === "high") {
-      const insuranceCount = await prisma.professionalDeclaration.count({
-        where: {
-          profile: { userId: providerId },
-          declarationType: "insurance",
-          removedAt: null,
-        },
-      });
-      if (insuranceCount === 0) {
-        return NextResponse.json({
-          error: "insurance_required",
-          message: "Cette mission à risque élevé exige une assurance RC Pro déclarée. Veuillez en ajouter une dans votre profil avant de candidater.",
-        }, { status: 403 });
-      }
-    }
+  // Gardes de candidature partagés (mission ouverte, garant, assurance) — même source que
+  // POST /api/missions/[id]/devis (src/lib/candidature-guard.ts).
+  const eligibility = await checkCandidatureEligibility(mission, providerId);
+  if (!eligibility.ok) {
+    return NextResponse.json(
+      { error: eligibility.error, message: eligibility.message },
+      { status: eligibility.status }
+    );
   }
 
   const body = await req.json().catch(() => null);
@@ -84,11 +62,23 @@ export async function GET(
   }
   const { id: missionId } = await params;
 
-  const proposals = await prisma.missionProposal.findMany({
-    where: { missionId },
-    include: { provider: { select: { id: true, email: true } } },
-    orderBy: { createdAt: "asc" },
-  });
+  const [proposals, mission] = await Promise.all([
+    prisma.missionProposal.findMany({
+      where: { missionId },
+      include: {
+        provider: { select: { id: true, email: true } },
+        revisions: {
+          include: { author: { select: { firstname: true, lastname: true } } },
+          orderBy: { roundNumber: "asc" },
+        },
+      },
+      orderBy: { createdAt: "asc" },
+    }),
+    prisma.mission.findUnique({
+      where: { id: missionId },
+      select: { budgetType: true, maxRevisionRounds: true },
+    }),
+  ]);
 
-  return NextResponse.json({ items: proposals });
+  return NextResponse.json({ items: proposals, mission });
 }

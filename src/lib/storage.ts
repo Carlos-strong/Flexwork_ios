@@ -5,6 +5,7 @@ import crypto from "crypto";
 const STORAGE_ROOT = path.resolve(process.cwd(), process.env.STORAGE_LOCAL_PATH ?? "./storage");
 const KYC_BUCKET = "kyc-docs"; // bucket privé — jamais servi statiquement, uniquement via route API signée
 const MISSIONS_BUCKET = "mission-attachments";
+const MESSAGE_FILES_BUCKET = "message-files";
 const DECLARATION_DOCS_BUCKET = "declaration-documents";
 const MEDIATION_PREUVES_BUCKET = "mediation-preuves";
 
@@ -25,6 +26,11 @@ export async function saveKycFile(params: { userId: string; fileName: string; bu
 
 export async function saveMissionAttachment(params: { missionId: string; fileName: string; buffer: Buffer }): Promise<string> {
   return saveFile(MISSIONS_BUCKET, { ownerId: params.missionId, fileName: params.fileName, buffer: params.buffer });
+}
+
+// Fichier joint à un message de chat (messagerie).
+export async function saveMessageFile(params: { missionId: string; fileName: string; buffer: Buffer }): Promise<string> {
+  return saveFile(MESSAGE_FILES_BUCKET, { ownerId: params.missionId, fileName: params.fileName, buffer: params.buffer });
 }
 
 // Phase 3 — document joint à une déclaration professionnelle (qualification/assurance).

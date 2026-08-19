@@ -78,13 +78,35 @@ export const missionSchema = z.object({
   budget: z.number().positive().optional(),
   currency: z.string().min(3).max(3).optional(),
   delaiJours: z.number().int().positive(),
+  // Mode devis (budgetType = "QUOTE") : rounds de négociation et date limite de devis.
+  maxRevisionRounds: z.number().int().min(1).max(20).optional(),
+  dateExpiration: z.coerce.date().optional(),
   status: z.enum(["brouillon", "publiee"]).optional(),
 });
 
 // Phase 4 : proposition d'un prestataire sur une mission (remplace l'ancien devis).
+// `montant` autorise 0 : en mode devis (budgetType = "QUOTE"), le prestataire postule sans
+// montant — le prix viendra du devis soumis via POST /api/missions/[id]/devis.
 export const proposalSchema = z.object({
-  montant: z.number().positive(),
+  montant: z.number().nonnegative(),
   message: z.string().optional(),
+});
+
+// Phase 4 — mode devis BTP (budgetType = "QUOTE") : postes détaillés d'un devis.
+// Montants dans la devise de la mission (Float, jamais de centimes).
+export const devisLineItemSchema = z.object({
+  description: z.string().min(1),
+  quantity: z.number().positive(),
+  unit: z.string().min(1),
+  unitPrice: z.number().nonnegative(),
+});
+
+export const devisSchema = z.object({
+  lineItems: z.array(devisLineItemSchema).min(1),
+  delay: z.string().min(1),
+  notes: z.string().optional(),
+  // La TVA est appliquée au devis (choix du prestataire), pas à la mission.
+  tvaRate: z.number().min(0).max(100).default(0),
 });
 
 export const garantSchema = z.object({

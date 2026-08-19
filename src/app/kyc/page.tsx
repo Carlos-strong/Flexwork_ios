@@ -2,24 +2,15 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { Shield, Clock, BadgeCheck, Upload, ChevronRight, ArrowLeft, Check, AlertCircle } from "lucide-react";
 
-// KYC en 4 étapes (type de pièce → recto → verso → selfie + selfie+pièce).
-// Aligné sur formulaires-flexwork-tous-profils.html.
-// Nouveautés v3 : scan antivirus (ClamAV), watermark dynamique, AES-256,
-// règle des 3 tentatives → compte SUSPENDED 30 jours.
-const STEPS = ["Type de pièce", "Recto", "Verso", "Selfie + Pièce"];
-
-const ID_TYPES = [
-  { value: "CNI", label: "Carte Nationale d'Identité (CNI)" },
-  { value: "PASSEPORT", label: "Passeport" },
-  { value: "PERMIS", label: "Permis de conduire" },
-  { value: "CIP", label: "Carte d'identité provisoire" },
+const STEPS = [
+  { num: 1, id: "identite", label: "Identité", desc: "Pièce d'identité" },
+  { num: 2, id: "recto", label: "Recto", desc: "Photo recto" },
+  { num: 3, id: "verso", label: "Verso", desc: "Photo verso" },
+  { num: 4, id: "selfie", label: "Selfie", desc: "Selfie + pièce" },
 ];
 
-// Messages lisibles pour chaque code d'erreur renvoyé par /api/kyc/upload — auparavant un
-// seul message générique ("Vérifiez le format") s'affichait quelle que soit la cause
-// réelle (numéro de pièce manquant, doublon suspecté, session expirée...), rendant le
-// diagnostic impossible côté utilisateur comme côté support.
 const UPLOAD_ERROR_MESSAGES: Record<string, string> = {
   invalid_payload: "Format de fichier invalide ou fichier manquant (JPG, PNG, PDF, 5 Mo max).",
   id_number_required: "Le numéro de pièce est requis (retournez à l'étape 1).",
@@ -40,9 +31,6 @@ export default function KycPage() {
   const [idNumber, setIdNumber] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  // US-202 : une fois verifie, le formulaire doit disparaître — jusqu'ici /kyc affichait
-  // toujours l'étape 1 par défaut, sans jamais vérifier le statut réel côté serveur
-  // (POST /api/kyc/upload le refusait bien en 409, mais rien ne le disait avant ce refus).
   const [kycStatus, setKycStatus] = useState<"en_attente" | "verifie" | "rejete" | "loading">("loading");
 
   useEffect(() => {
@@ -52,15 +40,10 @@ export default function KycPage() {
       .catch(() => setKycStatus("en_attente"));
   }, []);
 
-  // Valeurs strictement alignées sur VALID_TYPES côté serveur (src/app/api/kyc/upload/route.ts)
-  // — "recto"/"verso" n'y correspondent pas et faisaient échouer tout upload en 400
-  // invalid_payload, bloquant le parcours dès l'étape 2.
   async function uploadDoc(type: "piece_identite_recto" | "piece_identite_verso" | "selfie" | "selfie_avec_piece", file: File) {
     const formData = new FormData();
     formData.append("type", type);
     formData.append("file", file);
-    // idNumber n'est lu/exigé par le serveur que pour le recto — l'envoyer aux autres
-    // étapes est inoffensif (ignoré) mais inutile.
     if (type === "piece_identite_recto") formData.append("idNumber", idNumber);
     const res = await fetch("/api/kyc/upload", { method: "POST", body: formData });
     if (!res.ok) {
@@ -74,9 +57,6 @@ export default function KycPage() {
     setError(null);
     setSubmitting(true);
     try {
-      // Les deux fichiers de cette étape n'étaient jamais envoyés au serveur — seul
-      // /api/kyc/liveness était appelé. Un dossier "soumis" arrivait donc incomplet
-      // (2 documents sur 4) côté Admin KYC, sans qu'aucune erreur ne le signale.
       const formData = new FormData(e.currentTarget);
       const selfie = formData.get("selfie") as File;
       const selfieAvecPiece = formData.get("selfie_avec_piece") as File;
@@ -85,7 +65,6 @@ export default function KycPage() {
         setSubmitting(false);
         return;
       }
-
       await uploadDoc("selfie", selfie);
       await uploadDoc("selfie_avec_piece", selfieAvecPiece);
       await fetch("/api/kyc/liveness", {
@@ -121,173 +100,321 @@ export default function KycPage() {
     }
   }
 
-  const inputClass = "w-full h-10 px-3 rounded-xl border border-zinc-200 text-[14px] focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751] transition";
-  const btnPrimary = "h-10 px-5 rounded-full bg-[#008751] text-white text-[13px] font-semibold hover:bg-[#006e43] disabled:opacity-50 disabled:cursor-not-allowed transition";
-  const btnOutline = "h-10 px-5 rounded-full border border-zinc-200 text-[13px] font-medium hover:bg-zinc-100 transition";
+  const inputClass = "w-full h-11 px-4 rounded-xl border border-zinc-200 text-[14px] bg-white focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751] transition";
+  const btnPrimary = "h-11 px-6 rounded-xl bg-[#008751] text-white text-[14px] font-semibold hover:brightness-110 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-[0_4px_12px_rgba(0,135,81,0.25)]";
+  const btnOutline = "h-11 px-6 rounded-xl border border-zinc-200 text-[14px] font-medium text-zinc-600 hover:bg-zinc-50 active:scale-[0.98] transition-all";
 
+  // ---- Loading ----
   if (kycStatus === "loading") {
-    return <div className="min-h-screen bg-zinc-50 flex items-center justify-center"><div className="text-[14px] text-zinc-500">Chargement...</div></div>;
+    return (
+      <div className="min-h-screen bg-zinc-50 flex items-center justify-center">
+        <div className="w-8 h-8 border-[3px] border-[#FF7A00] border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
   }
 
-  // Formulaire rendu indisponible une fois vérifié — le serveur refuse déjà toute
-  // resoumission (409 kyc_already_verified), ceci évite juste de le laisser deviner pourquoi.
+  // ---- Already verified ----
   if (kycStatus === "verifie") {
     return (
-      <div className="min-h-screen bg-zinc-50 py-10 px-4">
-        <div className="mx-auto max-w-[640px]">
-          <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden">
-            <div className="px-6 py-5 border-b border-zinc-100">
-              <h1 className="text-[18px] font-bold text-zinc-900">Vérification d&apos;identité (KYC)</h1>
-            </div>
-            <div className="px-6 py-8 text-center space-y-3">
-              <div className="mx-auto w-14 h-14 rounded-full bg-[#f0fdf4] border border-[#bbf7d0] flex items-center justify-center text-[28px]">✓</div>
-              <div className="text-[15px] font-bold text-[#166534]">Votre identité est vérifiée</div>
-              <p className="text-[13px] text-zinc-500 max-w-md mx-auto">
-                Aucune nouvelle soumission n&apos;est nécessaire ni possible. Vous pouvez désormais publier une mission ou candidater selon votre profil.
-              </p>
-              <button onClick={() => router.push("/dashboard")} className={`${btnPrimary} mt-2`}>Aller au dashboard</button>
-            </div>
+      <div className="min-h-screen bg-[#FFF8F0] flex items-center justify-center p-6">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm max-w-[480px] w-full p-8 text-center">
+          <div className="w-16 h-16 rounded-full bg-[#f0faf5] border-2 border-[#008751] flex items-center justify-center mx-auto mb-4">
+            <BadgeCheck className="w-8 h-8 text-[#008751]" />
           </div>
+          <h2 className="text-[18px] font-bold text-[#0A1931] mb-2">Identité vérifiée ✓</h2>
+          <p className="text-[13px] text-zinc-500 mb-6 leading-relaxed">
+            Aucune nouvelle soumission n&apos;est nécessaire. Vous pouvez désormais publier une mission ou candidater.
+          </p>
+          <button onClick={() => router.push("/dashboard")} className={btnPrimary}>Accéder au dashboard</button>
         </div>
       </div>
     );
   }
 
+  // ---- Main KYC form ----
   return (
-    <div className="min-h-screen bg-zinc-50 py-10 px-4">
-      <div className="mx-auto max-w-[640px] space-y-5">
-        <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden">
-          <div className="px-6 py-5 border-b border-zinc-100">
-            <h1 className="text-[18px] font-bold text-zinc-900">Vérification d&apos;identité (KYC)</h1>
+    <div className="min-h-screen bg-[#FFF8F0]">
+      {/* Header bar */}
+      <div className="bg-white border-b border-gray-100 px-4 md:px-6 h-[56px] flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <button onClick={() => router.push("/dashboard")} className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200">
+            <ArrowLeft className="w-4 h-4 text-zinc-600" />
+          </button>
+          <div className="flex items-center gap-2 text-[13px]">
+            <span className="text-zinc-400">Tableau</span>
+            <span className="text-zinc-300">/</span>
+            <span className="font-semibold text-[#0A1931]">Vérification KYC</span>
           </div>
-
-          {/* Progress steps */}
-          <div className="px-6 pt-5 flex gap-2">
-            {STEPS.map((label, i) => (
-              <div key={label} className={`flex-1 text-center text-[11px] pb-2 border-b-2 transition ${
-                i + 1 === step ? "text-[#008751] border-[#008751] font-semibold" :
-                i + 1 < step ? "text-zinc-400 border-[#008751]" : "text-zinc-300 border-zinc-200"
-              }`}>
-                {i + 1}. {label}
-              </div>
-            ))}
-          </div>
-
-          <div className="px-6 py-4">
-            <p className="text-[13px] text-zinc-500">
-              Cette vérification est <strong>la seule que Flexwork effectue réellement</strong>.
-              Sans elle, ni publication de mission ni candidature ne sont possibles.
-            </p>
-          </div>
-
-          {error && (
-            <div className="mx-6 mb-4 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700 font-medium">{error}</div>
-          )}
-
-          {/* Step 1: Type + Numéro */}
-          {step === 1 && (
-            <form onSubmit={(e) => { e.preventDefault(); if (!idType || idNumber.length < 3) { setError("Renseignez le type et le numéro de pièce."); return; } setError(null); setStep(2); }}
-              className="px-6 pb-6 space-y-4">
-              <div>
-                <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Type de pièce d&apos;identité <span className="text-[#E8112D]">*</span></label>
-                <select required value={idType} onChange={(e) => setIdType(e.target.value)} className={inputClass}>
-                  <option value="">Sélectionner</option>
-                  {ID_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Numéro de la pièce <span className="text-[#E8112D]">*</span></label>
-                <input type="text" required placeholder="AB123456" value={idNumber} onChange={(e) => setIdNumber(e.target.value)} className={inputClass} />
-              </div>
-              <button type="submit" className={btnPrimary}>Continuer</button>
-            </form>
-          )}
-
-          {/* Step 2: Recto */}
-          {step === 2 && (
-            <form onSubmit={(e) => handleStepUpload("piece_identite_recto", 3, e)} className="px-6 pb-6 space-y-4">
-              <div>
-                <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Pièce d&apos;identité — Recto <span className="text-[#E8112D]">*</span></label>
-                <div className="relative">
-                  <div className="p-4 border border-dashed border-zinc-300 rounded-xl text-center text-[13px] text-zinc-400 cursor-pointer hover:border-[#008751] hover:text-[#008751] transition">
-                    + Téléverser le recto (PDF, JPG, PNG — max 5 Mo)
-                  </div>
-                  <input type="file" name="file" accept="image/jpeg,image/png,application/pdf" required className="absolute inset-0 opacity-0 cursor-pointer" />
-                </div>
-              </div>
-              <div className="flex gap-3">
-                <button type="button" onClick={() => setStep(1)} className={btnOutline}>Retour</button>
-                <button type="submit" disabled={submitting} className={btnPrimary}>{submitting ? "Envoi..." : "Continuer"}</button>
-              </div>
-            </form>
-          )}
-
-          {/* Step 3: Verso */}
-          {step === 3 && (
-            <form onSubmit={(e) => handleStepUpload("piece_identite_verso", 4, e)} className="px-6 pb-6 space-y-4">
-              <div>
-                <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Pièce d&apos;identité — Verso <span className="text-[#E8112D]">*</span></label>
-                <div className="relative">
-                  <div className="p-4 border border-dashed border-zinc-300 rounded-xl text-center text-[13px] text-zinc-400 cursor-pointer hover:border-[#008751] hover:text-[#008751] transition">
-                    + Téléverser le verso (PDF, JPG, PNG — max 5 Mo)
-                  </div>
-                  <input type="file" name="file" accept="image/jpeg,image/png,application/pdf" required className="absolute inset-0 opacity-0 cursor-pointer" />
-                </div>
-              </div>
-              <div className="flex gap-3">
-                <button type="button" onClick={() => setStep(2)} className={btnOutline}>Retour</button>
-                <button type="submit" disabled={submitting} className={btnPrimary}>{submitting ? "Envoi..." : "Continuer"}</button>
-              </div>
-            </form>
-          )}
-
-          {/* Step 4: Selfie */}
-          {step === 4 && (
-            <form onSubmit={handleFinalSubmit} className="px-6 pb-6 space-y-4">
-              <div>
-                <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Selfie <span className="text-[#E8112D]">*</span></label>
-                <div className="relative">
-                  <div className="p-4 border border-dashed border-zinc-300 rounded-xl text-center text-[13px] text-zinc-400 cursor-pointer hover:border-[#008751] hover:text-[#008751] transition">
-                    + Téléverser le selfie (face visible, bon éclairage)
-                  </div>
-                  <input type="file" name="selfie" accept="image/jpeg,image/png,application/pdf" required className="absolute inset-0 opacity-0 cursor-pointer" />
-                </div>
-              </div>
-              <div>
-                <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Selfie avec pièce d&apos;identité <span className="text-[#E8112D]">*</span></label>
-                <div className="relative">
-                  <div className="p-4 border border-dashed border-zinc-300 rounded-xl text-center text-[13px] text-zinc-400 cursor-pointer hover:border-[#008751] hover:text-[#008751] transition">
-                    + Téléverser le selfie + pièce d&apos;identité
-                  </div>
-                  <input type="file" name="selfie_avec_piece" accept="image/jpeg,image/png,application/pdf" required className="absolute inset-0 opacity-0 cursor-pointer" />
-                </div>
-              </div>
-              <div className="flex gap-3">
-                <button type="button" onClick={() => setStep(3)} className={btnOutline}>Retour</button>
-                <button type="submit" disabled={submitting} className={btnPrimary}>{submitting ? "Envoi..." : "Soumettre pour vérification"}</button>
-              </div>
-            </form>
-          )}
         </div>
+        <div className="flex items-center gap-2 text-[12px]">
+          <span className="px-2.5 py-1 rounded-full bg-[#008751]/10 text-[#008751] font-semibold">Étape {step}/4</span>
+        </div>
+      </div>
 
-        {/* Security info — n'affirme que ce qui est réellement implémenté
-            (src/lib/storage.ts) : bucket privé jamais servi statiquement, URLs signées à
-            durée limitée (5 min), protection contre la traversée de chemin. Le scan
-            antivirus, le watermark et le chiffrement au repos étaient annoncés ici sans
-            exister dans le code — retiré plutôt que laissé comme fausse promesse sur des
-            pièces d'identité. Idem pour la suspension automatique après 3 rejets : aucune
-            colonne de comptage ni logique de suspension n'existe (KycDocument n'a pas de
-            champ "attempts", seul un rejectionReason par décision Admin KYC). */}
-        <div className="bg-[#f0fdf4] border border-[#bbf7d0] rounded-2xl p-5">
-          <div className="text-[14px] font-bold text-[#166534]">✓ Sécurité</div>
-          <p className="text-[13px] text-zinc-600 mt-2">
-            Bucket privé, jamais accessible directement — consultation uniquement via URL signée à durée limitée (5 minutes).
-            OCR et détection de falsification par IA <span className="inline-flex px-1.5 py-0.5 rounded-md bg-zinc-100 text-zinc-500 font-medium text-[10px]">V2</span>,
-            scan antivirus et chiffrement au repos <span className="inline-flex px-1.5 py-0.5 rounded-md bg-zinc-100 text-zinc-500 font-medium text-[10px]">V2</span>
-          </p>
-          <p className="text-[13px] text-zinc-600 mt-1">
-            Votre dossier est examiné manuellement par un Admin KYC. En cas de rejet, le motif vous est communiqué.
-          </p>
+      <div className="max-w-6xl mx-auto p-4 md:p-6">
+        <div className="flex flex-col lg:flex-row gap-6">
+          {/* ================================================================ */}
+          {/* LEFT — Steps sidebar + Form                                       */}
+          {/* ================================================================ */}
+          <div className="flex-1 space-y-6">
+            {/* Page title */}
+            <div>
+              <h1 className="text-[22px] md:text-[26px] font-bold text-[#0A1931]">Vérification KYC</h1>
+              <p className="text-[13px] text-zinc-500 mt-1">Sécurise ton compte pour débloquer les paiements. 100% confidentiel.</p>
+            </div>
+
+            {/* Steps progress */}
+            <div className="flex gap-2 md:gap-3">
+              {STEPS.map((s) => {
+                const isActive = s.num === step;
+                const isDone = s.num < step;
+                return (
+                  <div key={s.id} className={`flex-1 flex items-center gap-2 md:gap-3 p-3 rounded-xl border-2 transition-all ${
+                    isActive ? "border-[#008751] bg-[#f0faf5]" :
+                    isDone ? "border-[#008751]/30 bg-white" :
+                    "border-gray-100 bg-white"
+                  }`}>
+                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 ${
+                      isActive ? "bg-[#008751] text-white" :
+                      isDone ? "bg-[#008751]/20 text-[#008751]" :
+                      "bg-gray-100 text-zinc-400"
+                    }`}>
+                      {isDone ? <Check className="w-3.5 h-3.5" /> : s.num}
+                    </div>
+                    <div className="hidden sm:block min-w-0">
+                      <div className={`text-[12px] font-semibold truncate ${isActive ? "text-[#008751]" : isDone ? "text-zinc-600" : "text-zinc-400"}`}>{s.label}</div>
+                      <div className="text-[10px] text-zinc-400 truncate">{isDone ? "Fait" : isActive ? "En cours" : "À faire"}</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Error banner */}
+            {error && (
+              <div className="px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700 font-medium flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" /> {error}
+              </div>
+            )}
+
+            {/* STEP 1: Type + Numéro */}
+            {step === 1 && (
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                <div className="px-5 md:px-6 py-4 border-b border-gray-50 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-[#008751]/10 flex items-center justify-center">
+                    <Upload className="w-5 h-5 text-[#008751]" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-[15px] text-[#0A1931]">Pièce d&apos;identité</h3>
+                    <p className="text-[12px] text-zinc-400">Étape 1 — Renseignez votre pièce</p>
+                  </div>
+                </div>
+                <form onSubmit={(e) => { e.preventDefault(); if (!idType || idNumber.length < 3) { setError("Renseignez le type et le numéro de pièce."); return; } setError(null); setStep(2); }}
+                  className="px-5 md:px-6 py-5 space-y-4">
+                  <div>
+                    <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Type de pièce</label>
+                    <div className="flex flex-wrap gap-2">
+                      {[
+                        { value: "CNI", label: "CNI" },
+                        { value: "PASSEPORT", label: "Passeport" },
+                        { value: "CIP", label: "Carte consulaire" },
+                      ].map((t) => (
+                        <button key={t.value} type="button"
+                          onClick={() => setIdType(t.value)}
+                          className={`h-11 px-4 rounded-xl border-2 text-[13px] font-semibold transition-all ${
+                            idType === t.value
+                              ? "border-[#008751] bg-[#f0faf5] text-[#008751]"
+                              : "border-gray-100 bg-white text-zinc-600 hover:border-gray-200"
+                          }`}>
+                          {t.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="sm:col-span-1">
+                      <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Numéro de pièce <span className="text-[#E8112D]">*</span></label>
+                      <input type="text" required placeholder="B12345678" value={idNumber} onChange={(e) => setIdNumber(e.target.value)} className={inputClass} />
+                    </div>
+                    <div>
+                      <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Date d&apos;expiration</label>
+                      <input type="date" className={inputClass} />
+                    </div>
+                    <div>
+                      <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Pays d&apos;émission</label>
+                      <select className={inputClass}>
+                        <option>Bénin</option><option>Togo</option><option>Sénégal</option><option>Côte d&apos;Ivoire</option><option>Nigeria</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-3 pt-2">
+                    <button type="button" disabled className={btnOutline + " opacity-50"}>Précédent</button>
+                    <button type="submit" className={btnPrimary + " flex items-center gap-1"}>Suivant <ChevronRight className="w-4 h-4" /></button>
+                  </div>
+                </form>
+              </div>
+            )}
+
+            {/* STEP 2: Recto */}
+            {step === 2 && (
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                <div className="px-5 md:px-6 py-4 border-b border-gray-50 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-[#008751]/10 flex items-center justify-center">
+                    <Upload className="w-5 h-5 text-[#008751]" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-[15px] text-[#0A1931]">Pièce d&apos;identité — Recto</h3>
+                    <p className="text-[12px] text-zinc-400">Étape 2 — Téléversez le recto</p>
+                  </div>
+                </div>
+                <form onSubmit={(e) => handleStepUpload("piece_identite_recto", 3, e)} className="px-5 md:px-6 py-5 space-y-4">
+                  <div className="relative">
+                    <div className="p-8 border-2 border-dashed border-zinc-200 rounded-2xl text-center cursor-pointer hover:border-[#008751] hover:bg-[#f0faf5]/50 transition-all group">
+                      <Upload className="w-8 h-8 text-zinc-300 group-hover:text-[#008751] mx-auto mb-2" />
+                      <p className="text-[13px] text-zinc-500 group-hover:text-[#008751] font-medium">Glisse ton fichier ici</p>
+                      <p className="text-[11px] text-zinc-400 mt-1">JPG, PNG, PDF — max 5Mo — bien lisible</p>
+                    </div>
+                    <input type="file" name="file" accept="image/jpeg,image/png,application/pdf" required className="absolute inset-0 opacity-0 cursor-pointer" />
+                  </div>
+                  <div className="flex justify-between gap-3 pt-2">
+                    <button type="button" onClick={() => setStep(1)} className={btnOutline}>Précédent</button>
+                    <button type="submit" disabled={submitting} className={btnPrimary + " flex items-center gap-1"}>
+                      {submitting ? "Envoi..." : <><span>Suivant</span> <ChevronRight className="w-4 h-4" /></>}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+
+            {/* STEP 3: Verso */}
+            {step === 3 && (
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                <div className="px-5 md:px-6 py-4 border-b border-gray-50 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-[#008751]/10 flex items-center justify-center">
+                    <Upload className="w-5 h-5 text-[#008751]" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-[15px] text-[#0A1931]">Pièce d&apos;identité — Verso</h3>
+                    <p className="text-[12px] text-zinc-400">Étape 3 — Téléversez le verso</p>
+                  </div>
+                </div>
+                <form onSubmit={(e) => handleStepUpload("piece_identite_verso", 4, e)} className="px-5 md:px-6 py-5 space-y-4">
+                  <div className="relative">
+                    <div className="p-8 border-2 border-dashed border-zinc-200 rounded-2xl text-center cursor-pointer hover:border-[#008751] hover:bg-[#f0faf5]/50 transition-all group">
+                      <Upload className="w-8 h-8 text-zinc-300 group-hover:text-[#008751] mx-auto mb-2" />
+                      <p className="text-[13px] text-zinc-500 group-hover:text-[#008751] font-medium">Glisse ton fichier ici</p>
+                      <p className="text-[11px] text-zinc-400 mt-1">JPG, PNG, PDF — max 5Mo</p>
+                    </div>
+                    <input type="file" name="file" accept="image/jpeg,image/png,application/pdf" required className="absolute inset-0 opacity-0 cursor-pointer" />
+                  </div>
+                  <div className="flex justify-between gap-3 pt-2">
+                    <button type="button" onClick={() => setStep(2)} className={btnOutline}>Précédent</button>
+                    <button type="submit" disabled={submitting} className={btnPrimary + " flex items-center gap-1"}>
+                      {submitting ? "Envoi..." : <><span>Suivant</span> <ChevronRight className="w-4 h-4" /></>}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+
+            {/* STEP 4: Selfie */}
+            {step === 4 && (
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                <div className="px-5 md:px-6 py-4 border-b border-gray-50 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-[#008751]/10 flex items-center justify-center">
+                    <Upload className="w-5 h-5 text-[#008751]" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-[15px] text-[#0A1931]">Selfie + Pièce</h3>
+                    <p className="text-[12px] text-zinc-400">Étape 4 — Vérification faciale</p>
+                  </div>
+                </div>
+                <form onSubmit={handleFinalSubmit} className="px-5 md:px-6 py-5 space-y-4">
+                  <div>
+                    <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Selfie <span className="text-[#E8112D]">*</span></label>
+                    <div className="relative">
+                      <div className="p-6 border-2 border-dashed border-zinc-200 rounded-2xl text-center cursor-pointer hover:border-[#008751] hover:bg-[#f0faf5]/50 transition-all group">
+                        <Upload className="w-8 h-8 text-zinc-300 group-hover:text-[#008751] mx-auto mb-2" />
+                        <p className="text-[13px] text-zinc-500 group-hover:text-[#008751] font-medium">Selfie face visible, bon éclairage</p>
+                      </div>
+                      <input type="file" name="selfie" accept="image/jpeg,image/png" required className="absolute inset-0 opacity-0 cursor-pointer" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Selfie avec pièce d&apos;identité <span className="text-[#E8112D]">*</span></label>
+                    <div className="relative">
+                      <div className="p-6 border-2 border-dashed border-zinc-200 rounded-2xl text-center cursor-pointer hover:border-[#008751] hover:bg-[#f0faf5]/50 transition-all group">
+                        <Upload className="w-8 h-8 text-zinc-300 group-hover:text-[#008751] mx-auto mb-2" />
+                        <p className="text-[13px] text-zinc-500 group-hover:text-[#008751] font-medium">Selfie + pièce d&apos;identité visible</p>
+                      </div>
+                      <input type="file" name="selfie_avec_piece" accept="image/jpeg,image/png" required className="absolute inset-0 opacity-0 cursor-pointer" />
+                    </div>
+                  </div>
+                  <div className="flex justify-between gap-3 pt-2">
+                    <button type="button" onClick={() => setStep(3)} className={btnOutline}>Précédent</button>
+                    <button type="submit" disabled={submitting} className={btnPrimary}>
+                      {submitting ? "Envoi en cours..." : "Soumettre pour vérification"}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+          </div>
+
+          {/* ================================================================ */}
+          {/* RIGHT — Info sidebar                                              */}
+          {/* ================================================================ */}
+          <div className="lg:w-[320px] shrink-0 space-y-4">
+            {/* Pourquoi KYC */}
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+              <div className="px-5 py-4 border-b border-gray-50">
+                <h4 className="font-semibold text-[14px] text-[#0A1931] flex items-center gap-2">
+                  <Shield className="w-4 h-4 text-[#008751]" /> Pourquoi KYC ?
+                </h4>
+              </div>
+              <div className="px-5 py-4 space-y-3">
+                {[
+                  { icon: "🛡️", title: "Sécurité maximale", desc: "On protège la communauté contre la fraude" },
+                  { icon: "⭐", title: "Badge Vérifié", desc: "+40% de missions si tu es vérifié" },
+                  { icon: "💰", title: "Paiements débloqués", desc: "Retraits FCFA instantanés après vérif" },
+                ].map((item, i) => (
+                  <div key={i} className="flex gap-3">
+                    <span className="text-lg shrink-0">{item.icon}</span>
+                    <div>
+                      <div className="text-[12px] font-semibold text-[#0A1931]">{item.title}</div>
+                      <div className="text-[11px] text-zinc-400">{item.desc}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="px-5 py-3 bg-[#f0faf5] border-t border-[#008751]/10 flex items-start gap-3">
+                <Clock className="w-4 h-4 text-[#008751] shrink-0 mt-0.5" />
+                <div>
+                  <div className="text-[12px] font-semibold text-[#008751]">Délai de traitement</div>
+                  <div className="text-[11px] text-zinc-500">Vérification humaine en 24h max. Tu reçois un SMS + email.</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Passe vérifié */}
+            <div className="bg-[#0A1931] rounded-2xl p-5 text-white">
+              <div className="w-10 h-10 rounded-xl bg-[#FF7A00]/20 flex items-center justify-center mb-3">
+                <BadgeCheck className="w-5 h-5 text-[#FF7A00]" />
+              </div>
+              <h4 className="font-semibold text-[14px] mb-2">Passe vérifié = plus de clients</h4>
+              <p className="text-[12px] text-white/60 leading-relaxed">
+                Les profils avec badge vert reçoivent 2.3x plus de propositions.
+              </p>
+            </div>
+
+            {/* Support */}
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+              <div className="text-[12px] font-semibold text-[#0A1931] mb-2">Besoin d&apos;aide ?</div>
+              <p className="text-[11px] text-zinc-500 leading-relaxed">
+                💬 Chat support en Fon / Wolof / Français — réponse &lt; 5min
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     </div>

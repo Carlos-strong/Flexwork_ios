@@ -1,8 +1,15 @@
 import type { Metadata } from "next";
+import { Inter } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 import { Nav } from "@/components/nav";
 import { auth } from "@/auth";
+
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "FlexWork — Talents vérifiés, zéro arnaque",
@@ -36,7 +43,7 @@ export default async function RootLayout({
 
   return (
     <html lang="fr">
-      <body className="overflow-x-hidden">
+      <body className={`overflow-x-hidden ${inter.variable}`}>
         <Providers session={session}>
           <Nav />
           {children}

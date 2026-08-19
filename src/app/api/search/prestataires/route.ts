@@ -47,24 +47,30 @@ export async function GET(req: Request) {
     where: {
       kycStatus: "verifie",
       role: { in: roleFilter },
-      profile: profileWhere,
+      profiles: { some: profileWhere },
     },
-    include: { profile: true },
+    include: { profiles: true },
   });
 
   return NextResponse.json({
-    items: providers.map((p) => ({
-      id: p.id,
-      email: p.email,
-      role: p.role,
-      mainDomain: p.profile?.mainDomain,
-      declaredLevel: p.profile?.declaredLevel,
-      tags: p.profile?.tags ?? [],
-      tarifUnite: p.profile?.tarifUnite ?? null,
-      indicativeRate: p.profile?.indicativeRate ?? null,
-      zonePays: p.profile?.zonePays ?? null,
-      zoneVille: p.profile?.zoneVille ?? null,
-      zoneRayonKm: p.profile?.zoneRayonKm ?? null,
-    })),
+    items: providers.map((p) => {
+      const profile =
+        p.profiles.find((pf) => pf.mainDomain === domaine) ??
+        p.profiles.find((pf) => pf.isDefault) ??
+        p.profiles[0];
+      return {
+        id: p.id,
+        email: p.email,
+        role: p.role,
+        mainDomain: profile?.mainDomain,
+        declaredLevel: profile?.declaredLevel,
+        tags: profile?.tags ?? [],
+        tarifUnite: profile?.tarifUnite ?? null,
+        indicativeRate: profile?.indicativeRate ?? null,
+        zonePays: profile?.zonePays ?? null,
+        zoneVille: profile?.zoneVille ?? null,
+        zoneRayonKm: profile?.zoneRayonKm ?? null,
+      };
+    }),
   });
 }
