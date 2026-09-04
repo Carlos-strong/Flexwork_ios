@@ -58,6 +58,12 @@ model User {
   role                 UserRole   @default(client)
   firstname            String?
   lastname             String?
+  // Chemin de stockage de la photo de profil (bucket "avatars", voir src/lib/storage.ts) —
+  // jamais l'URL servie directement : GET /api/users/[id]/avatar la lit et la diffuse à la
+  // demande, pour ne jamais exposer le chemin de stockage brut (UUID inclus) aux autres
+  // utilisateurs qui la voient dans les cartes de mission/candidature. Null = pas de photo,
+  // repli sur les initiales côté vue (voir src/components/avatar.tsx).
+  avatarPath           String?
   country              String?
   state                String?
   city                 String?
@@ -94,6 +100,12 @@ model User {
 
   contractsAsClient   PrestationContract[] @relation("ContractClient")
   contractsAsProvider PrestationContract[] @relation("ContractProvider")
+
+  // Modèle Gig (prestataire publie, client achète) — flux de signature INVERSE du modèle
+  // Mission (client 1/2, prestataire 2/2, 24h sinon remboursement).
+  gigsPublies         Gig[]      @relation("GigProvider")
+  gigOrdersAsClient   GigOrder[] @relation("GigOrderClient")
+  gigOrdersAsProvider GigOrder[] @relation("GigOrderProvider")
 
   digitalCertificates DigitalCertificate[]
 
@@ -149,6 +161,28 @@ model OtpCode {
   createdAt  DateTime   @default(now())
 
   @@index([userId, purpose])
+}
+
+// Compteur anti-spam sur la DEMANDE d'OTP, indépendant de OtpCode/User à dessein : OtpCode
+// exige un userId (FK obligatoire), donc un identifiant qui ne correspond à aucun compte n'y
+// laisse jamais de ligne. Avant ce modèle, isUnderOtpRequestLimit comptait sur OtpCode et ne
+// pouvait donc JAMAIS limiter un identifiant inexistant — 6 requêtes rapides sur le même
+// identifiant révélaient son existence par la seule présence d'un 429 (compte réel = fini par
+// bloquer, compte inexistant = jamais). Cette table est écrite pour CHAQUE requête de
+// /api/auth/login/request-otp, que le compte existe ou non, pour que le rate-limit ne soit
+// plus un oracle d'énumération de comptes.
+model OtpRequestAttempt {
+  id         String   @id @default(cuid())
+  identifier String
+  // Adresse IP de l'émetteur (x-forwarded-for / x-real-ip, "unknown" si absente) — permet un
+  // rate-limit PAR IP en plus de celui par identifiant, pour ne plus être contournable en
+  // générant des identifiants uniques. Nullable pour compat avec les lignes pré-migration.
+  ip         String?
+  createdAt  DateTime @default(now())
+
+  @@index([identifier, createdAt])
+  // Index autonome sur createdAt pour la purge périodique (deleteMany createdAt < now-window).
+  @@index([createdAt])
 }
 
 enum KycDocType {
@@ -276,7 +310,9 @@ model Profile {
   tags                    String[] // Compétences déclarées (ex: "Soudure", "Placo", "Plomberie")
   // Profil enrichi 2026-08-06 : zone d'intervention, tarification, description, portfolio.
   description             String? // Texte libre de présentation (bio, expérience, méthodes)
-  portfolioUrls           String[] // URLs de travaux/réalisations (photos, liens)
+  portfolioUrls           String[] // URLs de travaux/réalisations (photos, liens) — relPaths
+  // de photos téléversées OU URLs externes
+  cvUrl                   String? // CV téléversé (relPath stockage), servi via /api/files/[token]
   tarifUnite              String? // heure | jour | semaine | mois | mission
   zonePays                String? // Pays d'intervention (BJ, CI, SN...)
   zoneVille               String? // Ville principale
@@ -422,6 +458,15 @@ model Mission {
   tags              String[] // Compétences requises (ex: "Soudure", "Placo", "Électricité BT")
   status            MissionStatus @default(brouillon)
 
+  // Progression du livrable — contrat SANS jalon uniquement (pendant, au niveau mission, de
+  // Jalon.declaredProgress/observedProgress ; un contrat à jalons suit la progression
+  // jalon par jalon, pas ici). 0-100, déclarative — jamais de libération basée dessus seule
+  // (canSubmitDeliverable reste le garde de statut réel). Bornage 0-100 appliqué côté route,
+  // pas en contrainte DB. Remis à 0 au rejet (POST .../escrow/reject) — nouveau cycle, comme
+  // pour un jalon.
+  declaredProgress Int @default(0) // renseigné par le prestataire
+  observedProgress Int @default(0) // renseigné par le client — gate la validation (release)
+
   // ── Mode devis BTP (négociation multi-round) ──────────────────────────
   maxRevisionRounds Int       @default(3) // rounds de négociation autorisés
   dateExpiration    DateTime? // échéance de candidature/devis
@@ -465,13 +510,28 @@ model MissionProposal {
   providerId String
   provider   User           @relation("ProposalProvider", fields: [providerId], references: [id], onDelete: Cascade)
   montant    Float          @default(0)
+  // Contre-proposition du prestataire : délai (en jours) qu'il s'engage à tenir. Le contrat
+  // doit être basé sur CE délai (et ce prix), pas sur ceux initialement publiés par le client
+  // — sinon la négociation (étape 2 du workflow) n'a aucun effet contractuel. Nullable : les
+  // candidatures antérieures n'en ont pas (le contrat retombe alors sur mission.delaiJours).
+  delaiPropose Int?
   message    String?
   status     ProposalStatus @default(envoyee)
 
   // ── Négociation de devis ─────────────────────────────────────────────
-  roundActuel   Int       @default(0)
-  devisData     Json? // { lineItems[], totalHT, tva, totalTTC, delay, notes }
-  devisValideAt DateTime?
+  roundActuel            Int       @default(0)
+  devisData              Json? // { lineItems[], totalHT, tva, totalTTC, delay, notes }
+  devisValideAt          DateTime?
+  // Le prestataire ne peut resoumettre un devis déjà soumis (round >= 1) que si le client a
+  // explicitement demandé une révision — POST .../devis/request-revision. Consommé (remis à
+  // null) dès que le prestataire soumet la révision demandée (POST /api/missions/[id]/devis).
+  revisionRequestedAt    DateTime?
+  revisionRequestMessage String?
+  // Motif obligatoire du rejet explicite d'un devis par le client — POST
+  // .../devis/reject. Distinct de "refusee" posé en effet de bord de l'acceptation d'UNE
+  // AUTRE proposition (là, aucun motif n'est saisi par le client, ce n'est pas son geste).
+  devisRejectedAt        DateTime?
+  devisRejectionReason   String?
 
   // Pas de `updatedAt` : l'historique des changements de devis est déjà porté par
   // DevisRevision (append-only) — inutile de le dupliquer ici.
@@ -548,9 +608,20 @@ model MissionNotification {
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   channel   String   @default("stub")
+  // Type d'événement mission (valeurs applicatives, même convention que Message.type) :
+  //   mission_match      → nouvelle mission correspondant au profil (historique, matching)
+  //   contract_generated → contrat généré, le prestataire doit signer (« mission à confirmer »)
+  //   provider_signed    → le prestataire a signé, le client doit contre-signer sous 48h
+  //   contract_locked    → les 2 signatures sont apposées, la mission est engagée
+  //   contract_expired   → délai 48h dépassé sans contre-signature, contrat annulé
+  type      String   @default("mission_match")
+  // Message libre affiché dans le fil « Activité récente » du dashboard (fallback au type
+  // quand absent, comme l'historique qui reconstruit le libellé depuis le titre de mission).
+  message   String?
   createdAt DateTime @default(now())
 
   @@index([missionId])
+  @@index([userId, createdAt])
 }
 
 model MissionAttachment {
@@ -564,6 +635,21 @@ model MissionAttachment {
   jalon      Jalon?   @relation(fields: [jalonId], references: [id], onDelete: Cascade)
   uploaderId String
   filePath   String
+  // Type MIME réel du fichier (ex. "image/jpeg", "application/pdf") — même convention que
+  // Message.mimeType. Null pour les entrées texte-seules (preuves "geolocation"/"other" sans
+  // fichier, préfixe filePath "__no_file__/…") et pour les anciennes pièces jointes créées
+  // avant ce champ. Permet à GET /api/files/[token] de servir le bon Content-Type et de
+  // décider de l'affichage inline (image/vidéo/PDF) plutôt qu'un téléchargement forcé —
+  // sans lui, le client ne pouvait pas RELIRE une preuve dans la modale de validation,
+  // seulement la télécharger à l'aveugle (2026-09-03).
+  mimeType   String?
+  // Type de preuve pour un livrable scopé-jalon (photo|video|document|geolocation|other) —
+  // valeurs applicatives, pas un enum Prisma (même convention que Message.type). Null pour
+  // les pièces jointes génériques hors jalon (comportement historique inchangé).
+  category   String?
+  // Légende libre, ou coordonnées réelles "lat,long" capturées via navigator.geolocation
+  // côté client pour category === "geolocation" (jamais de coordonnées inventées).
+  note       String?
   createdAt  DateTime @default(now())
 
   @@index([missionId])
@@ -666,17 +752,22 @@ enum JalonStatus {
 }
 
 model Jalon {
-  id              String             @id @default(cuid())
-  contractId      String
-  contract        PrestationContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
-  ordre           Int
-  titre           String
-  montant         Float
-  status          JalonStatus        @default(en_attente)
-  rejectionReason String?
-  revisionCount   Int                @default(0)
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt
+  id               String             @id @default(cuid())
+  contractId       String
+  contract         PrestationContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  ordre            Int
+  titre            String
+  montant          Float
+  status           JalonStatus        @default(en_attente)
+  rejectionReason  String?
+  revisionCount    Int                @default(0)
+  // Progression 0-100, déclarative — jamais de libération basée dessus seule (canDecideJalon/
+  // canHoldJalon restent les gardes de statut réelles). Bornage 0-100 appliqué côté route, pas
+  // en contrainte DB. Remis à 0 par le client (reject) au moment du rejet — nouveau cycle.
+  declaredProgress Int                @default(0) // renseigné par le prestataire
+  observedProgress Int                @default(0) // renseigné par le client — gate la validation
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
 
   escrowOperations PspEscrowOperation[]
   attachments      MissionAttachment[]
@@ -926,7 +1017,8 @@ model DigitalCertificate {
   revokeReason        String?
   createdAt           DateTime          @default(now())
 
-  signatures ContractSignature[]
+  signatures        ContractSignature[]
+  GigOrderSignature GigOrderSignature[]
 
   @@index([userId, status])
 }
@@ -962,4 +1054,129 @@ model ContractAuditEntry {
   createdAt       DateTime           @default(now())
 
   @@index([contractId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Modèle Gig (recommandation #3 — REVUE-MODELE-CONTRAT-VS-IMPLEMENTATION.md)
+// Le PRESTATAIRE publie un Gig à prix fixe, le CLIENT l'achète. Flux de signature
+// INVERSE du modèle Mission : le client signe EN PREMIER (1/2, il achète et les fonds
+// sont mis sous séquestre), le prestataire signe EN DERNIER (2/2, il accepte la
+// commande) dans un délai de 24h — passé ce délai, remboursement automatique au
+// client (aucune pénalité : personne n'est engagé tant que les deux signatures ne
+// sont pas apposées). Prix fixe affiché (pas de candidature ni devis), livraison
+// sous delaiJours. Réutilise DigitalCertificate (clé RSA-2048, passphrase) — les
+// tables de signature/audit sont dédiées (GigOrderSignature/GigOrderAuditEntry)
+// pour ne pas coupler le modèle Mission existant (PrestationContract).
+// ---------------------------------------------------------------------------
+
+enum GigStatus {
+  brouillon
+  publie
+  cloture
+}
+
+model Gig {
+  id          String    @id @default(cuid())
+  providerId  String
+  provider    User      @relation("GigProvider", fields: [providerId], references: [id], onDelete: Cascade)
+  titre       String
+  description String
+  domaine     String
+  prix        Float
+  currency    String    @default("XOF")
+  delaiJours  Int
+  tags        String[]
+  status      GigStatus @default(brouillon)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  orders GigOrder[]
+
+  @@index([status, createdAt])
+  @@index([providerId])
+}
+
+enum GigOrderStatus {
+  created // acheté — en attente de la signature du client (1/2)
+  client_signed // client a signé + fonds sous séquestre — le prestataire doit signer sous 24h
+  active // les 2 signatures — mission engagée, livraison en cours
+  completed // livraison validée / clôturée
+  cancelled // délai 24h dépassé (remboursement déclenché) ou annulation
+  refunded // remboursement confirmé
+}
+
+model GigOrder {
+  id               String         @id @default(cuid())
+  gigId            String
+  gig              Gig            @relation(fields: [gigId], references: [id], onDelete: Cascade)
+  clientId         String
+  client           User           @relation("GigOrderClient", fields: [clientId], references: [id], onDelete: Cascade)
+  providerId       String
+  provider         User           @relation("GigOrderProvider", fields: [providerId], references: [id], onDelete: Cascade)
+  montant          Float
+  currency         String         @default("XOF")
+  termsSnapshot    Json // snapshot immuable du Gig au moment de l'achat
+  status           GigOrderStatus @default(created)
+  clientSignedAt   DateTime?
+  providerSignedAt DateTime?
+  refundedAt       DateTime?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  signatures       GigOrderSignature[]
+  auditEntries     GigOrderAuditEntry[]
+  escrowOperations GigOrderEscrowOperation[]
+
+  @@index([gigId])
+  @@index([clientId, status])
+  @@index([providerId, status])
+}
+
+model GigOrderSignature {
+  id              String             @id @default(cuid())
+  orderId         String
+  order           GigOrder           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  certificateId   String
+  certificate     DigitalCertificate @relation(fields: [certificateId], references: [id], onDelete: Cascade)
+  signedDataHash  String
+  signature       String
+  signingMethod   String             @default("RSA-SHA256")
+  signedAt        DateTime           @default(now())
+  verifiedAt      DateTime?
+  signerIp        String?
+  signerUserAgent String?
+
+  @@index([orderId])
+  @@index([certificateId])
+}
+
+model GigOrderAuditEntry {
+  id              String   @id @default(cuid())
+  orderId         String
+  order           GigOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  event           String
+  description     String
+  metadata        Json     @default("{}")
+  previousHash    String?
+  currentHash     String   @unique
+  systemSignature String?
+  createdAt       DateTime @default(now())
+
+  @@index([orderId, createdAt])
+}
+
+model GigOrderEscrowOperation {
+  id                String                @id @default(cuid())
+  orderId           String
+  order             GigOrder              @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  pspName           String
+  pspReference      String?               @unique
+  amount            Float
+  currency          String                @default("XOF")
+  instructionType   EscrowInstructionType // hold / refund (réutilise l'enum PSP existant)
+  instructionSentAt DateTime              @default(now())
+  pspConfirmedAt    DateTime?
+  status            PspOperationStatus    @default(pending)
+
+  @@index([orderId, status])
 }
