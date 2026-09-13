@@ -46,6 +46,8 @@ export default function DashboardLayout(p: Props) {
       { id: "negociation", label: "En négociation", count: counts.negociation },
       { id: "valides", label: "Validés", count: counts.valide },
       { id: "rejetes", label: "Rejetés", count: counts.rejete },
+      // Même modèle que « Contrats Signés > Clôturés » : état terminal porté par la mission.
+      { id: "clotures", label: "Clôturés", count: counts.devisCloture },
     ],
     contrats: [
       { id: "en-cours", label: "En cours", count: counts.enCours },

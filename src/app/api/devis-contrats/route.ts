@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
-import { devisBucket, contratBucket, type DevisBucket, type ContratBucket } from "@/lib/devis-contrats";
+import { devisBucket, contratBucket, devisVisibleInList, type DevisBucket, type ContratBucket } from "@/lib/devis-contrats";
 import { isRevisionPending } from "@/lib/proposal-status";
 
 // Alimente le bloc sidebar "Documents Contractuels" (compteurs) et la rubrique dédiée
@@ -39,6 +39,10 @@ export async function GET() {
           id: true,
           titre: true,
           currency: true,
+          // Statut de la MISSION : il porte la décision « clôturé » des devis, exactement
+          // comme pour les contrats (moins de s'appuyer sur un statut de proposition que
+          // rien ne fait sortir de `en_negociation`).
+          status: true,
           contract: { select: { id: true } },
           client: { select: { firstname: true, lastname: true } },
         },
@@ -47,12 +51,16 @@ export async function GET() {
     orderBy: { createdAt: "desc" },
   });
 
-  const devisCounts: Record<DevisBucket, number> = { brouillon: 0, negociation: 0, valide: 0, rejete: 0 };
+  const devisCounts: Record<DevisBucket, number> = { brouillon: 0, negociation: 0, valide: 0, rejete: 0, cloture: 0 };
   const devis = proposals
-    .filter((p) => !p.mission.contract) // une fois le contrat généré, l'engagement quitte "Devis"
+    // Une fois le contrat généré, l'engagement quitte « Devis »… SAUF si la mission est
+    // clôturée : le devis retrouve alors sa rubrique terminale « Clôturés » (trace historique
+    // de la négociation — le contrat, lui, reste dans « Contrats Signés »). Règle pure et
+    // testée : devisVisibleInList (src/lib/devis-contrats.ts).
+    .filter((p) => devisVisibleInList({ hasContract: !!p.mission.contract, missionStatus: p.mission.status }))
     .map((p) => {
       const devisData = p.devisData as { totalTTC?: number } | null;
-      const bucket = devisBucket(p.status, devisData != null);
+      const bucket = devisBucket(p.status, devisData != null, p.mission.status);
       devisCounts[bucket]++;
       const counterpart = isClient ? p.provider : p.mission.client;
       return {
@@ -116,6 +124,9 @@ export async function GET() {
       negociation: devisCounts.negociation,
       valide: devisCounts.valide,
       rejete: devisCounts.rejete,
+      // Compteur « Clôturés » des DEVIS — nom distinct de `cloture` (contrats) pour que les
+      // deux rubriques homonymes du sidebar restent indépendantes.
+      devisCloture: devisCounts.cloture,
       enCours: contratsCounts.en_cours,
       cloture: contratsCounts.cloture,
     },

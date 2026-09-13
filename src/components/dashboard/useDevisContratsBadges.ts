@@ -8,11 +8,13 @@ export type DevisContratsCounts = {
   negociation: number;
   valide: number;
   rejete: number;
+  /** Devis clos (mission `cloturee`) — distinct de `cloture`, qui compte les CONTRATS clôturés. */
+  devisCloture: number;
   enCours: number;
   cloture: number;
 };
 
-const EMPTY: DevisContratsCounts = { brouillon: 0, negociation: 0, valide: 0, rejete: 0, enCours: 0, cloture: 0 };
+const EMPTY: DevisContratsCounts = { brouillon: 0, negociation: 0, valide: 0, rejete: 0, devisCloture: 0, enCours: 0, cloture: 0 };
 
 // Compteurs du bloc sidebar "Documents Contractuels" (Mes Devis / Contrats Signés) —
 // même cadence et même robustesse (échec silencieux, on garde la valeur précédente) que
