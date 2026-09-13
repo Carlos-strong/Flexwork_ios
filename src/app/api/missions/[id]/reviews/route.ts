@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
+import { canReviewAtStatus, legitimateReviewTarget, retainedProviderIds } from "@/lib/review-rules";
 import { detectMutualReviewSuspicion } from "@/lib/fraud-heuristics";
 
 const schema = z.object({
@@ -42,10 +43,37 @@ export async function POST(
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 
+  // Chronologie (audit workflow A-1) : un avis conclut une mission TERMINÉE. Sans ce garde,
+  // l'API acceptait un avis dès `publiee` alors que l'interface ne le propose qu'à la
+  // clôture — l'UI n'est pas une frontière.
+  if (!canReviewAtStatus(mission.status)) {
+    return NextResponse.json({ error: "mission_not_completed" }, { status: 409 });
+  }
+
+  // Ciblage : seule l'autre partie de la relation RETENUE peut être notée, et seul un membre
+  // de cette relation peut noter. Sans ce garde, un candidat refusé (participant via
+  // proposals.some sans filtre de statut) pouvait noter le client, et `targetId` n'était
+  // jamais confronté aux parties réelles. `retainedProviderIds` couvre les DEUX statuts de
+  // proposition retenue (acceptee pour prix fixe/taux, devis_valide pour le mode devis) —
+  // sans cette seconde valeur, aucun avis n'était possible sur une mission à devis clôturée.
+  const acceptedProviderIds = retainedProviderIds(mission.proposals);
+  const allowedTargets = legitimateReviewTarget({ authorId: userId, clientId: mission.clientId, acceptedProviderIds });
+  if (!allowedTargets.includes(parsed.data.targetId)) {
+    return NextResponse.json({ error: "invalid_target" }, { status: 403 });
+  }
+
   // Une médiation déjà ouverte (même résolue) sur ce contrat suspend l'avis — empêche
   // l'extorsion à l'avis (une partie de mauvaise foi menaçant l'autre d'un mauvais avis
   // après avoir ouvert une médiation).
   const mediationDejaOuverte = (mission.contract?.mediations.length ?? 0) > 0;
+
+  // Un seul avis par auteur et par mission (@@unique([missionId, authorId])). Sans ce garde,
+  // un second envoi remontait en violation de contrainte non interceptée, donc en 500 — une
+  // erreur serveur pour un geste parfaitement prévisible côté utilisateur.
+  const dejaNote = await prisma.review.findFirst({ where: { missionId, authorId: userId } });
+  if (dejaNote) {
+    return NextResponse.json({ error: "already_reviewed" }, { status: 409 });
+  }
 
   const review = await prisma.review.create({
     data: {
@@ -97,5 +125,44 @@ export async function GET(
     where: { missionId, suspendu: false },
     orderBy: { createdAt: "desc" },
   });
-  return NextResponse.json({ items: reviews });
+
+  // `target` — QUI l'appelant peut noter sur cette mission. Exposé par l'API plutôt que deviné
+  // côté page : c'est le POST qui arbitre (legitimateReviewTarget), et la page n'a aucun moyen
+  // honnête de reconstituer la contrepartie à partir de l'URL. Elle envoyait faute de mieux
+  // l'id de la MISSION comme `targetId`, que le POST rejetait invariablement en 403
+  // invalid_target — aucun avis n'était publiable, par aucune des deux parties.
+  // Une seule source de vérité, la même fonction des deux côtés.
+  const session = await auth();
+  const userId = session?.user
+    ? (session.user as typeof session.user & { id: string }).id
+    : null;
+
+  let target: { id: string; nom: string } | null = null;
+  if (userId) {
+    const mission = await prisma.mission.findUnique({
+      where: { id: missionId },
+      include: { proposals: true },
+    });
+    if (mission) {
+      const allowed = legitimateReviewTarget({
+        authorId: userId,
+        clientId: mission.clientId,
+        acceptedProviderIds: retainedProviderIds(mission.proposals),
+      });
+      if (allowed.length > 0) {
+        const user = await prisma.user.findUnique({
+          where: { id: allowed[0] },
+          select: { id: true, firstname: true, lastname: true },
+        });
+        if (user) {
+          target = {
+            id: user.id,
+            nom: [user.firstname, user.lastname].filter(Boolean).join(" ") || "la contrepartie",
+          };
+        }
+      }
+    }
+  }
+
+  return NextResponse.json({ items: reviews, target });
 }

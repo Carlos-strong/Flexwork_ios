@@ -18,6 +18,14 @@ const BUDGET_TYPES = [
   { value: "QUOTE", label: "Demande de devis" },
 ];
 
+type FinancingModeOption = {
+  key: string;
+  label: string;
+  badge: string;
+  definition: string;
+  available: boolean;
+};
+
 const MISSION_MODES = [
   { value: "presentiel", label: "Présentiel" },
   { value: "distance", label: "À distance" },
@@ -33,13 +41,33 @@ export default function PublishMissionPage() {
   const [submitting, setSubmitting] = useState(false);
   // Une fois le KYC vérifié, la bannière "publication désactivée jusqu'à validation du
   // KYC" est fausse pour ce compte — /api/kyc/status (déjà exposé pour /kyc) la masque.
-  const [kycVerified, setKycVerified] = useState(false);
+  // `null` = statut encore inconnu : on n'affiche RIEN tant que la réponse n'est pas là.
+  // Initialiser à `false` revenait à affirmer « KYC non vérifié » par défaut, et faisait
+  // clignoter l'avertissement à chaque chargement, y compris sur un compte vérifié.
+  const [kycVerified, setKycVerified] = useState<boolean | null>(null);
   const [budgetType, setBudgetType] = useState("FIXED");
+  // Catalogue servi par GET /api/financing-modes — jamais dupliqué en dur ici : le libellé, le
+  // badge et surtout la DISPONIBILITÉ d'un mode évoluent côté serveur (src/lib/financing-modes.ts).
+  const [financingModes, setFinancingModes] = useState<FinancingModeOption[]>([]);
+  const [financingModeKey, setFinancingModeKey] = useState<string>("");
 
   useEffect(() => {
     fetch("/api/kyc/status")
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => setKycVerified(data?.kycStatus === "verifie"))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/financing-modes")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!data) return;
+        setFinancingModes(data.modes);
+        // Présélection sur le mode par défaut du catalogue, pas sur le premier disponible :
+        // l'ordre d'affichage est cosmétique, la recommandation ne l'est pas.
+        setFinancingModeKey(data.defaultKey);
+      })
       .catch(() => {});
   }, []);
 
@@ -60,6 +88,18 @@ export default function PublishMissionPage() {
     const endDate = new Date(form.get("endDate") as string);
     const delaiJours = Math.max(1, Math.round((endDate.getTime() - startDate.getTime()) / (24 * 60 * 60 * 1000)));
 
+    // Le champ Budget n'est pas marqué `required` en HTML : un brouillon peut être
+    // enregistré sans montant. Mais l'API refuse la publication sans budget tant que le
+    // mode de rémunération n'est pas "QUOTE" (demande de devis) — sans ce garde-fou côté
+    // client, l'utilisateur ne découvrait le problème qu'après un aller-retour réseau, via
+    // un message générique "Échec de la publication." ne mentionnant pas le champ en cause.
+    const amountValue = form.get("amount") as string;
+    if (publish && budgetType !== "QUOTE" && !amountValue) {
+      setError("Le budget est obligatoire pour publier la mission (sauf en mode \"Demande de devis\").");
+      setSubmitting(false);
+      return;
+    }
+
     const res = await fetch("/api/missions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -71,6 +111,7 @@ export default function PublishMissionPage() {
         professionalType: form.get("professional_type"),
         level: form.get("level"),
         budgetType: form.get("budget_type"),
+        financingModeKey: financingModeKey || undefined,
         tags: String(form.get("tags") ?? "").split(",").map((t) => t.trim()).filter(Boolean),
         budget: form.get("amount") ? Number(form.get("amount")) : undefined,
         delaiJours,
@@ -85,10 +126,18 @@ export default function PublishMissionPage() {
     setSubmitting(false);
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      setError(data.error === "kyc_not_verified" ? "Votre identité doit être vérifiée avant de publier une mission." : "Échec de la publication.");
+      const messages: Record<string, string> = {
+        kyc_not_verified: "Votre identité doit être vérifiée avant de publier une mission.",
+        budget_required_to_publish: "Le budget est obligatoire pour publier la mission (sauf en mode \"Demande de devis\").",
+        // Le serveur renvoie le motif exact (`reason`) — le préférer au libellé générique :
+        // il explique ce qui manque à la plateforme pour ce mode.
+        financing_mode_unavailable:
+          data.reason ?? "Ce mode de financement n'est pas encore disponible à la publication.",
+      };
+      setError(messages[data.error] ?? "Échec de la publication.");
       return;
     }
-    router.push("/dashboard/client");
+    router.push("/client/dashboard");
   }
 
   const inputClass = "w-full h-10 px-3 rounded-xl border border-zinc-200 text-[14px] focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751] transition";
@@ -104,7 +153,7 @@ export default function PublishMissionPage() {
           </div>
 
           {/* KYC info — masqué une fois le KYC vérifié, plus aucune restriction à annoncer */}
-          {!kycVerified && (
+          {kycVerified === false && (
             <div className="mx-6 mt-4 px-4 py-3 rounded-xl bg-[#FEF9C3] border border-[#FCD116] text-[13px] text-zinc-700">
               <strong>KYC PENDING ?</strong> La mission peut être créée en brouillon, mais la publication reste désactivée jusqu&apos;à validation du KYC.
             </div>
@@ -169,10 +218,65 @@ export default function PublishMissionPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Budget (XOF)</label>
-                <input type="number" name="amount" placeholder="450000" step={500} className={inputClass} />
-                <p className="text-[11px] text-zinc-400 mt-1">Fourchette de marché indicative affichée selon le domaine.</p>
+                <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">
+                  Budget (XOF) {budgetType !== "QUOTE" && <span className="text-[#E8112D]">*</span>}
+                </label>
+                {/* min aligné sur step (500) plutôt que 1 : un `min` qui n'est pas un multiple du
+                    pas casse la validation native du navigateur (ex. min=1 + step=500 rend 450000
+                    "invalide" car inatteignable depuis 1 par pas de 500) — la soumission échouait
+                    alors silencieusement, avant même d'atteindre le handler onSubmit. */}
+                <input type="number" name="amount" placeholder="450000" step={500} min={500} className={inputClass} />
+                <p className="text-[11px] text-zinc-400 mt-1">
+                  {budgetType === "QUOTE"
+                    ? "Optionnel en mode devis : le prix viendra des propositions reçues."
+                    : "Obligatoire pour publier. Fourchette de marché indicative affichée selon le domaine."}
+                </p>
               </div>
+            </div>
+
+            {/* Mode de financement (2026-09-10) — choisi ICI, à la publication, parce qu'il dit
+                au prestataire COMMENT chiffrer : un mode à jalons attend un devis découpé en
+                postes livrables un à un, un mode forfaitaire attend un prix unique. L'annoncer
+                à la génération du contrat arrivait après la négociation, donc trop tard. */}
+            <div>
+              <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">
+                Mode de financement <span className="text-[#E8112D]">*</span>
+              </label>
+              <div className="space-y-2">
+                {financingModes.filter((m) => m.available).map((m) => (
+                  <label
+                    key={m.key}
+                    className={`flex gap-3 p-3 rounded-xl border cursor-pointer transition ${
+                      financingModeKey === m.key
+                        ? "border-[#008751] bg-[#008751]/[0.04]"
+                        : "border-zinc-200 hover:border-zinc-300"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="financing_mode"
+                      value={m.key}
+                      checked={financingModeKey === m.key}
+                      onChange={() => setFinancingModeKey(m.key)}
+                      className="w-auto mt-0.5 shrink-0"
+                    />
+                    <span className="min-w-0">
+                      <span className="flex flex-wrap items-center gap-2">
+                        <strong className="text-[13px] text-zinc-800">{m.label}</strong>
+                        <span className="text-[10px] uppercase tracking-wide font-semibold px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-500">
+                          {m.badge}
+                        </span>
+                      </span>
+                      <span className="block text-[12px] text-zinc-500 mt-0.5 leading-relaxed">{m.definition}</span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+              <p className="text-[11px] text-zinc-400 mt-1.5">
+                {budgetType === "QUOTE"
+                  ? "Les lignes du devis reçu deviendront directement les jalons du contrat — aucune ressaisie."
+                  : "En prix fixe sans devis, vous détaillerez les jalons à la génération du contrat."}
+              </p>
             </div>
 
             {budgetType === "QUOTE" && (
