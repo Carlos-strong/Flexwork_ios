@@ -5,7 +5,7 @@
 // (404), sans quoi la réponse devient un oracle d'existence (règle R02 du standard).
 
 import { prisma } from "@/lib/db";
-import type { Mission, PrestationContract } from "@prisma/client";
+import type { Mission, MissionProposal, PrestationContract } from "@prisma/client";
 
 export type MissionPartyResult =
   | { ok: false; status: 404 }
@@ -71,4 +71,40 @@ export async function requireContractByMission(
   if (!contract) return { ok: false, status: 404 } as const;
 
   return { ok: true, contract } as const;
+}
+
+export type ProposalPartyResult =
+  | { ok: false; status: 404 }
+  | { ok: true; proposal: MissionProposal & { mission: Mission }; isClient: boolean; isProvider: boolean };
+
+// Racine de propriété d'UNE candidature : le client propriétaire de la mission, ou le
+// prestataire auteur de CETTE proposition — jamais un autre candidat de la même mission.
+//
+// `requireMissionParty` ne convient pas ici : sa branche prestataire admet tout candidat de
+// la mission, ce qui suffit pour lire l'offre publique mais pas pour lire un DEVIS. Le
+// chiffrage d'un concurrent (postes, prix unitaires, marge) est exactement ce qu'une place
+// de marché ne doit jamais laisser fuiter entre candidats. La condition reste dans le
+// `where` : une proposition qu'on n'a pas le droit de lire est indistinguable d'une
+// proposition inexistante (R02).
+export async function requireProposalParty(
+  missionId: string,
+  proposalId: string,
+  userId: string
+): Promise<ProposalPartyResult> {
+  const proposal = await prisma.missionProposal.findFirst({
+    where: {
+      id: proposalId,
+      missionId,
+      OR: [{ mission: { clientId: userId } }, { providerId: userId }],
+    },
+    include: { mission: true },
+  });
+  if (!proposal) return { ok: false, status: 404 } as const;
+
+  return {
+    ok: true,
+    proposal,
+    isClient: proposal.mission.clientId === userId,
+    isProvider: proposal.providerId === userId,
+  } as const;
 }

@@ -2,7 +2,7 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { FileText, ScrollText } from "lucide-react";
+import { Download, FileText, ScrollText } from "lucide-react";
 import { fetchDedupe } from "@/lib/fetch-dedupe";
 import { REVISION_REQUESTED_BADGE, REVISION_REQUESTED_LABEL } from "@/lib/proposal-status";
 import {
@@ -57,7 +57,7 @@ type ContratItem = {
 type Payload = {
   devis: DevisItem[];
   contrats: ContratItem[];
-  counts: { brouillon: number; negociation: number; valide: number; rejete: number; enCours: number; cloture: number };
+  counts: { brouillon: number; negociation: number; valide: number; rejete: number; devisCloture: number; enCours: number; cloture: number };
 };
 
 const DEVIS_BUCKET_STYLE: Record<DevisBucket, string> = {
@@ -65,6 +65,8 @@ const DEVIS_BUCKET_STYLE: Record<DevisBucket, string> = {
   negociation: "bg-[#FEF3C7] text-[#92400E] border-[#FCD34D]",
   valide: "bg-[#DCFCE7] text-[#166534] border-[#BBF7D0]",
   rejete: "bg-[#FEE2E2] text-[#B91C1C] border-[#FECACA]",
+  // Même neutre gris que le « Clôturé » des contrats : c'est un état terminal, pas une alerte.
+  cloture: "bg-[#F1F5F9] text-[#475569] border-[#E2E8F0]",
 };
 // Libellés repris du module partagé (src/lib/devis-contrats.ts) — ils étaient redéfinis ici
 // à l'identique, avec le risque classique de divergence.
@@ -77,7 +79,7 @@ const CONTRAT_BUCKET_STYLE: Record<ContratBucket, string> = {
 const CONTRAT_BUCKET_LABEL = CONTRAT_BUCKET_LABEL_SHARED;
 
 // Correspondance entre l'id de sous-rubrique du sidebar (?f=) et le bucket réel.
-const DEVIS_FILTER_TO_BUCKET: Record<string, DevisBucket> = { brouillons: "brouillon", negociation: "negociation", valides: "valide", rejetes: "rejete" };
+const DEVIS_FILTER_TO_BUCKET: Record<string, DevisBucket> = { brouillons: "brouillon", negociation: "negociation", valides: "valide", rejetes: "rejete", clotures: "cloture" };
 const CONTRAT_FILTER_TO_BUCKET: Record<string, ContratBucket> = { "en-cours": "en_cours", clotures: "cloture" };
 
 // L'état actif (tab/filtre) est dérivé de l'URL (?tab=&f=) via useSearchParams, pas d'un
@@ -116,6 +118,7 @@ function DevisContratsSectionInner({ viewer }: { viewer: "client" | "provider" }
     { id: "negociation", label: "En négociation", count: data?.counts.negociation },
     { id: "valides", label: "Validés", count: data?.counts.valide },
     { id: "rejetes", label: "Rejetés", count: data?.counts.rejete },
+    { id: "clotures", label: "Clôturés", count: data?.counts.devisCloture },
   ];
   const contratFilters = [
     { id: "tous", label: "Tous" },
@@ -140,7 +143,15 @@ function DevisContratsSectionInner({ viewer }: { viewer: "client" | "provider" }
   // "Voir" une négociation de devis : la vue existe déjà, mais diffère selon le rôle — le
   // prestataire a un espace de soumission dédié (/missions/[id]/devis), le client négocie
   // depuis la page mission elle-même (DevisPanel y est rendu inline).
-  const devisHref = (missionId: string) => (viewer === "provider" ? `/missions/${missionId}/devis` : `/missions/${missionId}`);
+  //
+  // Un devis DÉFINITIF (validé, ou clôturé avec la mission) n'a plus rien à négocier : les
+  // deux rôles vont à la même vue documentaire, exportable en PDF — l'équivalent de
+  // /missions/[id]/contract un cran plus tôt dans la chaîne. Renvoyer le prestataire vers son
+  // formulaire de chiffrage pour un prix déjà arrêté proposait une action qui n'existe plus.
+  const devisHref = (d: DevisItem) => {
+    if (d.bucket === "valide" || d.bucket === "cloture") return `/missions/${d.missionId}/devis/${d.id}`;
+    return viewer === "provider" ? `/missions/${d.missionId}/devis` : `/missions/${d.missionId}`;
+  };
 
   // Navigation par URL (?tab=&f=) plutôt que du state local : source unique avec les liens
   // du sidebar (DashboardSidebar), qui pointent vers ces mêmes query strings.
@@ -216,9 +227,29 @@ function DevisContratsSectionInner({ viewer }: { viewer: "client" | "provider" }
                     <span className="font-bold text-[#0A1931] shrink-0">{d.montant.toLocaleString("fr-FR")} {d.currency}</span>
                   </div>
                 </div>
-                <Link href={devisHref(d.missionId)} className="shrink-0 bg-[#0A1931] hover:bg-black text-white rounded-full px-5 py-2 text-[12px] font-bold transition text-center" style={{ textDecoration: "none" }}>
-                  Voir
-                </Link>
+                <div className="shrink-0 flex items-center gap-2">
+                  {/* Devis DÉFINITIF (validé, ou clôturé avec la mission) : le chiffrage est
+                      arrêté, il devient une pièce justificative. On l'ouvre et on l'exporte
+                      en PDF comme le contrat — c'est le même document de référence, un cran
+                      plus tôt dans la chaîne. Un devis encore en négociation n'a rien de
+                      définitif à produire : le bouton n'apparaît pas. */}
+                  {(d.bucket === "valide" || d.bucket === "cloture") && (
+                    <a
+                      href={`/api/missions/${d.missionId}/proposals/${d.id}/devis/document?format=pdf`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="Ouvrir le devis définitif en PDF"
+                      className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white hover:bg-gray-50 px-4 py-2 text-[12px] font-bold text-[#0A1931] transition"
+                      style={{ textDecoration: "none" }}
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      PDF
+                    </a>
+                  )}
+                  <Link href={devisHref(d)} className="bg-[#0A1931] hover:bg-black text-white rounded-full px-5 py-2 text-[12px] font-bold transition text-center" style={{ textDecoration: "none" }}>
+                    Voir
+                  </Link>
+                </div>
               </div>
             ))}
           </div>

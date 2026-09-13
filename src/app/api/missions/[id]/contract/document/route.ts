@@ -3,7 +3,27 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { requireContractByMission } from "@/lib/resource-guard";
 import { buildContractSections, buildContractParties, type ContractSnapshot } from "@/lib/contract-clauses";
-import { PDFDocument, StandardFonts, rgb, type Color, type PDFFont, type PDFImage, type PDFPage } from "pdf-lib";
+import { PDFDocument, StandardFonts, type Color, type PDFFont, type PDFImage, type PDFPage } from "pdf-lib";
+import {
+  BORDER,
+  CONTENT_W,
+  DARK,
+  GREEN,
+  GREY,
+  HEADER_BG,
+  HEADER_H,
+  MARGIN,
+  PAGE_H,
+  PAGE_W,
+  TABLE_ALT,
+  cleanParagraph,
+  formatDateLong,
+  formatDateTime,
+  formatMontant,
+  sanitize,
+  widthsFor,
+  wrapText,
+} from "@/lib/pdf-kit";
 import QRCode from "qrcode";
 
 export const dynamic = "force-dynamic";
@@ -18,69 +38,9 @@ export const dynamic = "force-dynamic";
 // tableaux, tableau des jalons avec montant total, articles séparés par des filets, section
 // signatures et pied de page « Page X sur Y ».
 
-// Échelle typographique mesurée sur le modèle de référence (A4 595x842) et reprise ici :
-//   titre 16 · référence 10,5 · titre d'article 12 · corps 9,5 · en-tête/pied 7.
-// Le corps était déjà à la bonne taille ; l'écart marquant portait sur les titres d'articles
-// (11 contre 12) et sur les bandes d'en-tête/pied (9 contre 7), trop lourdes pour du rappel.
-//
-// MARGIN reste à 56 pt et NE suit PAS le modèle (18 pt) : cette valeur y est un artefact
-// d'impression navigateur (marges « étroites » de Chrome), pas un choix de mise en page —
-// la recopier donnerait des lignes de 559 pt, illisibles à 9,5 pt.
-const MARGIN = 56;
-const PAGE_W = 595.28;
-const PAGE_H = 841.89;
-const CONTENT_W = PAGE_W - MARGIN * 2;
-const HEADER_H = 32;
-
-// Palette alignée sur l'app (et la référence) : #008751 titres d'articles, #18181b texte,
-// #F2F2F3 bandeaux, #D9D9DD bordures.
-const GREEN = rgb(0, 0.529, 0.318);
-const DARK = rgb(0.094, 0.094, 0.106);
-const GREY = rgb(0.42, 0.42, 0.46);
-const HEADER_BG = rgb(0.949, 0.949, 0.953);
-const TABLE_ALT = rgb(0.98, 0.98, 0.984);
-const BORDER = rgb(0.851, 0.851, 0.867);
-
-function wrapText(text: string, font: { widthOfTextAtSize: (t: string, s: number) => number }, size: number, maxWidth: number): string[] {
-  const words = text.split(/\s+/).filter(Boolean);
-  const lines: string[] = [];
-  let current = "";
-  for (const w of words) {
-    const test = current ? `${current} ${w}` : w;
-    if (font.widthOfTextAtSize(test, size) <= maxWidth) {
-      current = test;
-    } else {
-      if (current) lines.push(current);
-      current = w;
-    }
-  }
-  if (current) lines.push(current);
-  return lines;
-}
-
-// Helvetica (WinAnsi) ne connaît pas les espaces insécables étroites de toLocaleString("fr-FR")
-// (U+202F/U+00A0) ni le « ✓ » — on les remplace par des glyphes sûrs avant de dessiner.
-function sanitize(s: string): string {
-  return s.replace(/[\u202f\u00a0]/g, " ");
-}
-
-// Nettoyage typographique des paragraphes : espaces fines (Helvetica), double ponctuation
-// (concaténation clause + description) et espaces multiples.
-function cleanParagraph(s: string): string {
-  return sanitize(s)
-    .replace(/\.{2,}/g, ".")
-    .replace(/\.\s+\./g, ".")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function formatMontant(n: number, devise: string): string {
-  return sanitize(`${Math.round(n).toLocaleString("fr-FR")} ${devise}`);
-}
-
-function formatDateLong(d: Date): string {
-  return d.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
-}
+// Mise en page, palette et helpers de formatage : src/lib/pdf-kit.ts — moteur partagé
+// avec l'export du devis définitif (.../proposals/[proposalId]/devis/document), pour que
+// les deux documents de la plateforme ne puissent pas diverger de format.
 
 // Horodatage du bloc de signatures, au format du modèle de référence : « 24 août 2026 à 18:17 ».
 // La date seule (formatDateLong) ne suffit pas : deux signatures du même jour deviendraient
@@ -90,11 +50,6 @@ function formatDateSignature(d: Date): string {
   return `${formatDateLong(d)} à ${heure}`;
 }
 
-function formatDateTime(d: Date): string {
-  return d
-    .toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })
-    .replace(/\u202f/g, " ");
-}
 
 function fingerprintCourt(fp: string): string {
   return fp.replace(/[^A-Fa-f0-9]/g, "").slice(0, 12).toUpperCase();
@@ -586,10 +541,6 @@ class PdfDoc {
   }
 }
 
-// Largeurs de colonnes en fractions de la largeur utile, converties en points.
-function widthsFor(fractions: number[]): number[] {
-  return fractions.map((f) => CONTENT_W * f);
-}
 
 async function buildPdf(params: PdfParams): Promise<Uint8Array> {
   const pdf = await PDFDocument.create();
