@@ -18,8 +18,12 @@ import {
 } from "./signaling";
 import type { SignalMessage } from "./types";
 
-// Helper : crée un mock ReadableStreamDefaultController
-function mockController(): ReadableStreamDefaultController {
+// Helper : crée un mock ReadableStreamDefaultController. Le type de retour ajoute `_chunks`
+// (accumulateur interne au mock) pour que les tests puissent l'inspecter — la propriété
+// n'existe pas sur le type natif ReadableStreamDefaultController, d'où l'intersection.
+type MockController = ReadableStreamDefaultController & { _chunks: string[] };
+
+function mockController(): MockController {
   const chunks: string[] = [];
   const ctrl = {
     enqueue: (chunk: Uint8Array) => {
@@ -28,8 +32,8 @@ function mockController(): ReadableStreamDefaultController {
     close: () => {},
     error: () => {},
     desiredSize: 1,
-    _chunks: chunks, // pour inspection dans les tests
-  } as unknown as ReadableStreamDefaultController;
+    _chunks: chunks,
+  } as unknown as MockController;
   return ctrl;
 }
 

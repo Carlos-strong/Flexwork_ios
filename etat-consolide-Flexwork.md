@@ -193,6 +193,11 @@ Deux précisions importantes :
 
 Elle est encore moins négociable que la première : elle protège des personnes qui ne peuvent pas consentir valablement au risque, et faciliter un travail illégal n'est couvert par aucun argument de neutralité.
 
+### A14 — Le contrôle d'âge porte sur la filière prestataire, jamais sur le compte
+**Décision** : la barrière A13 s'applique à la **filière prestataire** (ce que la personne offre : artisan, manœuvre, expert BTP/Autres), jamais au compte. Un compte à double face (client **et** manœuvre, à venir avec le dual-role) est donc : **jamais soumis** au seuil côté client (hors sujet) et **toujours soumis** côté prestataire (pas d'esquive). En mono-rôle actuel, la filière prestataire == `user.role` — la règle est déjà implémentée telle quelle ; l'arbitrage lève l'ambiguïté pour la bascule dual-role.
+**Motif** : `user.role` est une filière métier, pas une face du marché. Si le contrôle était porté par le compte, un compte à double face échapperait au seuil légal (ou le subirait sans objet côté client) — soit l'inverse exact de l'intention d'A13.
+**Implémentation** : module partagé `src/lib/chantier-age.ts` (`isChantierPrestataireAgeOk`) réutilisé par (1) l'activation du profil (`POST /api/profile` → `profile_below_minimum_age`) et (2) la candidature (`src/lib/candidature-guard.ts` → `age_under_minimum` / `kyc_required_for_age`) — défense en profondeur, un mineur ne peut ni activer son profil chantier ni candidater, même en contournant l'une des deux portes. Réévaluation en direct à chaque appel (jamais un statut figé) : un profil refusé à 17 ans s'active à 18 sans repasser le KYC.
+
 ---
 
 ## 3. Architecture contractuelle retenue

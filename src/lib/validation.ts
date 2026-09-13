@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isFinancingModeKey } from "@/lib/financing-modes";
 
 // Phase 1 (US-101/US-102) : inscription, téléphone unique vérifié par SMS, rôle choisi à
 // l'inscription. `role` ne conditionne aucune vérification de la plateforme — uniquement
@@ -33,7 +34,10 @@ export const profileSchema = z.object({
   tags: z.array(z.string().min(1)).max(20).optional(),
   // Profil enrichi 2026-08-06
   description: z.string().max(2000).optional(),
-  portfolioUrls: z.array(z.string().url()).max(10).optional(),
+  // Photos téléversées (relPaths "portfolio/...") OU URLs externes — on accepte les deux,
+  // une URL externe n'est pas requise pour un fichier stocké localement.
+  portfolioUrls: z.array(z.string().max(500)).max(10).optional(),
+  cvUrl: z.string().max(500).optional(),
   tarifUnite: z.enum(["heure", "jour", "semaine", "mois", "mission"]).optional(),
   zonePays: z.string().length(2).optional(),
   zoneVille: z.string().max(100).optional(),
@@ -74,6 +78,10 @@ export const missionSchema = z.object({
   professionalType: z.enum(["EXPERT_DIGITAL", "EXPERT_BTP", "ARTISAN", "MANOEUVRE"]).optional(),
   level: z.enum(["Débutant", "Junior", "Intermédiaire", "Senior", "Expert"]).optional(),
   budgetType: z.enum(["FIXED", "RATE", "QUOTE"]).optional(),
+  // Mode de financement choisi à la publication (2026-09-10) — la clé doit exister au
+  // catalogue ; sa DISPONIBILITÉ (un mode décrit mais pas encore implémenté, ex. F4) est
+  // vérifiée côté route, qui seule sait si la mission est publiée ou encore en brouillon.
+  financingModeKey: z.string().refine(isFinancingModeKey, "mode_de_financement_inconnu").optional(),
   tags: z.array(z.string().min(1)).max(20).optional(),
   budget: z.number().positive().optional(),
   currency: z.string().min(3).max(3).optional(),
@@ -89,16 +97,38 @@ export const missionSchema = z.object({
 // montant — le prix viendra du devis soumis via POST /api/missions/[id]/devis.
 export const proposalSchema = z.object({
   montant: z.number().nonnegative(),
+  // Contre-proposition : délai (en jours) que le prestataire s'engage à tenir. Optionnel —
+  // s'il est absent, le délai du contrat retombe sur celui de la mission (delaiJours).
+  delaiPropose: z.number().int().positive().optional(),
   message: z.string().optional(),
 });
 
-// Phase 4 — mode devis BTP (budgetType = "QUOTE") : postes détaillés d'un devis.
+// Offre formelle envoyée par le client à un candidat à partir d'une proposition existante
+// (model Offer, prisma/schema.prisma) — POST /api/missions/[id]/proposals/[proposalId]/offer.
+export const offerMilestoneSchema = z.object({
+  ordre: z.number().int().nonnegative(),
+  description: z.string().min(1),
+  unite: z.string().optional(),
+  montant: z.number().nonnegative(),
+});
+
+export const offerSchema = z.object({
+  titre: z.string().min(3),
+  description: z.string().min(10),
+  montant: z.number().positive(),
+  milestones: z.array(offerMilestoneSchema).optional(),
+});
+
+// Phase 4 — mode devis BTP (budgetType = "QUOTE") : jalons détaillés d'un devis.
 // Montants dans la devise de la mission (Float, jamais de centimes).
 export const devisLineItemSchema = z.object({
   description: z.string().min(1),
   quantity: z.number().positive(),
   unit: z.string().min(1),
   unitPrice: z.number().nonnegative(),
+  // Échéance indicative du jalon — texte libre, purement informatif (voir DevisLineItemInput,
+  // src/lib/devis.ts).
+  echeance: z.string().optional(),
 });
 
 export const devisSchema = z.object({
@@ -107,6 +137,9 @@ export const devisSchema = z.object({
   notes: z.string().optional(),
   // La TVA est appliquée au devis (choix du prestataire), pas à la mission.
   tvaRate: z.number().min(0).max(100).default(0),
+  // Rubrique Main d'œuvre — forfait distinct des jalons, additionné avant TVA (voir
+  // computeDevisData dans src/lib/devis.ts).
+  laborCost: z.number().nonnegative().default(0),
 });
 
 export const garantSchema = z.object({
@@ -114,6 +147,18 @@ export const garantSchema = z.object({
   tel: z.string().min(8).max(20),
   obligatoire: z.boolean().optional(),
 });
+
+// Modification d'un garant existant (PATCH /api/profile/garants/[id]) — les deux champs
+// restent optionnels (on peut ne corriger que le nom, ou que le téléphone), mais au moins
+// l'un des deux doit être fourni.
+export const garantUpdateSchema = z
+  .object({
+    nom: z.string().min(2).optional(),
+    tel: z.string().min(8).max(20).optional(),
+  })
+  .refine((data) => data.nom !== undefined || data.tel !== undefined, {
+    message: "at_least_one_field_required",
+  });
 
 // A12 — activation du pointage : le caller ne peut activer que SON propre côté (client
 // ou prestataire) ; les deux consentements sont indépendants et sans conséquence l'un sur

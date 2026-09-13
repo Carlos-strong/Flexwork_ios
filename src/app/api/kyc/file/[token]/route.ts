@@ -1,7 +1,20 @@
+import path from "path";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { readStoredFile, verifyKycDocToken } from "@/lib/storage";
+
+// Type MIME selon l'extension — permet la prévisualisation des images/PDF (admin KYC, page
+// /kyc) au lieu d'un téléchargement octet-stream systématique. Les fichiers sont privés et
+// uniquement servis via cette URL signée (owner ou admin).
+const MIME_BY_EXT: Record<string, string> = {
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".png": "image/png",
+  ".webp": "image/webp",
+  ".gif": "image/gif",
+  ".pdf": "application/pdf",
+};
 
 // Sert un document KYC uniquement via une URL signée à durée limitée (5 min),
 // et uniquement au propriétaire du document ou à un admin.
@@ -30,11 +43,14 @@ export async function GET(
   const isOwner = doc.userId === requesterId;
   const isAdmin = requester?.isAdmin === true;
   if (!isOwner && !isAdmin) {
-    return NextResponse.json({ error: "forbidden" }, { status: 403 });
+    // 404 (pas 403) : un tiers ne doit pas savoir que le document KYC existe.
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
   const buffer = await readStoredFile(doc.filePath);
+  const ext = path.extname(doc.filePath).toLowerCase();
+  const contentType = MIME_BY_EXT[ext] ?? "application/octet-stream";
   return new NextResponse(new Uint8Array(buffer), {
-    headers: { "Content-Type": "application/octet-stream" },
+    headers: { "Content-Type": contentType, "Content-Disposition": "inline" },
   });
 }

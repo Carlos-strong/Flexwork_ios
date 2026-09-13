@@ -1,13 +1,22 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Fraunces } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
-import { Nav } from "@/components/nav";
+import { UserIdentityProvider } from "@/components/user-identity";
 import { auth } from "@/auth";
 
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
+  display: "swap",
+});
+
+// Police d'affichage réservée aux montants clés (total contrat, net versé, montant d'offre)
+// — jamais au texte courant. Utilisation : className="font-fraunces" (voir globals.css).
+const fraunces = Fraunces({
+  subsets: ["latin"],
+  weight: ["600", "700"],
+  variable: "--font-fraunces",
   display: "swap",
 });
 
@@ -43,10 +52,11 @@ export default async function RootLayout({
 
   return (
     <html lang="fr">
-      <body className={`overflow-x-hidden ${inter.variable}`}>
+      <body className={`overflow-x-hidden ${inter.variable} ${fraunces.variable}`}>
         <Providers session={session}>
-          <Nav />
-          {children}
+          <UserIdentityProvider>
+            {children}
+          </UserIdentityProvider>
         </Providers>
       </body>
     </html>

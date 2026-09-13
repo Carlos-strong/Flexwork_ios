@@ -7,7 +7,11 @@ const KYC_BUCKET = "kyc-docs"; // bucket privé — jamais servi statiquement, u
 const MISSIONS_BUCKET = "mission-attachments";
 const MESSAGE_FILES_BUCKET = "message-files";
 const DECLARATION_DOCS_BUCKET = "declaration-documents";
-const MEDIATION_PREUVES_BUCKET = "mediation-preuves";
+const PORTFOLIO_BUCKET = "portfolio"; // photos de chantiers + CV (profil prestataire), servis via /api/files/[token]
+// Contrairement à KYC_BUCKET : ce bucket est destiné à être VU par d'autres utilisateurs
+// (cartes de mission, candidatures, sidebar) — servi par GET /api/users/[id]/avatar, sans
+// URL signée à durée limitée (une photo de profil n'a pas besoin d'expirer).
+const AVATARS_BUCKET = "avatars";
 
 async function saveFile(bucket: string, params: { ownerId: string; fileName: string; buffer: Buffer }): Promise<string> {
   const safeName = `${crypto.randomUUID()}-${params.fileName.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
@@ -38,9 +42,24 @@ export async function saveDeclarationDocument(params: { profileId: string; fileN
   return saveFile(DECLARATION_DOCS_BUCKET, { ownerId: params.profileId, fileName: params.fileName, buffer: params.buffer });
 }
 
-// Phase 6 — éléments de preuve déposés dans une médiation.
-export async function saveMediationPreuve(params: { mediationId: string; fileName: string; buffer: Buffer }): Promise<string> {
-  return saveFile(MEDIATION_PREUVES_BUCKET, { ownerId: params.mediationId, fileName: params.fileName, buffer: params.buffer });
+// Photos de chantiers + CV du profil prestataire (formulaire /profile). Servis via
+// /api/files/[token] (kind "portfolio"), visible par tout utilisateur authentifié.
+export async function savePortfolioFile(params: { userId: string; fileName: string; buffer: Buffer }): Promise<string> {
+  return saveFile(PORTFOLIO_BUCKET, { ownerId: params.userId, fileName: params.fileName, buffer: params.buffer });
+}
+
+// Photo de profil (formulaire /profile, POST /api/profile/avatar). Un remplacement écrase
+// l'ancien fichier (voir la route) plutôt que d'accumuler les anciennes photos.
+export async function saveAvatar(params: { userId: string; fileName: string; buffer: Buffer }): Promise<string> {
+  return saveFile(AVATARS_BUCKET, { ownerId: params.userId, fileName: params.fileName, buffer: params.buffer });
+}
+
+export async function deleteStoredFile(relPath: string): Promise<void> {
+  const absPath = path.join(STORAGE_ROOT, relPath);
+  if (!absPath.startsWith(STORAGE_ROOT)) {
+    throw new Error("path_traversal_rejected");
+  }
+  await fs.unlink(absPath).catch(() => {});
 }
 
 export async function readStoredFile(relPath: string): Promise<Buffer> {
@@ -49,6 +68,29 @@ export async function readStoredFile(relPath: string): Promise<Buffer> {
     throw new Error("path_traversal_rejected");
   }
   return fs.readFile(absPath);
+}
+
+// Taille réelle du fichier sur disque — utilisé pour afficher les infos d'un document déjà
+// téléversé (GET /api/kyc/documents) sans avoir à stocker la taille en base séparément.
+export async function getStoredFileSize(relPath: string): Promise<number | null> {
+  const absPath = path.join(STORAGE_ROOT, relPath);
+  if (!absPath.startsWith(STORAGE_ROOT)) {
+    throw new Error("path_traversal_rejected");
+  }
+  try {
+    const stat = await fs.stat(absPath);
+    return stat.size;
+  } catch {
+    return null;
+  }
+}
+
+// `saveFile` préfixe le nom original par un UUID pour éviter les collisions
+// (`{uuid}-{safeName}`) — on l'enlève pour ré-afficher un nom lisible côté utilisateur.
+const UUID_PREFIX_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-/i;
+export function displayFileName(relPath: string): string {
+  const base = path.posix.basename(relPath);
+  return base.replace(UUID_PREFIX_RE, "");
 }
 
 const SIGNED_URL_TTL_MS = 5 * 60 * 1000; // 5 minutes

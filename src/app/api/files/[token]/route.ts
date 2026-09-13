@@ -55,12 +55,25 @@ export async function GET(
 
     const isParticipant = attachment.mission.clientId === requesterId || attachment.mission.proposals.length > 0;
     if (!isParticipant) {
-      return NextResponse.json({ error: "forbidden" }, { status: 403 });
+      // 404 (pas 403) : un tiers ne doit pas savoir que la pièce jointe existe.
+      return NextResponse.json({ error: "not_found" }, { status: 404 });
     }
 
     const buffer = await readStoredFile(attachment.filePath);
+    // Content-Type réel + affichage inline (2026-09-03) : sans ça, le client ne pouvait pas
+    // RELIRE une preuve dans la modale de validation (image/vidéo/PDF) — "application/
+    // octet-stream" forçait un téléchargement à l'aveugle même pour une simple photo. Même
+    // logique que message_file ci-dessous (mimeType absent → repli attachment, comportement
+    // historique inchangé pour les pièces jointes créées avant ce champ).
+    const inlineType = attachment.mimeType?.startsWith("image/") || attachment.mimeType?.startsWith("video/") || attachment.mimeType === "application/pdf";
+    const disposition = inlineType
+      ? `inline; filename="${encodeURIComponent(attachment.filePath.split("/").pop() ?? "fichier")}"`
+      : `attachment; filename="${encodeURIComponent(attachment.filePath.split("/").pop() ?? "fichier")}"`;
     return new NextResponse(new Uint8Array(buffer), {
-      headers: { "Content-Type": "application/octet-stream" },
+      headers: {
+        "Content-Type": attachment.mimeType ?? "application/octet-stream",
+        "Content-Disposition": disposition,
+      },
     });
   }
 
@@ -75,7 +88,8 @@ export async function GET(
 
     const isParticipant = message.mission.clientId === requesterId || message.mission.proposals.length > 0;
     if (!isParticipant) {
-      return NextResponse.json({ error: "forbidden" }, { status: 403 });
+      // 404 (pas 403) : un tiers ne doit pas savoir que le fichier existe.
+      return NextResponse.json({ error: "not_found" }, { status: 404 });
     }
 
     const buffer = await readStoredFile(message.filePath);

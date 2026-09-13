@@ -27,6 +27,9 @@ async function main() {
       isAdmin: true,
       adminRole: "superviseur",
       emailVerified: new Date(),
+      // Synchronisation KYC : un compte admin n'a pas de parcours documentaire — son état de
+      // validation est directement "verifie" (contournement), cohérent avec son état de compte.
+      kycStatus: "verifie",
     },
   });
 

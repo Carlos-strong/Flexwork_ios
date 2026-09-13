@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { fetchDedupe } from "@/lib/fetch-dedupe";
+import { refreshBadges } from "@/lib/badge-sync";
 import {
   Search,
   MessageSquare,
@@ -9,15 +11,12 @@ import {
   Paperclip,
   Smile,
   Send,
-  MoreVertical,
   X,
   CheckCheck,
-  ChevronDown,
   Image as ImageIcon,
   File as FileIcon,
   ShieldCheck,
   Clock,
-  LifeBuoy,
   Download,
 } from "lucide-react";
 
@@ -140,8 +139,7 @@ export default function Messagerie({ currentUserId }: { currentUserId: string })
   const [filter, setFilter] = useState("Tous");
   const [search, setSearch] = useState("");
   const [draft, setDraft] = useState("");
-  const [showDetails, setShowDetails] = useState(false);
-  const [detailsCollapsed, setDetailsCollapsed] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [thread, setThread] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
@@ -194,13 +192,23 @@ export default function Messagerie({ currentUserId }: { currentUserId: string })
   // Chargement des conversations réelles
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/messages")
+    // Deep-link ?missionId= (ex. bouton "chat" d'une carte mission/candidature/offre,
+    // src/components/dashboard/MesMissions.tsx et provider/{MissionsSection,
+    // CandidaturesSection,OffresSection}.tsx) — ouvre directement la bonne conversation au
+    // lieu de systématiquement retomber sur la première de la liste. Lu directement ici
+    // (pas de state+effet séparé) : cet effet ne s'exécute qu'au montage, côté client
+    // uniquement ("use client"), `window` est donc déjà disponible.
+    const requestedMissionId = new URLSearchParams(window.location.search).get("missionId");
+    fetchDedupe("/api/messages")
       .then((r) => (r.ok ? r.json() : { conversations: [] }))
       .then((d) => {
         if (cancelled) return;
-        const list = (d.conversations ?? []).map(mapConversation);
+        const list: Conversation[] = (d.conversations ?? []).map(mapConversation);
         setConversations(list);
-        if (list.length) setActiveId(list[0].id);
+        if (list.length) {
+          const target = requestedMissionId && list.some((c: Conversation) => c.id === requestedMissionId) ? requestedMissionId : list[0].id;
+          setActiveId(target);
+        }
         setLoading(false);
       })
       .catch(() => setLoading(false));
@@ -211,7 +219,7 @@ export default function Messagerie({ currentUserId }: { currentUserId: string })
   useEffect(() => {
     if (!activeId) return;
     let cancelled = false;
-    fetch(`/api/messages?missionId=${activeId}`)
+    fetchDedupe(`/api/messages?missionId=${activeId}`)
       .then((r) => (r.ok ? r.json() : { messages: [] }))
       .then((d) => {
         if (cancelled) return;
@@ -251,18 +259,38 @@ export default function Messagerie({ currentUserId }: { currentUserId: string })
     if (!draft.trim() || !conv) return;
     const content = draft.trim();
     const time = clockOf(new Date().toISOString());
+    const tempId = Date.now();
     setDraft("");
-    setThread((prev) => [...prev, { id: Date.now(), type: "sent", text: content, time, status: "sent" }]);
+    setSendError(null);
+    // Optimiste — annulé plus bas si l'API refuse réellement le message (ex. tentative de
+    // fuite hors plateforme, US-1301, voir POST /api/messages) : sans ce rollback, un
+    // message rejeté par le serveur restait affiché comme envoyé, jamais réellement transmis.
+    // Envoyer une réponse répond implicitement à la conversation ("dernier message reçu" —
+    // le critère d'unread ici et côté sidebar/useSidebarBadges, voir ce hook) : on remet
+    // unread à 0 tout de suite, sans attendre le prochain fetch de la liste.
+    setThread((prev) => [...prev, { id: tempId, type: "sent", text: content, time, status: "sent" }]);
     setConversations((prev) =>
-      prev.map((c) => (c.id === conv.id ? { ...c, lastMessage: content, time: "À l'instant" } : c))
+      prev.map((c) => (c.id === conv.id ? { ...c, lastMessage: content, time: "À l'instant", unread: 0 } : c))
     );
     try {
-      await fetch("/api/messages", {
+      const res = await fetch("/api/messages", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ missionId: conv.id, content }),
       });
-    } catch {}
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setThread((prev) => prev.filter((m) => m.id !== tempId));
+        setSendError(data.error === "message_blocked_leakage_attempt" ? "Message bloqué : partage de coordonnées ou de paiement direct détecté." : "Échec de l'envoi du message.");
+      } else {
+        // Resynchronise immédiatement le badge "Messages" du sidebar (au lieu du prochain
+        // poll 30s) — voir src/lib/badge-sync.ts.
+        refreshBadges();
+      }
+    } catch {
+      setThread((prev) => prev.filter((m) => m.id !== tempId));
+      setSendError("Échec de l'envoi du message.");
+    }
   };
 
   const sendFile = async (file: File) => {
@@ -282,7 +310,7 @@ export default function Messagerie({ currentUserId }: { currentUserId: string })
       },
     ]);
     setConversations((prev) =>
-      prev.map((c) => (c.id === conv.id ? { ...c, lastMessage: `📎 ${file.name}`, time: "À l'instant" } : c))
+      prev.map((c) => (c.id === conv.id ? { ...c, lastMessage: `📎 ${file.name}`, time: "À l'instant", unread: 0 } : c))
     );
 
     const formData = new FormData();
@@ -310,6 +338,9 @@ export default function Messagerie({ currentUserId }: { currentUserId: string })
             : msg
         )
       );
+      // Resynchronise immédiatement le badge "Messages" du sidebar (au lieu du prochain
+      // poll 30s) — voir src/lib/badge-sync.ts.
+      refreshBadges();
     } catch {
       // Supprimer le message optimiste en cas d'échec
       setThread((prev) => prev.filter((m) => m.id !== tempId));
@@ -337,7 +368,11 @@ export default function Messagerie({ currentUserId }: { currentUserId: string })
 
   return (
     <div className="h-[calc(100vh-68px)] -m-4 md:-m-6">
-      <div className="max-w-[1400px] mx-auto p-3 lg:p-4 h-full flex gap-3 lg:gap-4">
+      {/* 1150 px et non 1400 : la 3e colonne (« Détails mission ») a été retirée — à
+          1400 px le fil de discussion s'étirait sur ~1030 px, une longueur de ligne
+          inconfortable pour du message court. Ici le fil fait ~780 px, la liste garde
+          sa largeur. */}
+      <div className="max-w-[1150px] mx-auto p-3 lg:p-4 h-full flex gap-3 lg:gap-4">
         {/* Colonne conversations */}
         <div
           className={`${activeId ? "hidden lg:flex" : "flex"}
@@ -473,9 +508,6 @@ export default function Messagerie({ currentUserId }: { currentUserId: string })
                   <button onClick={() => handleCall(false)} className="w-9 h-9 rounded-full bg-[#F8F5F2] hover:bg-gray-100 flex items-center justify-center text-[#0A1931]">
                     <Phone className="w-4 h-4" />
                   </button>
-                  <button onClick={() => setShowDetails((v) => !v)} className="w-9 h-9 rounded-full bg-[#F8F5F2] hover:bg-gray-100 flex items-center justify-center text-[#0A1931]">
-                    <MoreVertical className="w-4 h-4" />
-                  </button>
                 </div>
               </div>
 
@@ -552,6 +584,9 @@ export default function Messagerie({ currentUserId }: { currentUserId: string })
 
               {/* Saisie */}
               <div className="p-3 border-t border-gray-100 bg-white relative">
+                {sendError && (
+                  <div className="mb-2 px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-[12px] text-red-700">{sendError}</div>
+                )}
                 <div className="flex items-end gap-2">
                   <button
                     onClick={() => fileInputRef.current?.click()}
@@ -615,95 +650,6 @@ export default function Messagerie({ currentUserId }: { currentUserId: string })
           )}
         </div>
 
-        {/* Panneau détails mission */}
-        <div className={`w-[264px] shrink-0 bg-white rounded-[20px] border border-orange-100 flex-col overflow-hidden ${showDetails ? "flex" : "hidden 2xl:flex"}`}>
-          <div onClick={() => setDetailsCollapsed((v) => !v)} className="p-4 border-b border-gray-100 flex items-center justify-between cursor-pointer">
-            <h2 className="font-bold text-[14px] text-[#0A1931]">Détails mission</h2>
-            <div className="flex items-center gap-1">
-              <ChevronDown className={`w-4 h-4 transition-transform ${detailsCollapsed ? "rotate-180" : ""}`} />
-              <button
-                onClick={(e) => { e.stopPropagation(); setShowDetails(false); }}
-                className="xl:hidden w-8 h-8 rounded-full bg-[#F8F5F2] flex items-center justify-center"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-          {!detailsCollapsed && (
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            <div className="rounded-[16px] border border-orange-100 overflow-hidden">
-              <div className="h-1 w-full bg-gradient-to-r from-[#FF6B35] to-[#F7C948]" />
-              <div className="p-4">
-                <div className="flex items-start justify-between gap-2 mb-3">
-                  <div>
-                    <div className="font-bold text-[14px] text-[#0A1931]">{conv.project}</div>
-                    <div className="text-[12px] text-gray-500 mt-0.5">Ref #{conv.id.slice(-6).toUpperCase()} • Créé il y a 4j</div>
-                  </div>
-                  <span className="bg-[#1B9C6A]/10 text-[#1B9C6A] text-[11px] font-semibold px-2.5 py-1 rounded-full">En cours</span>
-                </div>
-                <div className="grid grid-cols-2 gap-3 mb-4">
-                  <div className="bg-[#FFF8F0] rounded-[12px] p-2.5">
-                    <div className="text-[11px] text-gray-500">Budget</div>
-                    <div className="font-bold text-[14px] text-[#0A1931]">{conv.budget}</div>
-                  </div>
-                  <div className="bg-[#FFF8F0] rounded-[12px] p-2.5">
-                    <div className="text-[11px] text-gray-500">Échéance</div>
-                    <div className="font-bold text-[14px] text-[#FF3E6C] flex items-center gap-1"><Clock className="w-3 h-3" /> J-2</div>
-                  </div>
-                </div>
-                <div className="mb-4">
-                  <div className="flex justify-between text-[11px] mb-1.5">
-                    <span className="text-gray-500 font-medium">Progression</span>
-                    <span className="font-bold text-[#0A1931]">65%</span>
-                  </div>
-                  <div className="h-2 bg-[#F8F5F2] rounded-full overflow-hidden">
-                    <div className="h-full w-[65%] bg-gradient-to-r from-[#FF6B35] to-[#F7C948] rounded-full" />
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <button className="flex-1 h-9 rounded-full bg-[#0A1931] text-white text-[12px] font-semibold">Voir mission</button>
-                  <button className="flex-1 h-9 rounded-full border border-gray-200 text-[#0A1931] text-[12px] font-semibold">Facture</button>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <h3 className="font-semibold text-[12px] text-[#0A1931] uppercase tracking-wider mb-2.5">Fichiers partagés • 4</h3>
-              <div className="space-y-2">
-                {[
-                  { name: "Logo_Wax_Final_v2.ai", size: "4.2 Mo", type: "file" },
-                  { name: "Moodboard_Wax.png", size: "1.8 Mo", type: "img" },
-                  { name: "Brief_Client.pdf", size: "890 Ko", type: "file" },
-                ].map((f) => (
-                  <div key={f.name} className="flex items-center gap-2.5 p-2.5 rounded-[12px] border border-gray-100 hover:bg-[#F8F5F2] transition">
-                    <div className="w-9 h-9 rounded-[10px] bg-[#FFF1E8] flex items-center justify-center shrink-0">
-                      {f.type === "img" ? <ImageIcon className="w-4 h-4 text-[#FF6B35]" /> : <FileIcon className="w-4 h-4 text-[#FF6B35]" />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-[12px] font-medium text-[#0A1931] truncate">{f.name}</div>
-                      <div className="text-[11px] text-gray-400">{f.size} • il y a 2h</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="pt-2">
-              <div className="bg-gradient-to-br from-[#0A1931] to-[#1B1E4A] rounded-[16px] p-4 text-white relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-[#FF6B35]/20 to-transparent rounded-full blur-xl" />
-                <div className="relative">
-                  <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center mb-2.5">
-                    <LifeBuoy className="w-4 h-4" />
-                  </div>
-                  <div className="font-semibold text-[13px]">Besoin d'un médiateur ?</div>
-                  <div className="text-[11px] text-white/60 mt-1 leading-snug">Notre équipe peut rejoindre la visio pour débloquer la mission.</div>
-                  <button className="mt-3 h-8 px-4 rounded-full bg-white text-[#0A1931] text-[12px] font-semibold">Demander aide</button>
-                </div>
-              </div>
-            </div>
-          </div>
-          )}
-        </div>
       </div>
 
     </div>

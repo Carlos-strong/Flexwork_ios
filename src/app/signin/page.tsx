@@ -81,13 +81,14 @@ export default function SigninPage() {
           </p>
         </div>
 
-        {/* Stats */}
+        {/* Pas de chiffres inventés ici (« 500K+ », « 4.9/5 », « 100% ») : chaque case décrit
+            un fait produit — KYC, Mobile Money FCFA, séquestre, OTP (même règle que le Hero). */}
         <div className="relative z-10 grid grid-cols-2 gap-3 mt-6">
           {[
-            { icon: <Users className="w-4 h-4" />, value: "500K+", label: "Talents vérifiés" },
-            { icon: <CreditCard className="w-4 h-4" />, value: "MoMo", label: "Paiement sécurisé" },
-            { icon: <Shield className="w-4 h-4" />, value: "100%", label: "Escrow protégé" },
-            { icon: <Mail className="w-4 h-4" />, value: "4.9/5", label: "Satisfaction" },
+            { icon: <Users className="w-4 h-4" />, value: "KYC", label: "Identité vérifiée" },
+            { icon: <CreditCard className="w-4 h-4" />, value: "MoMo", label: "Paiement FCFA" },
+            { icon: <Shield className="w-4 h-4" />, value: "Escrow", label: "Fonds séquestrés" },
+            { icon: <Mail className="w-4 h-4" />, value: "OTP", label: "Connexion par code" },
           ].map((s, i) => (
             <div key={i} className="p-3 rounded-xl bg-white/[0.04] border border-white/[0.05]">
               <div className="text-[#FF7A00] mb-1">{s.icon}</div>
@@ -121,6 +122,9 @@ export default function SigninPage() {
               {loginMethod === "email"
                 ? "Un code de vérification sera envoyé à votre email."
                 : "Un code de vérification sera envoyé par SMS."}
+            </p>
+            <p className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#eefaf4] border border-[#008751]/15 text-[11.5px] text-[#008751] font-semibold">
+              <Shield className="w-3.5 h-3.5" /> Connexion 100% par code — aucun mot de passe
             </p>
           </div>
 
@@ -255,8 +259,8 @@ export default function SigninPage() {
           {/* Trust badges */}
           <div className="flex items-center justify-center gap-6 mt-8 pt-6 border-t border-zinc-100">
             {[
-              { icon: "👥", label: "500K+ talents vérifiés" },
-              { icon: "💳", label: "Paiement MoMo sécurisé" },
+              { icon: "👥", label: "Identité vérifiée (KYC)" },
+              { icon: "💳", label: "Paiement sous séquestre" },
             ].map((b, i) => (
               <div key={i} className="flex items-center gap-1.5 text-[11px] text-zinc-400">
                 <span>{b.icon}</span> {b.label}

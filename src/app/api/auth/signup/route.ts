@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
-import { requestOtp } from "@/lib/otp";
+import { requestOtp, isUnderIpRequestLimit, getClientIp, recordOtpRequestAttempt } from "@/lib/otp";
 import { findAccountConflicts } from "@/lib/dedupe";
 import { signupSchema } from "@/lib/validation";
 
@@ -17,6 +17,21 @@ export async function POST(req: Request) {
 
   const { email, tel, password, firstname, lastname, role, country, city, locality, address, deviceFingerprint } =
     parsed.data;
+
+  // Anti-spam par IP sur la création de comptes : la limite par identifiant n'a pas de sens
+  // ici (chaque inscription utilise un email/tél uniques), la limite par IP est la seule qui
+  // bloque un bot qui créerait des comptes en masse. Comptabilisée pour CHAQUE tentative.
+  //
+  // ⚠️ Ne protège réellement que derrière un reverse-proxy de confiance (voir l'avertissement
+  // sur getClientIp dans src/lib/otp.ts). Vérifié (2026-08-20) : sans un tel proxy, un bot qui
+  // fait varier x-forwarded-for à chaque appel crée des comptes sans jamais être bloqué (20/20
+  // comptes créés dans ce test). Ne pas compter sur cette limite seule pour empêcher la
+  // création de comptes en masse tant que la topologie réseau n'est pas confirmée.
+  const ip = getClientIp(req);
+  if (!(await isUnderIpRequestLimit(ip))) {
+    return NextResponse.json({ error: "too_many_requests" }, { status: 429 });
+  }
+  await recordOtpRequestAttempt(email, ip);
 
   const existing = await prisma.user.findFirst({ where: { OR: [{ email }, { tel }] } });
   if (existing) {

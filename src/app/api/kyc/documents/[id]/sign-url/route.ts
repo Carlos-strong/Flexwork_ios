@@ -21,7 +21,8 @@ export async function POST(
   const isOwner = doc.userId === requesterId;
   const isAdmin = requester?.isAdmin === true;
   if (!isOwner && !isAdmin) {
-    return NextResponse.json({ error: "forbidden" }, { status: 403 });
+    // 404 (pas 403) : un tiers ne doit pas savoir que le document KYC existe.
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
   const token = signKycDocToken(doc.id);

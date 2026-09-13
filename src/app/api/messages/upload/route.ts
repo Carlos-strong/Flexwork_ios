@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { saveMessageFile, signPrivateFileToken } from "@/lib/storage";
+import { requireMissionParty } from "@/lib/resource-guard";
+import { notifyNewMessage } from "@/lib/message-notify";
 
 // POST /api/messages/upload — envoie un fichier dans une conversation.
 // Body : multipart/form-data avec `missionId` (string) et `file` (File).
@@ -25,18 +27,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "file_too_large" }, { status: 413 });
   }
 
-  // Vérifier la participation (client de la mission OU prestataire ayant candidaté)
-  const mission = await prisma.mission.findUnique({
-    where: { id: missionId },
-    select: {
-      clientId: true,
-      proposals: { where: { providerId: userId }, select: { id: true } },
-    },
-  });
-  if (!mission) return NextResponse.json({ error: "mission_not_found" }, { status: 404 });
-
-  const isParticipant = mission.clientId === userId || mission.proposals.length > 0;
-  if (!isParticipant) return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  // Vérifier la participation (client OU prestataire candidat) via le garde partagé — un
+  // tiers reçoit 404, indistinguable d'une mission inexistante.
+  const guard = await requireMissionParty(missionId, userId);
+  if (!guard.ok) return NextResponse.json({ error: "not_found" }, { status: 404 });
 
   const buffer = Buffer.from(await file.arrayBuffer());
   const filePath = await saveMessageFile({ missionId, fileName: file.name, buffer });
@@ -57,6 +51,9 @@ export async function POST(req: Request) {
       type: true, fileName: true, fileSize: true, mimeType: true,
     },
   });
+
+  // Même notification que pour un message texte (cloche + e-mail, deux parties).
+  await notifyNewMessage({ missionId, senderId: userId, preview: file.name, isFile: true });
 
   return NextResponse.json({
     message: {

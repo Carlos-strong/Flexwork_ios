@@ -1,11 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 
 type CheckInEvent = { id: string; type: "arrivee" | "depart"; occurredAt: string; gpsLat: number | null; gpsLng: number | null };
 
 // Pointage de présence — aligné sur formulaires-flexwork-tous-profils.html.
 // Opt-in indépendant, GPS, purge automatique. La plateforme ne lit jamais ces données.
+// Style harmonisé (2026-08-29) sur le système visuel de missions/[id]/page.tsx (Tailwind,
+// palette #0f172a/#E2E8F0/#008751) — logique et appels API strictement inchangés.
 export default function CheckinPage({ params }: { params: { id: string } }) {
   const { id: missionId } = params;
   const [optedIn, setOptedIn] = useState(false);
@@ -63,68 +66,90 @@ export default function CheckinPage({ params }: { params: { id: string } }) {
   }
 
   return (
-    <div className="container" style={{ maxWidth: 520 }}>
-      <div className="card">
-        <div className="card-header">
-          <span className="card-title">Pointage de présence</span>
-          <span className="badge badge-info">Opt-in</span>
+    <div className="min-h-screen bg-[#F8FAF9] text-[#0f172a]">
+      <div className="max-w-[520px] mx-auto px-4 lg:px-0 py-5 space-y-4">
+        <div className="flex items-center gap-1.5 text-[12px] text-[#64748B] flex-wrap">
+          <Link href={`/missions/${missionId}`} className="hover:text-[#0f172a]" style={{ textDecoration: "none" }}>Mission</Link>
+          <span>›</span>
+          <span className="text-[#0f172a] font-medium">Pointage</span>
         </div>
 
-        <div className="alert alert-info">
-          <strong>Outil optionnel.</strong> Ce pointage sert de preuve de présence entre vous et le client. Flexwork
-          ne consulte, n&apos;agrège et n&apos;utilise jamais ces données pour une décision.
-        </div>
-
-        {error && <div className="alert alert-danger">{error}</div>}
-
-        {active === false && !optedIn && (
-          <div>
-            <p style={{ marginBottom: 12, color: "var(--muted)" }}>
-              Le pointage n&apos;est pas encore actif — activez votre consentement. Il ne s&apos;activera réellement
-              qu&apos;une fois l&apos;autre partie également consentante, sans aucune conséquence si elle refuse.
-            </p>
-            <button className="btn btn-primary" onClick={handleOptIn}>Activer le pointage de mon côté</button>
+        <div className="bg-white border border-[#E2E8F0] rounded-xl p-4 lg:p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <h1 className="text-[13px] font-semibold">Pointage de présence</h1>
+            <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-[#F1F5F9] text-[#64748B] text-[11px] font-semibold">Opt-in</span>
           </div>
-        )}
 
-        {active === false && optedIn && (
-          <div className="alert alert-warning">En attente du consentement de l&apos;autre partie.</div>
-        )}
+          <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAF9] p-3 text-[12.5px] text-[#475569] leading-relaxed">
+            <strong className="text-[#0f172a]">Outil optionnel.</strong> Ce pointage sert de preuve de présence entre vous et le client. Flexwork
+            ne consulte, n&apos;agrège et n&apos;utilise jamais ces données pour une décision.
+          </div>
 
-        {active === true && (
-          <>
-            <div style={{ background: "#f0fdf4", padding: 14, borderRadius: 8, marginBottom: 16 }}>
-              <strong style={{ color: "#166534" }}>✓ Outil activé</strong>
-              <p style={{ fontSize: "0.85rem", color: "var(--muted)", marginTop: 4 }}>
-                Vous et le client avez tous deux consenti à l&apos;activation.
+          {error && <div className="rounded-xl border border-[#FECACA] bg-[#FEF2F2] p-3 text-[13px] text-[#B91C1C]">{error}</div>}
+
+          {active === false && !optedIn && (
+            <div>
+              <p className="mb-3 text-[13px] text-[#64748B] leading-relaxed">
+                Le pointage n&apos;est pas encore actif — activez votre consentement. Il ne s&apos;activera réellement
+                qu&apos;une fois l&apos;autre partie également consentante, sans aucune conséquence si elle refuse.
               </p>
+              <button onClick={handleOptIn} className="h-10 px-5 rounded-lg bg-[#008751] text-white text-[13px] font-semibold hover:bg-[#007a49] transition-colors">
+                Activer le pointage de mon côté
+              </button>
             </div>
+          )}
 
-            <div className="grid-2">
-              <button className="btn btn-primary" onClick={() => checkIn("arrivee")}>📍 Arrivée</button>
-              <button className="btn btn-secondary" onClick={() => checkIn("depart")}>🏁 Départ</button>
+          {active === false && optedIn && (
+            <div className="rounded-xl border border-[#FDE68A] bg-[#FFFBEB] p-3 text-[13px] text-[#92400E]">
+              En attente du consentement de l&apos;autre partie.
             </div>
+          )}
 
-            <div style={{ marginTop: 20 }}>
-              <h4 style={{ fontSize: "0.9rem", color: "var(--primary)", marginBottom: 8 }}>
-                Historique (visible uniquement par les deux parties)
-              </h4>
-              {events.map((ev) => (
-                <div key={ev.id} style={{ fontSize: "0.85rem", color: "var(--muted)", padding: 8, background: "var(--light)", borderRadius: 6, marginBottom: 6 }}>
-                  <strong>{ev.type === "arrivee" ? "Arrivée" : "Départ"}</strong> — {new Date(ev.occurredAt).toLocaleString("fr-FR")}
-                  {ev.gpsLat && ev.gpsLng ? ` — GPS: ${ev.gpsLat}, ${ev.gpsLng}` : ""}
+          {active === true && (
+            <>
+              <div className="rounded-xl bg-[#f0fdf4] p-3.5">
+                <strong className="text-[#166534] text-[13px]">✓ Outil activé</strong>
+                <p className="text-[12.5px] text-[#64748B] mt-1">
+                  Vous et le client avez tous deux consenti à l&apos;activation.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <button onClick={() => checkIn("arrivee")} className="h-10 rounded-lg bg-[#008751] text-white text-[13px] font-semibold hover:bg-[#007a49] transition-colors">
+                  📍 Arrivée
+                </button>
+                <button onClick={() => checkIn("depart")} className="h-10 rounded-lg bg-[#0f172a] text-white text-[13px] font-semibold hover:bg-black transition-colors">
+                  🏁 Départ
+                </button>
+              </div>
+
+              <div>
+                <h4 className="text-[13px] font-semibold mb-2">
+                  Historique (visible uniquement par les deux parties)
+                </h4>
+                <div className="space-y-1.5">
+                  {events.map((ev) => (
+                    <div key={ev.id} className="text-[12.5px] text-[#64748B] px-2.5 py-2 bg-[#F8FAF9] border border-[#E2E8F0] rounded-lg">
+                      <strong className="text-[#0f172a]">{ev.type === "arrivee" ? "Arrivée" : "Départ"}</strong> — {new Date(ev.occurredAt).toLocaleString("fr-FR")}
+                      {ev.gpsLat && ev.gpsLng ? ` — GPS: ${ev.gpsLat}, ${ev.gpsLng}` : ""}
+                    </div>
+                  ))}
+                  {events.length === 0 && <p className="text-[12.5px] text-[#94A3B8]">Aucun pointage enregistré.</p>}
                 </div>
-              ))}
-              {events.length === 0 && <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>Aucun pointage enregistré.</p>}
-            </div>
-          </>
-        )}
-      </div>
+              </div>
+            </>
+          )}
+        </div>
 
-      <div className="alert alert-warning" style={{ fontSize: "0.8rem" }}>
-        <strong>Protection des données :</strong> Ces horodatages sont conservés pendant la durée de la mission + 7
-        jours, puis purgés automatiquement. Aucun admin Flexwork n&apos;y a accès. Ils ne sont utilisés dans aucun
-        score, classement ou décision de litige.
+        <div className="rounded-xl border border-[#FDE68A] bg-[#FFFBEB] p-3 text-[11.5px] text-[#92400E] leading-relaxed">
+          <strong>Protection des données :</strong> Ces horodatages sont conservés pendant la durée de la mission + 7
+          jours, puis purgés automatiquement. Aucun admin Flexwork n&apos;y a accès. Ils ne sont utilisés dans aucun
+          score, classement ou décision de litige.
+        </div>
+
+        <Link href={`/missions/${missionId}`} className="inline-block text-[#64748B] text-[13px]" style={{ textDecoration: "none" }}>
+          ← Retour au détail de la mission
+        </Link>
       </div>
     </div>
   );

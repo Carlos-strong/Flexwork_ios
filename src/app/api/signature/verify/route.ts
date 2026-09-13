@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { SignatureService } from "@/lib/signature";
+import { requireContractParty } from "@/lib/resource-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,13 @@ export async function POST(req: Request) {
 
     if (!contractId) {
       return NextResponse.json({ error: "contractId est requis" }, { status: 400 });
+    }
+
+    // F-02 : seules les deux parties au contrat peuvent lire ses métadonnées de signature.
+    // Un tiers → 404 (indistinguable d'un contrat inexistant) au lieu des enregistrements.
+    const guard = await requireContractParty(contractId, (session.user as { id: string }).id);
+    if (!guard.ok) {
+      return NextResponse.json({ error: "not_found" }, { status: 404 });
     }
 
     const result = await SignatureService.verifySignature({

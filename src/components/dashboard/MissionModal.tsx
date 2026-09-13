@@ -23,6 +23,7 @@ export default function MissionModal({
 }: MissionModalProps) {
   // Ne gère pas les toasts ici — le parent les gère
   const [montant, setMontant] = useState("");
+  const [delai, setDelai] = useState("");
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -40,9 +41,10 @@ export default function MissionModal({
   const submitProposal = async () => {
     if (!mission) return;
     setSubmitting(true); setFeedback(null);
+    const delaiPropose = delai.trim() ? Number(delai) : undefined;
     const res = await fetch(`/api/missions/${mission.id}/proposals`, {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ montant: Number(montant), message: message || undefined }),
+      body: JSON.stringify({ montant: Number(montant), delaiPropose, message: message || undefined }),
     });
     setSubmitting(false);
     if (res.ok) {
@@ -58,7 +60,7 @@ export default function MissionModal({
     }
   };
 
-  const handleClose = () => { setMontant(""); setMessage(""); setFeedback(null); onClose(); };
+  const handleClose = () => { setMontant(""); setDelai(""); setMessage(""); setFeedback(null); onClose(); };
 
   return (
     <div className={`fixed inset-0 z-40 flex items-center justify-center p-4 md:p-6 transition-all duration-300 ${isOpen ? "pointer-events-auto" : "pointer-events-none"}`}>
@@ -131,6 +133,12 @@ export default function MissionModal({
                   <label className="text-[11px] uppercase tracking-widest font-semibold text-zinc-500">Montant proposé ({mission.currency})</label>
                   <input type="number" value={montant} onChange={(e) => setMontant(e.target.value)}
                     placeholder={String(mission.budget)}
+                    className="mt-1 w-full h-10 px-3 rounded-xl bg-white border border-gray-200 text-[14px] focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751] transition" />
+                </div>
+                <div>
+                  <label className="text-[11px] uppercase tracking-widest font-semibold text-zinc-500">Délai proposé (jours) — optionnel</label>
+                  <input type="number" min={1} value={delai} onChange={(e) => setDelai(e.target.value)}
+                    placeholder={String(mission.delaiJours)}
                     className="mt-1 w-full h-10 px-3 rounded-xl bg-white border border-gray-200 text-[14px] focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751] transition" />
                 </div>
                 <div>

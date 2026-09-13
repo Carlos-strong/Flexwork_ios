@@ -22,13 +22,16 @@ import * as crypto from "crypto";
 
 // ── Constantes ──────────────────────────────
 const RSA_KEY_SIZE = 2048;
-const HASH_ALGORITHM = "sha256";
-const SIGNING_METHOD = "RSA-SHA256";
-const CERTIFICATE_VALIDITY_YEARS = 1;
-const PBKDF2_ITERATIONS = 600_000;
-const KEY_LENGTH = 32; // 256 bits pour AES-256
-const AES_ALGORITHM = "aes-256-gcm";
-const AUTH_TAG_LENGTH = 16;
+// Constantes partagées avec le service de signature Gig (src/lib/gig-signature.ts) — le
+// même standard cryptographique s'applique aux deux modèles (certificats RSA-2048,
+// passphrase, hash SHA-256).
+export const HASH_ALGORITHM = "sha256";
+export const SIGNING_METHOD = "RSA-SHA256";
+export const CERTIFICATE_VALIDITY_YEARS = 1;
+export const PBKDF2_ITERATIONS = 600_000;
+export const KEY_LENGTH = 32; // 256 bits pour AES-256
+export const AES_ALGORITHM = "aes-256-gcm";
+export const AUTH_TAG_LENGTH = 16;
 
 // ── Types ───────────────────────────────────
 export interface CertificateInput {
@@ -68,7 +71,7 @@ export interface CertificateInfo {
 
 // ── Helpers cryptographiques ────────────────
 
-function decryptPrivateKey(
+export function decryptPrivateKey(
   encryptedHex: string,
   passphrase: string,
   saltHex: string,
@@ -572,6 +575,10 @@ export class SignatureService {
         signedAt: s.signedAt.toISOString(),
         signatureValid: valid,
         signingMethod: s.signingMethod,
+        // Nécessaire pour régénérer le même QR (SignatureQRCode) qu'à l'instant T de la
+        // signature lors d'une visite ultérieure de la page contrat — donnée déjà stockée
+        // (ContractSignature.signedDataHash), simplement absente du payload jusqu'ici.
+        signedDataHash: s.signedDataHash,
       };
     });
 

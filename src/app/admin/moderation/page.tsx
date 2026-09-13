@@ -6,6 +6,8 @@ import { AdminNav } from "@/components/admin-nav";
 // Modération — aligné sur formulaires-flexwork-tous-profils.html.
 // Retrait de déclaration sur signalement, justification obligatoire,
 // journalisé dans admin_audit_log (append-only, hash chaîné SHA-256).
+// Style harmonisé (2026-08-29) sur le même modèle Tailwind que missions/[id]/devis/
+// page.tsx (palette #0f172a/#E2E8F0/#008751) — logique et appel API strictement inchangés.
 export default function AdminModerationPage() {
   const [declarationId, setDeclarationId] = useState("");
   const [justification, setJustification] = useState("");
@@ -29,30 +31,38 @@ export default function AdminModerationPage() {
   }
 
   return (
-    <div>
+    <div className="min-h-screen bg-[#F8FAF9] text-[#0f172a]">
       <AdminNav />
-      <div className="container">
-        <h1 style={{ color: "var(--primary)", marginBottom: 20 }}>Admin Modération</h1>
+      <div className="max-w-[720px] mx-auto px-4 py-5 space-y-4">
+        <h1 className="text-[18px] font-bold">Admin Modération</h1>
 
-        <div className="info-box">
-          <strong>Action sur signalement uniquement.</strong> Pas de vérification systématique. Chaque retrait est
-          journalisé avec justification dans <code>admin_audit_log</code> (append-only, hash chaîné SHA-256).
+        <div className="rounded-xl border border-[#E2E8F0] bg-white p-3.5 text-[12.5px] text-[#475569] leading-relaxed">
+          <strong className="text-[#0f172a]">Action sur signalement uniquement.</strong> Pas de vérification systématique. Chaque retrait est
+          journalisé avec justification dans <code className="px-1 py-0.5 rounded bg-[#F1F5F9] text-[12px]">admin_audit_log</code> (append-only, hash chaîné SHA-256).
         </div>
 
-        {feedback && <div className="alert alert-warning">{feedback}</div>}
+        {feedback && <div className="rounded-xl border border-[#FDE68A] bg-[#FFFBEB] p-3 text-[13px] text-[#92400E]">{feedback}</div>}
 
-        <div className="card">
-          <div className="card-header"><span className="card-title">Retirer une déclaration signalée</span></div>
-          <form onSubmit={handleRemove}>
-            <div className="form-group">
-              <label>Identifiant de la déclaration</label>
-              <input type="text" required value={declarationId} onChange={(e) => setDeclarationId(e.target.value)} />
+        <div className="bg-white border border-[#E2E8F0] rounded-xl p-4 lg:p-5">
+          <h3 className="text-[13px] font-semibold mb-3">Retirer une déclaration signalée</h3>
+          <form onSubmit={handleRemove} className="space-y-3">
+            <div>
+              <label className="block text-[12px] font-medium text-[#475569] mb-1">Identifiant de la déclaration</label>
+              <input
+                type="text" required value={declarationId} onChange={(e) => setDeclarationId(e.target.value)}
+                className="w-full h-10 px-3 rounded-lg border border-[#E2E8F0] text-[13px] focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751]"
+              />
             </div>
-            <div className="form-group">
-              <label>Justification (obligatoire)</label>
-              <textarea rows={3} required value={justification} onChange={(e) => setJustification(e.target.value)} />
+            <div>
+              <label className="block text-[12px] font-medium text-[#475569] mb-1">Justification (obligatoire)</label>
+              <textarea
+                rows={3} required value={justification} onChange={(e) => setJustification(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-[#E2E8F0] text-[13px] resize-y focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751]"
+              />
             </div>
-            <button type="submit" className="btn btn-danger">Retirer la déclaration</button>
+            <button type="submit" className="h-10 px-5 rounded-lg bg-[#DC2626] text-white text-[13px] font-semibold hover:bg-[#B91C1C] transition-colors">
+              Retirer la déclaration
+            </button>
           </form>
         </div>
       </div>

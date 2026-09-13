@@ -12,5 +12,5 @@ export default async function DashboardRedirectPage() {
   // Les admins ont role=client dans la DB mais isAdmin=true — priorité à isAdmin
   // pour éviter de les rediriger vers /dashboard/client.
   if (session.user.isAdmin) redirect("/admin");
-  redirect(ROLE_DASHBOARD[session.user.role] ?? "/dashboard/client");
+  redirect(ROLE_DASHBOARD[session.user.role] ?? "/client/dashboard");
 }

@@ -22,14 +22,25 @@ let USER_IDS: Record<string, string> = {};
 let MISSION_IDS: string[] = [];
 
 beforeAll(async () => {
+  // Sélection par EMAIL EXACT de la seed (scripts/seed-messaging-test.ts), et non par
+  // `contains: "flexwork.test"` : d'autres fichiers de test (contract-signature-workflow,
+  // security-guards.route) créent aussi des users *@flexwork.test et écraseraient les IDs
+  // seedés — le garde F-03 (signal lié à une mission) renvoyait alors 403 à tort.
+  const SEED_EMAILS = [
+    "aicha@flexwork.test",
+    "expert-digital@flexwork.test",
+    "expert-btp@flexwork.test",
+    "artisan@flexwork.test",
+    "manoeuvre@flexwork.test",
+  ];
   const users = await prisma.user.findMany({
-    where: { email: { contains: "flexwork.test" } },
+    where: { email: { in: SEED_EMAILS } },
     select: { id: true, email: true, role: true },
   });
 
   for (const u of users) {
     const key = u.role === "expert_btp_autres" ? "expert_btp" : u.role;
-    USER_IDS[u.role] = u.id;
+    USER_IDS[key] = u.id;
     // Also store the email-based key for clarity
     if (u.email.includes("expert-btp")) USER_IDS["expert_btp"] = u.id;
   }

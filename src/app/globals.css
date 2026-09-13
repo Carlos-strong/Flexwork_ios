@@ -22,6 +22,14 @@
   --surface-muted: #fafafa;
   --surface-raised: #f4f4f5;
   --border: #e4e4e7;
+  /* var(--light)/var(--secondary)/var(--danger) sont référencées dans ce fichier (.step,
+     .block-activity, th, .required, chat-bubble…) et dans plusieurs pages (ex. contrat de
+     prestation) sans jamais avoir été définies ici — elles retombaient silencieusement sur
+     "inherit"/transparent. Ajoutées comme alias des tokens existants plutôt que d'introduire
+     une nouvelle palette. */
+  --light: #f4f4f5;
+  --secondary: #008751;
+  --danger: #E8112D;
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
@@ -55,6 +63,8 @@ body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
+/* Réservé aux montants clés (contrat, offres, net versé) — jamais au texte courant. */
+.font-fraunces { font-family: var(--font-fraunces), Georgia, serif; }
 .container { max-width: 1100px; margin: 0 auto; padding: 24px 16px; }
 .card {
   background: var(--surface);
@@ -307,3 +317,75 @@ tr:hover { background: var(--surface-raised); }
 .animate-float { animation: float 4s ease-in-out infinite; }
 .animate-float-delayed { animation: float 4.5s ease-in-out 0.6s infinite; }
 .animate-float-slow { animation: float 5s ease-in-out 1.2s infinite; }
+
+/* ═══════════════════════════════════════════════════════════
+   MODALES PREUVES — maquettes Flexwork-Modal-Prestataire-Soumission.html et
+   Flexwork-Modal-Client-Validation-Preuve.html (2026-09-08). Les deux maquettes déclarent
+   ces @keyframes et ce style de curseur dans leur propre <style> ; ils vivent ici pour que
+   les classes Tailwind arbitraires (animate-[fadeIn_0.2s_ease], animate-[slideUp_0.2s_ease])
+   trouvent leur animation, et pour ne pas injecter deux fois la même feuille à chaque
+   ouverture de modale.
+   ═══════════════════════════════════════════════════════════ */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes slideUp {
+  from { opacity: 0; transform: translate(-50%, 10px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
+
+/* Curseur de taux d'exécution — pastille verte Flexwork, identique dans les deux maquettes. */
+.flexwork-proof-range {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 8px;
+  background: #e5e7eb;
+  border-radius: 999px;
+  outline: none;
+}
+.flexwork-proof-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 22px;
+  height: 22px;
+  background: #008751;
+  border-radius: 999px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  border: 3px solid white;
+}
+.flexwork-proof-range::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  background: #008751;
+  border-radius: 999px;
+  border: 3px solid white;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Variante CLIENT (maquette « Apprécier les preuves + Constat ») — même pastille, bordure
+   blanche de 2px et piste peinte en dégradé inline par le composant. */
+.flexwork-constat-range {
+  -webkit-appearance: none;
+  appearance: none;
+}
+.flexwork-constat-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 9999px;
+  background: #008751;
+  border: 2px solid white;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+}
+.flexwork-constat-range::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: 9999px;
+  background: #008751;
+  border: 2px solid white;
+  cursor: pointer;
+}

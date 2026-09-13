@@ -85,16 +85,16 @@ export function useWebRTC(userId: string) {
       case "offer": {
         setRemoteUser(msg.from);
         setCallState("ringing");
-        const payload = msg.payload as { sdp: string; type: string; video?: boolean } | null;
+        const payload = msg.payload as { sdp: string; type: RTCSdpType; video?: boolean } | null;
         setIsVideo(payload?.video !== false);
         // Stocker l'offer pour y répondre quand l'utilisateur accepte
-        (window as Record<string, unknown>).__pendingOffer = payload;
+        (window as unknown as Record<string, unknown>).__pendingOffer = payload;
         break;
       }
       case "answer": {
         const pc = pcRef.current;
         if (pc && msg.payload) {
-          const payload = msg.payload as { sdp: string; type: string };
+          const payload = msg.payload as { sdp: string; type: RTCSdpType };
           await pc.setRemoteDescription(new RTCSessionDescription(payload));
           // Appliquer les candidats en attente
           for (const c of pendingCandidatesRef.current) {
@@ -171,7 +171,7 @@ export function useWebRTC(userId: string) {
       setMuted(false);
       setVideoOff(false);
 
-      const offer = (window as Record<string, unknown>).__pendingOffer as { sdp: string; type: string; video?: boolean } | undefined;
+      const offer = (window as unknown as Record<string, unknown>).__pendingOffer as { sdp: string; type: RTCSdpType; video?: boolean } | undefined;
       if (!offer || !remoteUser) return;
 
       const useVideo = video ?? (offer.video !== false);
@@ -189,7 +189,7 @@ export function useWebRTC(userId: string) {
       await pc.setLocalDescription(answer);
       await sendSignal(remoteUser, "answer", { sdp: pc.localDescription?.sdp, type: "answer" });
 
-      delete (window as Record<string, unknown>).__pendingOffer;
+      delete (window as unknown as Record<string, unknown>).__pendingOffer;
     } catch (e) {
       setError((e as Error).message);
       setCallState("idle");
@@ -213,7 +213,7 @@ export function useWebRTC(userId: string) {
     setMuted(false);
     setVideoOff(false);
     setIsVideo(false);
-    delete (window as Record<string, unknown>).__pendingOffer;
+    delete (window as unknown as Record<string, unknown>).__pendingOffer;
   }, [remoteUser, sendSignal]);
 
   // --- Cleanup on unmount ---

@@ -80,7 +80,30 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         t.id = user.id;
         t.role = (user as typeof user & { role?: string }).role;
         t.isAdmin = (user as typeof user & { isAdmin?: boolean }).isAdmin ?? false;
+        return t;
       }
+
+      // Requête sur un token déjà émis (pas un signIn) — le JWT est stateless et signé :
+      // sans cette revérification, un compte supprimé ou suspendu APRÈS l'émission du
+      // token resterait « connecté » jusqu'à expiration du cookie (jusqu'à 30 jours),
+      // pour toutes les routes qui ne font que lire la session sans retoucher la base.
+      // Retourner `null` ici fait effacer le cookie de session par Auth.js
+      // (@auth/core/lib/actions/session.js) et rend auth() null partout dans l'app dès
+      // la requête suivante — déconnexion automatique de toute session dont le compte
+      // n'existe plus ou n'est plus actif (suspendu/banni).
+      if (!t.id) return null;
+
+      const dbUser = await prisma.user.findUnique({
+        where: { id: t.id },
+        select: { status: true, role: true, isAdmin: true },
+      });
+      if (!dbUser || dbUser.status !== "active") return null;
+
+      // Rafraîchit rôle/isAdmin depuis la base à chaque requête : une promotion/
+      // rétrogradation admin ou un changement de rôle prend effet immédiatement,
+      // sans attendre l'expiration du JWT existant.
+      t.role = dbUser.role;
+      t.isAdmin = dbUser.isAdmin;
       return t;
     },
     async session({ session, token }) {

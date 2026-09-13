@@ -1,9 +1,13 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { Search, LogOut, Menu, LayoutDashboard, Briefcase, MessageSquare, Heart, FileText, Wallet, Star } from "lucide-react";
-import DashboardSidebar, { type NavItem, type SidebarUser } from "./DashboardSidebar";
+import Link from "next/link";
+import { Search, LogOut, Menu, LayoutDashboard, Briefcase, MessageSquare, Heart, FileText, Wallet, Star, Handshake } from "lucide-react";
+import DashboardSidebar, { type NavItem, type SidebarUser, type DocumentsBlock } from "./DashboardSidebar";
 import { NotificationsBell } from "@/components/notifications-bell";
+import { Avatar } from "@/components/avatar";
+import { providerUrl } from "@/lib/provider-urls";
+import { useDevisContratsBadges } from "./useDevisContratsBadges";
 
 export type { NavItem } from "./DashboardSidebar";
 export type DashboardUser = SidebarUser;
@@ -25,6 +29,29 @@ type Props = {
 export default function DashboardLayout(p: Props) {
   const { mode, user, navItems, activeNav, onNavChange, solde, title, topAction, badgeCounts, children } = p;
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  // Compteurs du bloc « Documents Contractuels » — calculés ici une seule fois, pour toutes
+  // les pages qui montent DashboardLayout (client et prestataire), plutôt que dans chacun
+  // des ~10 points d'appel (R03 : ne pas dupliquer). La base de la rubrique « Devis &
+  // Contrats » se déduit de l'URL du dashboard déjà présente dans navItems — /client/devis-
+  // contrats pour le client (route dédiée, pas de sous-chemin du dashboard), /dashboard/
+  // {role}/devis-contrats pour un prestataire (déjà une section valide, voir
+  // src/lib/provider-urls.ts).
+  const counts = useDevisContratsBadges();
+  const dashboardHref = navItems.find((n) => n.id === "dashboard")?.href ?? "/client/dashboard";
+  const documentsBase = mode === "client" ? "/client/devis-contrats" : `${dashboardHref}/devis-contrats`;
+  const documents: DocumentsBlock = {
+    base: documentsBase,
+    devis: [
+      { id: "brouillons", label: "Brouillons", count: counts.brouillon },
+      { id: "negociation", label: "En négociation", count: counts.negociation },
+      { id: "valides", label: "Validés", count: counts.valide },
+      { id: "rejetes", label: "Rejetés", count: counts.rejete },
+    ],
+    contrats: [
+      { id: "en-cours", label: "En cours", count: counts.enCours },
+      { id: "clotures", label: "Clôturés", count: counts.cloture },
+    ],
+  };
 
   return (
     <div className="h-screen bg-[#FFF8F0] flex overflow-hidden">
@@ -37,6 +64,7 @@ export default function DashboardLayout(p: Props) {
         user={user}
         badgeCounts={badgeCounts}
         footerActions={[{ id: "logout", label: "Déconnexion", Icon: LogOut, href: "/signin" }]}
+        documents={documents}
       />
 
       <div className="flex-1 min-w-0 flex flex-col">
@@ -61,7 +89,13 @@ export default function DashboardLayout(p: Props) {
             <NotificationsBell />
             {topAction}
             <div className="hidden md:flex items-center gap-2.5 pl-2 ml-1 border-l border-gray-100">
-              <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${user.avatarGradient} flex items-center justify-center text-white text-[10px] font-bold ring-2 ring-white shadow-sm`}>{user.initials}</div>
+              {user.id ? (
+                <Link href={`/profil/${user.id}`} title="Voir mon profil">
+                  <Avatar src={user.avatarUrl} initials={user.initials} gradient={user.avatarGradient} size={32} className="ring-2 ring-white shadow-sm hover:opacity-80 transition" />
+                </Link>
+              ) : (
+                <Avatar src={user.avatarUrl} initials={user.initials} gradient={user.avatarGradient} size={32} className="ring-2 ring-white shadow-sm" />
+              )}
               <div className="hidden lg:block text-right leading-tight"><div className="text-[12px] font-semibold text-[#0A1931]">{user.name}</div><div className="text-[10px] text-zinc-400">{user.role}</div></div>
             </div>
           </div>
@@ -72,20 +106,32 @@ export default function DashboardLayout(p: Props) {
   );
 }
 
+// Les badges ne sont plus statiques ici : ils sont alimentés par les compteurs réels
+// calculés dans useSidebarBadges (événements : messages, propositions, paiements).
+// Aucun `badge` codé en dur — seul badgeCounts (dynamique) s'affiche.
+// NB : pas de rubrique "Notifications" dans le sidebar — les notifications in-app sont
+// portées par la cloche du navbar (NotificationsBell), synchronisée par utilisateur.
 export const CLIENT_NAV: NavItem[] = [
   { id: "dashboard", label: "Tableau de bord", Icon: LayoutDashboard, href: "/client/dashboard" },
   { id: "missions", label: "Mes Missions", Icon: Briefcase, href: "/client/missions" },
-  { id: "messages", label: "Messages", Icon: MessageSquare, badge: 3, href: "/client/messages" },
-  { id: "propositions", label: "Propositions", Icon: FileText, badge: 5, href: "/client/propositions" },
+  { id: "messages", label: "Messages", Icon: MessageSquare, href: "/client/messages" },
+  { id: "propositions", label: "Propositions", Icon: FileText, href: "/client/propositions" },
+  // Pendant client de la rubrique Offres du prestataire : catalogue des Gigs + commandes
+  // (achat et signature 1/2). Remplace les pages autonomes /gigs* supprimees.
+  { id: "offres", label: "Offres", Icon: Handshake, href: "/client/offres" },
   { id: "paiements", label: "Paiements", Icon: Wallet, href: "/client/paiements" },
   { id: "favoris", label: "Favoris", Icon: Heart, href: "/recherche" },
 ];
 
-export const PROVIDER_NAV: NavItem[] = [
-  { id: "dashboard", label: "Tableau de bord", Icon: LayoutDashboard },
-  { id: "missions", label: "Missions disponibles", Icon: Briefcase, href: "/missions" },
-  { id: "messages", label: "Messages", Icon: MessageSquare, badge: 2 },
-  { id: "propositions", label: "Mes candidatures", Icon: FileText, badge: 4 },
-  { id: "wallet", label: "Wallet", Icon: Wallet, href: "/dashboard/expert-digital" },
-  { id: "favoris", label: "Favoris", Icon: Star, href: "/recherche" },
+// Navigation prestataire, pilotée par URL : chaque rubrique a une URL réelle dérivée du
+// rôle (voir src/lib/provider-urls.ts). `dashboard` reste le point d'entrée (base), les
+// autres sections pointent vers /dashboard/{slug}/{section}.
+export const providerNav = (role: string): NavItem[] => [
+  { id: "dashboard", label: "Tableau de bord", Icon: LayoutDashboard, href: providerUrl(role, "dashboard") },
+  { id: "missions", label: "Missions disponibles", Icon: Briefcase, href: providerUrl(role, "missions") },
+  { id: "messages", label: "Messages", Icon: MessageSquare, href: providerUrl(role, "messages") },
+  { id: "candidatures", label: "Mes candidatures", Icon: FileText, href: providerUrl(role, "candidatures") },
+  { id: "offres", label: "Offres", Icon: Handshake, href: providerUrl(role, "offres") },
+  { id: "wallet", label: "Wallet", Icon: Wallet, href: providerUrl(role, "wallet") },
+  { id: "favoris", label: "Favoris", Icon: Star, href: providerUrl(role, "favoris") },
 ];

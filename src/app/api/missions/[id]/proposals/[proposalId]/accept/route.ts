@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
+import { acceptProposal } from "@/lib/accept-proposal";
+import { assertNoSelfDealing } from "@/lib/invariants";
 
 // Phase 4 : le client accepte une proposition — les autres sont automatiquement refusées.
 // Ne génère pas encore le contrat (voir /contract, US-402), simple sélection.
@@ -24,15 +26,12 @@ export async function POST(
   if (!proposal || proposal.missionId !== missionId) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
+  // Famille 4 — invariant : le client ne peut pas accepter SA propre candidature.
+  if (!assertNoSelfDealing(userId, proposal.providerId)) {
+    return NextResponse.json({ error: "self_dealing_forbidden" }, { status: 403 });
+  }
 
-  await prisma.$transaction([
-    prisma.missionProposal.update({ where: { id: proposalId }, data: { status: "acceptee" } }),
-    prisma.missionProposal.updateMany({
-      where: { missionId, id: { not: proposalId }, status: "envoyee" },
-      data: { status: "refusee" },
-    }),
-    prisma.mission.update({ where: { id: missionId }, data: { status: "proposition_acceptee" } }),
-  ]);
+  await acceptProposal(missionId, proposalId);
 
   return NextResponse.json({ ok: true });
 }

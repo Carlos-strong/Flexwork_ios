@@ -23,6 +23,9 @@ export async function GET() {
       email: u.email,
       tel: u.tel,
       role: u.role,
+      // « Garant requis » activé par l'Admin KYC (défaut OFF) — affiché dans les dashboards
+      // admin pour activer/désactiver l'exigence de garant par compte (2026-09-09).
+      garantRequired: u.garantRequired,
       // UserRole n'a pas de valeur "admin" (prisma/schema.prisma) — un compte admin garde
       // role="client" par défaut, ce qui affichait à tort "Client" pour ces comptes.
       isAdmin: u.isAdmin,

@@ -27,6 +27,21 @@ vi.mock("@/auth", () => ({
   auth: () => mockGetSession(),
 }));
 
+// F-03 (fermeture de la faille d'appel vers n'importe qui) : POST /api/webrtc/signal exige
+// désormais qu'une mission lie réellement l'émetteur au destinataire
+// (src/app/api/webrtc/signal/route.ts). Ces tests d'intégration sont hermétiques (pas de
+// base) : on mocke le garde pour qu'il réponde « mission liée » sur les cas valides.
+// `vi.hoisted` est requis : la factory de `vi.mock` est remontée en tête de fichier.
+const { missionFindFirst } = vi.hoisted(() => ({
+  missionFindFirst: vi.fn().mockResolvedValue({ id: "m-linked" }),
+}));
+
+vi.mock("@/lib/db", () => ({
+  prisma: {
+    mission: { findFirst: missionFindFirst },
+  },
+}));
+
 // ---------------------------------------------------------------------------
 // Imports post-mock
 // ---------------------------------------------------------------------------

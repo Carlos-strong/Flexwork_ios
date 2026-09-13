@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { saveMissionAttachment, signPrivateFileToken } from "@/lib/storage";
 import { canAttachLivrable } from "@/lib/attachments";
+import { requireMissionParty } from "@/lib/resource-guard";
 
 // US-1302 : bloque les livrables joints avant acceptation d'un devis payé,
 // pour empêcher le travail-test gratuit.
@@ -17,10 +18,13 @@ export async function POST(
   const userId = (session.user as typeof session.user & { id: string }).id;
   const { id: missionId } = await params;
 
-  const mission = await prisma.mission.findUnique({ where: { id: missionId } });
-  if (!mission) {
+  // F-01 étendu : seul un participant à la mission (client OU prestataire ayant candidaté)
+  // peut attacher un fichier. Un tiers → 404 (indistinguable d'une mission inexistante).
+  const guard = await requireMissionParty(missionId, userId);
+  if (!guard.ok) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
+  const mission = guard.mission;
 
   if (!canAttachLivrable(mission.status)) {
     return NextResponse.json(
@@ -59,16 +63,12 @@ export async function GET(
   const userId = (session.user as typeof session.user & { id: string }).id;
   const { id: missionId } = await params;
 
-  const mission = await prisma.mission.findUnique({
-    where: { id: missionId },
-    include: { proposals: { where: { providerId: userId }, select: { id: true } } },
-  });
-  if (!mission) {
+  // F-01 étendu : seuls le client et les prestataires ayant candidaté lisent les pièces
+  // jointes. Un tiers → 404 (indistinguable d'une mission inexistante), plus jamais 403
+  // (un 403 serait un oracle d'existence).
+  const guard = await requireMissionParty(missionId, userId);
+  if (!guard.ok) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
-  }
-  const isParticipant = mission.clientId === userId || mission.proposals.length > 0;
-  if (!isParticipant) {
-    return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 
   const attachments = await prisma.missionAttachment.findMany({

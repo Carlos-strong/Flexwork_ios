@@ -35,17 +35,26 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "minimum_age_below_legal_floor" }, { status: 422 });
   }
 
-  const entry = await prisma.countryAgeRequirement.upsert({
-    where: {
-      country_profileType_domain: {
-        country: parsed.data.country,
-        profileType: parsed.data.profileType,
-        domain: (parsed.data.domain ?? null) as unknown as string,
-      },
-    },
-    create: { ...parsed.data, setByAdminId: guard.user.id },
-    update: { ...parsed.data, setByAdminId: guard.user.id },
+  // ⚠️ Pas de upsert({ where: { country_profileType_domain: { ..., domain: null } } }) :
+  // Prisma refuse `null` dans la valeur d'une clé composée (un index unique SQL avec NULL
+  // ne garantit pas l'unicité), alors que la quasi-totalité des règles définies ici sont
+  // des règles générales (`domain` non renseigné = null) plutôt que spécifiques à un
+  // domaine — c'est justement le cas le plus courant qui levait une
+  // PrismaClientValidationError non interceptée = 500 systématique à chaque tentative de
+  // configuration d'une règle générale. findFirst + create/update manuel n'a pas cette
+  // contrainte : `domain: null` y est un simple filtre.
+  const domain = parsed.data.domain ?? null;
+  const existing = await prisma.countryAgeRequirement.findFirst({
+    where: { country: parsed.data.country, profileType: parsed.data.profileType, domain },
   });
+  const entry = existing
+    ? await prisma.countryAgeRequirement.update({
+        where: { id: existing.id },
+        data: { ...parsed.data, domain, setByAdminId: guard.user.id },
+      })
+    : await prisma.countryAgeRequirement.create({
+        data: { ...parsed.data, domain, setByAdminId: guard.user.id },
+      });
 
   await logAdminAction({
     adminId: guard.user.id,

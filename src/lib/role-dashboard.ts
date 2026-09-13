@@ -3,7 +3,11 @@
 export type Role = "client" | "expert_digital" | "expert_btp_autres" | "artisan" | "manoeuvre" | "admin";
 
 export const ROLE_DASHBOARD: Record<string, string> = {
-  client: "/dashboard/client",
+  // Namespace /client/* — mêmes URLs que la sidebar (CLIENT_NAV, DashboardLayout.tsx) et
+  // que missionsHrefForRole ci-dessous. `/dashboard/client` reste servi (redirection, voir
+  // src/app/dashboard/client/page.tsx) pour les liens historiques, mais n'est plus la cible
+  // canonique — ça évitait un aller-retour de redirection à chaque connexion.
+  client: "/client/dashboard",
   expert_digital: "/dashboard/expert-digital",
   expert_btp_autres: "/dashboard/expert-btp",
   artisan: "/dashboard/artisan",
@@ -11,19 +15,34 @@ export const ROLE_DASHBOARD: Record<string, string> = {
   admin: "/admin",
 };
 
-// Même principe pour la liste de missions : chaque profil prestataire a sa page dédiée
-// (garants + risque effectif pour les filières chantier, vue simple pour le digital) —
-// /missions reste l'entrée générique (client) et redirige les autres rôles ici.
-export const ROLE_MISSIONS: Record<string, string> = {
-  expert_digital: "/missions/expert-digital",
-  expert_btp_autres: "/missions/expert-btp",
-  artisan: "/missions/artisan",
-  manoeuvre: "/missions/manoeuvre",
-};
+// L'affichage de toutes les missions se fait désormais UNIQUEMENT dans le dashboard
+// (section "Mes Missions" du prestataire, /client/missions pour le client). Les pages
+// autonomes /missions et /missions/<role> ont été supprimées — ce helper donne le lien
+// valide vers la liste de missions du rôle, et le point d'entrée de connexion sinon.
+export function missionsHrefForRole(role: Role | undefined): string {
+  if (!role) return "/signin";
+  if (role === "client") return "/client/missions";
+  const dash = ROLE_DASHBOARD[role];
+  if (dash?.startsWith("/dashboard/")) return `${dash}/missions`;
+  return "/signin";
+}
+
+// Lien vers "Mes candidatures" (uniquement les rôles prestataire — un client ne candidate
+// jamais, il n'y a donc pas d'équivalent "candidatures" pour ce rôle : /dashboard/client
+// n'a pas cette section, contrairement aux dashboards prestataire) — utilisé pour rediriger
+// après la soumission d'un devis (voir DevisForm). En pratique jamais appelé avec
+// role === "client" (DevisPanel ne rend le formulaire que côté prestataire), mais on ne
+// laisse pas ce cas produire un lien mort pour autant.
+export function candidaturesHrefForRole(role: Role | undefined): string {
+  if (!role || role === "client") return "/signin";
+  const dash = ROLE_DASHBOARD[role];
+  if (dash?.startsWith("/dashboard/")) return `${dash}/candidatures`;
+  return "/signin";
+}
 
 // Filières chantier (etat-consolide-Flexwork.md §2, A9/A13) : assurance effective
-// bloquante sur risque élevé, et — pour Artisan/Manœuvre — garants (1 obligatoire + 2
-// optionnels). expert_btp_autres partage l'exigence d'assurance mais pas celle de garant
-// (etat-consolide-Flexwork.md §1.3 ne la documente que pour Artisan/Manœuvre).
+// bloquante sur risque élevé. L'OPTION garant (1 obligatoire + 2 optionnels) reste
+// disponible pour ces filières, mais est désactivée PAR DÉFAUT : elle ne s'applique que si
+// l'Admin KYC a activé « garant requis » pour le compte (User.garantRequired, 2026-09-09).
 export const CHANTIER_ROLES = ["artisan", "manoeuvre", "expert_btp_autres"] as const;
-export const GARANT_ROLES = ["artisan", "manoeuvre"] as const;
+export const GARANT_ROLES = CHANTIER_ROLES;

@@ -10,3 +10,22 @@ export function hasRequiredGarants(garants: { obligatoire: boolean }[]): boolean
 export function canAddGarant(currentCount: number): boolean {
   return currentCount < GARANTS_MAX;
 }
+
+// Comparaison de numéros de téléphone insensible aux espaces ("+229 96 12 34 56" vs
+// "+22996123456") — ne reformate jamais la valeur stockée/affichée, sert uniquement à
+// détecter les doublons.
+export function normalizeTel(tel: string): string {
+  return tel.replace(/\s+/g, "");
+}
+
+// Un même garant (numéro) ne doit pas être utilisé deux fois pour le même candidat —
+// évite qu'une personne ressource ne compte plusieurs fois vers le quota (1 obligatoire +
+// 2 optionnelles) sous des noms différents.
+export function isDuplicateGarantTel(
+  tel: string,
+  existing: { id: string; tel: string }[],
+  excludeId?: string
+): boolean {
+  const normalized = normalizeTel(tel);
+  return existing.some((g) => g.id !== excludeId && normalizeTel(g.tel) === normalized);
+}

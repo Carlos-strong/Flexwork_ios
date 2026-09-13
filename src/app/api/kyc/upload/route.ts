@@ -64,5 +64,17 @@ export async function POST(req: Request) {
 
   await recordVerificationHistory({ subjectType: "kyc", subjectId: userId, event: `document_deposed:${doc.type}` });
 
+  // Synchronisation KYC : un compte précédemment rejeté qui resoumet des documents repasse
+  // en "en_attente" (nouvelle revue en cours). Sinon user.kycStatus resterait "rejete" alors
+  // que les nouveaux documents sont déjà "en_attente" — état incohérent côté /kyc et file
+  // admin (scripts/sync-kyc-status.ts applique la même règle aux comptes existants).
+  if (existing?.kycStatus === "rejete") {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { kycStatus: "en_attente" },
+    });
+    await recordVerificationHistory({ subjectType: "kyc", subjectId: userId, event: "resubmission:en_attente" });
+  }
+
   return NextResponse.json({ id: doc.id, type: doc.type, status: doc.status });
 }

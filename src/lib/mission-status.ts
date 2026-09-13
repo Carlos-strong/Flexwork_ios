@@ -1,13 +1,17 @@
 // Styles/libellés partagés pour MissionStatus (enum réel, prisma/schema.prisma) — une
 // seule source de vérité au lieu de dupliquer la même table dans chaque page qui affiche
 // un statut de mission (liste, détail, dashboard).
-// Les 11 valeurs réelles de l'enum MissionStatus (prisma/schema.prisma). Manquaient ici
-// "fonds_sous_sequestre" et "validee" — pourtant les deux seuls statuts posés par le webhook
-// PSP (src/lib/psp-webhook.ts, US-503) à la confirmation d'un HOLD/RELEASE : une mission qui
-// atteint l'étape paiement affichait son enum brut au lieu d'un libellé, et n'avait pas de
-// chip de filtre dédié sur /missions. "en_cours" n'est actuellement posé nulle part côté
-// code (statut mort dans le cycle réel) mais reste listé pour rester exhaustif vis-à-vis du
-// schéma.
+// Les 11 valeurs réelles de l'enum MissionStatus (prisma/schema.prisma). "en_cours" est posé
+// depuis le 2026-09-01 par le premier pointage « arrivée » du prestataire (A12 — POST
+// .../contract/checkin/events), seule trace réelle de démarrage du travail ; il n'avance que
+// depuis fonds_sous_sequestre. "validee" n'a plus été posé entre le 2026-09-02 (le webhook
+// RELEASE pose directement "cloturee" — auparavant une mission sans jalon restait bloquée en
+// "validee" sans jamais atteindre le lien "Donner un avis", gaté sur "cloturee") et le
+// 2026-09-11 : depuis, c'est l'état — et le seul — d'un contrat à RETENUE DE GARANTIE (mode
+// J4) dont tous les jalons sont libérés et dont la retenue cumulée est partie au PSP en une
+// instruction finale, pas encore confirmée (voir emitRetentionRelease, src/lib/psp-webhook.ts).
+// D'où le libellé : le travail est validé et les jalons payés, mais il reste de l'argent au
+// séquestre — dire « Paiement libéré » ici induirait le prestataire en erreur.
 export const MISSION_STATUSES = [
   "brouillon",
   "publiee",
@@ -33,7 +37,7 @@ export const MISSION_STATUS_STYLE: Record<MissionStatusValue, { bg: string; text
   fonds_sous_sequestre: { bg: "bg-blue-50", text: "text-blue-700", dot: "bg-blue-500", label: "Fonds sous séquestre" },
   en_cours: { bg: "bg-blue-50", text: "text-blue-700", dot: "bg-blue-500", label: "Travail en cours" },
   livrable_soumis: { bg: "bg-blue-50", text: "text-blue-700", dot: "bg-blue-500", label: "Livrable soumis" },
-  validee: { bg: "bg-emerald-50", text: "text-emerald-700", dot: "bg-emerald-500", label: "Paiement libéré" },
+  validee: { bg: "bg-emerald-50", text: "text-emerald-700", dot: "bg-emerald-500", label: "Retenue de garantie en cours" },
   mediation_ouverte: { bg: "bg-red-50", text: "text-[#E8112D]", dot: "bg-[#E8112D]", label: "Médiation en cours" },
   cloturee: { bg: "bg-gray-900", text: "text-white", dot: "bg-white", label: "Terminée" },
 };

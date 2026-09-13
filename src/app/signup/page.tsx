@@ -3,37 +3,55 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Eye, EyeOff, Shield, Zap, Users } from "lucide-react";
+import { Eye, EyeOff, Shield } from "lucide-react";
+import { AuthHero } from "./auth-hero";
 
 const PROVIDER_ROLES = ["expert_digital", "expert_btp_autres", "artisan", "manoeuvre"];
 
-const COUNTRY_CODES = [
-  { value: "+229", label: "BJ +229", flag: "🇧🇯" },
-  { value: "+234", label: "NG +234", flag: "🇳🇬" },
-  { value: "+221", label: "SN +221", flag: "🇸🇳" },
-  { value: "+225", label: "CI +225", flag: "🇨🇮" },
-  { value: "+228", label: "TG +228", flag: "🇹🇬" },
+// Source unique pays ⇄ indicatif : le select "Pays" et le select "Indicatif
+// téléphonique" partageaient auparavant deux listes divergentes (NG absent
+// des pays, BF/NE absents des indicatifs) — on les dérive maintenant du
+// même tableau pour qu'ils restent toujours synchronisés.
+const COUNTRIES = [
+  { code: "BJ", dial: "+229", flag: "🇧🇯", name: "Bénin" },
+  { code: "TG", dial: "+228", flag: "🇹🇬", name: "Togo" },
+  { code: "SN", dial: "+221", flag: "🇸🇳", name: "Sénégal" },
+  { code: "CI", dial: "+225", flag: "🇨🇮", name: "Côte d'Ivoire" },
+  { code: "BF", dial: "+226", flag: "🇧🇫", name: "Burkina Faso" },
+  { code: "NE", dial: "+227", flag: "🇳🇪", name: "Niger" },
+  { code: "NG", dial: "+234", flag: "🇳🇬", name: "Nigeria" },
 ];
 
 export default function SignupPage() {
   const router = useRouter();
   const [role, setRole] = useState("");
-  const [error, setError] = useState<"account_exists" | "duplicate" | "generic" | null>(null);
+  const [error, setError] = useState<"account_exists" | "duplicate" | "generic" | "password_mismatch" | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [showPw, setShowPw] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  const [countryCode, setCountryCode] = useState("+229");
+  const [country, setCountry] = useState("BJ");
 
   const isProvider = PROVIDER_ROLES.includes(role);
+  // Le préfixe téléphonique n'est plus choisi séparément : il suit le pays sélectionné.
+  const selectedCountry = COUNTRIES.find((c) => c.code === country) ?? COUNTRIES[0];
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
-    setSubmitting(true);
 
     const form = new FormData(e.currentTarget);
+
+    // Le champ "Confirmer" n'était ni nommé ni comparé au mot de passe :
+    // n'importe quelle confirmation (ou aucune) passait silencieusement.
+    if (form.get("password") !== form.get("confirmPassword")) {
+      setError("password_mismatch");
+      return;
+    }
+
+    setSubmitting(true);
+
     const telRaw = (form.get("phone") as string || "").replace(/\s/g, "");
-    const tel = telRaw.startsWith("+") ? telRaw : `${countryCode}${telRaw}`;
+    const tel = telRaw.startsWith("+") ? telRaw : `${selectedCountry.dial}${telRaw}`;
 
     const payload = {
       firstname: form.get("firstname") || undefined,
@@ -68,73 +86,7 @@ export default function SignupPage() {
 
   return (
     <div className="min-h-screen bg-[#FFF8F0] flex flex-col lg:flex-row">
-      {/* ================================================================ */}
-      {/* LEFT — Hero / Branding                                             */}
-      {/* ================================================================ */}
-      <div className="lg:w-[45%] xl:w-[42%] bg-[#0A1931] text-white flex flex-col justify-between p-6 md:p-10 lg:p-12 relative overflow-hidden">
-        {/* Decorative gradient orbs */}
-        <div className="absolute top-[-20%] right-[-10%] w-[400px] h-[400px] rounded-full bg-[#FF7A00]/10 blur-[80px]" />
-        <div className="absolute bottom-[-10%] left-[-20%] w-[300px] h-[300px] rounded-full bg-[#008751]/10 blur-[60px]" />
-
-        <div className="relative z-10">
-          {/* Logo */}
-          <div className="flex items-center gap-2 mb-12 md:mb-16">
-            <div className="w-10 h-10 rounded-xl bg-[#FF7A00] flex items-center justify-center text-white font-extrabold text-[16px]">AF</div>
-            <div>
-              <span className="text-white font-extrabold text-[18px] tracking-tight">afrilance</span>
-              <span className="text-[#FF7A00] font-extrabold text-[18px]">.</span>
-              <span className="ml-2 px-1.5 py-0.5 rounded-md bg-white/10 text-[10px] font-bold text-[#FCD116]">BETA</span>
-            </div>
-          </div>
-
-          <h1 className="text-[28px] md:text-[34px] lg:text-[38px] font-extrabold leading-tight mb-4">
-            Rejoins <span className="text-[#FF7A00]">500K+</span><br />
-            talents <span className="text-[#FCD116]">africains</span>
-          </h1>
-          <p className="text-white/60 text-[14px] md:text-[15px] leading-relaxed max-w-[420px] mb-8">
-            La plateforme #1 pour freelancers et entreprises en Afrique de l&apos;Ouest.
-          </p>
-
-          {/* Feature pills */}
-          <div className="space-y-4">
-            {[
-              { icon: <Zap className="w-4 h-4" />, label: "Paiement Mobile Money FCFA", sub: "MTN, Orange, Moov, Wave — retrait instantané" },
-              { icon: <Shield className="w-4 h-4" />, label: "Missions Escrow sécurisées", sub: "Ton paiement bloqué jusqu'à validation" },
-              { icon: <Users className="w-4 h-4" />, label: "Support Wolof / Fon / Français", sub: "Assistance locale 7j/7 en 4 langues" },
-            ].map((f, i) => (
-              <div key={i} className="flex items-start gap-3 p-3 rounded-xl bg-white/[0.05] border border-white/[0.06]">
-                <div className="w-8 h-8 rounded-full bg-[#FF7A00]/20 flex items-center justify-center shrink-0 mt-0.5">
-                  <span className="text-[#FF7A00]">{f.icon}</span>
-                </div>
-                <div>
-                  <div className="text-[13px] font-semibold">{f.label}</div>
-                  <div className="text-[11px] text-white/50 mt-0.5">{f.sub}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Testimonial */}
-        <div className="relative z-10 mt-8 p-4 rounded-2xl bg-white/[0.04] border border-white/[0.06]">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#FF7A00] to-[#E8112D] flex items-center justify-center text-white text-[11px] font-bold">AB</div>
-            <div>
-              <div className="text-[12px] font-semibold">Aïcha B.</div>
-              <div className="text-[10px] text-white/50">Designer UI • Cotonou, BJ</div>
-            </div>
-            <div className="ml-auto flex text-[#FCD116] text-[12px]">★★★★★</div>
-          </div>
-          <p className="text-[12px] text-white/70 italic leading-relaxed">
-            &ldquo;Grâce à AfriLance j&rsquo;ai doublé mes revenus. Paiement MoMo en 2h !&rdquo;
-          </p>
-        </div>
-
-        {/* Footer */}
-        <div className="relative z-10 mt-6 flex items-center gap-2 text-[11px] text-white/30">
-          <span>© 2026 AfriLance</span> <span>•</span> <span>500K+ membres</span> <span>•</span> <span>⭐ 4.9/5</span>
-        </div>
-      </div>
+      <AuthHero />
 
       {/* ================================================================ */}
       {/* RIGHT — Registration Form                                          */}
@@ -148,20 +100,25 @@ export default function SignupPage() {
 
           {/* Error states */}
           {error === "account_exists" && (
-            <div className="mb-5 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-[13px]">
+            <div role="alert" className="mb-5 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-[13px]">
               <div className="font-bold text-amber-800 mb-1">⚠️ Compte existant</div>
               <p className="text-zinc-700">Un compte existe déjà avec cet email ou ce téléphone.</p>
               <Link href="/signin" className="inline-flex items-center gap-1 mt-2 text-[#008751] font-semibold hover:underline">→ Se connecter</Link>
             </div>
           )}
           {error === "duplicate" && (
-            <div className="mb-5 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700 font-medium">
+            <div role="alert" className="mb-5 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700 font-medium">
               ⚠️ Une activité suspecte a été détectée. Veuillez contacter le support.
             </div>
           )}
           {error === "generic" && (
-            <div className="mb-5 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700 font-medium">
+            <div role="alert" className="mb-5 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700 font-medium">
               Impossible de créer le compte. Veuillez réessayer.
+            </div>
+          )}
+          {error === "password_mismatch" && (
+            <div role="alert" className="mb-5 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700 font-medium">
+              Les deux mots de passe ne correspondent pas.
             </div>
           )}
 
@@ -203,8 +160,8 @@ export default function SignupPage() {
             {/* Provider type selector (shown when prestataire selected) */}
             {isProvider && (
               <div>
-                <label className="block text-[13px] font-semibold text-zinc-700 mb-2">Type de prestataire <span className="text-[#E8112D]">*</span></label>
-                <select name="providerType" value={role} onChange={(e) => setRole(e.target.value)}
+                <label htmlFor="providerType" className="block text-[13px] font-semibold text-zinc-700 mb-2">Type de prestataire <span className="text-[#E8112D]">*</span></label>
+                <select id="providerType" name="providerType" value={role} onChange={(e) => setRole(e.target.value)}
                   className="w-full h-10 px-3 rounded-xl border border-zinc-200 text-[14px] bg-white focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751] transition">
                   <option value="expert_digital">Expert Digital</option>
                   <option value="expert_btp_autres">Expert BTP / Autres</option>
@@ -218,48 +175,45 @@ export default function SignupPage() {
             <div>
               <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Nom complet <span className="text-[#E8112D]">*</span></label>
               <div className="grid grid-cols-2 gap-3">
-                <input type="text" name="lastname" required placeholder="Adjovi" className="w-full h-11 px-4 rounded-xl border border-zinc-200 text-[14px] focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751] transition" />
-                <input type="text" name="firstname" required placeholder="Koffi" className="w-full h-11 px-4 rounded-xl border border-zinc-200 text-[14px] focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751] transition" />
+                <input type="text" name="lastname" required autoComplete="family-name" aria-label="Nom" placeholder="Adjovi" className="w-full h-11 px-4 rounded-xl border border-zinc-200 text-[14px] focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751] transition" />
+                <input type="text" name="firstname" required autoComplete="given-name" aria-label="Prénom" placeholder="Koffi" className="w-full h-11 px-4 rounded-xl border border-zinc-200 text-[14px] focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751] transition" />
               </div>
             </div>
 
             {/* Email */}
             <div>
-              <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Email <span className="text-[#E8112D]">*</span></label>
-              <input type="email" name="email" required placeholder="koffi@email.com" className="w-full h-11 px-4 rounded-xl border border-zinc-200 text-[14px] focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751] transition" />
+              <label htmlFor="email" className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Email <span className="text-[#E8112D]">*</span></label>
+              <input id="email" type="email" name="email" required autoComplete="email" placeholder="koffi@email.com" className="w-full h-11 px-4 rounded-xl border border-zinc-200 text-[14px] focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751] transition" />
             </div>
 
-            {/* Téléphone avec code pays */}
-            <div>
-              <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Téléphone <span className="text-[#E8112D]">*</span></label>
-              <div className="flex gap-2">
-                <select value={countryCode} onChange={(e) => setCountryCode(e.target.value)}
-                  className="h-11 px-2 rounded-xl border border-zinc-200 text-[14px] bg-white focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751] transition shrink-0">
-                  {COUNTRY_CODES.map((c) => (
-                    <option key={c.value} value={c.value}>{c.flag} {c.label}</option>
-                  ))}
-                </select>
-                <input type="tel" name="phone" required placeholder="96 12 34 56" className="flex-1 h-11 px-4 rounded-xl border border-zinc-200 text-[14px] focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751] transition" />
-              </div>
-            </div>
-
-            {/* Pays & Ville */}
+            {/* Pays & Ville — le pays est choisi avant le téléphone : son indicatif en dépend juste en dessous */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Pays <span className="text-[#E8112D]">*</span></label>
-                <select name="country" required defaultValue="BJ" className="w-full h-11 px-3 rounded-xl border border-zinc-200 text-[14px] bg-white focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751] transition">
-                  <option value="BJ">🇧🇯 Bénin</option>
-                  <option value="TG">🇹🇬 Togo</option>
-                  <option value="SN">🇸🇳 Sénégal</option>
-                  <option value="CI">🇨🇮 Côte d'Ivoire</option>
-                  <option value="BF">🇧🇫 Burkina Faso</option>
-                  <option value="NE">🇳🇪 Niger</option>
+                <label htmlFor="country" className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Pays <span className="text-[#E8112D]">*</span></label>
+                <select id="country" name="country" required autoComplete="country" value={country} onChange={(e) => setCountry(e.target.value)}
+                  className="w-full h-11 px-3 rounded-xl border border-zinc-200 text-[14px] bg-white focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751] transition">
+                  {COUNTRIES.map((c) => (
+                    <option key={c.code} value={c.code}>{c.flag} {c.name}</option>
+                  ))}
                 </select>
               </div>
               <div>
-                <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Ville <span className="text-[#E8112D]">*</span></label>
-                <input type="text" name="city" required placeholder="Cotonou" className="w-full h-11 px-4 rounded-xl border border-zinc-200 text-[14px] focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751] transition" />
+                <label htmlFor="city" className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Ville <span className="text-[#E8112D]">*</span></label>
+                <input id="city" type="text" name="city" required autoComplete="address-level2" placeholder="Cotonou" className="w-full h-11 px-4 rounded-xl border border-zinc-200 text-[14px] focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751] transition" />
               </div>
+            </div>
+
+            {/* Téléphone — l'indicatif suit automatiquement le pays choisi ci-dessus, plus besoin de le resélectionner */}
+            <div>
+              <label htmlFor="phone" className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Téléphone <span className="text-[#E8112D]">*</span></label>
+              <div className="flex items-stretch h-11 rounded-xl border border-zinc-200 bg-white overflow-hidden focus-within:ring-2 focus-within:ring-[#008751]/20 focus-within:border-[#008751] transition">
+                <span className="flex items-center gap-1.5 pl-3 pr-2 border-r border-zinc-200 bg-zinc-50 text-[14px] font-medium text-zinc-600 shrink-0" title={`Indicatif ${selectedCountry.name}`}>
+                  <span aria-hidden="true">{selectedCountry.flag}</span>
+                  <span>{selectedCountry.dial}</span>
+                </span>
+                <input id="phone" type="tel" name="phone" required autoComplete="tel-national" placeholder="96 12 34 56" className="flex-1 min-w-0 h-full px-4 text-[14px] bg-transparent focus:outline-none" />
+              </div>
+              <p className="mt-1 text-[11px] text-zinc-400">Indicatif {selectedCountry.dial} appliqué automatiquement d&apos;après le pays sélectionné.</p>
             </div>
 
             {/* Locality + Address (hidden by default, expandable) */}
@@ -269,17 +223,22 @@ export default function SignupPage() {
             {/* Password */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Mot de passe <span className="text-[#E8112D]">*</span></label>
+                <label htmlFor="password" className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Mot de passe <span className="text-[#E8112D]">*</span></label>
                 <div className="relative">
-                  <input type={showPw ? "text" : "password"} name="password" required minLength={12} placeholder="••••••••" className="w-full h-11 px-4 pr-10 rounded-xl border border-zinc-200 text-[14px] focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751] transition" />
-                  <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600">
+                  <input id="password" type={showPw ? "text" : "password"} name="password" required minLength={12} autoComplete="new-password" placeholder="••••••••" className="w-full h-11 px-4 pr-10 rounded-xl border border-zinc-200 text-[14px] focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751] transition" />
+                  <button type="button" onClick={() => setShowPw(!showPw)} aria-label={showPw ? "Masquer le mot de passe" : "Afficher le mot de passe"} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600">
                     {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
               </div>
               <div>
-                <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Confirmer</label>
-                <input type={showConfirm ? "text" : "password"} placeholder="••••••••" className="w-full h-11 px-4 rounded-xl border border-zinc-200 text-[14px] focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751] transition" />
+                <label htmlFor="confirmPassword" className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Confirmer <span className="text-[#E8112D]">*</span></label>
+                <div className="relative">
+                  <input id="confirmPassword" type={showConfirm ? "text" : "password"} name="confirmPassword" required minLength={12} autoComplete="new-password" placeholder="••••••••" className="w-full h-11 px-4 pr-10 rounded-xl border border-zinc-200 text-[14px] focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751] transition" />
+                  <button type="button" onClick={() => setShowConfirm(!showConfirm)} aria-label={showConfirm ? "Masquer le mot de passe" : "Afficher le mot de passe"} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600">
+                    {showConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -292,7 +251,7 @@ export default function SignupPage() {
 
             {/* CGU */}
             <label className="flex items-start gap-2 cursor-pointer">
-              <input type="checkbox" required className="mt-0.5 w-4 h-4 rounded border-zinc-300 text-[#008751] focus:ring-[#008751]" />
+              <input type="checkbox" name="cgvAccepted" required className="mt-0.5 w-4 h-4 rounded border-zinc-300 text-[#008751] focus:ring-[#008751]" />
               <span className="text-[12px] text-zinc-500 leading-relaxed">
                 J&rsquo;accepte les <Link href="/terms" className="text-[#008751] underline font-medium">CGU</Link> et la <Link href="/privacy" className="text-[#008751] underline font-medium">politique de confidentialité</Link>
               </span>
@@ -326,7 +285,7 @@ export default function SignupPage() {
             {/* Trust badge */}
             <div className="flex items-center justify-center gap-2 pt-3 border-t border-zinc-100 text-[11px] text-zinc-400">
               <Shield className="w-3.5 h-3.5 text-[#008751]" />
-              Paiement sécurisé par AfriLance Escrow
+              Paiement sécurisé par séquestre (Escrow)
             </div>
           </form>
         </div>

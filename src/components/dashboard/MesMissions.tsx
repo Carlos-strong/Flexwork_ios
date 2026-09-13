@@ -1,6 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
+import { Eye } from "lucide-react";
+import { fetchDedupe } from "@/lib/fetch-dedupe";
+import { Avatar } from "@/components/avatar";
+import { weightedJalonsProgress } from "@/lib/jalons";
 
 type ApiMission = {
   id: string;
@@ -9,7 +14,14 @@ type ApiMission = {
   budget: number;
   currency: string;
   domaine?: string;
+  delaiJours?: number | null;
+  dateExpiration?: string | null;
+  observedProgress?: number;
   _count?: { proposals: number };
+  contract?: {
+    jalons: { status: string; montant: number; observedProgress: number }[];
+    provider: { id: string; firstname: string | null; lastname: string | null; avatarPath: string | null } | null;
+  } | null;
 };
 
 type Mission = {
@@ -18,22 +30,57 @@ type Mission = {
   category: string;
   budget: string;
   status: string;
-  talent: string;
-  flag: string;
+  freelanceName: string | null;
+  freelanceId: string | null;
+  freelanceAvatarPath: string | null;
   progress: number;
   deadline: string;
   proposals?: number;
 };
 
+// PROGRESSION de la liste — avancement GLOBAL de la mission, pondéré par montant sur un
+// contrat à jalons (règle 18.14, voir weightedJalonsProgress), ou observedProgress pour un
+// contrat sans jalon. Sur un contrat à jalons, mission.observedProgress ne reflète jamais
+// l'avancement réel (voir src/lib/psp-webhook.ts) — d'où le repli sur les jalons plutôt que
+// ce champ.
+function progressOf(m: ApiMission): number {
+  const jalons = m.contract?.jalons ?? [];
+  if (jalons.length > 0) {
+    return weightedJalonsProgress(jalons);
+  }
+  return m.observedProgress ?? 0;
+}
+
 const ACTIVE_STATUSES = ["proposition_acceptee", "contrat_genere", "contrat_signe", "fonds_sous_sequestre", "en_cours"];
+
+// Même logique de délai que MissionsSection (prestataire) : J-X depuis dateExpiration,
+// sinon delaiJours.
+function deadlineOf(m: ApiMission): string {
+  if (m.dateExpiration) {
+    const days = Math.ceil((new Date(m.dateExpiration).getTime() - Date.now()) / 86400000);
+    if (days <= 0) return "Fermée";
+    if (days === 1) return "Demain";
+    return `J-${days}`;
+  }
+  if (m.delaiJours) return `J-${m.delaiJours}`;
+  return "";
+}
+
+// Sur un contrat à jalons, mission.status ne passe jamais à "livrable_soumis" — seul
+// jalon.status le fait, jalon par jalon (voir src/lib/psp-webhook.ts). Sans ce repli, une
+// mission à jalons restait affichée "En cours" même avec un livrable réellement en attente
+// de vérification.
+function hasPendingJalon(m: ApiMission): boolean {
+  return (m.contract?.jalons.length ?? 0) > 0 && m.contract!.jalons.some((j) => j.status === "livrable_soumis");
+}
 
 function toDisplay(m: ApiMission): Mission {
   const proposals = m._count?.proposals ?? 0;
   let status: string;
   if (m.status === "publiee" && proposals > 0) status = "Propositions";
   else if (m.status === "publiee") status = "Ouverte";
+  else if (m.status === "livrable_soumis" || hasPendingJalon(m)) status = "En révision";
   else if (ACTIVE_STATUSES.includes(m.status)) status = "En cours";
-  else if (m.status === "livrable_soumis") status = "En révision";
   else if (m.status === "validee" || m.status === "cloturee") status = "Livrée";
   else if (m.status === "mediation_ouverte") status = "Annulée";
   else status = "Ouverte";
@@ -44,10 +91,13 @@ function toDisplay(m: ApiMission): Mission {
     category: m.domaine ?? "",
     budget: `${m.budget.toLocaleString("fr-FR")} ${m.currency}`,
     status,
-    talent: "",
-    flag: "",
-    progress: 0,
-    deadline: "",
+    freelanceName: m.contract?.provider
+      ? [m.contract.provider.firstname, m.contract.provider.lastname].filter(Boolean).join(" ") || "Prestataire"
+      : null,
+    freelanceId: m.contract?.provider?.id ?? null,
+    freelanceAvatarPath: m.contract?.provider?.avatarPath ?? null,
+    progress: progressOf(m),
+    deadline: deadlineOf(m),
     proposals: status === "Propositions" ? proposals : undefined,
   };
 }
@@ -76,13 +126,12 @@ function matchesFilter(mission: Mission, filter: string): boolean {
 export default function MesMissions() {
   const [filter, setFilter] = useState("Toutes");
   const [search, setSearch] = useState("");
-  const [view, setView] = useState<"grid" | "list">("grid");
   const [missions, setMissions] = useState<Mission[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/missions")
+    fetchDedupe("/api/missions")
       .then((r) => (r.ok ? r.json() : { items: [] }))
       .then((d) => {
         if (cancelled) return;
@@ -136,12 +185,19 @@ export default function MesMissions() {
       {/* Titre + action */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
-          <h1 className="text-[28px] font-extrabold leading-none tracking-tight">Mes Missions</h1>
-          <p className="text-[13px] text-gray-500 mt-2">Gère toutes tes missions en un seul endroit — clients & talents afro.</p>
+          <div className="flex items-center gap-3 flex-wrap">
+            <h1 className="text-[28px] font-extrabold leading-none tracking-tight text-[#0A1931]">Mes Missions</h1>
+            <span className="rounded-full bg-[#0A1931] text-white text-[10px] font-bold tracking-wide px-3 py-1.5">Cliente</span>
+          </div>
+          <p className="text-[13px] text-gray-500 mt-2">Gère toutes tes missions en un seul endroit — suis les propositions & les livrables.</p>
         </div>
-        <button className="bg-gradient-to-r from-[#FF6B35] to-[#FF3E6C] text-white rounded-full px-5 py-[10px] text-[13px] font-bold shadow-[0_4px_14px_rgba(255,107,53,0.3)] hover:shadow-[0_6px_20px_rgba(255,107,53,0.4)] hover:translate-y-[-1px] transition-all flex items-center justify-center gap-2 shrink-0">
-          <span className="text-[16px]">+</span> Nouvelle mission
-        </button>
+        <Link
+          href="/missions/new"
+          className="bg-gradient-to-r from-[#FF6B35] to-[#FF3E6C] text-white rounded-full px-5 py-[10px] text-[13px] font-bold shadow-[0_4px_14px_rgba(255,107,53,0.3)] hover:shadow-[0_6px_20px_rgba(255,107,53,0.4)] hover:translate-y-[-1px] transition-all flex items-center justify-center gap-2 shrink-0"
+          style={{ textDecoration: "none" }}
+        >
+          <span className="text-[16px] leading-none">+</span> Nouvelle mission
+        </Link>
       </div>
 
       {/* Statistiques */}
@@ -168,91 +224,104 @@ export default function MesMissions() {
         </div>
       </div>
 
-      {/* Filtres + bascule grille/liste */}
-      <div className="flex flex-col sm:flex-row gap-3 justify-between">
-        <div className="bg-white rounded-[16px] p-2 flex gap-2 overflow-x-auto scrollbar-none border border-gray-100 shadow-sm">
-          {FILTERS.map((label) => {
-            const active = filter === label;
-            return (
-              <button
-                key={label}
-                onClick={() => setFilter(label)}
-                className={`whitespace-nowrap rounded-full px-4 py-[7px] text-[12px] font-bold transition ${active ? "bg-[#0A1931] text-white shadow" : "bg-[#F8F6F3] text-gray-600 hover:bg-gray-100"}`}
-              >
-                {label} <span className={`ml-1 ${active ? "text-white/70" : "text-gray-400"}`}>{counts[label] ?? 0}</span>
-              </button>
-            );
-          })}
-        </div>
-        <div className="flex items-center gap-2 self-start sm:self-auto">
-          <div className="bg-white rounded-full p-1 flex border border-gray-100 shadow-sm">
+      {/* Filtres */}
+      <div className="bg-white rounded-[16px] p-2 flex gap-2 overflow-x-auto scrollbar-none border border-gray-100 shadow-sm">
+        {FILTERS.map((label) => {
+          const active = filter === label;
+          return (
             <button
-              onClick={() => setView("grid")}
-              className={`w-8 h-8 rounded-full flex items-center justify-center text-[13px] transition ${view === "grid" ? "bg-[#0A1931] text-white" : "text-gray-400 hover:text-gray-700"}`}
-              title="Grille"
+              key={label}
+              onClick={() => setFilter(label)}
+              className={`whitespace-nowrap rounded-full px-4 py-[7px] text-[12px] font-bold transition ${active ? "bg-[#0A1931] text-white shadow" : "bg-[#F8F6F3] text-gray-600 hover:bg-gray-100"}`}
             >
-              ⊞
+              {label} <span className={`ml-1 ${active ? "text-white/70" : "text-gray-400"}`}>{counts[label] ?? 0}</span>
             </button>
-            <button
-              onClick={() => setView("list")}
-              className={`w-8 h-8 rounded-full flex items-center justify-center text-[13px] transition ${view === "list" ? "bg-[#0A1931] text-white" : "text-gray-400 hover:text-gray-700"}`}
-              title="Liste"
-            >
-              ☰
-            </button>
-          </div>
-        </div>
+          );
+        })}
       </div>
 
-      {/* Cartes missions */}
-      <div className={view === "grid" ? "grid md:grid-cols-2 lg:grid-cols-3 gap-4" : "flex flex-col gap-3"}>
-        {filtered.map((m) => (
-          <div
-            key={m.id}
-            className={`group bg-white rounded-[20px] p-5 border border-gray-100 hover:shadow-lg hover:border-orange-100 transition-all flex flex-col ${view === "list" ? "sm:flex-row sm:items-center gap-4" : ""}`}
-          >
-            <div className={view === "list" ? "flex-1 min-w-0" : "flex-1"}>
-              <div className="flex justify-between items-start gap-3">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className={`rounded-full px-3 py-1 text-[11px] font-bold border ${STATUS_STYLE[m.status] || "bg-gray-100"}`}>
-                    {m.status === "Propositions" && m.proposals ? `${m.proposals} ${m.status}` : m.status}
-                  </span>
-                  <span className="text-[10px] text-gray-400 font-mono">#{m.id.slice(-6).toUpperCase()}</span>
-                </div>
-                {m.deadline && <span className="text-[10px] text-gray-400 font-medium whitespace-nowrap">⏰ {m.deadline}</span>}
-              </div>
-              <h3 className="font-bold text-[14px] mt-3 leading-snug group-hover:text-[#FF6B35] transition-colors line-clamp-2">{m.title}</h3>
-              <div className="text-[12px] text-gray-500 mt-1 flex items-center gap-2">
-                <span>{m.category}</span>
-                <span className="w-1 h-1 bg-gray-300 rounded-full" />
-                <span className="font-bold text-[#0A1931]">{m.budget}</span>
-              </div>
-              {m.talent && (
-                <div className="flex items-center gap-2 mt-4">
-                  <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#FF6B35] to-[#F7C948] flex items-center justify-center text-[11px] font-bold text-white">{m.talent.charAt(0)}</div>
-                  <div className="text-[12px]">
-                    <span className="font-semibold">{m.talent}</span> <span>{m.flag}</span>
-                  </div>
-                </div>
-              )}
-              {m.progress > 0 && (
-                <div className="mt-4">
-                  <div className="flex justify-between text-[10px] font-bold text-gray-400 mb-1">
-                    <span>Progression</span>
-                    <span className="text-[#0A1931]">{m.progress}%</span>
-                  </div>
-                  <div className="h-[6px] bg-gray-100 rounded-full overflow-hidden">
-                    <div className="h-full bg-gradient-to-r from-[#FF6B35] to-[#F7C948] rounded-full transition-all" style={{ width: `${m.progress}%` }} />
-                  </div>
-                </div>
-              )}
-            </div>
-            <div className={`flex gap-2 ${view === "list" ? "sm:w-[140px] shrink-0 mt-2 sm:mt-0" : "mt-auto pt-4"}`}>
-              <button className="flex-1 bg-[#0A1931] hover:bg-black text-white rounded-full py-2 text-[12px] font-bold transition">Voir</button>
-              <button className="bg-[#F8F6F3] hover:bg-gray-100 rounded-full px-3 py-2 text-[12px]">💬</button>
-            </div>
-          </div>
-        ))}
+      {/* Table missions (maquette Flexwork-Gestion-Missions-Dropdown) — remplace les cartes
+          grille/liste (2026-09-04). Colonnes MISSION / FREELANCE / MONTANT / STATUT /
+          PROGRESSION / ACTION. "Client" de la maquette omise (c'est toujours l'utilisateur
+          connecté sur cette page — redondant). ACTION = uniquement "Voir" (renvoie vers la
+          fiche détaillée /missions/[id]) — messagerie et dropdown "Validations partielles"
+          retirés de cette colonne (2026-09-04), ce détail se consultant désormais sur la fiche
+          mission elle-même plutôt que depuis la liste. */}
+      <div className="bg-white rounded-[16px] border border-gray-100 shadow-sm overflow-x-auto">
+        <table className="w-full text-[13px]">
+          <thead>
+            <tr className="bg-[#F9FAFB] border-b border-gray-100">
+              <th className="text-left font-semibold text-[11px] tracking-widest text-gray-500 uppercase px-4 py-3">Mission</th>
+              <th className="text-left font-semibold text-[11px] tracking-widest text-gray-500 uppercase px-4 py-3">Freelance</th>
+              <th className="text-left font-semibold text-[11px] tracking-widest text-gray-500 uppercase px-4 py-3 whitespace-nowrap">Montant</th>
+              <th className="text-left font-semibold text-[11px] tracking-widest text-gray-500 uppercase px-4 py-3">Statut</th>
+              <th className="text-left font-semibold text-[11px] tracking-widest text-gray-500 uppercase px-4 py-3">Progression</th>
+              <th className="text-left font-semibold text-[11px] tracking-widest text-gray-500 uppercase px-4 py-3">Action</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {filtered.map((m) => {
+              return (
+                  <tr key={m.id} className="hover:bg-gray-50/50 transition-colors">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3 min-w-[220px]">
+                        <div className="w-8 h-8 rounded-lg bg-gray-900 text-white flex items-center justify-center text-[10px] font-bold shrink-0">
+                          {m.id.slice(-2).toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <Link href={`/missions/${m.id}`} className="font-semibold text-[13px] text-[#0A1931] hover:text-[#FF6B35] transition-colors line-clamp-1" style={{ textDecoration: "none" }}>
+                            {m.title}
+                          </Link>
+                          <div className="text-[10px] text-gray-400 font-mono">#{m.id.slice(-6).toUpperCase()}{m.deadline ? ` · ⏰ ${m.deadline}` : ""}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      {m.freelanceName ? (
+                        <div className="flex items-center gap-2">
+                          <Avatar
+                            src={m.freelanceAvatarPath ? `/api/users/${m.freelanceId}/avatar` : null}
+                            initials={m.freelanceName.charAt(0)}
+                            gradient="from-[#FF6B35] to-[#F7C948]"
+                            size={28}
+                          />
+                          <span className="text-[12px] font-medium text-[#0A1931] truncate">{m.freelanceName}</span>
+                        </div>
+                      ) : (
+                        <span className="text-gray-400 text-[12px]">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 font-bold text-[#0A1931] whitespace-nowrap">{m.budget}</td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-flex rounded-full px-3 py-1 text-[11px] font-bold border whitespace-nowrap ${STATUS_STYLE[m.status] || "bg-gray-100"}`}>
+                        {m.status === "Propositions" && m.proposals ? `${m.proposals} ${m.status}` : m.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-20 h-1.5 rounded-full bg-gray-100 overflow-hidden shrink-0">
+                          <div className="h-full bg-gradient-to-r from-[#FF6B35] to-[#F7C948] rounded-full transition-all" style={{ width: `${m.progress}%` }} />
+                        </div>
+                        <span className="text-[11px] font-semibold text-gray-600 whitespace-nowrap">{m.progress}%</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <div className="flex items-center gap-1.5">
+                        {/* "Voir" — renvoie vers la fiche détaillée de la mission
+                            (/missions/[id] : bandeau 6-phases + vue de validation pour une
+                            mission engagée, ou détail générique sinon). Seule action de cette
+                            colonne (2026-09-04) — messagerie et "Validations partielles" se
+                            consultent désormais depuis la fiche mission elle-même. */}
+                        <Link href={`/missions/${m.id}`} className="w-7 h-7 rounded-full bg-[#F8F6F3] hover:bg-gray-100 flex items-center justify-center shrink-0" style={{ textDecoration: "none" }} title="Voir">
+                          <Eye className="w-3.5 h-3.5 text-zinc-500" />
+                        </Link>
+                      </div>
+                    </td>
+                  </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
 
       {filtered.length === 0 && (

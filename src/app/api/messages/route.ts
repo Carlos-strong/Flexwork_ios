@@ -12,6 +12,9 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { signPrivateFileToken } from "@/lib/storage";
+import { containsLeakageAttempt } from "@/lib/leakage-detection";
+import { requireMissionParty } from "@/lib/resource-guard";
+import { notifyNewMessage, markConversationNotificationsRead } from "@/lib/message-notify";
 import { z } from "zod";
 
 // ---------------------------------------------------------------------------
@@ -27,6 +30,18 @@ export async function GET(req: Request) {
 
   // --- Messages d'une conversation spécifique ---
   if (missionId) {
+    // F-01 étendu : une conversation (messages d'une mission) n'est lisible que par le
+    // client propriétaire ou un prestataire ayant candidaté — jamais par un tiers (404,
+    // indistinguable d'une mission inexistante).
+    const guard = await requireMissionParty(missionId, userId);
+    if (!guard.ok) {
+      return NextResponse.json({ error: "not_found" }, { status: 404 });
+    }
+    // Ouvrir le fil vaut lecture : les notifications de messagerie de cette conversation
+    // passent à lues, ce qui réarme l'e-mail pour le prochain message (voir la cadence
+    // documentée dans src/lib/message-notify.ts).
+    await markConversationNotificationsRead(userId, missionId);
+
     const messages = await prisma.message.findMany({
       where: { missionId },
       orderBy: { createdAt: "asc" },
@@ -192,23 +207,19 @@ export async function POST(req: Request) {
 
   const { missionId, content } = parsed.data;
 
-  // Vérifier que l'utilisateur est bien participant de cette mission
-  // (client de la mission OU prestataire ayant candidaté)
-  const mission = await prisma.mission.findUnique({
-    where: { id: missionId },
-    select: {
-      clientId: true,
-      proposals: {
-        where: { providerId: userId },
-        select: { id: true },
-      },
-    },
-  });
+  // Vérifier la participation (client de la mission OU prestataire ayant candidaté) via le
+  // garde partagé — un tiers reçoit 404, indistinguable d'une mission inexistante (R02).
+  const guard = await requireMissionParty(missionId, userId);
+  if (!guard.ok) return NextResponse.json({ error: "not_found" }, { status: 404 });
 
-  if (!mission) return NextResponse.json({ error: "mission_not_found" }, { status: 404 });
-
-  const isParticipant = mission.clientId === userId || mission.proposals.length > 0;
-  if (!isParticipant) return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  // US-1301 — bloque à l'envoi tout message contenant un numéro de téléphone ou une mention
+  // de paiement direct, pour prévenir la fuite hors plateforme. Portée depuis l'ancienne route
+  // POST /api/missions/[id]/messages (2026-08-29, page dédiée /missions/[id]/chat retirée,
+  // doublon de Messagerie/MessageBubble) : cette route-ci est désormais le seul point d'envoi
+  // réel, la garde devait donc y vivre elle aussi plutôt que de disparaître avec l'ancienne page.
+  if (containsLeakageAttempt(content)) {
+    return NextResponse.json({ error: "message_blocked_leakage_attempt" }, { status: 422 });
+  }
 
   const message = await prisma.message.create({
     data: {
@@ -218,6 +229,11 @@ export async function POST(req: Request) {
     },
     select: { id: true, content: true, createdAt: true },
   });
+
+  // Cloche + e-mail pour le destinataire ET pour l'expéditeur (2026-09-09). Volontairement
+  // await : l'envoi doit être notifié avant que la réponse ne revienne, mais la fonction
+  // n'échoue jamais — elle avale ses propres erreurs.
+  await notifyNewMessage({ missionId, senderId: userId, preview: message.content });
 
   return NextResponse.json({
     message: {

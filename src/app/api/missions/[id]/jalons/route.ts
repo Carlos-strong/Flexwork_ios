@@ -23,5 +23,11 @@ export async function GET(
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
-  return NextResponse.json({ items: contract.jalons });
+  // financingMode/jalonsSequential (règle 18.4/18.8-18.9) — pour que l'UI explique POURQUOI un
+  // jalon `en_attente` reste verrouillé (18.9) et affiche un indicateur de mode de financement.
+  return NextResponse.json({
+    items: contract.jalons,
+    financingMode: contract.financingMode,
+    jalonsSequential: contract.jalonsSequential,
+  });
 }

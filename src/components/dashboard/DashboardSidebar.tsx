@@ -1,9 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { X } from "lucide-react";
+import { usePathname, useSearchParams } from "next/navigation";
+import { Suspense } from "react";
+import { X, FileText, ScrollText } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
+import { Avatar } from "@/components/avatar";
 
 /** Élément de navigation (bouton ou lien selon `href`). */
 export type NavItem = {
@@ -31,10 +34,14 @@ export type ShortcutItem = {
 };
 
 export type SidebarUser = {
+  /** Id du compte connecté — présent, rend la photo de profil cliquable vers /profil/[id]. */
+  id?: string | null;
   initials: string;
   name: string;
   role: string;
   avatarGradient: string;
+  /** Photo de profil réelle (/api/users/[id]/avatar) — absent ou en échec de chargement, on retombe sur initials+avatarGradient. */
+  avatarUrl?: string | null;
 };
 
 /** Action de pied de barre (lien ou bouton). */
@@ -44,6 +51,15 @@ export type SidebarAction = {
   Icon: LucideIcon;
   href?: string;
   onClick?: () => void;
+};
+
+// ── Bloc « Documents Contractuels » (rubriques + sous-rubriques, Sidecar-Vjr) ──
+export type DocumentsLink = { id: string; label: string; count?: number };
+export type DocumentsBlock = {
+  /** URL de base de la rubrique « Devis & Contrats » — les sous-rubriques ajoutent ?tab=&f=. */
+  base: string;
+  devis: DocumentsLink[];
+  contrats: DocumentsLink[];
 };
 
 type DashboardSidebarProps = {
@@ -60,6 +76,9 @@ type DashboardSidebarProps = {
   footer?: ReactNode;
   /** Actions du bas de barre (ex: déconnexion, aide). */
   footerActions?: SidebarAction[];
+  /** Bloc « Documents Contractuels » (Mes Devis / Contrats Signés + sous-rubriques) —
+      rendu en fin de navigation, fidèle au modèle Sidecar-Devis-Contrats-Signes-Vjr. */
+  documents?: DocumentsBlock;
 };
 
 export default function DashboardSidebar({
@@ -73,6 +92,7 @@ export default function DashboardSidebar({
   header,
   footer,
   footerActions,
+  documents,
 }: DashboardSidebarProps) {
   return (
     <>
@@ -122,6 +142,16 @@ export default function DashboardSidebar({
               </div>
             </div>
           ))}
+
+          {/* Bloc « Documents Contractuels » — isolé dans son propre composant sous
+              Suspense : useSearchParams() (état actif des sous-rubriques) exige une
+              frontière Suspense en Next 14 App Router, et DashboardSidebar est monté par
+              une dizaine de pages qu'on ne va pas toutes faire dépendre de ça. */}
+          {documents && (
+            <Suspense fallback={<DocumentsNavStatic documents={documents} onClose={onClose} />}>
+              <DocumentsNav documents={documents} onClose={onClose} />
+            </Suspense>
+          )}
         </nav>
 
         {/* Pied : slot + utilisateur + actions */}
@@ -129,7 +159,13 @@ export default function DashboardSidebar({
           {footer}
           {user && (
             <div className="flex items-center gap-3 px-2 py-1">
-              <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${user.avatarGradient} flex items-center justify-center text-white text-[10px] font-bold`}>{user.initials}</div>
+              {user.id ? (
+                <Link href={`/profil/${user.id}`} onClick={onClose} title="Voir mon profil">
+                  <Avatar src={user.avatarUrl} initials={user.initials} gradient={user.avatarGradient} size={32} className="hover:opacity-80 transition" />
+                </Link>
+              ) : (
+                <Avatar src={user.avatarUrl} initials={user.initials} gradient={user.avatarGradient} size={32} />
+              )}
               <div className="flex-1 min-w-0">
                 <div className="text-[12px] font-semibold truncate">{user.name}</div>
                 <div className="text-[10px] text-white/50 truncate">{user.role}</div>
@@ -146,4 +182,69 @@ export default function DashboardSidebar({
       </aside>
     </>
   );
+}
+
+type DocumentsActive = { tab: string; filter: string } | null;
+
+// Rendu partagé entre la version pilotée par l'URL (DocumentsNav, sous Suspense) et le
+// fallback statique (DocumentsNavStatic, affiché le temps que useSearchParams résolve —
+// en pratique quasi instantané côté client) : même structure, seul l'état actif diffère.
+function DocumentsNavContent({ documents, onClose, active }: { documents: DocumentsBlock; onClose: () => void; active: DocumentsActive }) {
+  return (
+    <div>
+      <p className="px-3 mb-1 text-[10px] uppercase tracking-widest text-white/30 font-semibold">Documents Contractuels</p>
+      <div className="space-y-3">
+        {(
+          [
+            { key: "devis", label: "Mes Devis", Icon: FileText, links: documents.devis },
+            { key: "contrats", label: "Contrats Signés", Icon: ScrollText, links: documents.contrats },
+          ] as const
+        ).map((group) => (
+          <div key={group.key} className="space-y-1">
+            <Link
+              href={`${documents.base}?tab=${group.key}&f=tous`}
+              onClick={onClose}
+              style={{ textDecoration: "none" }}
+              className={`w-full flex items-center gap-3 px-3 py-[11px] rounded-xl text-[14px] font-medium transition-all ${active?.tab === group.key && active.filter === "tous" ? "bg-[#FF7A00] text-white shadow-[0_4px_16px_rgba(255,122,0,0.35)]" : "text-white/70 hover:text-white hover:bg-white/[0.07]"}`}
+            >
+              <group.Icon className="w-[18px] h-[18px] shrink-0" />
+              <span className="flex-1 truncate">{group.label}</span>
+            </Link>
+            <div className="ml-4 pl-3 border-l border-white/10 space-y-1">
+              {group.links.map((link) => {
+                const isActive = active?.tab === group.key && active.filter === link.id;
+                return (
+                  <Link
+                    key={link.id}
+                    href={`${documents.base}?tab=${group.key}&f=${link.id}`}
+                    onClick={onClose}
+                    style={{ textDecoration: "none" }}
+                    className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg text-[13px] transition-colors ${isActive ? "text-white font-medium bg-white/[0.07]" : "text-white/50 hover:text-white"}`}
+                  >
+                    <span>{link.label}</span>
+                    {typeof link.count === "number" && link.count > 0 && (
+                      <span className="text-[11px] bg-white/10 px-1.5 py-0.5 rounded-full">{link.count}</span>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Sous-rubrique active dérivée de l'URL réelle (?tab=devis|contrats&f=<id>) — de vrais
+// liens <Link>, pas des boutons pilotés par activeId/onSelect comme les sections du haut.
+function DocumentsNav({ documents, onClose }: { documents: DocumentsBlock; onClose: () => void }) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const active: DocumentsActive = pathname === documents.base ? { tab: searchParams.get("tab") ?? "devis", filter: searchParams.get("f") ?? "tous" } : null;
+  return <DocumentsNavContent documents={documents} onClose={onClose} active={active} />;
+}
+
+function DocumentsNavStatic({ documents, onClose }: { documents: DocumentsBlock; onClose: () => void }) {
+  return <DocumentsNavContent documents={documents} onClose={onClose} active={null} />;
 }

@@ -81,6 +81,15 @@ model User {
   dateNaissanceSetById String?
   dateNaissanceSetAt   DateTime?
 
+  // Exigence de garant (2026-09-09) — activée par l'Admin KYC, compte par compte, quand il
+  // l'estime nécessaire. Désactivée PAR DÉFAUT pour toutes les filières concernées (artisan,
+  // manœuvre, expert_btp_autres) : sans cette activation, aucune candidature n'exige de
+  // garant, même en présentiel/hybride. Quand elle est active, la candidature à une mission
+  // présentiel/hybride exige un garant obligatoire (candidature-guard.ts → hasRequiredGarants).
+  garantRequired        Boolean   @default(false)
+  garantRequiredSetById String?
+  garantRequiredSetAt   DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -120,6 +129,9 @@ model User {
   devisRevisions   DevisRevision[] @relation("DevisRevisionAuthor")
   offersAsClient   Offer[]         @relation("OfferClient")
   offersAsProvider Offer[]         @relation("OfferProvider")
+
+  progressCheckpointsValidees ProgressCheckpoint[]
+  progressRejectionsPosees    ProgressRejection[]
 
   @@index([kycStatus])
   @@index([role])
@@ -220,21 +232,31 @@ model KycDocument {
 // rattaché obligatoirement à une Mission. Un événement compte (ex. décision KYC) n'a pas de
 // missionId : ce modèle générique permet d'afficher un fil "notifications" côté dashboard
 // utilisateur, indépendamment de tout doublage par e-mail (src/lib/mail.ts).
-enum NotificationType {
-  kyc_verifie
-  kyc_rejete
-}
-
+// Fil unique de la cloche du navbar (GET /api/notifications) : TOUT événement notifiable y
+// arrive — KYC, cycle de vie des missions, messagerie — pour l'acteur comme pour la partie
+// adverse (2026-09-09). Avant ce changement la cloche ne montrait que le KYC, les événements
+// mission ne vivant que dans MissionNotification (fil « Activité récente » du dashboard).
+//
+// `type` est passé d'un enum à 2 valeurs à une chaîne applicative libre, même convention que
+// MissionNotification.type et Message.type : les libellés d'affichage sont centralisés côté
+// application (src/lib/notification-labels.ts), et un nouvel événement n'impose plus de
+// migration d'enum.
 model Notification {
-  id        String           @id @default(cuid())
+  id        String    @id @default(cuid())
   userId    String
-  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type      NotificationType
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String
   message   String
+  // Mission concernée quand l'événement en dépend (mission, jalon, message) — permet de
+  // marquer lues les notifications d'une conversation quand son fil est ouvert, et de
+  // relier une entrée de la cloche à sa mission. Null pour les événements de compte (KYC).
+  missionId String?
+  mission   Mission?  @relation(fields: [missionId], references: [id], onDelete: Cascade)
   readAt    DateTime?
-  createdAt DateTime         @default(now())
+  createdAt DateTime  @default(now())
 
   @@index([userId, readAt])
+  @@index([userId, missionId, readAt])
 }
 
 model LivenessCheck {
@@ -455,6 +477,20 @@ model Mission {
   professionalType  String? // EXPERT_DIGITAL | EXPERT_BTP | ARTISAN | MANOEUVRE
   requiredLevel     String? // Débutant | Junior | Intermédiaire | Senior | Expert
   budgetType        String? // FIXED | RATE | QUOTE — "QUOTE" EST le mode devis (pas de booléen redondant)
+  // Mode de financement choisi par le CLIENT à la PUBLICATION (2026-09-10) : F2, F3, J1, J2, J3
+  // — clé du catalogue src/lib/financing-modes.ts, jamais un enum Prisma (même convention que
+  // budgetType/professionalType ci-dessus : le catalogue porte le libellé, le badge, la
+  // disponibilité et la stratégie de dérivation, tout cela évolue sans migration).
+  //
+  // Pourquoi à la publication et pas à la génération du contrat : le mode dit au prestataire
+  // COMMENT chiffrer. Un mode « jalons pondérés » attend un devis découpé en postes livrables
+  // un à un ; un mode « escrow upfront » attend un forfait. L'annoncer après la négociation
+  // arrivait trop tard. Modifiable tant qu'aucun contrat n'est généré
+  // (PATCH /api/missions/[id]/financing-mode), figé ensuite dans le contrat.
+  //
+  // Nullable : les missions publiées avant cette date n'en ont pas — la génération de contrat
+  // retombe alors sur les jalons saisis à la main, comportement historique inchangé.
+  financingModeKey  String?
   tags              String[] // Compétences requises (ex: "Soudure", "Placo", "Électricité BT")
   status            MissionStatus @default(brouillon)
 
@@ -464,8 +500,12 @@ model Mission {
   // (canSubmitDeliverable reste le garde de statut réel). Bornage 0-100 appliqué côté route,
   // pas en contrainte DB. Remis à 0 au rejet (POST .../escrow/reject) — nouveau cycle, comme
   // pour un jalon.
-  declaredProgress Int @default(0) // renseigné par le prestataire
-  observedProgress Int @default(0) // renseigné par le client — gate la validation (release)
+  declaredProgress Int       @default(0) // renseigné par le prestataire
+  observedProgress Int       @default(0) // renseigné par le client — gate la validation (release)
+  // Pendant, au niveau MISSION ENTIÈRE (contrat sans jalon), de Jalon.reviewOpenedAt — voir ce
+  // champ pour le rationale complet. Posé par POST .../deliverable/review-open, remis à null à
+  // chaque nouvelle bascule vers `livrable_soumis` (voir .../deliverable/submit).
+  reviewOpenedAt   DateTime?
 
   // ── Mode devis BTP (négociation multi-round) ──────────────────────────
   maxRevisionRounds Int       @default(3) // rounds de négociation autorisés
@@ -474,15 +514,18 @@ model Mission {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  proposals        MissionProposal[]
-  offers           Offer[]
-  notifications    MissionNotification[]
-  attachments      MissionAttachment[]
-  messages         Message[]
-  reviews          Review[]
-  contract         PrestationContract?
-  insurance        MissionInsurance?
-  acknowledgements ClientAcknowledgement[]
+  proposals           MissionProposal[]
+  offers              Offer[]
+  notifications       MissionNotification[]
+  bellNotifications   Notification[]
+  attachments         MissionAttachment[]
+  messages            Message[]
+  reviews             Review[]
+  contract            PrestationContract?
+  insurance           MissionInsurance?
+  acknowledgements    ClientAcknowledgement[]
+  progressCheckpoints ProgressCheckpoint[]
+  progressRejections  ProgressRejection[]
 
   @@index([status])
   @@index([domaine])
@@ -504,19 +547,19 @@ enum ProposalStatus {
 // négociation est tracée par round (`roundActuel`, `devisData`) et l'historique est
 // conservé dans DevisRevision (append-only).
 model MissionProposal {
-  id         String         @id @default(cuid())
-  missionId  String
-  mission    Mission        @relation(fields: [missionId], references: [id], onDelete: Cascade)
-  providerId String
-  provider   User           @relation("ProposalProvider", fields: [providerId], references: [id], onDelete: Cascade)
-  montant    Float          @default(0)
+  id           String         @id @default(cuid())
+  missionId    String
+  mission      Mission        @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  providerId   String
+  provider     User           @relation("ProposalProvider", fields: [providerId], references: [id], onDelete: Cascade)
+  montant      Float          @default(0)
   // Contre-proposition du prestataire : délai (en jours) qu'il s'engage à tenir. Le contrat
   // doit être basé sur CE délai (et ce prix), pas sur ceux initialement publiés par le client
   // — sinon la négociation (étape 2 du workflow) n'a aucun effet contractuel. Nullable : les
   // candidatures antérieures n'en ont pas (le contrat retombe alors sur mission.delaiJours).
   delaiPropose Int?
-  message    String?
-  status     ProposalStatus @default(envoyee)
+  message      String?
+  status       ProposalStatus @default(envoyee)
 
   // ── Négociation de devis ─────────────────────────────────────────────
   roundActuel            Int       @default(0)
@@ -625,16 +668,16 @@ model MissionNotification {
 }
 
 model MissionAttachment {
-  id         String   @id @default(cuid())
-  missionId  String
-  mission    Mission  @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  id              String    @id @default(cuid())
+  missionId       String
+  mission         Mission   @relation(fields: [missionId], references: [id], onDelete: Cascade)
   // Rattache optionnellement une pièce jointe à un jalon précis (livrable soumis pour CE
   // jalon) — null pour les pièces jointes génériques (cahier des charges) ou pour les
   // missions sans jalon (livrable unique de la mission entière).
-  jalonId    String?
-  jalon      Jalon?   @relation(fields: [jalonId], references: [id], onDelete: Cascade)
-  uploaderId String
-  filePath   String
+  jalonId         String?
+  jalon           Jalon?    @relation(fields: [jalonId], references: [id], onDelete: Cascade)
+  uploaderId      String
+  filePath        String
   // Type MIME réel du fichier (ex. "image/jpeg", "application/pdf") — même convention que
   // Message.mimeType. Null pour les entrées texte-seules (preuves "geolocation"/"other" sans
   // fichier, préfixe filePath "__no_file__/…") et pour les anciennes pièces jointes créées
@@ -642,15 +685,29 @@ model MissionAttachment {
   // décider de l'affichage inline (image/vidéo/PDF) plutôt qu'un téléchargement forcé —
   // sans lui, le client ne pouvait pas RELIRE une preuve dans la modale de validation,
   // seulement la télécharger à l'aveugle (2026-09-03).
-  mimeType   String?
+  mimeType        String?
   // Type de preuve pour un livrable scopé-jalon (photo|video|document|geolocation|other) —
   // valeurs applicatives, pas un enum Prisma (même convention que Message.type). Null pour
   // les pièces jointes génériques hors jalon (comportement historique inchangé).
-  category   String?
+  category        String?
   // Légende libre, ou coordonnées réelles "lat,long" capturées via navigator.geolocation
   // côté client pour category === "geolocation" (jamais de coordonnées inventées).
-  note       String?
-  createdAt  DateTime @default(now())
+  note            String?
+  // Appréciation du CLIENT sur CETTE preuve (2026-09-05, maquette "Appréciation des preuves") :
+  // null = en attente ; "validee" = le client a validé la preuve ; "rejetee" = le client l'a
+  // rejetée (raison + motif + demande éventuelle d'une nouvelle preuve). L'appréciation rend
+  // la preuve IMMUABLE (le prestataire ne peut plus la retirer). Le % global de progression
+  // reste porté par Mission/Jalon.observedProgress (curseur client), PAS recalculé ici :
+  // l'appréciation par preuve est une PRÉ-VALIDATION qui conditionne la validation finale
+  // (chaque preuve du lot courant doit être validée avant "Valider ce point d'étape" /
+  // "Valider — libérer" — garde côté route).
+  appreciation    String?
+  rejectionReason String? // raison choisie dans la liste prédéfinie (libellé)
+  rejectionMotif  String? // motif détaillé libre (≥ 20 caractères)
+  requestNewProof Boolean   @default(false) // "Demander une nouvelle preuve" au rejet
+  appreciatedById String? // id du client ayant apprécié (trace)
+  appreciatedAt   DateTime?
+  createdAt       DateTime  @default(now())
 
   @@index([missionId])
   @@index([jalonId])
@@ -721,6 +778,44 @@ model PrestationContract {
   clientOptedInCheckIn   Boolean @default(false)
   providerOptedInCheckIn Boolean @default(false)
 
+  // Options de gestion des jalons (règles 18.4 et 18.8/18.9, 2026-09-08) — choisies par le
+  // CLIENT à la génération du contrat (POST /api/missions/[id]/contract, même moment que la
+  // décomposition en jalons elle-même) puis figées pour la vie du contrat, comme `jalons` :
+  // aucune route ne permet de les changer après coup, un contrat déjà signé ne doit pas
+  // changer de régime financier en cours de route.
+  //
+  // `financingMode` : "lump_sum" (défaut, comportement historique inchangé) — un seul RELEASE
+  // par jalon (ou par contrat sans jalon), déclenché par POST .../validate à observedProgress
+  // === 100. "progressive" — CHAQUE point d'étape confirmé (POST .../checkpoint) qui fait
+  // progresser observedProgress déclenche EN PLUS un RELEASE partiel proportionnel à
+  // l'incrément (voir src/lib/jalons.ts, progressiveReleaseIncrement) ; POST .../validate reste
+  // l'action de clôture mais ne libère alors que le SOLDE restant, jamais le montant plein
+  // (remainingReleasableAmount) — le total libéré sur la vie d'un jalon ne dépasse jamais son
+  // montant. S'applique aussi bien à un contrat à jalons (par jalon) qu'à un contrat sans jalon
+  // (sur le prix total) : un seul champ, une seule sémantique des deux côtés.
+  //
+  // `jalonsSequential` : sans effet si `jalons` est vide/absent. Si vrai, un jalon ne peut être
+  // financé (HOLD, voir canHoldJalonSequential) que si TOUS les jalons d'ordre inférieur sont
+  // au moins `valide` (le client a validé — pas besoin d'attendre la confirmation PSP du
+  // RELEASE, asynchrone en prod). Par défaut (faux), tous les jalons restent finançables dans
+  // n'importe quel ordre, comportement historique inchangé.
+  // `retentionRate` : retenue de garantie (règle 18.10, mode J4, 2026-09-11) — fraction de
+  // CHAQUE jalon retenue au séquestre au moment de sa libération, puis libérée en UNE SEULE
+  // instruction finale quand tous les jalons du contrat sont `libere`. 0 (défaut) = aucune
+  // retenue, comportement historique strictement inchangé : `releasableBeforeRetention`
+  // (src/lib/jalons.ts) retourne alors le montant plein et aucune opération finale n'est créée.
+  //
+  // Toujours 0 sur un contrat SANS jalon, même si le mode en portait une (voir resolveFinancing,
+  // src/lib/financing-modes.ts) : la retenue n'a de sens que s'il existe une libération
+  // ultérieure à laquelle la rattacher — sur un contrat à libération unique, retenir 5 % puis
+  // les libérer dans la foulée n'apporte aucune garantie, ça ajoute juste un mouvement PSP.
+  //
+  // Figé à la génération du contrat comme `financingMode` et `jalonsSequential` : le taux sous
+  // lequel les deux parties ont signé ne change jamais.
+  financingMode    FinancingMode @default(lump_sum)
+  jalonsSequential Boolean       @default(false)
+  retentionRate    Float         @default(0)
+
   escrowOperations PspEscrowOperation[]
   mediations       Mediation[]
   checkInEvents    CheckInEvent[]
@@ -741,6 +836,13 @@ model PrestationContract {
 // Un contrat SANS jalon garde exactement l'ancien comportement (PspEscrowOperation.jalonId
 // = null, un seul mouvement HOLD/RELEASE portant sur le prix total) — rien n'est cassé.
 // ---------------------------------------------------------------------------
+
+// Régime de libération des fonds — voir PrestationContract.financingMode ci-dessus pour la
+// sémantique complète.
+enum FinancingMode {
+  lump_sum
+  progressive
+}
 
 enum JalonStatus {
   en_attente // défini au contrat, pas encore financé
@@ -766,14 +868,67 @@ model Jalon {
   // en contrainte DB. Remis à 0 par le client (reject) au moment du rejet — nouveau cycle.
   declaredProgress Int                @default(0) // renseigné par le prestataire
   observedProgress Int                @default(0) // renseigné par le client — gate la validation
+  // Horodatage de la première ouverture, par le CLIENT, du livrable COURANT (status
+  // `livrable_soumis`) — distinct du simple "en attente" (rien constaté depuis la soumission).
+  // Posé par POST .../jalons/[jalonId]/review-open, remis à null à chaque nouvelle bascule vers
+  // `livrable_soumis` (voir .../jalons/[jalonId]/submit) — un nouveau tour de soumission repart
+  // "non consulté". Alimente le Statut ("En attente" vs "En cours") du tableau "Validation"
+  // côté client (règle de synchronisation prestataire/client, mission-history-table.tsx).
+  reviewOpenedAt   DateTime?
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
 
-  escrowOperations PspEscrowOperation[]
-  attachments      MissionAttachment[]
+  escrowOperations    PspEscrowOperation[]
+  attachments         MissionAttachment[]
+  progressCheckpoints ProgressCheckpoint[]
+  progressRejections  ProgressRejection[]
 
   @@unique([contractId, ordre])
   @@index([contractId, status])
+}
+
+// Point d'étape confirmé par le CLIENT sur une progression < 100% ("validation partielle") —
+// distinct de Jalon.validate / escrow.release, qui eux débloquent réellement les fonds : ceci
+// ne fait QUE tracer que le client a vérifié et accepté les preuves fournies à un stade donné
+// (ex. 40%), sans attendre les 100% requis pour la libération. Append-only (jamais modifié ni
+// supprimé) — sert d'historique consultable par les deux parties du contrat. jalonId nul =
+// mission sans jalon (pendant de Mission.observedProgress/Jalon.observedProgress).
+model ProgressCheckpoint {
+  id            String   @id @default(cuid())
+  missionId     String
+  mission       Mission  @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  jalonId       String?
+  jalon         Jalon?   @relation(fields: [jalonId], references: [id], onDelete: Cascade)
+  progress      Int // progression constatée au moment de la confirmation (0-100)
+  validatedById String
+  validatedBy   User     @relation(fields: [validatedById], references: [id], onDelete: Cascade)
+  createdAt     DateTime @default(now())
+
+  @@index([missionId, createdAt])
+  @@index([jalonId])
+}
+
+// Rejet d'UNE soumission de preuves par le CLIENT ("financement par jalons à validation
+// progressive", 2026-09-05) — jusqu'ici seul le DERNIER motif de rejet était conservé
+// (Jalon.rejectionReason, écrasé à chaque nouveau rejet ; Mission n'en gardait même aucun,
+// seulement une MissionNotification éphémère). Append-only comme ProgressCheckpoint : permet
+// au dropdown "Historique" (prestataire) et à l'historique client de montrer CHAQUE soumission
+// rejetée comme sa propre version (ex. "01-V1 — Rejeté"), distincte de la soumission corrigée
+// qui suit — sans jamais toucher observedProgress (un rejet ne défait pas une validation
+// antérieure, voir POST .../reject).
+model ProgressRejection {
+  id           String   @id @default(cuid())
+  missionId    String
+  mission      Mission  @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  jalonId      String?
+  jalon        Jalon?   @relation(fields: [jalonId], references: [id], onDelete: Cascade)
+  reason       String
+  rejectedById String
+  rejectedBy   User     @relation(fields: [rejectedById], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+
+  @@index([missionId, createdAt])
+  @@index([jalonId])
 }
 
 // ---------------------------------------------------------------------------
@@ -820,6 +975,14 @@ enum EscrowInstructionType {
   release
   freeze
   refund
+  // Libération FINALE de la retenue de garantie (règle 18.10, mode J4) — un type À PART et non
+  // un `release` scopé contrat, parce que ce scope (jalonId null sur un contrat à jalons) est
+  // DÉJÀ occupé par la médiation (POST /api/admin/mediations/[id]/respond). Les confondre a
+  // deux effets, tous deux constatés avant ce correctif : la garde d'idempotence prenait un
+  // release de médiation pour la retenue et ne l'émettait jamais, et le seuil de clôture de la
+  // mission était franchi par un montant de médiation sans que la retenue soit partie. Un
+  // discriminant explicite, jamais une convention de scope partagée.
+  retention_release
 }
 
 enum PspOperationStatus {
@@ -874,6 +1037,18 @@ model Mediation {
   clientElements     Json?
   providerElements   Json?
   proposedResolution String?
+  // Montant à libérer au prestataire si les deux parties acceptent (règle 18.11, 2026-09-11).
+  // Renseigné par l'Admin Médiation avec sa proposition. Avant ce champ, la route d'acceptation
+  // libérait `mission.budget` — le BUDGET PUBLIÉ, ni le prix réellement contracté
+  // (termsSnapshot.prix, voir contractPrice) ni ce qui restait effectivement séquestré : sur un
+  // contrat à jalons dont trois sur quatre étaient déjà payés, un accord repayait le budget
+  // entier. Une résolution de médiation doit dire COMBIEN ; elle ne peut pas le deviner.
+  resolutionAmount   Float?
+  // Statut de la mission avant l'ouverture de la médiation, pour le restaurer à la clôture.
+  // `mediation_ouverte` écrasait le cycle de vie sans aucun écrivain de retour : une médiation
+  // refusée ou ouverte par erreur gelait la mission DÉFINITIVEMENT (plus aucun point d'étape,
+  // validation ni libération possible — canDecideDeliverable n'accepte que `livrable_soumis`).
+  previousStatus     MissionStatus?
   clientAccepted     Boolean?
   providerAccepted   Boolean?
   outcome            MediationOutcome   @default(en_cours)

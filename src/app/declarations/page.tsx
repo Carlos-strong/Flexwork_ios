@@ -146,7 +146,11 @@ export default function DeclarationsPage() {
   async function submitInsurance(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setInsuranceMsg(null);
-    const formData = new FormData(e.currentTarget);
+    // Capturé avant le await : React remet e.currentTarget à null une fois la phase
+    // synchrone de l'événement terminée — l'appeler après un await levait
+    // "null is not an object" (voir le même correctif sur src/app/profile/page.tsx).
+    const formEl = e.currentTarget;
+    const formData = new FormData(formEl);
     formData.set("declarationType", "insurance");
     const res = await fetch("/api/declarations", {
       method: "POST",
@@ -157,7 +161,7 @@ export default function DeclarationsPage() {
         ? "Déclaration enregistrée et horodatée."
         : "Échec de l'enregistrement."
     );
-    if (res.ok) e.currentTarget.reset();
+    if (res.ok) formEl.reset();
   }
 
   async function submitLevel(e: React.FormEvent<HTMLFormElement>) {

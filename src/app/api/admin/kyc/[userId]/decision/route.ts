@@ -6,11 +6,17 @@ import { runSelfieMatch } from "@/lib/selfieMatch";
 import { logAdminAction, isUnderKycRateLimit } from "@/lib/admin-audit";
 import { recordVerificationHistory } from "@/lib/verification-history";
 import { notifyUser } from "@/lib/notify";
+import { isChantierRole } from "@/lib/age-gate";
 
 const schema = z.object({
   status: z.enum(["verifie", "rejete"]),
   rejectionReason: z.string().optional(),
-  justification: z.string().min(1),
+  // Un motif n'est exigé QUE pour un rejet (voir plus bas) — valider un dossier conforme
+  // n'a pas besoin d'être justifié. `justification` reste accepté pour compat (l'admin
+  // dashboard générique, src/app/admin/page.tsx, peut encore en envoyer une), mais n'est
+  // plus jamais requis ici : voir logAdminAction plus bas pour la valeur de repli utilisée
+  // quand aucune n'est fournie.
+  justification: z.string().optional(),
   // A13 — date de naissance extraite de la pièce d'identité, saisie par l'Admin KYC au
   // moment de la décision. Jamais déclarée par l'utilisateur (etat-consolide-Flexwork.md
   // §2, A13) : c'est la seule donnée d'âge faisant foi pour les filières chantier.
@@ -45,6 +51,24 @@ export async function POST(
     return NextResponse.json({ error: "rejection_reason_required" }, { status: 400 });
   }
 
+  // A13 — la date de naissance (lue sur la pièce d'identité) est OBLIGATOIRE pour valider le
+  // KYC d'une filière chantier : sans elle, l'âge ne peut pas être établi et le compte, même
+  // « verifie », serait bloqué en candidature chantier (candidature-guard.ts →
+  // kyc_required_for_age) avec un message trompeur (« identité à vérifier »). Refus explicite
+  // dès la saisie plutôt que de créer un dossier verifie inapte à candidater. (2026-09-09)
+  if (parsed.data.status === "verifie" && parsed.data.dateNaissance === undefined) {
+    const target = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+    if (target && isChantierRole(target.role)) {
+      return NextResponse.json(
+        {
+          error: "date_naissance_required",
+          message: "La date de naissance (lue sur la pièce d'identité) est obligatoire pour valider le KYC d'une filière chantier (A13).",
+        },
+        { status: 400 }
+      );
+    }
+  }
+
   const match = await runSelfieMatch(userId, "kyc_review");
 
   await prisma.kycDocument.updateMany({
@@ -71,12 +95,17 @@ export async function POST(
     },
   });
 
+  // logAdminAction (US-801) exige une justification non vide pour TOUTE action admin —
+  // invariant qu'on ne relâche pas ici : une validation sans motif garde quand même une
+  // trace d'audit, juste générée automatiquement plutôt que saisie par l'admin. Pour un
+  // rejet, le motif de rejet (obligatoire, voir plus haut) sert aussi de justification —
+  // pas besoin de le saisir deux fois.
   await logAdminAction({
     adminId: guard.user.id,
     action: "kyc_decision",
     targetType: "User",
     targetId: userId,
-    justification: parsed.data.justification,
+    justification: parsed.data.justification?.trim() || parsed.data.rejectionReason || "Documents conformes — validation sans motif complémentaire.",
   });
   await recordVerificationHistory({ subjectType: "kyc", subjectId: userId, event: `decision:${parsed.data.status}` });
 
@@ -105,6 +134,14 @@ export async function POST(
       },
     });
   }
+
+  // Accusé à l'admin qui vient de décider — les deux parties d'un événement sont notifiées,
+  // ici l'« expéditeur » de la décision (2026-09-09). Non bloquant.
+  void notifyUser({
+    userId: guard.user.id,
+    type: "kyc_decision_admin",
+    message: `Décision KYC enregistrée pour ${user.email} : ${parsed.data.status === "verifie" ? "dossier validé" : `dossier rejeté (${parsed.data.rejectionReason})`}.`,
+  }).catch(() => {});
 
   return NextResponse.json({
     kycStatus: user.kycStatus,

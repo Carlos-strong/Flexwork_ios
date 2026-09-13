@@ -10,6 +10,7 @@ import {
 const links = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/kyc", label: "KYC", icon: BadgeCheck },
+  { href: "/admin/kyc/historique", label: "Histo. KYC", icon: History },
   { href: "/admin/moderation", label: "Modération", icon: ShieldCheck },
   { href: "/admin/mediation", label: "Médiation", icon: Scale },
   { href: "/admin/risk", label: "Risques", icon: Flag },

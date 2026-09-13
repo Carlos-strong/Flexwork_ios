@@ -30,7 +30,10 @@ export async function POST(req: Request) {
   }
   const userId = (session.user as typeof session.user & { id: string }).id;
 
-  const profile = await prisma.profile.findUnique({ where: { userId } });
+  // { where: { userId } } n'est pas une clé unique valide depuis le passage multi-profils
+  // (@@unique([userId, label]), pas userId seul) — voir le correctif détaillé dans
+  // src/app/api/profile/route.ts. findFirst() n'exige pas de contrainte unique.
+  const profile = await prisma.profile.findFirst({ where: { userId } });
   if (!profile) {
     return NextResponse.json({ error: "profile_required" }, { status: 409 });
   }

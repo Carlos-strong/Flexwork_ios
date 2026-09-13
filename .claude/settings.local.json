@@ -12,7 +12,10 @@
       "mcp__playwright__browser_find",
       "Bash(\"/c/laragon/bin/postgresql/postgresql/bin/psql.exe\" -U postgres -h 127.0.0.1 -d flexwork_dev -c \"SELECT email, \\\\\"isAdmin\\\\\", \\\\\"adminRole\\\\\" FROM \\\\\"User\\\\\" WHERE \\\\\"isAdmin\\\\\"=true;\")",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/ --max-time 15)",
-      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/admin --max-time 60)"
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/admin --max-time 60)",
+      "Bash(npx tsx -e ' *)",
+      "Bash(npx tsc *)",
+      "Bash(npx vitest *)"
     ]
   }
 }

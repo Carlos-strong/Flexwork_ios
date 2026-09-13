@@ -9,8 +9,8 @@
  *   1. Génération du contrat depuis une proposition acceptée   (POST /api/missions/[id]/contract)
  *   2. Génération de certificats RSA-2048 client & prestataire  (POST /api/signature/certificate)
  *   3. Rejet d'une signature avec mauvaise passphrase
- *   4. Signature client (1/2)                                    (POST /api/signature/sign)
- *   5. Signature prestataire (2/2) → verrouillage automatique
+ *   4. Signature prestataire (1/2)                               (POST /api/signature/sign)
+ *   5. Signature client (2/2) → verrouillage automatique
  *   6. Rejet d'une 3ᵉ signature (contrat verrouillé)
  *   7. Vérification cryptographique des 2 signatures            (POST /api/signature/verify)
  *   8. Égalité hash stocké == hash recalculé + intégrité
@@ -18,7 +18,7 @@
  *  10. Encodage QR depuis les données réelles de signature
  *  11. Détection d'altération (tamper → intégrité invalide)
  *
- * Différences avec le plan `Tests-Contrat-Signature-Qr.html` : voir
+ * Différences avec le plan de test de la maquette de signature : voir
  * `analyse-plan-test-contrat-signature.md` (pas de PDF/watermark, pas de lien magique,
  * pas de page publique /verify — la signature est cryptographique avec certificats RSA).
  */
@@ -42,6 +42,7 @@ import { POST as certificatePost } from "@/app/api/signature/certificate/route";
 import { POST as signPost } from "@/app/api/signature/sign/route";
 import { POST as verifyPost } from "@/app/api/signature/verify/route";
 import { SignatureService } from "@/lib/signature";
+import type { ContractSnapshot } from "@/lib/contract-clauses";
 import { prisma } from "@/lib/db";
 import QRCode from "qrcode";
 
@@ -87,6 +88,13 @@ function postReq(body: unknown): Request {
 // ---------------------------------------------------------------------------
 
 beforeAll(async () => {
+  // Le stub PSP (ESCROW_STUB_AUTOCONFIRM=true, présent dans le .env de dev local) est une
+  // commodité de développement : ce test couvre le workflow de SIGNATURE, pas la confirmation
+  // PSP. On le désactive pour rester déterministe quel que soit le .env local — la mission
+  // reste `contrat_signe` après la 2ᵉ signature tant que le PSP (réel ou simulé) n'a pas
+  // confirmé le HOLD (chaque fichier de test tourne dans son propre process, l'env est isolé).
+  delete process.env.ESCROW_STUB_AUTOCONFIRM;
+
   const client = await prisma.user.create({
     data: { email: CLIENT_EMAIL, tel: `+229${RUN}1`, role: "client", status: "active" },
   });
@@ -160,8 +168,10 @@ describe("Workflow contrat + signature + QR (implémentation réelle)", () => {
     expect(contract.clientSignedAt).toBeNull();
     expect(contract.providerSignedAt).toBeNull();
     expect(contract.mission.status).toBe("contrat_genere");
-    // Clause de conformité : la plateforme n'est jamais partie au contrat.
-    expect(contract.termsSnapshot.clausePlateformeNonPartie).toContain("n'est pas partie");
+    // Clause de conformité : la plateforme n'est jamais partie au contrat. Le snapshot est
+    // stocké en JSON (nullable) — on le réduit au type du format réel (contract-clauses.ts).
+    const snapshot = contract.termsSnapshot as unknown as ContractSnapshot;
+    expect(snapshot.clausePlateformeNonPartie).toContain("n'est pas partie");
   });
 
   it("S1 — refuse de générer un second contrat pour la même mission", async () => {
@@ -209,41 +219,25 @@ describe("Workflow contrat + signature + QR (implémentation réelle)", () => {
     providerCertFingerprint = body.data.keyFingerprint;
   });
 
-  it("S3 — refuse une signature avec une mauvaise passphrase", async () => {
-    authAs(clientId);
-    const res = await signPost(
-      postReq({ contractId, certificateId: clientCertId, passphrase: "mauvaise-passphrase" })
-    );
-    expect(res.status).toBe(500);
-  });
-
-  it("S3 — le client signe (1/2) : contrat non verrouillé", async () => {
+  it("S3 — refuse la signature du client AVANT celle du prestataire (ordre imposé)", async () => {
     authAs(clientId);
     const res = await signPost(
       postReq({ contractId, certificateId: clientCertId, passphrase: PASSPHRASE })
     );
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(409);
     const body = await res.json();
-    expect(body.success).toBe(true);
-    expect(body.role).toBe("CLIENT");
-    expect(body.isLocked).toBe(false);
-    expect(body.signatureId).toBeDefined();
-    expect(body.signedDataHash).toMatch(/^[a-f0-9]{64}$/);
-    clientSignResult = body;
-
-    const contract = await prisma.prestationContract.findUniqueOrThrow({
-      where: { id: contractId },
-      include: { mission: true },
-    });
-    expect(contract.clientSignedAt).not.toBeNull();
-    expect(contract.providerSignedAt).toBeNull();
-    expect(contract.mission.status).toBe("contrat_genere");
-
-    const sigCount = await prisma.contractSignature.count({ where: { contractId } });
-    expect(sigCount).toBe(1);
+    expect(body.error).toBe("provider_must_sign_first");
   });
 
-  it("S4 — le prestataire signe (2/2) : verrouillage automatique", async () => {
+  it("S3 — refuse une signature avec une mauvaise passphrase", async () => {
+    authAs(providerId);
+    const res = await signPost(
+      postReq({ contractId, certificateId: providerCertId, passphrase: "mauvaise-passphrase" })
+    );
+    expect(res.status).toBe(500);
+  });
+
+  it("S3 — le prestataire signe (1/2) : contrat non verrouillé", async () => {
     authAs(providerId);
     const res = await signPost(
       postReq({ contractId, certificateId: providerCertId, passphrase: PASSPHRASE })
@@ -252,8 +246,34 @@ describe("Workflow contrat + signature + QR (implémentation réelle)", () => {
     const body = await res.json();
     expect(body.success).toBe(true);
     expect(body.role).toBe("PRESTATAIRE");
-    expect(body.isLocked).toBe(true);
+    expect(body.isLocked).toBe(false);
+    expect(body.signatureId).toBeDefined();
+    expect(body.signedDataHash).toMatch(/^[a-f0-9]{64}$/);
     providerSignResult = body;
+
+    const contract = await prisma.prestationContract.findUniqueOrThrow({
+      where: { id: contractId },
+      include: { mission: true },
+    });
+    expect(contract.providerSignedAt).not.toBeNull();
+    expect(contract.clientSignedAt).toBeNull();
+    expect(contract.mission.status).toBe("contrat_genere");
+
+    const sigCount = await prisma.contractSignature.count({ where: { contractId } });
+    expect(sigCount).toBe(1);
+  });
+
+  it("S4 — le client signe (2/2) : verrouillage automatique", async () => {
+    authAs(clientId);
+    const res = await signPost(
+      postReq({ contractId, certificateId: clientCertId, passphrase: PASSPHRASE })
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.success).toBe(true);
+    expect(body.role).toBe("CLIENT");
+    expect(body.isLocked).toBe(true);
+    clientSignResult = body;
 
     const contract = await prisma.prestationContract.findUniqueOrThrow({
       where: { id: contractId },
@@ -267,14 +287,14 @@ describe("Workflow contrat + signature + QR (implémentation réelle)", () => {
     expect(sigCount).toBe(2);
   });
 
-  it("S3/S4 — refuse une 3ᵉ signature (contrat déjà verrouillé)", async () => {
+  it("S3/S4 — refuse une signature supplémentaire (contrat verrouillé)", async () => {
     authAs(clientId);
     const res = await signPost(
       postReq({ contractId, certificateId: clientCertId, passphrase: PASSPHRASE })
     );
-    expect(res.status).toBe(500);
+    expect(res.status).toBe(409);
     const body = await res.json();
-    expect(body.error).toContain("verrouillé");
+    expect(body.error).toBe("already_signed");
   });
 
   it("S5 — vérifie cryptographiquement les deux signatures", async () => {

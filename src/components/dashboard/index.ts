@@ -1,5 +1,5 @@
 export { default as DashboardLayout } from "./DashboardLayout";
-export { CLIENT_NAV, PROVIDER_NAV } from "./DashboardLayout";
+export { CLIENT_NAV, providerNav } from "./DashboardLayout";
 export type { DashboardUser, NavItem } from "./DashboardLayout";
 
 // Re-export NavItem as a distinct type name to avoid conflict with DashboardSidebar

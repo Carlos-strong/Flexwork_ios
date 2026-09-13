@@ -1,15 +1,22 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useSession } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
-  Award, BadgeCheck, Briefcase, Check, Flag, Kanban, LayoutDashboard, Menu,
-  PhoneOff, PhoneCall, Scale, ShieldCheck, Trash2, Users, X
+  Award, BadgeCheck, Briefcase, Check, Eye, Flag, History, Kanban, LayoutDashboard, LogOut, Menu,
+  PhoneOff, PhoneCall, Scale, ShieldCheck, Trash2, Users, X, type LucideIcon
 } from "lucide-react";
+import { KycDocsViewer } from "@/components/admin/KycDocsViewer";
+import { CHANTIER_ROLES } from "@/lib/age-gate";
 
 // --------------- helpers ---------------
 const GREEN = "#008751", YELLOW = "#FCD116", RED = "#E8112D";
+
+// Item du sidebar admin — `href` optionnel : si présent, l'entrée est un lien (ex. vers la
+// page dédiée /admin/kyc/historique) au lieu d'une section interne.
+type NavGroupItem = { id: string; label: string; icon: LucideIcon; count: number; href?: string };
 
 // Les 11 statuts réels de Mission.status (prisma/schema.prisma) — remplace l'ancien
 // Kanban "16 colonnes" fictif (retraits, sessions de formation, visites techniques...
@@ -30,6 +37,13 @@ const MISSION_STATUS_LABELS: Record<string, string> = {
 const MISSION_STATUS_ORDER = Object.keys(MISSION_STATUS_LABELS);
 
 // UserRole (prisma/schema.prisma) — libellé court affiché dans la colonne Profil.
+const KYC_STATUS_LABELS: Record<string, string> = {
+  non_soumis: "Non soumis",
+  en_attente: "En attente",
+  verifie: "Vérifié",
+  rejete: "Rejeté",
+};
+
 const ROLE_LABELS: Record<string, string> = {
   client: "Client",
   expert_digital: "Expert Digital",
@@ -81,7 +95,7 @@ function DecisionModal({
   title, fields, onCancel, onSubmit, danger,
 }: {
   title: string;
-  fields: { key: string; label: string; type: "text" | "textarea"; required?: boolean; placeholder?: string }[];
+  fields: { key: string; label: string; type: "text" | "textarea" | "date"; required?: boolean; placeholder?: string }[];
   onCancel: () => void;
   onSubmit: (values: Record<string, string>) => void;
   danger?: boolean;
@@ -102,6 +116,10 @@ function DecisionModal({
                 <textarea rows={3} placeholder={f.placeholder} value={values[f.key] ?? ""}
                   onChange={e => setValues(v => ({ ...v, [f.key]: e.target.value }))}
                   className="w-full px-3 py-2 rounded-lg border border-gray-200 text-[13px] resize-y focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751]" />
+              ) : f.type === "date" ? (
+                <input type="date" value={values[f.key] ?? ""}
+                  onChange={e => setValues(v => ({ ...v, [f.key]: e.target.value }))}
+                  className="w-full h-9 px-3 rounded-lg border border-gray-200 text-[13px] focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751]" />
               ) : (
                 <input type="text" placeholder={f.placeholder} value={values[f.key] ?? ""}
                   onChange={e => setValues(v => ({ ...v, [f.key]: e.target.value }))}
@@ -124,7 +142,12 @@ function DecisionModal({
 
 // ---- API types ----
 type KanbanMission = { id: string; titre: string; status: string; budget: number; client: { email: string }; mediationEnCours: boolean };
-type KycEntry = { userId: string; email: string; tel: string; role: string; isAdmin: boolean; adminRole: string | null; createdAt: string; documents: { id: string; type: string; status: string }[] };
+type KycEntry = { userId: string; email: string; tel: string; role: string; isAdmin: boolean; adminRole: string | null; garantRequired: boolean; createdAt: string; documents: { id: string; type: string; status: string }[] };
+// Comptes de filière chantier (tous statuts KYC) pilotables pour « garant requis » —
+// GET /api/admin/kyc/garant-accounts. La file KYC ne contient que les dossiers en attente,
+// alors que candidater exige un KYC vérifié : le drapeau doit rester accessible après
+// validation du dossier.
+type GarantAccount = { userId: string; email: string; tel: string; role: string; kycStatus: string; garantRequired: boolean; garantRequiredSetAt: string | null; garantRequiredSetByEmail: string | null };
 type GarantEntry = { id: string; nom: string; tel: string; obligatoire: boolean; manoeuvre: { email: string; tel: string; country: string | null } };
 type MediationEntry = { id: string; reason: string; proposedResolution: string | null; openedBy: string; mission: { id: string; titre: string } };
 type FeatureFlagEntry = { id: string; key: string; zone: string; enabled: boolean; note: string | null };
@@ -138,7 +161,7 @@ async function fetchJson<T>(url: string): Promise<T | null> {
 
 // --------------- Main Dashboard ---------------
 export default function AdminDashboardPage() {
-  const { status } = useSession();
+  const { data: session, status } = useSession();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeSection, setActiveSection] = useState("overview");
@@ -148,11 +171,16 @@ export default function AdminDashboardPage() {
   const [kanban, setKanban] = useState<KanbanMission[]>([]);
   const [kyc, setKyc] = useState<KycEntry[]>([]);
   const [garants, setGarants] = useState<GarantEntry[]>([]);
+  const [garantAccounts, setGarantAccounts] = useState<GarantAccount[]>([]);
   const [mediations, setMediations] = useState<MediationEntry[]>([]);
   const [flags, setFlags] = useState<FeatureFlagEntry[]>([]);
   const [collusion, setCollusion] = useState<CollusionSuspect[]>([]);
 
-  const [kycModal, setKycModal] = useState<{ userId: string; decisionStatus: "verifie" | "rejete" } | null>(null);
+  const [kycModal, setKycModal] = useState<{ userId: string; decisionStatus: "verifie" | "rejete"; role?: string } | null>(null);
+  // Compte dont le toggle « Garant requis » est en cours (POST .../garant-requirement).
+  const [garantToggling, setGarantToggling] = useState<string | null>(null);
+  // Visualiseur/lecteur des documents KYC d'un dossier (vignettes + plein écran).
+  const [viewingDocs, setViewingDocs] = useState<{ userId: string; email: string } | null>(null);
   const [mediationModal, setMediationModal] = useState<string | null>(null);
   const [deleteModal, setDeleteModal] = useState<{ userId: string; email: string } | null>(null);
 
@@ -160,9 +188,10 @@ export default function AdminDashboardPage() {
 
   const loadAll = useCallback(async () => {
     setLoading(true);
-    const [k, ky, g, m, f, c] = await Promise.all([
+    const [k, ky, ga, g, m, f, c] = await Promise.all([
       fetchJson<{ items: KanbanMission[] }>("/api/admin/missions/kanban"),
       fetchJson<{ items: KycEntry[] }>("/api/admin/kyc/queue"),
+      fetchJson<{ items: GarantAccount[] }>("/api/admin/kyc/garant-accounts"),
       fetchJson<{ items: GarantEntry[] }>("/api/admin/garants/queue"),
       fetchJson<{ items: MediationEntry[] }>("/api/admin/mediations/queue"),
       fetchJson<{ items: FeatureFlagEntry[] }>("/api/admin/feature-flags"),
@@ -170,6 +199,7 @@ export default function AdminDashboardPage() {
     ]);
     setKanban(k?.items ?? []);
     setKyc(ky?.items ?? []);
+    setGarantAccounts(ga?.items ?? []);
     setGarants(g?.items ?? []);
     setMediations(m?.items ?? []);
     setFlags(f?.items ?? []);
@@ -191,14 +221,43 @@ export default function AdminDashboardPage() {
     setKycModal(null);
     const res = await fetch(`/api/admin/kyc/${userId}/decision`, {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: decisionStatus, justification: values.justification, rejectionReason: values.rejectionReason }),
+      body: JSON.stringify({ status: decisionStatus, justification: values.justification, rejectionReason: values.rejectionReason, dateNaissance: values.dateNaissance || undefined }),
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      notify(data.error === "forbidden_wrong_admin_role" ? "Refusé : ce compte n'a pas le rôle admin \"kyc\" requis." : `Échec : ${data.error ?? res.status}`);
+      notify(
+        data.error === "date_naissance_required"
+          ? "Date de naissance obligatoire pour cette filière chantier (A13) — saisissez-la avant de valider."
+          : data.error === "forbidden_wrong_admin_role"
+            ? "Refusé : ce compte n'a pas le rôle admin \"kyc\" requis."
+            : `Échec : ${data.error ?? res.status}`
+      );
       return;
     }
     notify(`KYC ${decisionStatus === "verifie" ? "validé" : "rejeté"}`);
+    loadAll();
+  }
+
+  // Active/désactive « Garant requis » (User.garantRequired, défaut OFF) — réservé aux
+  // filières chantier (le serveur refuse sinon). La file reflète l'état après loadAll().
+  async function toggleGarantRequirement(userId: string, role: string, current: boolean) {
+    // Garde côté client : le serveur refuse déjà (400 not_chantier_role), inutile d'y aller.
+    if (!(CHANTIER_ROLES as readonly string[]).includes(role)) {
+      notify("Exigence de garant réservée aux filières chantier.");
+      return;
+    }
+    setGarantToggling(userId);
+    const res = await fetch(`/api/admin/kyc/${userId}/garant-requirement`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ garantRequired: !current }),
+    });
+    setGarantToggling(null);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      notify(data.error === "not_chantier_role" ? "Exigence de garant réservée aux filières chantier." : `Échec : ${data.error ?? res.status}`);
+      return;
+    }
+    notify(`Exigence de garant ${!current ? "activée" : "désactivée"} pour ce compte.`);
     loadAll();
   }
 
@@ -266,7 +325,7 @@ export default function AdminDashboardPage() {
 
   const activeMissions = kanban.filter(m => m.status !== "brouillon" && m.status !== "cloturee").length;
 
-  const navGroups = [
+  const navGroups: Array<{ title: string; items: NavGroupItem[] }> = [
     {
       title: "Pilotage", items: [
         { id: "overview", label: "Vue d'ensemble", icon: LayoutDashboard, count: 0 },
@@ -277,6 +336,7 @@ export default function AdminDashboardPage() {
     {
       title: "Vérifications", items: [
         { id: "kyc", label: "KYC & Identité", icon: BadgeCheck, count: kyc.length },
+        { id: "kyc_historique", label: "Histo. validations", icon: History, href: "/admin/kyc/historique", count: 0 },
         { id: "garants", label: "Garants Manœuvre", icon: Users, count: garants.length },
       ]
     },
@@ -326,20 +386,30 @@ export default function AdminDashboardPage() {
                 <ul className="space-y-0.5">
                   {group.items.map(item => {
                     const active = activeSection === item.id;
+                    const classes = `group w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-[13px] font-medium transition-all text-left ${active ? "text-white shadow-sm" : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"}`;
+                    const style = active ? { background: GREEN } : undefined;
+                    const inner = (
+                      <>
+                        <span className="flex items-center gap-2.5">
+                          <item.icon size={16} className={active ? "text-white" : "text-gray-400 group-hover:text-gray-600"} />
+                          {item.label}
+                        </span>
+                        {item.count > 0 && (
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center"
+                            style={{ background: item.count > 3 ? RED : YELLOW, color: item.count > 3 ? "white" : "#7a5a00" }}>{item.count}</span>
+                        )}
+                      </>
+                    );
+                    if (item.href) {
+                      return (
+                        <li key={item.id}>
+                          <Link href={item.href} onClick={() => setSidebarOpen(false)} className={classes} style={{ textDecoration: "none", ...style }}>{inner}</Link>
+                        </li>
+                      );
+                    }
                     return (
                       <li key={item.id}>
-                        <button onClick={() => selectSection(item.id)}
-                          className={`group w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-[13px] font-medium transition-all text-left ${active ? "text-white shadow-sm" : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"}`}
-                          style={active ? { background: GREEN } : undefined}>
-                          <span className="flex items-center gap-2.5">
-                            <item.icon size={16} className={active ? "text-white" : "text-gray-400 group-hover:text-gray-600"} />
-                            {item.label}
-                          </span>
-                          {item.count > 0 && (
-                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center"
-                              style={{ background: item.count > 3 ? RED : YELLOW, color: item.count > 3 ? "white" : "#7a5a00" }}>{item.count}</span>
-                          )}
-                        </button>
+                        <button onClick={() => selectSection(item.id)} className={classes} style={style}>{inner}</button>
                       </li>
                     );
                   })}
@@ -348,15 +418,22 @@ export default function AdminDashboardPage() {
             ))}
           </div>
 
-          <div className="p-3 border-t border-gray-100 bg-white">
+          <div className="p-3 border-t border-gray-100 bg-white space-y-2">
             <div className="flex items-center gap-3 px-2 py-2 rounded-xl bg-[#f9fafb] border border-gray-100">
-              <Avatar name="Admin FlexWork" size={36} />
+              <Avatar name={session?.user?.email ?? "Admin"} size={36} />
               <div className="leading-tight flex-1 min-w-0">
-                <div className="text-[12px] font-bold truncate">Admin FlexWork</div>
-                <div className="text-[11px] text-gray-500">Super-administrateur</div>
+                <div className="text-[12px] font-bold truncate">{session?.user?.email ?? "Admin FlexWork"}</div>
+                <div className="text-[11px] text-gray-500">Espace Admin</div>
               </div>
               <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
             </div>
+            <button
+              onClick={() => signOut({ callbackUrl: "/" })}
+              className="w-full flex items-center justify-center gap-2 px-2 py-2 rounded-xl text-[12px] font-semibold text-red-600 bg-red-50 hover:bg-red-100 transition-colors"
+            >
+              <LogOut size={15} />
+              Déconnexion
+            </button>
           </div>
         </aside>
 
@@ -389,7 +466,7 @@ export default function AdminDashboardPage() {
                 <StatCard label="Médiations ouvertes" value={mediations.length} border={mediations.length > 0 ? RED : GREEN} />
               </div>
               <p className="text-[11px] text-gray-400">
-                Chiffre d'affaires / commissions non affichés : aucun modèle de facturation plateforme dans le schéma v3 (le PSP détient l'escrow, modele-skillafrica-v3-Flexwork.md §6).
+                Chiffre d&apos;affaires / commissions non affichés : aucun modèle de facturation plateforme dans le schéma v3 (le PSP détient l&apos;escrow, modele-skillafrica-v3-Flexwork.md §6).
               </p>
             </section>
             )}
@@ -440,7 +517,7 @@ export default function AdminDashboardPage() {
                 </div>
                 <div className="p-5 space-y-4">
                   <p className="text-[12px] text-gray-500 max-w-2xl">
-                    Activation manuelle après signature effective d'un partenaire dans la zone — jamais automatique.
+                    Activation manuelle après signature effective d&apos;un partenaire dans la zone — jamais automatique.
                   </p>
                   {flags.length === 0 ? (
                     <EmptyState text="Aucun feature flag enregistré pour l'instant." />
@@ -479,7 +556,9 @@ export default function AdminDashboardPage() {
                         <tr><th className="px-4 py-2.5">Utilisateur</th><th className="px-4 py-2.5">Profil</th><th className="px-4 py-2.5">Documents</th><th className="px-4 py-2.5">Déposé</th><th className="px-4 py-2.5">Action</th></tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100 text-[12px]">
-                        {kyc.map(r => (
+                        {kyc.map(r => {
+                          const allVerified = r.documents.length > 0 && r.documents.every((d) => d.status === "verifie");
+                          return (
                           <tr key={r.userId}>
                             <td className="px-4 py-3"><span className="inline-flex items-center gap-2 font-medium"><Avatar name={r.email} size={24} /> {r.email}</span></td>
                             <td className="px-4 py-3">
@@ -491,11 +570,24 @@ export default function AdminDashboardPage() {
                             <td className="px-4 py-3 text-gray-600">{r.documents.map(d => d.type).join(", ") || "—"}</td>
                             <td className="px-4 py-3 text-gray-600">{new Date(r.createdAt).toLocaleDateString("fr-FR")}</td>
                             <td className="px-4 py-3 flex flex-wrap gap-1.5">
-                              <button onClick={() => setKycModal({ userId: r.userId, decisionStatus: "verifie" })} title="Valider le KYC"
-                                className="w-7 h-7 rounded-full bg-[#008751] text-white flex items-center justify-center hover:bg-[#006e43] transition-colors">
+                              <button
+                                onClick={() => toggleGarantRequirement(r.userId, r.role, r.garantRequired)}
+                                disabled={garantToggling === r.userId || !(CHANTIER_ROLES as readonly string[]).includes(r.role)}
+                                title={(CHANTIER_ROLES as readonly string[]).includes(r.role) ? (r.garantRequired ? "Désactiver l'exigence de garant (présentiel/hybride)" : "Activer l'exigence de garant (présentiel/hybride)") : "Réservé aux filières chantier (artisan, manœuvre, expert BTP)"}
+                                className={`h-7 px-2.5 rounded-full text-[10.5px] font-semibold border transition-colors disabled:opacity-50 ${r.garantRequired ? "bg-[#F0FDF4] text-[#166534] border-[#BBF7D0]" : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"} ${!(CHANTIER_ROLES as readonly string[]).includes(r.role) ? "opacity-40 cursor-not-allowed" : ""}`}
+                              >
+                                {garantToggling === r.userId ? "…" : r.garantRequired ? "Garant ON" : "Garant OFF"}
+                              </button>
+                              <button onClick={() => setViewingDocs({ userId: r.userId, email: r.email })} title="Voir les documents"
+                                className="w-7 h-7 rounded-full bg-gray-100 text-gray-700 flex items-center justify-center hover:bg-gray-200 transition-colors">
+                                <Eye size={14} />
+                              </button>
+                              <button onClick={() => setKycModal({ userId: r.userId, decisionStatus: "verifie", role: r.role })} disabled={!allVerified}
+                                title={allVerified ? "Valider le KYC" : "Validez d'abord chaque document individuellement (bouton 👁)"}
+                                className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors ${allVerified ? "bg-[#008751] text-white hover:bg-[#006e43] cursor-pointer" : "bg-gray-100 text-gray-400 cursor-not-allowed"}`}>
                                 <Check size={14} />
                               </button>
-                              <button onClick={() => setKycModal({ userId: r.userId, decisionStatus: "rejete" })} title="Rejeter le KYC"
+                              <button onClick={() => setKycModal({ userId: r.userId, decisionStatus: "rejete", role: r.role })} title="Rejeter le KYC"
                                 className="w-7 h-7 rounded-full bg-red-600 text-white flex items-center justify-center hover:bg-red-700 transition-colors">
                                 <X size={14} />
                               </button>
@@ -503,6 +595,53 @@ export default function AdminDashboardPage() {
                                 className="w-7 h-7 rounded-full border border-red-200 text-red-700 flex items-center justify-center hover:bg-red-50 transition-colors">
                                 <Trash2 size={14} />
                               </button>
+                            </td>
+                          </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              {/* Exigence de garant, compte par compte — indépendante de la file ci-dessus :
+                  candidater exige un KYC vérifié, donc les comptes concernés en sont sortis. */}
+              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden mt-4">
+                <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+                  <div>
+                    <h2 className="text-[13px] font-bold">Exigence de garant — filière chantier</h2>
+                    <p className="text-[11px] text-gray-500 mt-0.5">Désactivée par défaut. Une fois activée, le compte doit avoir un garant obligatoire pour candidater en présentiel ou hybride.</p>
+                  </div>
+                  <span className="text-[11px] px-2 py-1 rounded-full bg-gray-100 text-gray-700 font-bold">{garantAccounts.filter(a => a.garantRequired).length} / {garantAccounts.length} actives</span>
+                </div>
+                {garantAccounts.length === 0 ? <EmptyState text="Aucun compte de filière chantier." /> : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                      <thead className="bg-[#f9fafb] text-[10px] font-bold uppercase tracking-wider text-gray-500">
+                        <tr><th className="px-4 py-2.5">Compte</th><th className="px-4 py-2.5">Filière</th><th className="px-4 py-2.5">KYC</th><th className="px-4 py-2.5">Garant requis</th></tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100 text-[12px]">
+                        {garantAccounts.map(a => (
+                          <tr key={a.userId}>
+                            <td className="px-4 py-3"><span className="inline-flex items-center gap-2 font-medium"><Avatar name={a.email} size={24} /> {a.email}</span></td>
+                            <td className="px-4 py-3 text-gray-600">{ROLE_LABELS[a.role] ?? a.role}</td>
+                            <td className="px-4 py-3 text-gray-600">{KYC_STATUS_LABELS[a.kycStatus] ?? a.kycStatus}</td>
+                            <td className="px-4 py-3">
+                              <button
+                                onClick={() => toggleGarantRequirement(a.userId, a.role, a.garantRequired)}
+                                disabled={garantToggling === a.userId}
+                                title={a.garantRequired ? "Désactiver l'exigence de garant (présentiel/hybride)" : "Activer l'exigence de garant (présentiel/hybride)"}
+                                className={`h-7 px-2.5 rounded-full text-[10.5px] font-semibold border transition-colors disabled:opacity-50 ${a.garantRequired ? "bg-[#F0FDF4] text-[#166534] border-[#BBF7D0]" : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"}`}
+                              >
+                                {garantToggling === a.userId ? "…" : a.garantRequired ? "Garant ON" : "Garant OFF"}
+                              </button>
+                              {a.garantRequired && a.garantRequiredSetAt && (
+                                <div className="text-[10.5px] text-gray-400 mt-1">
+                                  Activée le {new Date(a.garantRequiredSetAt).toLocaleDateString("fr-FR")}
+                                  {a.garantRequiredSetByEmail ? ` par ${a.garantRequiredSetByEmail}` : ""}
+                                </div>
+                              )}
                             </td>
                           </tr>
                         ))}
@@ -595,7 +734,7 @@ export default function AdminDashboardPage() {
                 </div>
                 <div className="p-5 space-y-3">
                   <p className="text-[12px] text-gray-500 max-w-3xl mb-2">
-                    Paires client/prestataire avec opérations d'escrow PSP répétées et suspectes (même device, montants ronds).
+                    Paires client/prestataire avec opérations d&apos;escrow PSP répétées et suspectes (même device, montants ronds).
                   </p>
                   {collusion.length === 0 ? <EmptyState text="Aucune paire suspecte détectée." /> : (
                     <table className="w-full text-left text-[12px]">
@@ -630,15 +769,24 @@ export default function AdminDashboardPage() {
 
       {sidebarOpen && <div className="fixed inset-0 bg-black/20 z-30 lg:hidden" onClick={() => setSidebarOpen(false)} />}
 
+      {viewingDocs && (
+        <KycDocsViewer userId={viewingDocs.userId} email={viewingDocs.email} onClose={() => setViewingDocs(null)} onDecide={() => loadAll()} />
+      )}
+
       {kycModal && (
         <DecisionModal
           title={kycModal.decisionStatus === "verifie" ? "Valider le dossier KYC" : "Rejeter le dossier KYC"}
-          fields={[
-            { key: "justification", label: "Justification", type: "textarea", required: true, placeholder: "Motif de la décision, consigné dans le journal d'audit..." },
-            ...(kycModal.decisionStatus === "rejete"
+          // Motif obligatoire uniquement pour un rejet — valider un dossier conforme n'a pas
+          // besoin d'être justifié. Aucun champ pour une validation « simple » ; en revanche,
+          // une validation de filière chantier exige la date de naissance lue sur la pièce
+          // (A13) — sans elle, le compte serait « verifie » mais bloqué en candidature chantier.
+          fields={
+            kycModal.decisionStatus === "rejete"
               ? [{ key: "rejectionReason", label: "Motif du rejet (visible par l'utilisateur)", type: "text" as const, required: true, placeholder: "Ex : photo illisible, document expiré..." }]
-              : []),
-          ]}
+              : (CHANTIER_ROLES as readonly string[]).includes(kycModal.role ?? "")
+                ? [{ key: "dateNaissance", label: "Date de naissance (lue sur la pièce d'identité)", type: "date" as const, required: true, placeholder: "" }]
+                : []
+          }
           onCancel={() => setKycModal(null)}
           onSubmit={submitKycDecision}
         />
