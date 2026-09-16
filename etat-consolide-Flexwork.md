@@ -1,6 +1,6 @@
 # Flexwork — État consolidé des décisions
 
-**Date** : 3 août 2026
+**Date d'arbitrage** : 3 août 2026 · **Dernière mise à jour** : 16 septembre 2026 (A13, A14, corrections de références)
 **Objet** : document de référence unique. Recense l'état des décisions arrêtées, les arbitrages successifs et leurs motifs, les prérequis bloquants, et le statut de chaque document produit.
 **Statut du modèle** : **arbitré** — option A (intermédiaire neutre) retenue le 3 août 2026, voir §6. Reste conditionné aux prérequis juridiques du §5.
 
@@ -14,16 +14,16 @@ Flexwork est une plateforme de mise en relation entre clients et prestataires (5
 
 ### 1.2 Le modèle actuellement retenu
 
-**Intermédiaire pur** (`modele-Flexwork-v3-intermediaire.md`) :
+**Intermédiaire pur** (`modele-skillafrica-v3-Flexwork.md`, nommé `modele-Flexwork-v3-intermediaire.md` dans les échanges de conception) :
 
 | Élément | État |
 |---|---|
-| Vérification effective par la plateforme | **Identité uniquement (KYC)** |
+| Vérification effective par la plateforme | **Identité (KYC)** et **âge minimum légal sur les filières chantier** (A13) — rien d'autre |
 | Qualifications, assurance, expérience | **Déclarées** par le prestataire, affichées comme non vérifiées |
 | Contrat de prestation | Entre client et prestataire — **plateforme non signataire** |
 | Détention des fonds | **Par un PSP agréé** — jamais par la plateforme |
 | Litige | **Médiation facultative** — la plateforme ne tranche pas |
-| Exception | Domaines à risque physique élevé : assurance effective bloquante |
+| Exceptions au principe d'intermédiaire pur | **Deux** : domaines à risque physique élevé (assurance effective bloquante, A9) et âge minimum légal sur filières chantier (A13, sans dérogation) |
 
 ### 1.3 Ce qui n'a jamais changé sur toute la session
 
@@ -285,7 +285,7 @@ Aucun de ces points ne se résout en développant. Ils déterminent **ce qu'il f
 | **4** | **Assurance à la mission** : existence, taux, statut de distribution | Courtier / assureur | Bloque l'exception risque élevé (A9) |
 | **5** | **Requalification en relation de travail** | Avocat | Contrôler : pas de tarifs imposés, pas de disponibilité obligatoire, pas d'exclusivité |
 | **6** | Validité de la **génération automatique de contrats** entre tiers | Avocat | Forme et signature électronique |
-| **7** | **Protection des données personnelles** : statut de responsable de traitement sur les données de pointage (géolocalisation), obligations et déclaration APDP éventuelle (loi 2009-09) | Avocat / APDP | L'argument d'outil neutre (A12) ne couvre pas cette dimension — sanctions concrètes possibles |
+| **7** | **Protection des données personnelles** : statut de responsable de traitement sur les données de pointage (géolocalisation), obligations et déclaration APDP éventuelle (**référence légale à confirmer** : la loi 2009-09 a été reprise par le Code du numérique béninois, loi 2017-20) | Avocat / APDP | L'argument d'outil neutre (A12) ne couvre pas cette dimension — sanctions concrètes possibles |
 
 ### Vérification terrain, également bloquante
 
@@ -316,7 +316,9 @@ Le concept d'origine était : *« un Upwork vérifié localement, différencié 
 2. **Réalité du marché béninois** — largement informel. Exiger assurance et certification vérifiées fermerait la plateforme à l'essentiel de l'offre potentielle. Une marketplace sans prestataires n'a pas de clients.
 3. **Coût opérationnel récurrent** — chaque diplôme et chaque police à contrôler représente du temps humain permanent, non un développement livré une fois. Charge difficilement soutenable au stade actuel.
 
-### L'exception maintenue — risque physique élevé
+### Les deux exceptions maintenues
+
+#### 1. Risque physique élevé
 
 ```text
 Faible et moyen risque  →  option A pure (déclarations affichées, non vérifiées)
@@ -325,6 +327,20 @@ Risque physique élevé   →  assurance effective exigée, bloquante
 ```
 
 Ce n'est pas une incohérence mais une exception délimitée et assumée, justifiée par la gravité : un accident grave laisserait un client sans recours effectif face à un prestataire insolvable, et la réputation de la plateforme en serait atteinte quelle que soit la qualité de ses CGU.
+
+#### 2. Âge minimum légal sur les filières chantier (A13)
+
+```text
+Filières chantier (Manœuvre, Artisan, Expert BTP/Autres)
+        →  âge vérifié sur la pièce d'identité du KYC
+        →  blocage de l'ACTIVATION du profil, aucune dérogation admin
+        →  plancher 18 ans, jamais administrable en dessous
+```
+
+Cette seconde exception est **moins négociable que la première** : elle protège des personnes qui
+ne peuvent pas consentir valablement au risque, et faciliter un travail illégal n'est couvert par
+aucun argument de neutralité. Elle est portée par la filière prestataire et jamais par le compte
+(A14), afin qu'un compte à double face ne puisse pas l'esquiver.
 
 ### Ce qui reste comme différenciation
 
@@ -347,11 +363,12 @@ Les **premiers mois sont les plus risqués pour les clients** : la réputation d
 
 ### Ce dont il faut prendre acte
 
-Aucun modèle ne libère totalement la plateforme de tout engagement. Quatre engagements sont irréductibles, même en option A :
+Aucun modèle ne libère totalement la plateforme de tout engagement. Cinq engagements sont irréductibles, même en option A :
 
 | Engagement | Motif |
 |---|---|
 | Exactitude du KYC | La plateforme le vérifie, donc elle en répond |
+| Exactitude du contrôle d'âge sur filières chantier (A13) | Même raison : la plateforme le vérifie elle-même, sur une donnée qu'elle extrait de la pièce d'identité |
 | Fidélité de l'affichage des déclarations | Affirmer « voici ce que le prestataire a déclaré » engage sur cette fidélité |
 | Fonctionnement du service | Un accès vendu doit fonctionner |
 | Justesse des instructions de paiement au PSP | Une instruction erronée engage |
@@ -362,10 +379,10 @@ Au-delà du droit : **aucune clause ne protège de la réputation.** Ce qui prot
 
 ## 7. Actions recommandées, dans cet ordre
 
-L'arbitrage du positionnement étant tranché (§6), il reste trois étapes avant le développement :
+L'arbitrage du positionnement étant tranché (§6), il reste quatre étapes avant le développement :
 
-1. **Consultation juridique** avec les 6 questions du §5. Une séance apportera plus que dix documents supplémentaires. Y ajouter la question de l'**assurance RC professionnelle de la plateforme elle-même** — c'est la protection la plus efficace et la plus souvent négligée.
-2. **Vérification terrain** sur le taux de couverture assurance dans le vivier réel, pour calibrer la liste des domaines à risque élevé (§6, exception).
+1. **Consultation juridique** avec les 7 questions du §5. Une séance apportera plus que dix documents supplémentaires. Y ajouter la question de l'**assurance RC professionnelle de la plateforme elle-même** — c'est la protection la plus efficace et la plus souvent négligée.
+2. **Vérification terrain** sur le taux de couverture assurance dans le vivier réel, pour calibrer la liste des domaines à risque élevé (§6, exception 1).
 3. **Souscription de la RC professionnelle de la plateforme** avant l'ouverture au public.
 4. **Seulement ensuite** : figer le document d'implémentation à partir de la v3 et développer.
 
@@ -379,9 +396,10 @@ L'arbitrage du positionnement étant tranché (§6), il reste trois étapes avan
 | Document | Rôle |
 |---|---|
 | `etat-consolide-Flexwork.md` | **Ce document — référence unique** |
-| `modele-Flexwork-v3-intermediaire.md` | **Modèle de référence confirmé par l'arbitrage A11** — base du développement |
-| `mission.md` | Module publication de mission — largement indépendant du modèle de badge, reste valable |
-| `cdc-partenaires-certification.md` | Rôle réduit : volet formation optionnelle et sa monétisation (avec A7) |
+| `modele-skillafrica-v3-Flexwork.md` | **Modèle de référence confirmé par l'arbitrage A11** — base du développement |
+| `implementation-skillafrica-securise-v3.md` | Document d'implémentation tiré de la v3 |
+| `mission.md` | Module publication de mission — **absent de ce dépôt**, conservé hors dépôt |
+| `cdc-partenaires-certification.md` | Volet formation optionnelle et sa monétisation (avec A7) — **absent de ce dépôt** |
 
 ### Obsolètes — à archiver, ne pas implémenter
 | Document | Motif |
@@ -402,6 +420,19 @@ L'arbitrage du positionnement étant tranché (§6), il reste trois étapes avan
 
 ### Recommandation d'archivage
 Créer un dossier `archive/`. L'arbitrage A11 ayant écarté l'option B, ces documents n'ont plus qu'une valeur historique — ils documentent des pistes explorées et les motifs de leur abandon, ce qui reste utile pour ne pas les rejouer.
+
+**Note de vérification (16 septembre 2026)** : les douze documents nommés ci-dessus n'ont **jamais
+été suivis dans ce dépôt**. Le tableau vaut donc comme mémoire des pistes abandonnées, pas comme
+inventaire de fichiers à déplacer, et seuls `modele-skillafrica-v3-Flexwork.md` et
+`implementation-skillafrica-securise-v3.md` y existent réellement.
+
+La ligne « Prototypes HTML » est le seul cas distinct : ceux-là étaient bien suivis.
+`Chronologie-Pages-Publication-Cloture-Vjr.html` et `Flexwork-Integration-Finale-Vjr.html` ont été
+retirés le 16 septembre 2026. Le premier a été porté dans l'application, où il est désormais la
+chronologie de référence (`src/app/chronologie/page.tsx`) ; le second était une maquette
+d'intégration d'ensemble (catalogue, devis, contrat, preuves) dont les sujets sont implémentés,
+sans qu'un écran unique lui corresponde. D'autres maquettes HTML subsistent à la racine, sur
+d'autres sujets que l'affichage du profil visé par cette ligne.
 
 ---
 
