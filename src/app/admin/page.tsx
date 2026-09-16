@@ -4,12 +4,10 @@ import { useState, useEffect, useCallback } from "react";
 import { signOut, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import {
-  Award, BadgeCheck, Briefcase, Check, Eye, Flag, History, Kanban, LayoutDashboard, LogOut, Menu,
-  PhoneOff, PhoneCall, Scale, ShieldCheck, Trash2, Users, Wallet, X, type LucideIcon
-} from "lucide-react";
+import { BadgeCheck, Check, Eye, Flag, History, Kanban, LayoutDashboard, LogOut, Menu, PhoneOff, PhoneCall, Scale, ShieldCheck, Trash2, Users, Wallet, X, type LucideIcon } from "lucide-react";
 import { KycDocsViewer } from "@/components/admin/KycDocsViewer";
 import { CHANTIER_ROLES } from "@/lib/age-gate";
+import { MISSION_STATUSES, type MissionStatusValue } from "@/lib/mission-status";
 
 // --------------- helpers ---------------
 const GREEN = "#008751", YELLOW = "#FCD116", RED = "#E8112D";
@@ -21,7 +19,15 @@ type NavGroupItem = { id: string; label: string; icon: LucideIcon; count: number
 // Les 11 statuts réels de Mission.status (prisma/schema.prisma) — remplace l'ancien
 // Kanban "16 colonnes" fictif (retraits, sessions de formation, visites techniques...
 // concepts jamais implémentés côté schéma/API, v2 non migré vers le pivot v3).
-const MISSION_STATUS_LABELS: Record<string, string> = {
+// Libellés COURTS et techniques, propres à la console d'administration : « Validée » plutôt que
+// « Retenue de garantie en cours », qui parle au prestataire mais pas à l'administrateur. Seuls
+// les mots diffèrent — la LISTE des statuts, elle, vient de la source unique.
+//
+// Le `Record<MissionStatusValue, …>` est délibérément exhaustif : jusqu'au 16/09/2026 cette table
+// était une liste indépendante, et elle avait manqué `remboursee` — une mission remboursée était
+// donc absente du kanban, sans que rien ne le signale. Désormais tout statut ajouté au schéma
+// casse la compilation ici tant qu'il n'a pas son libellé.
+const MISSION_STATUS_LABELS: Record<MissionStatusValue, string> = {
   brouillon: "Brouillon",
   publiee: "Publiée",
   proposition_acceptee: "Proposition acceptée",
@@ -33,8 +39,9 @@ const MISSION_STATUS_LABELS: Record<string, string> = {
   validee: "Validée",
   cloturee: "Clôturée",
   mediation_ouverte: "Médiation ouverte",
+  remboursee: "Remboursée",
 };
-const MISSION_STATUS_ORDER = Object.keys(MISSION_STATUS_LABELS);
+const MISSION_STATUS_ORDER = MISSION_STATUSES;
 
 // UserRole (prisma/schema.prisma) — libellé court affiché dans la colonne Profil.
 const KYC_STATUS_LABELS: Record<string, string> = {

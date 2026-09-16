@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { isFeatureEnabledForZone } from "@/lib/feature-flags";
 import { contractPrice, hasInFlightHold } from "@/lib/escrow";
 import { canStartMission, coversAmount } from "@/lib/mission-risk-gate";
+import { isMissionFundingClosed } from "@/lib/mission-status";
 import { canHoldJalonSequential, firstBlockingSequentialJalon, isJalonUnengaged } from "@/lib/jalons";
 import {
   autoConfirmPending,
@@ -36,6 +37,12 @@ export async function POST(
   }
   if (!contract.clientSignedAt || !contract.providerSignedAt) {
     return NextResponse.json({ error: "contract_not_signed" }, { status: 409 });
+  }
+  // Même règle qu'au financement du contrat entier (requestContractHold) : une mission close
+  // ou remboursée ne se finance plus, fût-ce jalon par jalon. Cette route recopie ses gardes
+  // plutôt que de les partager — d'où le rappel explicite ici.
+  if (isMissionFundingClosed(contract.mission.status)) {
+    return NextResponse.json({ error: "mission_closed" }, { status: 409 });
   }
   // Granularité `upfront` (§8, mode S1) : le contrat est financé EN UNE FOIS, et les jalons
   // consomment ce séquestre unique. Financer un jalon séparément créerait exactement le second

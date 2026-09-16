@@ -45,6 +45,7 @@ import { useUserIdentity } from "@/components/user-identity";
 import ClientProofValidationModal, { type ConstatProof } from "@/components/validation-client/ClientProofValidationModal";
 import { cumulativeCheckpointProgress, type Checkpoint } from "@/components/progress-checkpoints";
 import { releasableBeforeRetention, retentionAmount } from "@/lib/jalons";
+import { missionEscrowStatusLabel } from "@/lib/mission-status";
 // Même modèle que la vue prestataire (missions/[id]/deliverable) — badge domaine, montant +
 // conversion EUR + barre bicolore ferme/hachurée + légende, dropdown "Historique"
 // Version/Type/Preuves/%cumulé/Statut/Action (signalé 2026-09-05 : "utiliser ce modèle... au
@@ -117,13 +118,6 @@ const JALON_STATUS: Record<string, { label: string; color: string }> = {
   rejete: { label: "Rejeté — en attente de resoumission", color: "text-[#E8112D]" },
   libere: { label: "Payé", color: "text-[#008751]" },
 };
-
-const MISSION_ESCROW_STATUS: Record<string, { label: string; color: string }> = {
-  fonds_sous_sequestre: { label: "Financé — en attente du prestataire", color: "text-[#008751]" },
-  en_cours: { label: "Financé — en attente du prestataire", color: "text-[#008751]" },
-  livrable_soumis: { label: "À valider", color: "text-[#B45309]" },
-};
-
 
 type Row = {
   key: string;
@@ -677,7 +671,7 @@ export function ValidationClientView({ missionId, onMissionChange }: { missionId
         titre: mission.titre,
         montant: mission.contractPrice ?? mission.budget,
         currency,
-        statusLabel: (MISSION_ESCROW_STATUS[mission.status] ?? { label: mission.status, color: "text-[#64748B]" }).label,
+        statusLabel: missionEscrowStatusLabel(mission.status),
         canDecide: mission.status === "livrable_soumis",
         declaredProgress: mission.declaredProgress,
         observedProgress: mission.observedProgress,
@@ -780,7 +774,6 @@ export function ValidationClientView({ missionId, onMissionChange }: { missionId
             const savingStep = submitting === (jalonId ? `${jalonId}:step` : "mission:step");
             const savingDecision = submitting === (jalonId ? `${jalonId}:submit` : "mission:submit");
             const canValidate = row.observedProgress >= 100;
-            const isModifyStep = hasNothingNewToDecide;
 
             // Lot COURANT (preuves "ouvertes") = soumises après la dernière décision de LOT
             // (point d'étape/rejet global, append-only) — ce sont elles que le client doit

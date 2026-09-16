@@ -9,6 +9,7 @@ import { SignatureQRCode } from "@/components/signature-qrcode";
 import { RATE_UNIT_LABEL } from "@/lib/spot-time";
 import { Avatar } from "@/components/avatar";
 import { CONTRACT_STEPS, stepIndexFor } from "@/lib/contract-stepper";
+import { isMissionFundingClosed } from "@/lib/mission-status";
 import { buildContractSections, buildContractParties, contractReference } from "@/lib/contract-clauses";
 import { fetchDedupe } from "@/lib/fetch-dedupe";
 
@@ -763,7 +764,12 @@ export default function ContractPage({ params }: { params: { id: string } }) {
           </p>
         )}
 
-        {bothSigned && isClient && (
+        {/* Mission close ou remboursée : il n'y a plus rien à financer, le bouton disparaît.
+            Il s'affichait jusqu'au 16/09/2026 sur une mission déjà clôturée, invitant le client
+            à payer un dossier soldé. La règle est partagée avec le serveur
+            (isMissionFundingClosed) plutôt que réécrite ici : les deux gardes doivent tomber
+            ensemble, sinon l'écran et l'API divergent de nouveau. */}
+        {bothSigned && isClient && !isMissionFundingClosed(missionStatus) && (
           <div className="text-center">
             <Link href={`/missions/${missionId}/escrow`} className="inline-flex h-10 px-5 rounded-lg bg-[#008751] text-white text-[13px] font-semibold items-center hover:bg-[#007a49]" style={{ textDecoration: "none" }}>
               Procéder au paiement sous séquestre
@@ -771,12 +777,20 @@ export default function ContractPage({ params }: { params: { id: string } }) {
           </div>
         )}
 
+        {bothSigned && isMissionFundingClosed(missionStatus) && (
+          <p className="text-center text-[11.5px] text-[#64748B]">
+            {missionStatus === "remboursee"
+              ? "Mission remboursée — le séquestre a été rendu au client, aucun financement n'est attendu."
+              : "Mission clôturée — aucun financement n'est attendu."}
+          </p>
+        )}
+
         {/* Le paiement sous séquestre est financé par le CLIENT, jamais par le prestataire :
             le bouton « Procéder au paiement » ci-dessus est réservé au client. Le prestataire
             voit un simple statut d'attente. (Le serveur refuse déjà le HOLD côté prestataire —
             POST /api/missions/[id]/escrow/hold vérifie contract.clientId — c'était un défaut
             d'affichage seul.) */}
-        {bothSigned && isProvider && (
+        {bothSigned && isProvider && !isMissionFundingClosed(missionStatus) && (
           <p className="text-center text-[11.5px] text-[#64748B]">
             Les deux signatures sont en place. Le client procède maintenant à la mise sous séquestre du paiement.
           </p>

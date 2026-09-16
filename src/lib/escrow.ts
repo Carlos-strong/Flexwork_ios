@@ -5,6 +5,7 @@ import { IN_FLIGHT_STATUSES, netHeldAmount, outstandingFreeze } from "@/lib/escr
 import { totalRetentionAmount } from "@/lib/jalons";
 import { isFeatureEnabledForZone } from "@/lib/feature-flags";
 import { canStartMission, coversAmount } from "@/lib/mission-risk-gate";
+import { isMissionFundingClosed } from "@/lib/mission-status";
 import {
   autoConfirmPending,
   isVirtualPspEnabled,
@@ -87,6 +88,13 @@ export async function requestContractHold(
   if (!contract) return { ok: false, error: "not_found", status: 404 };
   if (!contract.clientSignedAt || !contract.providerSignedAt) {
     return { ok: false, error: "contract_not_signed", status: 409 };
+  }
+  // Mission finie : plus rien à financer. Rien ne l'interdisait jusqu'au 16/09/2026 — et la
+  // garde `hasInFlightHold` plus bas n'y suffit pas, puisqu'elle ignore les HOLD `failed` : un
+  // financement initial refusé par le PSP, suivi d'une clôture ou d'un remboursement, laissait
+  // la porte ouverte à un nouveau débit du client sur un dossier soldé.
+  if (isMissionFundingClosed(contract.mission.status)) {
+    return { ok: false, error: "mission_closed", status: 409 };
   }
   // Paiement fractionné en granularité `per_jalon` : chaque jalon se finance individuellement
   // via POST /api/missions/[id]/jalons/[jalonId]/hold — pas de HOLD global possible.
@@ -327,10 +335,6 @@ export async function emitScopedRelease(args: {
     idempotencyKey: string;
   };
 }): Promise<ScopedReleaseResult> {
-  const scope = args.jalonId
-    ? ({ jalonId: args.jalonId } as const)
-    : ({ contractId: args.contractId, jalonId: null } as const);
-
   const outcome = await prisma.$transaction(async (tx): Promise<ScopedReleaseResult> => {
     await tx.$queryRaw`SELECT id FROM "PrestationContract" WHERE id = ${args.contractId} FOR UPDATE`;
 
@@ -746,8 +750,6 @@ export async function emitUnfreeze(args: {
       },
       _sum: { amount: true },
     });
-    const sum = (type: string) =>
-      rows.find((r) => r.instructionType === type)?._sum.amount ?? 0;
     const outstanding = outstandingFreeze(
       rows.map((r) => ({ instructionType: r.instructionType as string, amount: r._sum.amount ?? 0 }))
     );
