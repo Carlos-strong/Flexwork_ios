@@ -224,7 +224,7 @@ Contraintes en base, et non seulement en code :
 
 ## 7. Tests
 
-**841 tests, 84 fichiers.** Les 23 tests minimaux du §24 sont couverts, plus les tests de
+**850 tests, 85 fichiers.** Les 23 tests minimaux du §24 sont couverts, plus les tests de
 concurrence du §17.
 
 | Fichier | Couvre |
@@ -238,6 +238,7 @@ concurrence du §17.
 | `admin-finance.e2e.test.ts` | Console admin : 5 anomalies détectées, états légitimes ignorés, identité comptable, rôles, justification et audit |
 | `workflow-complet.e2e.test.ts` | **Parcours complets par les vraies routes** : F2, J4, S1, S2J (publication → clôture) et médiation, règles d'or après chaque mouvement, console admin, journal PSP, tableaux de bord |
 | `workflow-incidents.e2e.test.ts` | **Suite du parcours complet** : J1 (refus PSP puis reprise), J3 paliers, J1 sur devis, S2H (réinstruction admin, gel, insuffisance, recharge et reprise automatique, clôture), S2M, acceptation tacite, mission arrêtée (retenue soldée, remboursement), commande Gig, console et journal |
+| `workflow-crons.e2e.test.ts` | **Les tâches automatiques** : garde `Bearer CRON_SECRET` des cinq routes (jeton absent, faux, sans schéma, et secret non configuré → fermeture), contre-signature non faite sous 48h, négociation dépassant la date d'expiration, commande Gig non signée sous 24h. Chaque balayage vérifié sur trois plans : ce qu'il prend, le témoin encore dans les délais qu'il laisse, et l'absence d'effet au second passage |
 | `psp-journal.e2e.test.ts` | Journal PSP : appliqué, rejeu, signature invalide/absente, référence inconnue, conflit, canal console ; pagination sans perte ni doublon |
 | `site-manager.e2e.test.ts` | Délégation, révocation, prestataire jamais validateur |
 | `funding-upfront.e2e.test.ts` | Séquence du §7 (150 000 → 0), séquestre unique |
@@ -249,8 +250,8 @@ concurrence du §17.
 Concurrence testée : deux validations simultanées, deux libérations simultanées, deux
 remboursements simultanés, deux dégels simultanés, double webhook, double clic.
 
-**Vérifications finales du §26** : `vitest run` 841/841 · `tsc --noEmit` 0 erreur ·
-`eslint` 0 erreur · `next build` succès (2026-09-15).
+**Vérifications finales du §26** : `vitest run` 850/850 · `tsc --noEmit` 0 erreur ·
+`eslint` 0 erreur · `next build` succès (2026-09-16).
 
 ---
 
