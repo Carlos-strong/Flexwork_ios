@@ -2,7 +2,7 @@ import type { KycDocStatus } from "@prisma/client";
 
 // Les 4 types de documents du parcours KYC (US-201) — référence partagée entre la page
 // /kyc, la file admin et la synchronisation d'état (scripts/sync-kyc-status.ts).
-export const KYC_DOC_TYPES = ["piece_identite_recto", "piece_identite_verso", "selfie", "selfie_avec_piece"] as const;
+const KYC_DOC_TYPES = ["piece_identite_recto", "piece_identite_verso", "selfie", "selfie_avec_piece"] as const;
 
 // Dérive l'état global de validation KYC du compte (user.kycStatus) à partir de l'état réel
 // de ses documents — "synchroniser l'état de la validation KYC du compte par rapport aux

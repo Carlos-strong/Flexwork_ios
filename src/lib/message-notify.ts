@@ -12,8 +12,8 @@ import { notifyUser } from "@/lib/notify";
 // notification de ce type reste non lue pour CETTE mission, les suivantes n'alimentent que la
 // cloche — sans e-mail.
 
-export const MESSAGE_RECEIVED = "message_recu";
-export const MESSAGE_SENT = "message_envoye";
+const MESSAGE_RECEIVED = "message_recu";
+const MESSAGE_SENT = "message_envoye";
 
 async function hasUnreadOfType(userId: string, missionId: string, type: string): Promise<boolean> {
   const pending = await prisma.notification.count({

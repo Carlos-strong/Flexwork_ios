@@ -10,7 +10,7 @@ import { GigSignatureService } from "@/lib/gig-signature";
 export const PROVIDER_SIGN_DEADLINE_HOURS = 24;
 export const PROVIDER_SIGN_DEADLINE_MS = PROVIDER_SIGN_DEADLINE_HOURS * 60 * 60 * 1000;
 
-export function providerSignDeadline(clientSignedAt: Date): Date {
+function providerSignDeadline(clientSignedAt: Date): Date {
   return new Date(clientSignedAt.getTime() + PROVIDER_SIGN_DEADLINE_MS);
 }
 

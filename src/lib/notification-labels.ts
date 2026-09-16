@@ -4,7 +4,7 @@
 // messagerie), et non plus seulement le KYC : `Notification.type` est une chaîne libre
 // (même convention que MissionNotification.type / Message.type), les libellés vivent donc
 // ici plutôt que dans un enum de base.
-export const NOTIFICATION_LABELS: Record<string, string> = {
+const NOTIFICATION_LABELS: Record<string, string> = {
   // — Compte / KYC
   kyc_verifie: "Identité vérifiée",
   kyc_rejete: "KYC rejeté",

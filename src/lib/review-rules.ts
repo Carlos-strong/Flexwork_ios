@@ -8,7 +8,7 @@
 
 // `validee` inclus : la libération des fonds est instruite, la prestation est terminée —
 // attendre le webhook de clôture pour autoriser l'avis ne protège rien de plus.
-export const REVIEWABLE_MISSION_STATUSES = ["validee", "cloturee"] as const;
+const REVIEWABLE_MISSION_STATUSES = ["validee", "cloturee"] as const;
 
 export function canReviewAtStatus(status: string): boolean {
   return (REVIEWABLE_MISSION_STATUSES as readonly string[]).includes(status);

@@ -59,8 +59,6 @@ export default function KycPage() {
   const [pendingReview, setPendingReview] = useState(false);
 
   useEffect(() => {
-    const DOC_TYPES: DocType[] = ["piece_identite_recto", "piece_identite_verso", "selfie", "selfie_avec_piece"];
-
     Promise.all([
       fetch("/api/kyc/status").then((res) => (res.ok ? res.json() : null)).catch(() => null),
       fetch("/api/kyc/documents").then((res) => (res.ok ? res.json() : null)).catch(() => null),

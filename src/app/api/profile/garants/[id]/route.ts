@@ -54,7 +54,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 // suppression de l'obligatoire, alors que le quota (etat-consolide-Flexwork.md §1.3 : 1
 // obligatoire + 2 optionnelles) resterait techniquement non satisfait malgré un garant
 // disponible.
-export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session?.user) {
     return NextResponse.json({ error: "unauthenticated" }, { status: 401 });

@@ -28,7 +28,7 @@ const PROVIDER_ROLES: UserRole[] = ["expert_digital", "expert_btp_autres", "arti
 // connectés.
 // 404 silencieux si l'utilisateur n'a pas de photo — les vues appelantes retombent sur les
 // initiales via un simple onError sur <img>, pas besoin d'un endpoint séparé "a une photo ?".
-export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   const { id } = await params;
   const user = await prisma.user.findUnique({

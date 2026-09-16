@@ -27,11 +27,10 @@ const RSA_KEY_SIZE = 2048;
 // passphrase, hash SHA-256).
 export const HASH_ALGORITHM = "sha256";
 export const SIGNING_METHOD = "RSA-SHA256";
-export const CERTIFICATE_VALIDITY_YEARS = 1;
-export const PBKDF2_ITERATIONS = 600_000;
-export const KEY_LENGTH = 32; // 256 bits pour AES-256
-export const AES_ALGORITHM = "aes-256-gcm";
-export const AUTH_TAG_LENGTH = 16;
+const CERTIFICATE_VALIDITY_YEARS = 1;
+const PBKDF2_ITERATIONS = 600_000;
+const KEY_LENGTH = 32; // 256 bits pour AES-256
+const AES_ALGORITHM = "aes-256-gcm";
 
 // ── Types ───────────────────────────────────
 export interface CertificateInput {
@@ -560,10 +559,6 @@ export class SignatureService {
       verifier.update(s.signedDataHash);
       verifier.end();
       const valid = verifier.verify(s.certificate.publicKey, s.signature, "base64");
-
-      const isClient = s.certificate.id
-        ? true // On ne peut pas résoudre sans la FK userId sur ContractSignature
-        : false;
 
       return {
         signatureId: s.id,

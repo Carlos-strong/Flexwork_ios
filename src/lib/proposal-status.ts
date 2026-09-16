@@ -12,7 +12,7 @@
 
 // Statuts terminaux : la négociation est close, plus aucune révision n'est attendue.
 // `devis_valide` en fait partie — la suite est la génération du contrat, pas une resoumission.
-export const TERMINAL_PROPOSAL_STATUSES = ["acceptee", "devis_valide", "refusee", "annulee_definitive"] as const;
+const TERMINAL_PROPOSAL_STATUSES = ["acceptee", "devis_valide", "refusee", "annulee_definitive"] as const;
 
 export const REVISION_REQUESTED_LABEL = "Révision demandée";
 

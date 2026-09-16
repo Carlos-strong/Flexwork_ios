@@ -1,6 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { emitContractRefund, emitDisputeFreeze, emitScopedRelease, emitUnfreeze, escrowBalance } from "@/lib/escrow";
+import { emitContractRefund, emitDisputeFreeze, emitScopedRelease, emitUnfreeze } from "@/lib/escrow";
 import { notifyMissionParties } from "@/lib/mission-notify";
 import {
   attendanceAmount,
@@ -307,16 +307,6 @@ export async function rejectAttendance(args: {
 }
 
 /** Solde et alerte de financement d'un contrat au temps (§19). */
-export async function timeContractFunding(contractId: string) {
-  const contract = await prisma.prestationContract.findUnique({
-    where: { id: contractId },
-    select: { spotTimeTerms: true },
-  });
-  if (!contract?.spotTimeTerms) return null;
-  const balance = await escrowBalance(contractId);
-  return { terms: toTerms(contract.spotTimeTerms), balance };
-}
-
 // ── Contestation d'une partie du relevé (§21) ──────────────────────────────────────────────
 //
 //     Pointage déclaré : 6 jours

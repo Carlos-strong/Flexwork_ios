@@ -163,7 +163,7 @@ export default function MissionDetailPage() {
   const [applyError, setApplyError] = useState<string | null>(null);
   const [applySuccessMsg, setApplySuccessMsg] = useState<string | null>(null);
   // Blocage par profil incomplet (garant/assurance manquant) — même mécanisme que
-  // src/components/devis/devis-form.tsx (mode QUOTE) : distinct de `applyError`, il
+  // la page devis (src/app/missions/[id]/devis/page.tsx, mode QUOTE) : distinct de `applyError`, il
   // n'affiche pas qu'une erreur, il enregistre un brouillon local et oriente vers l'action
   // à faire (compléter le profil sur /profile, avec retour automatique une fois fait).
   const [blockedByProfile, setBlockedByProfile] = useState<string | null>(null);
@@ -274,7 +274,7 @@ export default function MissionDetailPage() {
     setApplyAmount("");
     setApplyDelay("");
     setApplyMessage("");
-    // Même comportement que la soumission d'un devis (src/components/devis/devis-form.tsx) :
+    // Même comportement que la soumission d'un devis (src/app/missions/[id]/devis/page.tsx) :
     // laisser voir la confirmation un court instant avant de partir vers "Mes candidatures"
     // — avant ce correctif, les deux modes de candidature (devis vs prix fixe/taux) se
     // comportaient différemment après envoi (l'un redirigeait, l'autre restait sur place

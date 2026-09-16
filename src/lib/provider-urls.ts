@@ -11,7 +11,7 @@ export const PROVIDER_ROLE_SLUGS = ["expert-digital", "expert-btp", "artisan", "
 export type ProviderRoleSlug = (typeof PROVIDER_ROLE_SLUGS)[number];
 
 // Rôle en base (UserRole) -> slug d'URL.
-export const ROLE_TO_SLUG: Record<string, ProviderRoleSlug> = {
+const ROLE_TO_SLUG: Record<string, ProviderRoleSlug> = {
   expert_digital: "expert-digital",
   expert_btp_autres: "expert-btp",
   artisan: "artisan",
@@ -19,7 +19,7 @@ export const ROLE_TO_SLUG: Record<string, ProviderRoleSlug> = {
 };
 
 // Sections du sidebar prestataire (clés NavItem.id) — voir providerNav dans DashboardLayout.
-export const PROVIDER_SECTIONS = [
+const PROVIDER_SECTIONS = [
   "dashboard",
   "missions",
   "messages",

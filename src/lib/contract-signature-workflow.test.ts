@@ -18,9 +18,13 @@
  *  10. Encodage QR depuis les données réelles de signature
  *  11. Détection d'altération (tamper → intégrité invalide)
  *
- * Différences avec le plan de test de la maquette de signature : voir
- * `analyse-plan-test-contrat-signature.md` (pas de PDF/watermark, pas de lien magique,
- * pas de page publique /verify — la signature est cryptographique avec certificats RSA).
+ * Ce qui SÉPARE ce workflow du plan de test de la maquette de signature : pas de PDF filigrané,
+ * pas de lien magique, pas de page publique /verify. La signature est cryptographique, adossée à
+ * des certificats RSA — c'est pourquoi les étapes 7, 8 et 11 ci-dessus vérifient des signatures
+ * et des hachages là où la maquette vérifiait un document.
+ *
+ * (Ces écarts étaient détaillés dans `analyse-plan-test-contrat-signature.md`, retiré du dépôt
+ * le 16 septembre 2026 ; l'essentiel en est repris dans le paragraphe ci-dessus.)
  */
 
 import { describe, expect, it, beforeAll, afterAll, vi } from "vitest";
@@ -59,10 +63,8 @@ let providerId: string;
 let missionId: string;
 let contractId: string;
 let clientCertId: string;
-let clientCertFingerprint: string;
 let providerCertId: string;
 let providerCertFingerprint: string;
-let clientSignResult: Awaited<ReturnType<typeof SignatureService.signContract>>;
 let providerSignResult: Awaited<ReturnType<typeof SignatureService.signContract>>;
 
 // ---------------------------------------------------------------------------
@@ -196,7 +198,6 @@ describe("Workflow contrat + signature + QR (implémentation réelle)", () => {
     expect(body.data.publicKey).toContain("BEGIN PUBLIC KEY");
     expect(body.data.keyFingerprint).toMatch(/^([A-F0-9]{2}:){31}[A-F0-9]{2}$/);
     clientCertId = body.data.id;
-    clientCertFingerprint = body.data.keyFingerprint;
   });
 
   it("S3/S4 — refuse une passphrase de moins de 8 caractères", async () => {
@@ -273,7 +274,6 @@ describe("Workflow contrat + signature + QR (implémentation réelle)", () => {
     expect(body.success).toBe(true);
     expect(body.role).toBe("CLIENT");
     expect(body.isLocked).toBe(true);
-    clientSignResult = body;
 
     const contract = await prisma.prestationContract.findUniqueOrThrow({
       where: { id: contractId },

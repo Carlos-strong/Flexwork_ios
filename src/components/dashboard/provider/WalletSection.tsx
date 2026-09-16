@@ -1,7 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
 import { fetchDedupe } from "@/lib/fetch-dedupe";
-import Link from "next/link";
 import { Wallet, ShieldCheck, Clock } from "lucide-react";
 
 type Summary = {

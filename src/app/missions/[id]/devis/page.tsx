@@ -11,7 +11,6 @@ import { useUserIdentity } from "@/components/user-identity";
 import { providerUrl } from "@/lib/provider-urls";
 import { Avatar } from "@/components/avatar";
 import { MISSION_STATUS_STYLE } from "@/lib/mission-status";
-import { RISK_BADGE } from "@/components/dashboard/types";
 import { canProviderReviseDevis } from "@/lib/devis";
 import type { DevisLineItemInput } from "@/lib/devis";
 import { computeDevisData } from "@/lib/devis";
@@ -20,6 +19,16 @@ import { candidaturesHrefForRole, type Role } from "@/lib/role-dashboard";
 import type { DevisProposalPayload } from "@/components/devis/types";
 import { countryFlag } from "@/components/person-card";
 import { FinancingModeNotice } from "@/components/financing/financing-mode-notice";
+
+// Rapatrié depuis src/components/dashboard/types.ts, supprimé le 16/09/2026 : cette page en
+// était le seul consommateur restant, le fichier ne portait plus que cette constante, et son
+// autre table (STATUS_LABEL) était une copie de plus des libellés de statut — sans `remboursee`,
+// comme les deux autres. La table des risques de /admin/risk est distincte et le reste.
+const RISK_BADGE: Record<string, { label: string; bg: string; text: string }> = {
+  low: { label: "Risque faible", bg: "bg-green-50", text: "text-green-700" },
+  medium: { label: "Risque moyen", bg: "bg-amber-50", text: "text-amber-700" },
+  high: { label: "Risque élevé", bg: "bg-red-50", text: "text-red-700" },
+};
 
 // Reproduction fidèle de la maquette Offre-Candidature-Vjr — seule la barre de navigation de gauche
 // change (vraie sidebar prestataire, DashboardLayout, au lieu de celle fictive de la

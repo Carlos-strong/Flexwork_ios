@@ -166,7 +166,7 @@ export function checkCaps(
 // ── Seuil d'alerte (§19) ───────────────────────────────────────────────────────────────────
 // « Le séquestre disponible ne couvre plus que 4 jours de présence. Veuillez recharger le
 // financement. » — prévenir AVANT l'arrêt, plutôt que de laisser le chantier buter sur un refus.
-export const LOW_FUNDS_THRESHOLD = 0.2;
+const LOW_FUNDS_THRESHOLD = 0.2;
 
 export type FundingAlert = {
   /** Unités encore finançables avec le séquestre disponible. */

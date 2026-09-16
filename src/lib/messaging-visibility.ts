@@ -13,7 +13,7 @@ import type { ProposalStatus, GigOrderStatus } from "@prisma/client";
 // acceptation : c'est précisément pendant l'exécution que les deux parties ont le plus besoin
 // de se coordonner (livrables, pointage, jalons). Elle ne disparaît qu'une fois la relation
 // éteinte (refus ou annulation définitive), où il n'y a plus rien à discuter.
-export const ENGAGED_PROPOSAL_STATUSES: ProposalStatus[] = [
+const ENGAGED_PROPOSAL_STATUSES: ProposalStatus[] = [
   "envoyee", // candidature soumise → la négociation s'ouvre
   "preselectionnee",
   "en_negociation",
@@ -28,7 +28,7 @@ export function isProposalEngaged(status: string): boolean {
 // Pendant Gig. Le modèle Gig n'a PAS de phase de négociation (prix ferme, achat direct) :
 // l'équivalent du « passage en négociation » est la création de la commande, moment où les
 // deux parties deviennent liées. Une commande annulée ou remboursée éteint la relation.
-export const ENGAGED_GIG_ORDER_STATUSES: GigOrderStatus[] = [
+const ENGAGED_GIG_ORDER_STATUSES: GigOrderStatus[] = [
   "created",
   "client_signed",
   "active",

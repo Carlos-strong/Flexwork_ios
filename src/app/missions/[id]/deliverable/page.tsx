@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
@@ -78,17 +78,6 @@ const MISSION_DELIVERABLE_STATUS_LABEL: Record<string, string> = {
 // Utilisateur affiché dans le sidebar/navbar le temps que l'identité réelle (UserIdentityProvider)
 // soit chargée — même convention que la page devis sœur (missions/[id]/devis/page.tsx).
 const FALLBACK_USER: DashboardUser = { initials: "PR", name: "Prestataire", role: "Prestataire", avatarGradient: "from-[#FF7A00] to-[#E8112D]" };
-
-// Catégories de preuves — photo/vidéo/document exigent un vrai fichier ; géolocalisation
-// (navigator.geolocation, coordonnées réelles) et "autres preuves" (texte libre, comme la
-// maquette) n'en exigent pas — voir POST .../deliverable.
-const CATEGORIES: { id: string; label: string; accept?: string }[] = [
-  { id: "photo", label: "📷 Photos", accept: "image/*" },
-  { id: "video", label: "🎥 Vidéos", accept: "video/*" },
-  { id: "document", label: "📄 Documents", accept: ".pdf,.doc,.docx,.zip" },
-  { id: "geolocation", label: "📍 Géolocalisation" },
-  { id: "other", label: "➕ Autres preuves" },
-];
 
 // Une "ligne" de la table récapitulative — un jalon réel, ou (contrat sans jalon) la mission
 // entière traitée comme une ligne unique #01, pour présenter exactement le même écran dans

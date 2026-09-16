@@ -52,7 +52,6 @@ export function SignContractModal({
 }: SignContractModalProps) {
   const [step, setStep] = useState<Step>("loading");
   const [error, setError] = useState<string | null>(null);
-  const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [activeCert, setActiveCert] = useState<Certificate | null>(null);
 
   // Formulaire génération certificat
@@ -79,7 +78,6 @@ export function SignContractModal({
       .then((json) => {
         if (json.success) {
           const certs = json.data as Certificate[];
-          setCertificates(certs);
           const active = certs.find((c) => c.status === "ACTIVE") ?? null;
           setActiveCert(active);
           setStep(active ? "sign" : "no_cert");
@@ -119,7 +117,6 @@ export function SignContractModal({
       return;
     }
     const newCert = json.data as Certificate;
-    setCertificates((prev) => [newCert, ...prev]);
     setActiveCert(newCert);
     // Signer directement avec la passphrase déjà saisie
     await doSign(newCert.id, newPassphrase);

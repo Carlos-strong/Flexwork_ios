@@ -17,7 +17,6 @@ import crypto from "crypto";
 const prisma = new PrismaClient();
 
 // Mots de passe hashés avec bcryptjs (tous = "Test123456!")
-const PASSWORD_HASH = "$2a$10$dummyhashwillbereplaced";
 
 const USERS = [
   { email: "aicha@flexwork.test",   tel: "+22997100001", role: "client" as const,            firstname: "Aïcha",    lastname: "Dossou",    country: "BJ", city: "Cotonou" },

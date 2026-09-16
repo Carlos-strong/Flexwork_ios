@@ -23,7 +23,7 @@
 import { useEffect, useRef, useState } from "react";
 
 // Raisons de rejet — liste et libellés de la maquette, dans son ordre.
-export const CLIENT_REJECT_REASONS = [
+const CLIENT_REJECT_REASONS = [
   "Non conforme CCTP",
   "Qualité insuffisante",
   "Document illisible",
@@ -35,7 +35,7 @@ export const CLIENT_REJECT_REASONS = [
 
 // Les 4 onglets de la sous-modale « Ajouter vos preuves de constat », avec la catégorie
 // applicative correspondante (voir src/lib/constat.ts).
-export const CONSTAT_TABS: { label: string; category: string; accept?: string }[] = [
+const CONSTAT_TABS: { label: string; category: string; accept?: string }[] = [
   { label: "Photos", category: "constat_photo", accept: "image/*" },
   { label: "Vidéos", category: "constat_video", accept: "video/*" },
   { label: "Documents", category: "constat_document", accept: ".pdf,.doc,.docx,.zip" },

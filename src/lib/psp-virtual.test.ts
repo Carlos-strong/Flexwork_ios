@@ -23,7 +23,6 @@ import {
   isVirtualPspEnabled,
   shouldAutoConfirmStub,
   operateVirtualPsp,
-  autoConfirmPending,
   getVirtualPspSnapshot,
   eventForInstruction,
 } from "@/lib/psp-virtual";

@@ -14,7 +14,7 @@ export type ProofScope = { missionId: string; jalonId: string | null };
 // rejet global — append-only). Un rejet PAR PREUVE ne clôt PAS le lot : tant qu'une preuve est
 // rejetée ou en attente, le lot reste ouvert (le prestataire doit resoumettre / le client doit
 // apprécier) — c'est exactement ce que `proofValidationState` doit refléter.
-export async function openProofs(scope: ProofScope) {
+async function openProofs(scope: ProofScope) {
   const boundary = await latestLotDecisionAt(scope);
   return prisma.missionAttachment.findMany({
     where: {
@@ -57,7 +57,7 @@ export type ProofValidationState = {
   rejected: number;
 };
 
-export async function proofValidationState(scope: ProofScope): Promise<ProofValidationState> {
+async function proofValidationState(scope: ProofScope): Promise<ProofValidationState> {
   const proofs = await openProofs(scope);
   const pending = proofs.filter((p) => !p.appreciation).length;
   const rejected = proofs.filter((p) => p.appreciation === "rejetee").length;

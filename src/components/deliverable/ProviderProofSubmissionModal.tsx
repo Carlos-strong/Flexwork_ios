@@ -25,7 +25,7 @@ import { useEffect, useRef, useState } from "react";
 // serrées pour un vrai chantier où un seul tour peut demander une dizaine de photos. Ils
 // pilotent le compteur « N/max » de chaque catégorie, le blocage + toast « Limite atteinte »,
 // et le total du pied de modale.
-export const SUBMISSION_CATEGORIES: {
+const SUBMISSION_CATEGORIES: {
   key: string;
   app: string;
   label: string;

@@ -28,7 +28,7 @@ import {
 import { checkEscrowInvariants, checkBalanceInvariants, GOLDEN_RULES } from "@/lib/escrow-invariants";
 import { operateVirtualPsp } from "@/lib/psp-virtual";
 import { RETENTION_RATE_J4 } from "@/lib/financing-modes";
-import { approveAttendance, disputeAttendance, submitAttendance } from "@/lib/spot-time-actions";
+import { disputeAttendance, submitAttendance } from "@/lib/spot-time-actions";
 import { dayPeriod } from "@/lib/spot-time";
 
 const RUN = Date.now();

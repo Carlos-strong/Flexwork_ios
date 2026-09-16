@@ -132,7 +132,7 @@ export const proposalSchema = z.object({
 
 // Offre formelle envoyée par le client à un candidat à partir d'une proposition existante
 // (model Offer, prisma/schema.prisma) — POST /api/missions/[id]/proposals/[proposalId]/offer.
-export const offerMilestoneSchema = z.object({
+const offerMilestoneSchema = z.object({
   ordre: z.number().int().nonnegative(),
   description: z.string().min(1),
   unite: z.string().optional(),
@@ -149,7 +149,7 @@ export const offerSchema = z.object({
 
 // Phase 4 — mode devis BTP (budgetType = "QUOTE") : jalons détaillés d'un devis.
 // Montants dans la devise de la mission (Float, jamais de centimes).
-export const devisLineItemSchema = z.object({
+const devisLineItemSchema = z.object({
   description: z.string().min(1),
   quantity: z.number().positive(),
   unit: z.string().min(1),

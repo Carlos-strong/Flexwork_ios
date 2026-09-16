@@ -9,9 +9,12 @@ import { fetchDedupe } from "@/lib/fetch-dedupe";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Chronologie des pages — Publication → Clôture
-// Intégration de la vue « Chronologie-Pages-Publication-Cloture-Vjr.html » dans
+// Intégration de la maquette « Chronologie-Pages-Publication-Cloture-Vjr.html » dans
 // l'application : les 14 étapes de la maquette sont mappées sur les pages et
 // fonctionnalités RÉELLEMENT implémentées (routes Next.js, composants, API).
+// La maquette a été retirée du dépôt le 16 septembre 2026, son contenu étant
+// désormais porté par cette page — c'est ici, et non dans un fichier HTML, que
+// se lit la chronologie de référence.
 // Les routes dépendantes d'une mission (`/missions/[id]/...`) sont résolues avec
 // la première mission accessible via GET /api/missions (connecté) ; sinon le
 // motif de route est affiché en code monospace sans lien.
@@ -383,7 +386,7 @@ export default function ChronologiePage() {
         <div className="bg-white border border-[#E2E8F0] rounded-xl p-4">
           <p className="text-[11px] font-bold tracking-widest text-[#94A3B8] uppercase mb-3">Pipeline final</p>
           <div className="flex flex-wrap items-center gap-2">
-            {PHASES.map((p, i) => (
+            {PHASES.map((p) => (
               <span key={p} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#F0FDF4] text-[#008751] border border-[#A7F3D0] text-[12px] font-semibold">
                 <Check size={13} strokeWidth={3} /> {p}
               </span>

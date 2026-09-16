@@ -24,20 +24,13 @@ export const PROFESSIONAL_TYPE_LABEL: Record<string, string> = {
 // Parité fixe FCFA/EUR (peg officiel BCEAO/BCEAC, invariable) — badge de conversion informatif
 // sous le montant XOF de l'en-tête carte.
 const XOF_PER_EUR = 655.957;
-export function xofToEur(amountXof: number): number {
+function xofToEur(amountXof: number): number {
   return Math.round(amountXof / XOF_PER_EUR);
 }
 
 // Catégories de preuves — mêmes libellés que le formulaire de soumission (prestataire), utilisé
 // ici uniquement pour REGROUPER un lot en lecture seule (ReadOnlyProofCategories), jamais pour
 // en ajouter (l'ajout reste une action prestataire, hors de ce module).
-export const PROOF_CATEGORIES: { id: string; label: string }[] = [
-  { id: "photo", label: "📷 Photos" },
-  { id: "video", label: "🎥 Vidéos" },
-  { id: "document", label: "📄 Documents" },
-  { id: "geolocation", label: "📍 Géolocalisation" },
-  { id: "other", label: "➕ Autres preuves" },
-];
 
 // Forme minimale exigée par ce module — les deux vues appelantes ont chacune leur propre type
 // `Attachment` local, les deux satisfont structurellement celui-ci sans conversion. Les champs

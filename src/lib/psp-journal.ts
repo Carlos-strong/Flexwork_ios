@@ -13,7 +13,7 @@ import { prisma } from "@/lib/db";
 // Les deux sont entrelacés chronologiquement, avec une pagination par curseur commune.
 
 const HOUR_MS = 60 * 60 * 1000;
-export const UNANSWERED_AFTER_HOURS = 24;
+const UNANSWERED_AFTER_HOURS = 24;
 
 export type JournalPeriod = "24h" | "7d" | "30d" | "all";
 const PERIOD_MS: Record<Exclude<JournalPeriod, "all">, number> = { "24h": 24 * HOUR_MS, "7d": 7 * 24 * HOUR_MS, "30d": 30 * 24 * HOUR_MS };

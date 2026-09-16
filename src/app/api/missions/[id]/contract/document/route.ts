@@ -19,7 +19,6 @@ import {
   cleanParagraph,
   formatDateLong,
   formatDateTime,
-  formatMontant,
   sanitize,
   widthsFor,
   wrapText,

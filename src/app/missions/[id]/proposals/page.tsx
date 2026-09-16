@@ -109,7 +109,6 @@ export default function ProposalsPage() {
 
   const [proposals, setProposals] = useState<DevisProposalPayload[] | null>(null);
   const [missionMeta, setMissionMeta] = useState<MissionMeta | null>(null);
-  const [feedback, setFeedback] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<FilterId>("all");
   const [fixedFilter, setFixedFilter] = useState<FixedFilterId>("all");
@@ -207,7 +206,6 @@ export default function ProposalsPage() {
             </div>
           </div>
 
-          {feedback && <div className="rounded-lg border border-[#BFDBFE] bg-[#EFF6FF] p-3 text-[13px] text-[#1E40AF]">{feedback}</div>}
 
           {/* Filtres */}
           <div className="flex gap-2 overflow-auto" style={{ scrollbarWidth: "none" }}>
@@ -479,7 +477,6 @@ export default function ProposalsPage() {
           </div>
         </div>
 
-        {feedback && <div className="rounded-lg border border-[#BFDBFE] bg-[#EFF6FF] p-3 text-[13px] text-[#1E40AF]">{feedback}</div>}
 
         {/* Filtres */}
         <div className="flex gap-2 overflow-auto" style={{ scrollbarWidth: "none" }}>

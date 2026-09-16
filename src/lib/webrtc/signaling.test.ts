@@ -65,10 +65,8 @@ describe("signaling store", () => {
       const ctrl = mockController();
       addSSEClient("user-a", ctrl);
 
-      // Vérification indirecte : sendToUser doit livrer
-      let delivered = false;
-      const spy = mockController();
-      // On remplace par un spy qui vérifie
+      // Vérification indirecte : sendToUser doit livrer — on lit les chunks du contrôleur
+      // d'origine (plus bas). Un espion avait été préparé ici puis jamais branché.
       const msg: SignalMessage = {
         type: "offer",
         from: "user-b",

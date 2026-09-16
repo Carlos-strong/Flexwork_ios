@@ -84,7 +84,7 @@ export async function isUnderIpRequestLimit(ip: string): Promise<boolean> {
 // Supprime les tentatives plus vieilles que la fenêtre. Throttlée par un timestamp en
 // mémoire pour ne pas lancer un deleteMany à chaque requête. L'index autonome sur createdAt
 // (migration 20260820204300) rend ce balayage efficace.
-export async function cleanupOtpRequestAttempts(): Promise<void> {
+async function cleanupOtpRequestAttempts(): Promise<void> {
   const now = Date.now();
   if (now - lastOtpAttemptCleanup < OTP_ATTEMPT_CLEANUP_INTERVAL_MS) return;
   lastOtpAttemptCleanup = now;

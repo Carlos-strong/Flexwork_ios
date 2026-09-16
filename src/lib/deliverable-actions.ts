@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { randomUUID } from "crypto";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
@@ -23,12 +22,6 @@ import {
   resolveClientDeliverableScope,
   type DeliverableScope,
 } from "@/lib/deliverable-scope";
-import {
-  autoConfirmPending,
-  isVirtualPspEnabled,
-  shouldAutoConfirmStub,
-  virtualPspName,
-} from "@/lib/psp-virtual";
 
 // Gestes de validation du client, écrits UNE fois pour les deux portées (un jalon, ou la
 // mission entière sans jalon). Voir src/lib/deliverable-scope.ts pour le pourquoi : ces
