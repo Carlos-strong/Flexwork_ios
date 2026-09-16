@@ -26,7 +26,7 @@ import { buildPayableLabeler } from "@/lib/payable-labels";
 // un versement refusé. Chacune est un argent immobilisé qu'aucune des deux parties ne peut
 // débloquer ; c'est précisément ce qu'un opérateur doit voir en premier.
 
-export const STALE_INSTRUCTION_HOURS = 24;
+const STALE_INSTRUCTION_HOURS = 24;
 const TERMINAL_MISSION_STATUSES: readonly string[] = ["cloturee", "remboursee"];
 const TERMINAL_GIG_STATUSES: readonly string[] = ["completed", "refunded", "cancelled"];
 const EPSILON = 0.5;
@@ -83,7 +83,7 @@ export type ContractFinanceRow = {
 
 const SEVERITY_RANK: Record<Severity, number> = { critical: 0, warning: 1, info: 2 };
 
-export function sortAnomalies(list: Anomaly[]): Anomaly[] {
+function sortAnomalies(list: Anomaly[]): Anomaly[] {
   return [...list].sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity] || b.amount - a.amount);
 }
 
@@ -191,7 +191,7 @@ export function staleInstructionAnomalies(
     });
 }
 
-export const INSTRUCTION_LABEL: Record<string, string> = {
+const INSTRUCTION_LABEL: Record<string, string> = {
   hold: "Financement",
   release: "Versement au prestataire",
   retention_release: "Versement de la retenue",
@@ -259,9 +259,18 @@ export async function loadContractFinanceRows(
   const pendingByContract = new Map(pending.map((p) => [p.contractId, p._count._all]));
   const lastByContract = new Map(last.map((l) => [l.contractId, l._max.instructionSentAt]));
 
-  return contracts.map((c) => {
-    const balance = balances.get(c.id)!;
-    return {
+  // `balances` est reconstruit par une SECONDE requête, à partir des identifiants issus de la
+  // première : un contrat disparu entre les deux n'y figure pas. Le `!` qui se trouvait ici
+  // mentait, et la console entière tombait alors sur `Cannot read properties of undefined
+  // (reading 'funded')` — vu en conditions de concurrence le 16/09/2026. Aucune route ne supprime
+  // de contrat aujourd'hui, mais `PrestationContract` cascade depuis la mission ET depuis chacune
+  // des deux parties : effacer un utilisateur (demande RGPD, ménage admin) emporte ses contrats.
+  // Un dossier évaporé ne doit pas blanchir la vue financière de TOUTE la plateforme ; la ligne
+  // est omise, les autres restent lisibles.
+  return contracts.flatMap((c) => {
+    const balance = balances.get(c.id);
+    if (!balance) return [];
+    return [{
       contractId: c.id,
       missionId: c.missionId,
       titre: c.mission.titre,
@@ -280,7 +289,7 @@ export async function loadContractFinanceRows(
       hasOpenMediation: c.mediations.length > 0,
       hasDisputedAttendance: c.attendances.length > 0,
       violations: checkBalanceInvariants(balance, payablesByContract.get(c.id) ?? []),
-    };
+    }];
   });
 }
 
