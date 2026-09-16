@@ -2,7 +2,7 @@ import { randomUUID } from "crypto";
 import type { PspOperationStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { verifyWebhookSignatureGeneric } from "@/lib/webhook-signing";
-import { contractPrice, heldBalance, releasedAmounts } from "@/lib/escrow";
+import { contractPrice, heldBalance, instructOwedPayables, releasedAmounts } from "@/lib/escrow";
 import { IN_FLIGHT_STATUSES } from "@/lib/escrow-instructions";
 import { MONTANT_EPSILON, releasableBeforeRetention, totalRetentionAmount } from "@/lib/jalons";
 
@@ -405,6 +405,8 @@ async function applyPspWebhookEventCore(
         where: { id: contract.missionId, status: { notIn: ["fonds_sous_sequestre", "livrable_soumis", "validee", "cloturee"] } },
         data: { status: "fonds_sous_sequestre" },
       });
+      // Des fonds viennent d'entrer : une créance qui les attendait peut partir (voir contrat).
+      await instructOwedPayables(contractId);
     } else if (operation.instructionType === "release") {
       const jalon = await prisma.jalon.findUnique({ where: { id: operation.jalonId }, select: { montant: true } });
       // Retenue de garantie (règle 18.10) : le seuil de clôture d'un jalon est son plafond
@@ -461,6 +463,12 @@ async function applyPspWebhookEventCore(
         data: { status: "fonds_sous_sequestre" },
       });
     }
+
+    // Recharge (§13, 2026-09-15) : une créance validée qui attendait des fonds part MAINTENANT,
+    // sans nouveau geste. Avant, la recharge encaissait l'argent du client et la créance restait
+    // `validated` — un relevé de présence déjà validé ne pouvait plus l'être, donc plus rien ne
+    // la relançait. Sur un financement initial il n'y a aucune créance : l'appel ne fait rien.
+    await instructOwedPayables(contractId);
   } else if (operation.instructionType === "release") {
     // `cloturee` directement, pas `validee` (audit workflow, 2026-09-02) : contrairement à la
     // branche jalons ci-dessus (qui pose `cloturee` une fois TOUS les jalons `libere`), ce

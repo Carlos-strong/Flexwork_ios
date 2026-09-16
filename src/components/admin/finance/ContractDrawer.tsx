@@ -25,8 +25,31 @@ export function ContractDrawer({
   const [refundAmount, setRefundAmount] = useState("");
   const [refundReason, setRefundReason] = useState("");
   const [retentionReason, setRetentionReason] = useState("");
-  const [busy, setBusy] = useState<null | "refund" | "retention">(null);
+  const [busy, setBusy] = useState<null | "refund" | "retention" | "reinstruct">(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  // Réinstruction d'une créance due : la justification se saisit dans la ligne de la créance.
+  const [reinstruct, setReinstruct] = useState<{ id: string; reason: string } | null>(null);
+
+  async function reinstructPayable() {
+    if (!reinstruct) return;
+    setActionError(null);
+    setBusy("reinstruct");
+    const res = await fetch(`/api/admin/finance/payables/${reinstruct.id}/reinstruct`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ justification: reinstruct.reason }),
+    });
+    const data = await res.json().catch(() => ({}));
+    setBusy(null);
+    if (!res.ok) {
+      setActionError(ACTION_ERROR[data.error] ?? `Échec : ${data.error ?? res.status}`);
+      return;
+    }
+    notify(`Versement de ${money(data.amount)} réinstruit — en attente de confirmation PSP.`);
+    setReinstruct(null);
+    await load();
+    onChanged();
+  }
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/admin/finance/contracts/${contractId}`, { cache: "no-store" });
@@ -315,18 +338,66 @@ export function ContractDrawer({
               <section className="rounded-xl border border-[#E2E8F0] bg-white">
                 <h3 className="text-[13px] font-semibold px-3.5 pt-3">Créances ({d.payables.length})</h3>
                 <ul className="divide-y divide-[#F1F5F9] mt-2">
-                  {d.payables.map((p) => (
-                    <li key={p.id} className="px-3.5 py-2 flex items-center justify-between gap-3 text-[12px]">
-                      <div className="min-w-0">
-                        <div className="truncate text-[#0f172a]">{p.label}</div>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          <Chip tone={PAYABLE_STATUS[p.status]?.tone ?? "slate"}>{PAYABLE_STATUS[p.status]?.label ?? p.status}</Chip>
-                          <span className="text-[11px] text-[#94A3B8]">{dateTime(p.paidAt ?? p.validatedAt)}</span>
+                  {d.payables.map((p) => {
+                    const due = p.status === "failed" || p.status === "validated";
+                    const open = reinstruct?.id === p.id;
+                    return (
+                      <li key={p.id} className="px-3.5 py-2 text-[12px]">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="truncate text-[#0f172a]">{p.label}</div>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <Chip tone={PAYABLE_STATUS[p.status]?.tone ?? "slate"}>{PAYABLE_STATUS[p.status]?.label ?? p.status}</Chip>
+                              <span className="text-[11px] text-[#94A3B8]">{dateTime(p.paidAt ?? p.validatedAt)}</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <strong className="tabular-nums">{money(p.amount, p.currency)}</strong>
+                            {due && canAct && !open && (
+                              <button
+                                onClick={() => {
+                                  setActionError(null);
+                                  setReinstruct({ id: p.id, reason: "" });
+                                }}
+                                className="h-7 px-2.5 rounded-md border border-[#E2E8F0] bg-white text-[11.5px] font-medium hover:bg-[#F1F5F9]"
+                              >
+                                Réinstruire
+                              </button>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                      <strong className="tabular-nums shrink-0">{money(p.amount, p.currency)}</strong>
-                    </li>
-                  ))}
+                        {open && (
+                          <div className="mt-2 flex flex-col sm:flex-row gap-2">
+                            <input
+                              id={`reinstruct-${p.id}`}
+                              type="text"
+                              value={reinstruct.reason}
+                              onChange={(e) => setReinstruct({ id: p.id, reason: e.target.value })}
+                              placeholder="Justification (journalisée)"
+                              aria-label="Justification de la réinstruction"
+                              className={inputCls}
+                              autoFocus
+                            />
+                            <div className="flex gap-2 shrink-0">
+                              <button
+                                onClick={reinstructPayable}
+                                disabled={reinstruct.reason.trim().length < 5 || busy !== null}
+                                className="h-9 px-3 rounded-lg bg-[#0f172a] text-white text-[12px] font-semibold hover:bg-black disabled:opacity-40"
+                              >
+                                {busy === "reinstruct" ? "Instruction…" : `Réinstruire ${money(p.amount, p.currency)}`}
+                              </button>
+                              <button
+                                onClick={() => setReinstruct(null)}
+                                className="h-9 px-3 rounded-lg border border-[#E2E8F0] bg-white text-[12px] font-medium hover:bg-[#F1F5F9]"
+                              >
+                                Annuler
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </li>
+                    );
+                  })}
                 </ul>
               </section>
             )}

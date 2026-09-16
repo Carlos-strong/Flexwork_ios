@@ -182,6 +182,7 @@ des instructions.
 | `GET /api/admin/finance/operations` · `/payables` | Registre PSP et créances de toute la plateforme, filtrables, paginés |
 | `GET /api/admin/finance/contracts/[contractId]` | Fiche financière d'un contrat et gestes disponibles |
 | `POST /api/admin/finance/residual-sweep` | Balayage manuel des reliquats (Médiation, justifié, journalisé) |
+| `POST /api/admin/finance/payables/[payableId]/reinstruct` | Réinstruction d'un versement dû, typiquement refusé par le PSP (Médiation, justifié, journalisé) |
 | `GET /api/admin/finance/psp-journal` | Journal des échanges plateforme ⇄ PSP : instructions sortantes et messages reçus entrelacés, indicateurs |
 | `GET /api/admin/finance/psp-journal/exchange?reference=` | Conversation complète autour d'une référence PSP |
 | `GET`/`POST /api/missions/[id]/attendance` | Relevés : liste, déclaration |
@@ -223,7 +224,7 @@ Contraintes en base, et non seulement en code :
 
 ## 7. Tests
 
-**831 tests, 83 fichiers.** Les 23 tests minimaux du §24 sont couverts, plus les tests de
+**841 tests, 84 fichiers.** Les 23 tests minimaux du §24 sont couverts, plus les tests de
 concurrence du §17.
 
 | Fichier | Couvre |
@@ -236,6 +237,7 @@ concurrence du §17.
 | `contract-clauses-temps.test.ts` | Articles 2 et 4 au temps — ni jalons, ni acceptation tacite promise |
 | `admin-finance.e2e.test.ts` | Console admin : 5 anomalies détectées, états légitimes ignorés, identité comptable, rôles, justification et audit |
 | `workflow-complet.e2e.test.ts` | **Parcours complets par les vraies routes** : F2, J4, S1, S2J (publication → clôture) et médiation, règles d'or après chaque mouvement, console admin, journal PSP, tableaux de bord |
+| `workflow-incidents.e2e.test.ts` | **Suite du parcours complet** : J1 (refus PSP puis reprise), J3 paliers, J1 sur devis, S2H (réinstruction admin, gel, insuffisance, recharge et reprise automatique, clôture), S2M, acceptation tacite, mission arrêtée (retenue soldée, remboursement), commande Gig, console et journal |
 | `psp-journal.e2e.test.ts` | Journal PSP : appliqué, rejeu, signature invalide/absente, référence inconnue, conflit, canal console ; pagination sans perte ni doublon |
 | `site-manager.e2e.test.ts` | Délégation, révocation, prestataire jamais validateur |
 | `funding-upfront.e2e.test.ts` | Séquence du §7 (150 000 → 0), séquestre unique |
@@ -247,7 +249,7 @@ concurrence du §17.
 Concurrence testée : deux validations simultanées, deux libérations simultanées, deux
 remboursements simultanés, deux dégels simultanés, double webhook, double clic.
 
-**Vérifications finales du §26** : `vitest run` 831/831 · `tsc --noEmit` 0 erreur ·
+**Vérifications finales du §26** : `vitest run` 841/841 · `tsc --noEmit` 0 erreur ·
 `eslint` 0 erreur · `next build` succès (2026-09-15).
 
 ---
@@ -313,4 +315,7 @@ Chacune s'écarte d'une lecture littérale du cahier des charges, pour une raiso
 | Contrat au temps promettant jalons et acceptation tacite | Articles 2 et 4 dédiés (`contract-clauses.ts`) |
 | Contrat à jalons sur mission à prix fixe réduit à UN jalon (ligne synthétique de la candidature prise pour un devis) : J4 impossible, jalons saisis ignorés en S1/J1/J3 | Dérivation depuis le devis réservée aux missions `QUOTE` (génération du contrat et aperçu) |
 | Fonds gelés invisibles au prestataire sur une mission « remboursée » | Résumé prestataire calculé sur tous ses contrats |
+| Créance validée non couverte jamais payée après recharge (relevé de présence déjà validé, aucun geste pour la relancer) | `instructOwedPayables` à chaque confirmation de financement |
+| Versement refusé par le PSP : console « à réinstruire » sans geste | `instructOwedPayable` + route et bouton de réinstruction admin |
+| Chantier clos automatiquement au plafond pendant une contestation : le solde libéré par l'arbitrage attendait le balayage du lendemain | La clôture d'un contrat au temps déjà clos rend le solde immédiatement ; bouton « Récupérer le solde non consommé » |
 | Aucun écran admin des flux ; remboursement et solde de retenue non journalisés | Console `/admin/finance` (`src/lib/admin-finance.ts`) ; justification obligatoire et `AdminAuditLog` sur les deux gestes |

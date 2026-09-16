@@ -155,9 +155,17 @@ describe("la recharge elle-même", () => {
     // Tant que le PSP n'a pas confirmé, rien n'est disponible de plus.
     expect((await escrowBalance(contract.id)).available).toBe(120_000);
     expect((await operateVirtualPsp("authorize", rechargé.operation.pspReference!)).ok).toBe(true);
-    expect((await escrowBalance(contract.id)).available).toBe(JALON);
 
-    // Le paiement passe désormais, sur le MÊME payable — jamais un doublon.
+    // La confirmation du complément instruit AUTOMATIQUEMENT la créance qui l'attendait (2026-09-15) :
+    // aucun nouveau geste, sur le MÊME payable — jamais un doublon.
+    const payable = await prisma.payable.findFirstOrThrow({ where: { sourceId: jalon.id } });
+    expect(payable.status).toBe("instructed");
+    expect(await prisma.payable.count({ where: { sourceId: jalon.id } })).toBe(1);
+    const release = await prisma.pspEscrowOperation.findUniqueOrThrow({ where: { id: payable.escrowOperationId! } });
+    expect(release).toMatchObject({ instructionType: "release", amount: JALON, status: "pending" });
+    expect((await escrowBalance(contract.id)).available).toBe(0);
+
+    // Rejouer la libération n'émet rien de plus.
     const res = await emitScopedRelease({
       contractId: contract.id,
       jalonId: jalon.id,
@@ -165,8 +173,7 @@ describe("la recharge elle-même", () => {
       plafond: JALON,
       targetCumulative: JALON,
     });
-    expect(res.ok).toBe(true);
-    expect(await prisma.payable.count({ where: { sourceId: jalon.id } })).toBe(1);
+    expect(res).toEqual({ ok: false, reason: "nothing_to_release" });
   });
 
   it("refuse tant qu'un financement est EN VOL — jamais deux débits pour la même somme", async () => {

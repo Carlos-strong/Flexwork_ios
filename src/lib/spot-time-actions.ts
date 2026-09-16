@@ -528,12 +528,17 @@ export async function closeTimeContract(args: { missionId: string; clientId: str
   if (!contract.spotTimeTerms) return { ok: false, error: "not_a_time_contract" };
 
   const verdict = await prisma.$transaction(
-    async (tx): Promise<{ ok: true } | Extract<CloseTimeContractResult, { ok: false }>> => {
+    async (tx): Promise<{ ok: true; alreadyClosed: boolean } | Extract<CloseTimeContractResult, { ok: false }>> => {
       // Même verrou que la déclaration d'un relevé et que toute émission sur ce séquestre.
       await tx.$queryRaw`SELECT id FROM "PrestationContract" WHERE id = ${contract.id} FOR UPDATE`;
       const mission = await tx.mission.findUniqueOrThrow({ where: { id: args.missionId }, select: { status: true } });
-      if (mission.status === "cloturee" || mission.status === "remboursee") return { ok: false, error: "already_closed" };
       if (mission.status === "mediation_ouverte") return { ok: false, error: "mediation_open" };
+      // Mission DÉJÀ close — le cas typique : le webhook la clôt dès que les versements atteignent
+      // le plafond, alors qu'une contestation est encore ouverte. Son arbitrage libère ensuite des
+      // fonds sur une mission close, que plus rien ne rendait au client avant le balayage du
+      // lendemain (constaté par le test de workflow, 2026-09-15). La clôture sert alors à
+      // récupérer ce solde, avec les mêmes refus que ci-dessous.
+      const alreadyClosed = mission.status === "cloturee" || mission.status === "remboursee";
 
       const enAttente = await tx.attendance.count({
         where: { contractId: contract.id, status: { in: ["submitted", "disputed"] } },
@@ -546,8 +551,10 @@ export async function closeTimeContract(args: { missionId: string; clientId: str
       });
       if (dus > 0) return { ok: false, error: "payment_pending", count: dus };
 
-      await tx.mission.update({ where: { id: args.missionId }, data: { status: "cloturee" } });
-      return { ok: true };
+      if (!alreadyClosed) {
+        await tx.mission.update({ where: { id: args.missionId }, data: { status: "cloturee" } });
+      }
+      return { ok: true, alreadyClosed };
     },
     { maxWait: 10_000, timeout: 20_000 }
   );
@@ -556,6 +563,8 @@ export async function closeTimeContract(args: { missionId: string; clientId: str
   // Hors transaction, comme toute émission : le remboursement prend lui-même le verrou. S'il
   // échoue ici (PSP indisponible), la mission est close et le balayage des reliquats le reprendra.
   const refund = await emitContractRefund({ contractId: contract.id, currency: contract.mission.currency });
+  // Déjà close et rien à rendre : la demande n'a eu aucun effet, et il faut le dire.
+  if (verdict.alreadyClosed && !refund) return { ok: false, error: "already_closed" };
   const montant = refund ? `${refund.amount.toLocaleString("fr-FR")} ${contract.mission.currency}` : null;
 
   await notifyMissionParties({

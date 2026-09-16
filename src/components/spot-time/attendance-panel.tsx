@@ -737,8 +737,9 @@ export function AttendancePanel({
       )}
 
       {/* Clôture du chantier (§22) — le client seul, et jamais en silence : ce qui revient au
-          client est annoncé avant la confirmation. */}
-      {role === "client" && actif && (
+          client est annoncé avant la confirmation. Sur un chantier DÉJÀ clos (plafond atteint) dont
+          un arbitrage a ensuite libéré des fonds, le même geste récupère ce solde tout de suite. */}
+      {role === "client" && !data.suspended && (actif || data.available > 0) && (
         <div className="mt-4 border-t border-[#F1F5F9] pt-3">
           {!confirmClose ? (
             <button
@@ -748,7 +749,7 @@ export function AttendancePanel({
               }}
               className="h-9 px-4 rounded-lg border border-[#E2E8F0] bg-white text-[12.5px] font-medium hover:bg-[#F8FAF9]"
             >
-              Clôturer le chantier
+              {data.closed ? `Récupérer le solde non consommé (${data.available.toLocaleString("fr-FR")} ${d})` : "Clôturer le chantier"}
             </button>
           ) : (
             <div className="rounded-lg border border-[#E2E8F0] bg-[#F8FAF9] p-3 space-y-2">

@@ -917,3 +917,102 @@ export async function escrowBalancesFor(
 
   return resultat;
 }
+
+// ── Réinstruction d'une créance restée due (2026-09-15) ────────────────────────────────────
+// Une créance peut rester due sans instruction dans deux cas :
+//   - `validated` : le séquestre ne la couvrait pas au moment de la validation (§13) ;
+//   - `failed`    : le PSP a refusé le versement (solde, indisponibilité…).
+//
+// Aucun chemin ne la relançait. La recharge encaissait l'argent du client sans que le versement
+// parte, et un relevé de présence déjà validé ne pouvait plus l'être une seconde fois : le
+// prestataire restait impayé malgré un séquestre couvrant sa créance. Constaté par le test de
+// workflow complet. La console admin annonçait « à réinstruire » sans geste pour le faire.
+//
+// La créance porte déjà son montant — calculé à sa validation comme ce qui restait dû sur sa
+// portée —, donc la réinstruire, c'est émettre ce montant, et rien d'autre. Même verrou, même
+// borne par le disponible, même confirmation hors transaction que toute émission. Un second appel
+// concurrent relit la créance sous le verrou, la trouve `instructed`, et s'arrête.
+export type OwedInstructionResult =
+  | { ok: true; operation: PspEscrowOperation; payable: Payable }
+  | { ok: false; reason: "not_found" | "not_owed" | "out_of_scope" | "escrow_insufficient"; available?: number };
+
+// Les sources dont le versement est un `release` de contrat. Les commandes Gig ont leur propre
+// domaine ; la médiation et la retenue n'émettent pas de créance réinstructible.
+const REINSTRUCTABLE_SOURCES: readonly string[] = ["jalon", "mission", "attendance"];
+
+export async function instructOwedPayable(payableId: string): Promise<OwedInstructionResult> {
+  const head = await prisma.payable.findUnique({ where: { id: payableId }, select: { contractId: true } });
+  if (!head) return { ok: false, reason: "not_found" };
+  if (!head.contractId) return { ok: false, reason: "out_of_scope" };
+  const contractId = head.contractId;
+
+  const outcome = await prisma.$transaction(async (tx): Promise<OwedInstructionResult> => {
+    await tx.$queryRaw`SELECT id FROM "PrestationContract" WHERE id = ${contractId} FOR UPDATE`;
+    const payable = await tx.payable.findUnique({
+      where: { id: payableId },
+      include: { contract: { select: { retentionRate: true } } },
+    });
+    if (!payable) return { ok: false, reason: "not_found" };
+    if (payable.status !== "validated" && payable.status !== "failed") return { ok: false, reason: "not_owed" };
+    if (!REINSTRUCTABLE_SOURCES.includes(payable.sourceType)) return { ok: false, reason: "out_of_scope" };
+
+    const rows = await tx.pspEscrowOperation.groupBy({
+      by: ["instructionType", "status"],
+      where: { contractId, status: { in: IN_FLIGHT_STATUSES } },
+      _sum: { amount: true },
+    });
+    const flat = rows.map((r) => ({
+      instructionType: r.instructionType as string,
+      status: r.status as string,
+      amount: r._sum.amount ?? 0,
+    }));
+    const available = await availableFrom(flat, contractId, payable.contract?.retentionRate ?? 0, tx);
+    if (payable.amount > available) return { ok: false, reason: "escrow_insufficient", available };
+
+    const operation = await tx.pspEscrowOperation.create({
+      data: {
+        contractId,
+        jalonId: payable.sourceType === "jalon" ? payable.sourceId : null,
+        pspName: virtualPspName(),
+        pspReference: `release_${randomUUID()}`,
+        amount: payable.amount,
+        currency: payable.currency,
+        instructionType: "release",
+      },
+    });
+    const linked = await tx.payable.update({
+      where: { id: payable.id },
+      data: { status: "instructed", escrowOperationId: operation.id },
+    });
+    return { ok: true, operation, payable: linked };
+  }, LOCKED_TX_OPTIONS);
+
+  if (outcome.ok && isVirtualPspEnabled() && shouldAutoConfirmStub()) {
+    await autoConfirmPending(outcome.operation.pspReference!);
+  }
+  return outcome;
+}
+
+/**
+ * Instruit, dans l'ordre où elles ont été reconnues, les créances `validated` d'un contrat que le
+ * séquestre couvre désormais. Appelé à la confirmation de tout financement : c'est précisément le
+ * moment où une créance en attente de fonds peut partir.
+ *
+ * Les créances `failed` n'en font PAS partie : un refus du PSP se reprend par une décision (le
+ * client revalide son jalon, ou l'administration réinstruit), jamais en boucle automatique.
+ */
+export async function instructOwedPayables(contractId: string): Promise<{ instructed: number; waiting: number }> {
+  const owed = await prisma.payable.findMany({
+    where: { contractId, status: "validated", sourceType: { in: ["jalon", "mission", "attendance"] } },
+    orderBy: [{ validatedAt: "asc" }, { id: "asc" }],
+    select: { id: true },
+  });
+  let instructed = 0;
+  for (const p of owed) {
+    const res = await instructOwedPayable(p.id);
+    if (res.ok) instructed++;
+    // La plus ancienne n'est pas couverte : les suivantes attendront avec elle, dans l'ordre.
+    else if (res.reason === "escrow_insufficient") break;
+  }
+  return { instructed, waiting: owed.length - instructed };
+}

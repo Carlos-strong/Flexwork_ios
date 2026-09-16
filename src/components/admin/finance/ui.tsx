@@ -82,7 +82,7 @@ export const SEVERITY: Record<string, { label: string; tone: Tone; dot: string }
 export const ANOMALY: Record<string, { label: string; action: string }> = {
   invariant_violation: { label: "Règle d'or violée", action: "Examiner le registre du contrat — aucun geste automatique." },
   stale_instruction: { label: "Instruction non confirmée", action: "Vérifier l'opération auprès du PSP (référence ci-dessous)." },
-  failed_payout: { label: "Versement refusé", action: "La créance reste due : faire réinstruire le versement." },
+  failed_payout: { label: "Versement refusé", action: "La créance reste due : la réinstruire depuis la fiche du contrat (Créances)." },
   unfunded_payable: { label: "Créance non couverte", action: "Le client doit compléter le séquestre depuis sa mission." },
   residual_on_closed: { label: "Reliquat sur mission close", action: "Rembourser le reliquat au client." },
   orphan_freeze: { label: "Gel sans litige", action: "Vérifier la médiation d'origine avant tout dégel." },
@@ -99,6 +99,9 @@ export const ACTION_ERROR: Record<string, string> = {
   no_retention_on_contract: "Ce contrat ne porte pas de retenue de garantie.",
   no_retention_accrued: "Aucune retenue n'est encore acquise.",
   retention_already_instructed: "La retenue a déjà été instruite.",
+  not_owed: "Cette créance n'est plus due : son versement est déjà parti.",
+  out_of_scope: "Cette créance ne se réinstruit pas depuis la console.",
+  escrow_insufficient: "Le séquestre ne couvre pas cette créance : le client doit compléter le financement.",
 };
 
 export const inputCls =
