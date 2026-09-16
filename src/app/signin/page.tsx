@@ -270,8 +270,14 @@ export default function SigninPage() {
 
           {/* Footer links */}
           <div className="flex items-center justify-center gap-4 mt-4">
-            {["Confidentialité", "Conditions", "Support"].map((l) => (
-              <Link key={l} href={`/${l.toLowerCase()}`} className="text-[11px] text-zinc-400 hover:text-zinc-600">{l}</Link>
+            {/* Chemins explicites : `/${libellé.toLowerCase()}` produisait /confidentialité, /conditions et
+                /support, trois pages inexistantes (constaté à la vérification des parcours, 2026-09-16). */}
+            {[
+              { label: "Confidentialité", href: "/confidentialite" },
+              { label: "Conditions", href: "/cgu" },
+              { label: "Support", href: "/contact" },
+            ].map((l) => (
+              <Link key={l.href} href={l.href} className="text-[11px] text-zinc-400 hover:text-zinc-600">{l.label}</Link>
             ))}
           </div>
         </div>

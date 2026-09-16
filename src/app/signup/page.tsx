@@ -269,7 +269,7 @@ export default function SignupPage() {
             <label className="flex items-start gap-2 cursor-pointer">
               <input type="checkbox" name="cgvAccepted" required className="mt-0.5 w-4 h-4 rounded border-zinc-300 text-[#008751] focus:ring-[#008751]" />
               <span className="text-[12px] text-zinc-500 leading-relaxed">
-                J&rsquo;accepte les <Link href="/terms" className="text-[#008751] underline font-medium">CGU</Link> et la <Link href="/privacy" className="text-[#008751] underline font-medium">politique de confidentialité</Link>
+                J&rsquo;accepte les <Link href="/cgu" className="text-[#008751] underline font-medium">CGU</Link> et la <Link href="/confidentialite" className="text-[#008751] underline font-medium">politique de confidentialité</Link>
               </span>
             </label>
 

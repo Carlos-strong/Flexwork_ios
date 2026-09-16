@@ -291,8 +291,13 @@ function VerifyOtpForm() {
 
           {/* Footer links */}
           <div className="flex items-center justify-center gap-4 mt-4">
-            {["Confidentialité", "Conditions", "Support"].map((l) => (
-              <Link key={l} href={`/${l.toLowerCase()}`} className="text-[11px] text-zinc-400 hover:text-zinc-600">{l}</Link>
+            {/* Chemins explicites — même correctif que la page de connexion (2026-09-16). */}
+            {[
+              { label: "Confidentialité", href: "/confidentialite" },
+              { label: "Conditions", href: "/cgu" },
+              { label: "Support", href: "/contact" },
+            ].map((l) => (
+              <Link key={l.href} href={l.href} className="text-[11px] text-zinc-400 hover:text-zinc-600">{l.label}</Link>
             ))}
           </div>
         </div>
