@@ -30,6 +30,14 @@ enum UserRole {
   expert_btp_autres
   artisan
   manoeuvre
+  // Responsable chantier (2026-09-14, §8 du prompt S2) — valide les relevés de présence des
+  // travailleurs sur les chantiers dont il a la charge.
+  //
+  // Ce n'est PAS un prestataire : il ne candidate pas, ne soumet pas de devis et n'a pas de
+  // wallet. C'est un délégataire du client sur le terrain, et son unique pouvoir est celui que
+  // le client lui confie explicitement, contrat par contrat (SpotTimeTerms.siteManagerId). Sans
+  // désignation, ce compte ne peut rien valider — le rôle seul n'ouvre aucun droit.
+  responsable_chantier
 }
 
 enum UserStatus {
@@ -94,6 +102,8 @@ model User {
   updatedAt DateTime @updatedAt
 
   otpCodes        OtpCode[]
+  attendances     Attendance[]    @relation("AttendanceWorker")
+  managedSites    SpotTimeTerms[] @relation("SiteManagedContracts")
   kycDocuments    KycDocument[]
   kycReviewsDone  KycDocument[]    @relation("KycReviewer")
   livenessChecks  LivenessCheck[]
@@ -457,6 +467,13 @@ enum MissionStatus {
   validee
   cloturee
   mediation_ouverte
+  // Reliquat du séquestre rendu au client (2026-09-14, voir emitContractRefund,
+  // src/lib/escrow.ts). Un état DÉDIÉ, et non `cloturee` : une mission remboursée n'est pas une
+  // mission menée à terme, et les confondre ferait passer un abandon pour une réussite dans
+  // tout ce qui compte les missions closes — dashboards, historique, réputation. La branche
+  // `refund` de applyPspWebhookEvent (src/lib/psp-webhook.ts) réclamait cet état depuis qu'elle
+  // existe, en refusant justement d'en inventer un.
+  remboursee
 }
 
 model Mission {
@@ -491,6 +508,14 @@ model Mission {
   // Nullable : les missions publiées avant cette date n'en ont pas — la génération de contrat
   // retombe alors sur les jalons saisis à la main, comportement historique inchangé.
   financingModeKey  String?
+  // Conditions d'un contrat au TEMPS (modes S2, 2026-09-15), posées par le client à la
+  // publication : un tarif indicatif par unité et une quantité maximale (20 jours, 200 heures…).
+  // L'unité elle-même vient du mode (S2H/S2J/S2M), jamais d'une colonne. Le budget publié en
+  // découle (`timeRate × timeMaxQuantity`) : c'est le plafond que le client séquestrera.
+  // Nulles hors S2. Sans elles, aucun contrat au temps ne pouvait naître : les relevés de présence
+  // exigent des conditions tarifaires que rien, avant ce correctif, ne savait produire.
+  timeRate          Float?
+  timeMaxQuantity   Float?
   tags              String[] // Compétences requises (ex: "Soudure", "Placo", "Électricité BT")
   status            MissionStatus @default(brouillon)
 
@@ -506,6 +531,9 @@ model Mission {
   // champ pour le rationale complet. Posé par POST .../deliverable/review-open, remis à null à
   // chaque nouvelle bascule vers `livrable_soumis` (voir .../deliverable/submit).
   reviewOpenedAt   DateTime?
+  // Pendant, au niveau MISSION ENTIÈRE (contrat sans jalon), de Jalon.submittedAt — voir ce
+  // champ pour le rationale complet. Point de départ du délai d'acceptation tacite.
+  submittedAt      DateTime?
 
   // ── Mode devis BTP (négociation multi-round) ──────────────────────────
   maxRevisionRounds Int       @default(3) // rounds de négociation autorisés
@@ -558,6 +586,10 @@ model MissionProposal {
   // — sinon la négociation (étape 2 du workflow) n'a aucun effet contractuel. Nullable : les
   // candidatures antérieures n'en ont pas (le contrat retombe alors sur mission.delaiJours).
   delaiPropose Int?
+  // Tarif par unité proposé par le prestataire sur une mission au TEMPS (S2). `montant` reste le
+  // prix du contrat — ici le plafond, `unitRate × Mission.timeMaxQuantity` — parce que c'est lui
+  // que le séquestre, le contrat et toute la chaîne monétaire lisent déjà. Nul hors S2.
+  unitRate     Float?
   message      String?
   status       ProposalStatus @default(envoyee)
 
@@ -812,11 +844,30 @@ model PrestationContract {
   //
   // Figé à la génération du contrat comme `financingMode` et `jalonsSequential` : le taux sous
   // lequel les deux parties ont signé ne change jamais.
-  financingMode    FinancingMode @default(lump_sum)
-  jalonsSequential Boolean       @default(false)
-  retentionRate    Float         @default(0)
+  // `fundingGranularity` : par où l'argent ENTRE au séquestre (2026-09-14, cahier des charges §8).
+  //
+  //   - "per_jalon" (défaut, comportement historique) : chaque jalon porte son propre HOLD, via
+  //     POST .../jalons/[jalonId]/hold. Le financement global est refusé (`use_jalon_hold`).
+  //   - "upfront" : UN SEUL financement couvre tout le contrat, et les jalons le CONSOMMENT.
+  //     C'est le modèle que le §8 du cahier des charges désigne explicitement — « les
+  //     sous-tâches ne doivent pas créer un second séquestre ».
+  //
+  // Ce levier ne change RIEN aux libérations : `availableFrom` (src/lib/escrow.ts) bornait déjà
+  // la libération d'un jalon par le solde du CONTRAT entier, pas par le séquestre de ce jalon.
+  // La séquence du §7 — 150 000 → 130 000 → 70 000 → 20 000 → 0 — est ce que le solde produit
+  // déjà. Seule l'ENTRÉE des fonds diffère.
+  //
+  // Figé à la génération du contrat comme les trois options ci-dessus : on ne change pas la
+  // façon dont un contrat signé est financé.
+  financingMode      FinancingMode      @default(lump_sum)
+  jalonsSequential   Boolean            @default(false)
+  retentionRate      Float              @default(0)
+  fundingGranularity FundingGranularity @default(per_jalon)
 
   escrowOperations PspEscrowOperation[]
+  payables         Payable[]
+  spotTimeTerms    SpotTimeTerms?
+  attendances      Attendance[]
   mediations       Mediation[]
   checkInEvents    CheckInEvent[]
   jalons           Jalon[]
@@ -875,6 +926,17 @@ model Jalon {
   // "non consulté". Alimente le Statut ("En attente" vs "En cours") du tableau "Validation"
   // côté client (règle de synchronisation prestataire/client, mission-history-table.tsx).
   reviewOpenedAt   DateTime?
+  // Horodatage de la soumission du livrable COURANT — posé à chaque bascule vers
+  // `livrable_soumis`, remis à null par toute décision qui ouvre un nouveau cycle (rejet).
+  // Distinct de `updatedAt`, qui bouge au moindre geste (consultation du client, constat de
+  // progression) et ne peut donc pas dater une soumission.
+  //
+  // Sert de POINT DE DÉPART au délai d'acceptation tacite
+  // (PrestationContract.acceptanceDeadlineDays, voir src/lib/tacit-acceptance.ts) : c'est la
+  // seule donnée qui dit depuis quand le client est en mesure de se prononcer. Sans elle, la
+  // clause « à défaut de contestation dans ce délai » que le contrat fait signer aux deux
+  // parties n'avait aucune date à laquelle s'accrocher, et n'était appliquée nulle part.
+  submittedAt      DateTime?
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
 
@@ -970,6 +1032,132 @@ model CheckInEvent {
 // Phase 5 — Séquestre via PSP (modele-skillafrica-v3-Flexwork.md §6)
 // ---------------------------------------------------------------------------
 
+// ── Contrat au TEMPS (S2, §9 à §13 du cahier des charges — 2026-09-14) ─────────────────────
+enum RateUnit {
+  hour // S2-H — tarif horaire
+  day // S2-J — tarif journalier
+  month // S2-M — tarif mensuel
+}
+
+// Statuts d'un relevé de présence. Le cycle du §20 : saisi → soumis → validé (ou refusé, ou
+// contesté). `disputed` est distinct de `rejected` : un refus renvoie le relevé au prestataire
+// pour correction, une contestation IMMOBILISE la somme au séquestre le temps d'arbitrer (§21).
+enum AttendanceStatus {
+  open
+  submitted
+  approved
+  rejected
+  disputed
+  cancelled
+}
+
+// Conditions tarifaires d'un contrat au temps. Table à part plutôt que six colonnes de plus sur
+// PrestationContract : elles ne concernent que les contrats S2, et seraient nulles sur tous les
+// autres.
+//
+// Le PLAFOND est la clé de voûte du §10 : c'est lui que le client finance d'avance
+// (20 jours × 7 500 = 150 000), et c'est lui que les pointages consomment. Il est figé au
+// contrat comme le reste des conditions financières.
+model SpotTimeTerms {
+  id         String             @id @default(cuid())
+  contractId String             @unique
+  contract   PrestationContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  rateUnit RateUnit
+  rate     Float
+
+  // Deux plafonds, et non un seul : le §7 du prompt maître demande « plafond quantité » ET
+  // « plafond montant ». Ils disent la même chose quand `maxAmount = rate × maxQuantity`, mais
+  // les garder distincts permet de refuser un pointage pour la bonne raison — « vous dépassez
+  // les 20 jours convenus » n'est pas « le séquestre est épuisé ».
+  maxQuantity Float
+  maxAmount   Float
+
+  // Heures supplémentaires (§12 du prompt maître). Non autorisées par défaut : une heure
+  // supplémentaire non prévue au contrat ne doit pas pouvoir devenir payable par accident.
+  overtimeAllowed Boolean @default(false)
+  overtimeRate    Float?
+
+  // Responsable de validation sur le terrain (§7 du prompt maître : « responsable de
+  // validation »). Optionnel : sans lui, le client valide lui-même, comme pour tout autre mode.
+  //
+  // Désigné CONTRAT PAR CONTRAT, et non par un rôle global : sur un chantier, la personne qui
+  // constate la présence n'est pas la même d'un site à l'autre, et un pouvoir de validation qui
+  // suivrait le compte plutôt que la mission serait impossible à retirer.
+  siteManagerId String?
+  siteManager   User?   @relation("SiteManagedContracts", fields: [siteManagerId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([siteManagerId])
+}
+
+// Relevé de présence — le module de pointage du §20.
+//
+// ── Pourquoi CE modèle et pas CheckInEvent ─────────────────────────────────────────────────
+// La plateforme possède déjà un outil de pointage (`CheckInEvent`), et il ne peut PAS servir
+// ici. La règle A12 (src/lib/checkin-tool.ts) lui interdit explicitement d'alimenter « une
+// pénalité ou une décision de litige » ; il est de surcroît optionnel — actif seulement si les
+// DEUX parties y consentent — et purgé quelques jours après la mission.
+//
+// Un relevé qui détermine une rémunération est un instrument d'une autre nature : il ne peut
+// être ni optionnel (le salaire en dépend), ni purgé à court terme (c'est une pièce de paie),
+// et il tranche précisément ce que A12 interdit à l'autre de trancher. Les confondre aurait
+// violé une règle de conformité existante ; ce sont donc deux modules distincts, et
+// `CheckInEvent` n'est pas touché.
+model Attendance {
+  id         String             @id @default(cuid())
+  contractId String
+  contract   PrestationContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  workerId   String
+  worker     User               @relation("AttendanceWorker", fields: [workerId], references: [id], onDelete: Cascade)
+
+  // Période couverte. Une journée pour S2-J, une plage horaire pour S2-H, un mois pour S2-M —
+  // un seul couple de bornes pour les trois unités, plutôt qu'un champ par cas.
+  periodStart DateTime
+  periodEnd   DateTime
+
+  /// Déclaré par le PRESTATAIRE. Purement déclaratif : ne paie rien par lui-même (§9).
+  declaredQuantity Float
+  /// Validé par le CLIENT. Nul tant qu'il ne s'est pas prononcé — c'est lui qui fait foi.
+  approvedQuantity Float?
+  /// Part en heures/jours supplémentaires, comprise dans `approvedQuantity`.
+  overtimeQuantity Float  @default(0)
+
+  status          AttendanceStatus @default(open)
+  rejectionReason String?
+  validatedById   String?
+  validatedAt     DateTime?
+
+  // Créance produite par la validation. Nulle tant que le relevé n'est pas validé : c'est la
+  // matérialisation de « le pointage n'a aucun pouvoir financier direct » (§20).
+  payableId String?  @unique
+  payable   Payable? @relation(fields: [payableId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Double pointage d'une même période (§5 du prompt S2, « INTERDIRE : double pointage… double
+  // payable d'une même journée ») : interdit par un index unique PARTIEL, posé en SQL dans la
+  // migration `20260915010000_attendance_active_period_unique` —
+  //
+  //     UNIQUE (contractId, periodStart, periodEnd) WHERE status NOT IN ('rejected','cancelled')
+  //
+  // Partiel, et non `@@unique` : l'invariant est « pas deux relevés ACTIFS sur la même période »,
+  // pas « pas deux lignes ». Une contrainte totale condamnait la journée dès le premier refus —
+  // le prestataire ne pouvait plus corriger et redéclarer, alors que c'est précisément ce qu'un
+  // refus motivé lui demande de faire.
+  //
+  // Prisma ne sait pas exprimer un index partiel ; il vit donc en SQL, et c'est délibéré.
+  @@index([contractId, status])
+  @@index([workerId])
+}
+
+enum FundingGranularity {
+  per_jalon // un financement par jalon (comportement historique)
+  upfront // un financement unique que les jalons consomment (§8)
+}
+
 enum EscrowInstructionType {
   hold
   release
@@ -983,6 +1171,90 @@ enum EscrowInstructionType {
   // mission était franchi par un montant de médiation sans que la retenue soit partie. Un
   // discriminant explicite, jamais une convention de scope partagée.
   retention_release
+  // Levée d'un gel (2026-09-14). Pendant exact de `freeze`, et comme lui NEUTRE sur le solde :
+  // ni l'un ni l'autre ne déplace de fonds, ils ouvrent et referment seulement la parenthèse
+  // pendant laquelle les fonds ne peuvent pas bouger.
+  //
+  // Son absence était une dette explicitement notée dans POST /api/admin/mediations/[id]/respond
+  // (« ce que cette route ne fait toujours PAS : dégeler les fonds au PSP »). Conséquence : une
+  // médiation close laissait ses fonds gelés pour toujours, et `EscrowBalance.blocked` devait
+  // être artificiellement borné par le solde pour ne pas rendre `available` négatif.
+  unfreeze
+}
+
+// ── Obligation de paiement (Payable) — Phase 1, 2026-09-14 ─────────────────────────────────
+// Somme AUTORISÉE à être payée après validation métier, distincte de l'instruction PSP qui
+// l'exécute. Le cahier des charges (§4) en fait la pièce centrale du moteur financier, et son
+// absence était la raison pour laquelle l'invariant n°4 — « payableAmount <= availableEscrow »
+// — ne pouvait pas être vérifié : la validation métier émettait DIRECTEMENT l'instruction, sans
+// étape où poser la question.
+//
+// Règle : VALIDATED ne signifie pas PAID. Entre les deux, un contrôle de solde.
+//
+// ── Portée générique, volontairement ───────────────────────────────────────────────────────
+// `sourceType` + `sourceId` identifient l'objet métier payé, et `contractId` est NULLABLE alors
+// même qu'il est toujours renseigné aujourd'hui. Ce n'est pas un relâchement : le dépôt porte
+// encore deux moteurs financiers (PspEscrowOperation pour les missions, GigOrderEscrowOperation
+// pour les commandes Gig), et leur unification est une migration à part entière. Une commande
+// Gig n'a pas de PrestationContract — exiger `contractId` ici obligerait à migrer Payable une
+// seconde fois le jour de cette unification. L'identité d'un payable est sa SOURCE, pas son
+// contrat.
+enum PayableSourceType {
+  jalon // un jalon de contrat, validé ou accepté tacitement
+  mission // livrable d'une mission sans jalon
+  retention // libération finale de la retenue de garantie (mode J4)
+  attendance // relevé de présence validé (modes S2)
+  mediation // montant arrêté par une résolution de médiation
+  gig_order // commande Gig — réservé, émis à l'unification des deux moteurs (0.1)
+}
+
+// Seuls les états que le système sait RÉELLEMENT produire et distinguer. Le cahier des charges
+// en propose huit ; `DRAFT`, `READY_FOR_PAYOUT`, `CANCELLED` et `DISPUTED` n'ont aujourd'hui
+// aucun producteur — un payable naît validé, et le contrôle de solde qui le rendrait « prêt »
+// se fait dans la même transaction que l'instruction. Les ajouter maintenant, c'est créer des
+// états qu'aucun chemin n'atteint et que le code devra pourtant traiter partout.
+// `validated` est le seul état d'attente réel : il existe pour le jour où le solde ne couvre
+// PAS le payable (recharge du séquestre, §13) — le payable attend alors son financement.
+enum PayableStatus {
+  validated // autorisé par la validation métier ; pas encore instruit au PSP
+  instructed // instruction PSP transmise, en attente du webhook
+  paid // confirmé par le PSP
+  failed // refusé par le PSP — reprenable, le payable reste dû
+}
+
+model Payable {
+  id         String              @id @default(cuid())
+  contractId String?
+  contract   PrestationContract? @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  missionId  String?
+  sourceType PayableSourceType
+  sourceId   String
+  amount     Float
+  currency   String              @default("XOF")
+  status     PayableStatus       @default(validated)
+
+  // Instruction qui l'exécute. Nulle tant que le payable n'est pas instruit — c'est
+  // exactement la distinction que ce modèle apporte.
+  escrowOperationId String?             @unique
+  escrowOperation   PspEscrowOperation? @relation(fields: [escrowOperationId], references: [id], onDelete: SetNull)
+
+  // Clé d'idempotence MÉTIER (et non technique comme `pspReference`) : elle décrit l'ÉVÉNEMENT
+  // payé, pas l'instruction qui le transporte. Deux validations concurrentes du même jalon au
+  // même palier produisent la même clé, donc un seul payable.
+  //
+  // Un jalon peut légitimement en produire PLUSIEURS en financement progressif (un par palier
+  // confirmé) : la clé porte donc le cumul visé, pas seulement la source. Une contrainte
+  // `@@unique([sourceType, sourceId])` aurait interdit le mode J3 tout entier.
+  idempotencyKey String @unique
+
+  attendance Attendance?
+
+  createdAt   DateTime  @default(now())
+  validatedAt DateTime  @default(now())
+  paidAt      DateTime?
+
+  @@index([contractId, status])
+  @@index([sourceType, sourceId])
 }
 
 enum PspOperationStatus {
@@ -991,12 +1263,40 @@ enum PspOperationStatus {
   failed
 }
 
+// Portée d'une opération de séquestre (2026-09-14). Discriminant EXPLICITE plutôt qu'une
+// déduction depuis « lequel des deux identifiants est renseigné ? » : une requête qui veut les
+// opérations d'un domaine le dit, et l'index la sert.
+enum EscrowSourceType {
+  mission_contract // contrat de prestation (missions, jalons, retenue, médiation)
+  gig_order // commande Gig (achat direct d'une prestation forfaitaire)
+}
+
 // La plateforme instruit, ne détient jamais les fonds (§6.2). Remplace intégralement
 // TransactionEscrow/Wallet/WalletTransaction/Retrait — aucun solde interne n'existe plus.
+//
+// ── Registre UNIQUE des deux domaines (2026-09-14) ─────────────────────────────────────────
+// Cette table portait les seules opérations de mission ; les commandes Gig avaient la leur,
+// `GigOrderEscrowOperation` — mêmes colonnes, mêmes enums, aucun code partagé. C'était le
+// « deuxième moteur financier » que le cahier des charges interdit de créer, et il existait
+// déjà. Il était en outre incomplet : aucune instruction `release` n'existait côté Gig, si bien
+// qu'une commande livrée ne pouvait jamais payer son prestataire.
+//
+// L'unification porte sur le REGISTRE et sur ses primitives (émission sous verrou, idempotence,
+// règle de solde), pas sur les transitions métier : un contrat a des jalons, une retenue, un
+// financement progressif et une médiation ; une commande Gig n'a rien de tout cela. Ce qui
+// devait cesser d'être écrit deux fois, c'est la façon de compter l'argent — pas la façon de
+// conduire une mission.
+//
+// `contractId` et `orderId` sont tous deux nullables : exactement UN des deux est renseigné,
+// selon `sourceType`. Un discriminant plutôt qu'une table par domaine, parce que les deux
+// répondent aux mêmes questions comptables et doivent y répondre identiquement.
 model PspEscrowOperation {
   id                String                @id @default(cuid())
-  contractId        String
-  contract          PrestationContract    @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  sourceType        EscrowSourceType      @default(mission_contract)
+  contractId        String?
+  contract          PrestationContract?   @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  orderId           String?
+  order             GigOrder?             @relation(fields: [orderId], references: [id], onDelete: Cascade)
   // null = mouvement portant sur le prix total du contrat (comportement historique, contrat
   // sans jalon) ; renseigné = mouvement scopé à UN jalon (montant du jalon, pas du contrat).
   jalonId           String?
@@ -1011,7 +1311,10 @@ model PspEscrowOperation {
   webhookReference  String?
   status            PspOperationStatus    @default(pending)
 
+  payable Payable?
+
   @@index([contractId, status])
+  @@index([orderId, status])
   @@index([jalonId])
 }
 
@@ -1044,6 +1347,16 @@ model Mediation {
   // contrat à jalons dont trois sur quatre étaient déjà payés, un accord repayait le budget
   // entier. Une résolution de médiation doit dire COMBIEN ; elle ne peut pas le deviner.
   resolutionAmount   Float?
+  // Part RENDUE AU CLIENT par la résolution (§24 du cahier des charges, 2026-09-14).
+  //
+  // Une résolution dispose de trois destinations, et non d'une seule :
+  //   `resolutionAmount` → libéré au prestataire
+  //   `refundAmount`     → rendu au client
+  //   le reste           → demeure bloqué (le dégel est partiel, voir la route de réponse)
+  //
+  // L'asymétrie d'avant était lourde : une médiation qui donnait raison au client ne pouvait pas
+  // lui rendre son argent. Elle savait payer le prestataire, ou ne rien faire.
+  refundAmount       Float?
   // Statut de la mission avant l'ouverture de la médiation, pour le restaurer à la clôture.
   // `mediation_ouverte` écrasait le cycle de vie sans aucun écrivain de retour : une médiation
   // refusée ou ouverte par erreur gelait la mission DÉFINITIVEMENT (plus aucun point d'étape,
@@ -1300,7 +1613,7 @@ model GigOrder {
 
   signatures       GigOrderSignature[]
   auditEntries     GigOrderAuditEntry[]
-  escrowOperations GigOrderEscrowOperation[]
+  escrowOperations PspEscrowOperation[]
 
   @@index([gigId])
   @@index([clientId, status])
@@ -1340,18 +1653,52 @@ model GigOrderAuditEntry {
   @@index([orderId, createdAt])
 }
 
-model GigOrderEscrowOperation {
-  id                String                @id @default(cuid())
-  orderId           String
-  order             GigOrder              @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  pspName           String
-  pspReference      String?               @unique
-  amount            Float
-  currency          String                @default("XOF")
-  instructionType   EscrowInstructionType // hold / refund (réutilise l'enum PSP existant)
-  instructionSentAt DateTime              @default(now())
-  pspConfirmedAt    DateTime?
-  status            PspOperationStatus    @default(pending)
 
-  @@index([orderId, status])
+// ── Journal des échanges avec le PSP (2026-09-15) ───────────────────────────────────────────
+// Chaque message reçu du PSP — webhook réel, console de la PSP virtuelle, confirmation
+// automatique — est consigné avec son ISSUE : appliqué, rejeu ignoré, ou rejeté avec son motif.
+//
+// Le registre (`PspEscrowOperation`) ne garde que l'état FINAL d'une instruction. Il ne dit ni
+// combien de fois le PSP a rappelé, ni qu'un webhook mal signé a été refusé, ni qu'une référence
+// inconnue a été présentée. Ce sont pourtant exactement les signaux d'un incident d'intégration
+// ou d'une tentative de fraude — et ils disparaissaient sans trace.
+//
+// Volontairement SANS clé étrangère : un journal d'audit ne doit pas s'effacer en cascade quand
+// une mission ou un contrat est supprimé, et il doit pouvoir consigner une référence qui ne
+// correspond à AUCUNE opération (c'est même l'un des cas qu'il sert à voir). Append-only : aucune
+// route ne le modifie.
+enum PspEventChannel {
+  webhook // appel HTTP du PSP sur /api/webhooks/psp
+  virtual_console // action manuelle sur la console de la PSP virtuelle (développement)
+  autoconfirm // confirmation immédiate de la PSP virtuelle (ESCROW_STUB_AUTOCONFIRM)
+}
+
+enum PspEventOutcome {
+  applied // accepté : l'opération a changé d'état
+  replayed // même dénouement déjà enregistré — idempotent, aucune écriture
+  rejected // refusé : signature, référence inconnue, conflit d'état, charge invalide…
+}
+
+model PspEventLog {
+  id              String                 @id @default(cuid())
+  channel         PspEventChannel
+  event           String
+  pspReference    String?
+  operationId     String?
+  contractId      String?
+  orderId         String?
+  instructionType EscrowInstructionType?
+  amount          Float?
+  outcome         PspEventOutcome
+  error           String?
+  signatureValid  Boolean
+  /// Temps de traitement côté plateforme, en millisecondes.
+  durationMs      Int
+  payload         Json
+  receivedAt      DateTime               @default(now())
+
+  @@index([receivedAt])
+  @@index([pspReference])
+  @@index([operationId])
+  @@index([outcome, receivedAt])
 }

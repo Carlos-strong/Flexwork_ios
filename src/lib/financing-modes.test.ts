@@ -211,6 +211,41 @@ describe("resolveFinancing — ce que la génération de contrat persiste", () =
       }
     }
   });
+
+  // ── Intégralité monétaire de bout en bout (2026-09-14) ────────────────────────────────
+  // Le PSP Mobile Money refuse une instruction décimale. La chaîne complète — devis, prix du
+  // contrat, jalons dérivés — doit donc rester entière, et c'est le devis qui en décide :
+  // aucun découpage ne peut être entier sous un total qui ne l'est pas.
+  it("un devis entier produit un prix entier", () => {
+    expect(Number.isInteger(PRIX)).toBe(true);
+    for (const item of DEVIS.lineItems) {
+      expect(Number.isInteger(item.total)).toBe(true);
+    }
+  });
+
+  it("tout mode disponible produit des jalons ENTIERS sur un prix entier", () => {
+    for (const mode of listAvailableFinancingModes()) {
+      const res = resolveFinancing(mode, DEVIS, PRIX);
+      const { jalons } = (res as Extract<typeof res, { ok: true }>).resolved;
+      for (const jalon of jalons ?? []) {
+        expect(
+          Number.isInteger(jalon.montant),
+          `${mode.key} — « ${jalon.titre} » vaut ${jalon.montant}, non entier`
+        ).toBe(true);
+      }
+    }
+  });
+
+  it("un prix DÉCIMAL (prix fixe saisi librement, contrats anciens) somme encore exactement", () => {
+    // La garantie de somme ne dépend PAS de l'intégralité du total : la dernière part absorbe
+    // le reliquat exact. Sans cela, un contrat à prix fixe décimal aurait été refusé par
+    // validateJalonsSum au lieu d'être découpé.
+    const parts = distributeExact([1, 1, 1], 1234.56);
+    expect(parts.reduce((s, p) => s + p, 0)).toBeCloseTo(1234.56, 2);
+    expect(validateJalonsSum(parts.map((montant, i) => ({ titre: `J${i}`, montant })), 1234.56)).toEqual({
+      ok: true,
+    });
+  });
 });
 
 describe("providerBrief — consigne de chiffrage côté prestataire", () => {
@@ -259,16 +294,82 @@ describe("providerBrief — consigne de chiffrage côté prestataire", () => {
 });
 
 describe("offre effective — quatre modes proposés, retenue de garantie incluse", () => {
-  it("le catalogue proposé est exactement F2, J1, J3, J4", () => {
+  it("le catalogue proposé est exactement F2, J1, J3, J4, S1, S2H, S2J, S2M", () => {
     // Volontairement une égalité stricte et non un `toContain` : l'intérêt de ce test est
     // d'échouer si un mode redevient disponible sans décision explicite. Rouvrir F3 ou J2 est
     // une ligne à changer ici en même temps que le drapeau — pas un effet de bord silencieux.
-    expect(listAvailableFinancingModes().map((m) => m.key).sort()).toEqual(["F2", "J1", "J3", "J4"]);
+    // S1 a été ouvert le 2026-09-14 (§7/§8 du cahier des charges, financement unique consommé
+    // par les sous-tâches) — décision explicite, d'où cette ligne modifiée avec le drapeau.
+    // Les trois modes S2 ont été ouverts le 2026-09-14 (§9 à §13, rémunération au temps) —
+    // décision explicite, d'où cette ligne modifiée avec les drapeaux.
+    expect(listAvailableFinancingModes().map((m) => m.key).sort()).toEqual([
+      "F2",
+      "J1",
+      "J3",
+      "J4",
+      "S1",
+      "S2H",
+      "S2J",
+      "S2M",
+    ]);
+  });
+
+  // ── Granularité du financement (§8) ─────────────────────────────────────────────────────
+  it("S1 est le SEUL mode à financer d'un coup — tous les autres financent jalon par jalon", () => {
+    const upfront = Object.values(FINANCING_MODES).filter(
+      (m) => m.primitives.fundingGranularity === "upfront"
+    );
+    expect(upfront.map((m) => m.key)).toEqual(["S1"]);
+  });
+
+  it("S1 découpe comme J1 : ce qui change est l'ENTRÉE des fonds, pas le découpage", () => {
+    // Le point du §8, et la seule raison pour laquelle S1 est un mode distinct plutôt qu'un
+    // libellé sur J1. Les deux dérivent les mêmes lots du même devis.
+    const parS1 = resolveFinancing(FINANCING_MODES.S1, DEVIS, PRIX);
+    const parJ1 = resolveFinancing(FINANCING_MODES.J1, DEVIS, PRIX);
+    expect(parS1.ok && parJ1.ok).toBe(true);
+    if (!parS1.ok || !parJ1.ok) return;
+    expect(parS1.resolved.jalons).toEqual(parJ1.resolved.jalons);
+    expect(parS1.resolved.fundingGranularity).toBe("upfront");
+    expect(parJ1.resolved.fundingGranularity).toBe("per_jalon");
+  });
+
+  it("sans jalon, la granularité retombe sur le comportement historique", () => {
+    // Rien à « consommer » sur un contrat à libération unique — même règle que
+    // `jalonsSequential` et `retentionRate`.
+    const res = resolveFinancing(FINANCING_MODES.F2, DEVIS, PRIX);
+    expect(res.ok && res.resolved.fundingGranularity).toBe("per_jalon");
+  });
+
+  it("le prestataire est prévenu que la totalité est séquestrée d'emblée", () => {
+    // C'est une garantie pour LUI avant d'être une commodité pour le client : il n'attend
+    // jamais que le poste suivant soit financé.
+    const brief = providerBrief(FINANCING_MODES.S1, { quoteMode: true });
+    expect(brief.points.join(" ")).toMatch(/TOTALITÉ dès le départ/);
   });
 
   it("chaque famille reste représentée — le client n'est pas enfermé dans les jalons", () => {
     const familles = new Set(listAvailableFinancingModes().map((m) => m.family));
-    expect(familles).toEqual(new Set(["fixe", "jalon"]));
+    expect(familles).toEqual(new Set(["fixe", "jalon", "temps"]));
+  });
+
+  it("les trois modes au TEMPS ne fractionnent pas en jalons — ce sont les relevés qui découpent", () => {
+    // Un contrat au temps n'a pas de jalons : ce qui fractionne le paiement n'est pas un
+    // découpage convenu d'avance, mais des relevés de présence qui n'existent pas encore à la
+    // signature. Le séquestre porte le plafond, et chaque relevé validé le consomme.
+    for (const key of ["S2H", "S2J", "S2M"] as const) {
+      const mode = FINANCING_MODES[key];
+      expect(mode.family, key).toBe("temps");
+      expect(mode.primitives.useJalons, key).toBe(false);
+      expect(mode.jalonStrategy, key).toBe("none");
+      expect(resolveFinancing(mode, DEVIS, PRIX).ok, key).toBe(true);
+    }
+  });
+
+  it("le prestataire au temps est prévenu que sa rémunération dépend de relevés VALIDÉS", () => {
+    const brief = providerBrief(FINANCING_MODES.S2J, { quoteMode: false });
+    expect(brief.headline).toMatch(/plafond/);
+    expect(brief.points.join(" ")).toMatch(/validé par le client/i);
   });
 
   it("J4 est le SEUL mode à porter une retenue de garantie", () => {

@@ -91,12 +91,19 @@ exécution plus fine rend l'annulation plus réactive) :
 | `GET /api/cron/contract-expirations` | Annule les contrats Mission dont le délai de contre-signature (prestataire 1/2 → client 2/2) est dépassé | 48 h |
 | `GET /api/cron/devis-expirations` | Annule les négociations de devis arrivées à échéance | selon mission |
 | `GET /api/cron/gig-order-expirations` | Rembourse automatiquement les commandes Gig dont le prestataire n'a pas signé (2/2) sous 24 h après la signature du client (modèle Gig) | 24 h |
+| `GET /api/cron/tacit-acceptance` | Acceptation tacite des livrables : libère le paiement d'un livrable soumis que le client n'a pas contesté dans le délai contractuel (clause 3 du contrat de prestation) | `PrestationContract.acceptanceDeadlineDays`, 7 j par défaut |
+| `GET /api/cron/residual-refunds` | Rembourse au client le reliquat séquestré des missions terminées — « il ne doit jamais rester un argent fantôme dans la mission » | quotidien |
 
 Exemple de planification (cron système) :
 ```
 */10 * * * *  curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://app.flexwork.bj/api/cron/contract-expirations
 */10 * * * *  curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://app.flexwork.bj/api/cron/devis-expirations
 */10 * * * *  curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://app.flexwork.bj/api/cron/gig-order-expirations
+# Délai en JOURS : une passe quotidienne suffit. Un retard ne fait que prolonger le temps
+# laissé au client pour se prononcer, jamais l'inverse.
+0 3 * * *     curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://app.flexwork.bj/api/cron/tacit-acceptance
+# Reliquats : jamais urgent, mais jamais acceptable qu'ils dorment indéfiniment.
+30 3 * * *    curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://app.flexwork.bj/api/cron/residual-refunds
 ```
 
 Chaque endpoint est **idempotent** (ne traite que ce qui n'a pas déjà été annulé/remboursé) —

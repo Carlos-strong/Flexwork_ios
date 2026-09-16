@@ -16,7 +16,10 @@ import { fetchDedupe } from "@/lib/fetch-dedupe";
 import ClientValidationWorkspace from "@/components/validation-client/ClientValidationWorkspace";
 import MissionTracker from "@/components/mission-tracker";
 import { FinancingModeNotice } from "@/components/financing/financing-mode-notice";
+import { EscrowAccountPanel } from "@/components/escrow/escrow-account-panel";
+import { AttendancePanel } from "@/components/spot-time/attendance-panel";
 import { getFinancingMode } from "@/lib/financing-modes";
+import { RATE_UNIT_LABEL } from "@/lib/spot-time";
 
 type OfferDetail = {
   id: string;
@@ -66,6 +69,8 @@ type MissionDetail = {
   requiredLevel: string | null;
   budgetType: string | null;
   financingModeKey: string | null;
+  timeRate: number | null;
+  timeMaxQuantity: number | null;
   tags: string[];
   maxRevisionRounds: number;
   dateExpiration: string | null;
@@ -83,6 +88,14 @@ const BUDGET_TYPE_LABEL: Record<string, string> = {
   RATE: "Taux (horaire/journalier)",
   QUOTE: "Demande de devis",
 };
+
+// Conditions au temps d'une mission S2 : le prestataire y chiffre un TARIF, et le plafond en
+// découle. Null hors S2 (ou sur une mission S2 publiée avant que ses conditions existent).
+function timeTermsOf(m: MissionDetail | null) {
+  const mode = m ? getFinancingMode(m.financingModeKey ?? "") : null;
+  if (!m || mode?.family !== "temps" || !mode.rateUnit || !m.timeMaxQuantity) return null;
+  return { unit: RATE_UNIT_LABEL[mode.rateUnit], maxQuantity: m.timeMaxQuantity, rate: m.timeRate };
+}
 
 // Statuts où le séquestre est l'étape active côté client (contrat signé → paiement en
 // cours/terminé) : la page mission expose l'accès au séquestre au même rythme que le statut
@@ -194,8 +207,13 @@ export default function MissionDetailPage() {
 
   async function submitProposal() {
     const montant = Number(applyAmount);
+    const timeTerms = timeTermsOf(mission);
     if (!applyAmount || !(montant > 0)) {
-      setApplyError("Indiquez un montant valide.");
+      setApplyError(timeTerms ? "Indiquez un tarif valide." : "Indiquez un montant valide.");
+      return;
+    }
+    if (timeTerms && !Number.isInteger(montant)) {
+      setApplyError("Le tarif doit être un nombre entier.");
       return;
     }
     const delaiPropose = applyDelay.trim() ? Number(applyDelay) : undefined;
@@ -209,7 +227,13 @@ export default function MissionDetailPage() {
     const res = await fetch(`/api/missions/${missionId}/proposals`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ montant, delaiPropose, message: applyMessage.trim() || undefined }),
+      // Au temps, le prix du contrat est le plafond : le serveur le recalcule depuis le tarif, et
+      // `montant` n'est envoyé que pour satisfaire le schéma commun.
+      body: JSON.stringify(
+        timeTerms
+          ? { montant: Math.round(montant * timeTerms.maxQuantity), unitRate: montant, delaiPropose, message: applyMessage.trim() || undefined }
+          : { montant, delaiPropose, message: applyMessage.trim() || undefined }
+      ),
     });
     setApplySubmitting(false);
     if (!res.ok) {
@@ -478,7 +502,11 @@ export default function MissionDetailPage() {
                   prix CONVENU (montant de la contre-proposition acceptée, figé au contrat), pas le
                   budget initialement publié — synchronisé sur le statut de la mission. */}
               <div className="text-[11px] text-[#94A3B8] mt-1">
-                {mission.contractPrice ? "Prix convenu (contrat)" : mission.budgetType === "QUOTE" ? "Budget indicatif" : "Budget publié"}
+                {mission.contractPrice
+                  ? "Prix convenu (contrat)"
+                  : timeTermsOf(mission) && mission.timeRate
+                    ? `Plafond — ${mission.timeRate.toLocaleString("fr-FR")} / ${timeTermsOf(mission)!.unit.one} × ${timeTermsOf(mission)!.maxQuantity}`
+                    : mission.budgetType === "QUOTE" ? "Budget indicatif" : "Budget publié"}
               </div>
             </div>
             <div className="py-3 sm:py-1 sm:px-6">
@@ -596,16 +624,29 @@ export default function MissionDetailPage() {
             ) : (
               <div className="space-y-3">
                 <div>
-                  <label className="block text-[12px] font-medium text-[#475569] mb-1">Votre prix ({mission.currency}) *</label>
+                  <label className="block text-[12px] font-medium text-[#475569] mb-1">
+                    {timeTermsOf(mission) ? `Votre tarif par ${timeTermsOf(mission)!.unit.one} (${mission.currency}) *` : `Votre prix (${mission.currency}) *`}
+                  </label>
                   <input
                     type="number"
                     min={1}
                     step={500}
                     value={applyAmount}
                     onChange={(e) => { setApplyAmount(e.target.value); setDraftSavedMsg(null); }}
-                    placeholder={mission.budget ? String(mission.budget) : "Ex: 85000"}
+                    placeholder={
+                      timeTermsOf(mission)
+                        ? String(mission.timeRate ?? "Ex: 7500")
+                        : mission.budget ? String(mission.budget) : "Ex: 85000"
+                    }
                     className="w-full h-10 px-3 rounded-lg border border-[#E2E8F0] text-[13px] focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751]"
                   />
+                  {timeTermsOf(mission) && (
+                    <p className="text-[11px] text-[#64748B] mt-1 tabular-nums">
+                      {Number(applyAmount) > 0
+                        ? `Plafond du contrat : ${Math.round(Number(applyAmount) * timeTermsOf(mission)!.maxQuantity).toLocaleString("fr-FR")} ${mission.currency} (${timeTermsOf(mission)!.maxQuantity} ${timeTermsOf(mission)!.unit.many} maximum). Seul le temps constaté vous sera versé.`
+                        : `Mission au temps : ${timeTermsOf(mission)!.maxQuantity} ${timeTermsOf(mission)!.unit.many} maximum. Le client séquestre le plafond avant le démarrage.`}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-[12px] font-medium text-[#475569] mb-1">Votre délai (en jours) — optionnel</label>
@@ -741,6 +782,20 @@ export default function MissionDetailPage() {
             </p>
           )}
         </div>
+
+        {/* Compte du séquestre (2026-09-14) — vue PRESTATAIRE. Sur une mission engagée, le
+            client est redirigé vers son espace de validation (voir plus haut) : cette page est
+            donc celle du prestataire, et c'est ici qu'il doit pouvoir constater ce qui lui est
+            reconnu dû mais pas encore versé. Sans cela, la distinction « validé ≠ payé » ne
+            protégeait que celui qui paie.
+            La route renvoie 404 tant qu'aucun contrat n'existe, et le panneau ne rend alors
+            rien — inutile de dupliquer ici la condition de statut. */}
+        {!mission.isOwner && <EscrowAccountPanel missionId={mission.id} />}
+
+        {/* Relevés de présence — contrats au temps uniquement. Le panneau ne rend rien sur les
+            autres contrats (la route répond 409 `not_a_time_contract`), inutile de dupliquer ici
+            une condition que le serveur porte déjà. */}
+        {!mission.isOwner && <AttendancePanel missionId={mission.id} />}
 
         {/* Actions (desktop) */}
         <div className="hidden lg:flex items-center flex-wrap gap-2 pt-2">

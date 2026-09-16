@@ -45,6 +45,11 @@ export type ContractSnapshot = {
   // Taux de la retenue de garantie figé au contrat (mode J4) — absent/0 sur tous les autres
   // contrats, y compris ceux générés avant le 2026-09-11 : l'Article 4 n'en parle alors pas.
   retentionRate?: number | null;
+  // Contrat au TEMPS (modes S2, 2026-09-15) : tarif, unité et plafond figés. Quand il est
+  // présent, les Articles 2 et 4 décrivent une rémunération au temps constaté, et non des
+  // jalons — un contrat au temps qui promettrait « le paiement de chaque jalon » et une
+  // acceptation tacite par jalon engagerait la plateforme sur des règles qu'elle n'applique pas.
+  conditionsTemps?: { rateUnit: "hour" | "day" | "month"; rate: number; maxQuantity: number; maxAmount: number } | null;
   devis?: unknown;
   // Régime affiché sous le tableau de l'Article 2 (« Prix fixe », « Taux », « Sur devis »).
   regimeRemuneration?: string | null;
@@ -71,6 +76,12 @@ export type ContractTable = {
 };
 
 export type ContractSection = { title: string; paragraphs: string[]; table?: ContractTable };
+
+const UNITE_TEMPS: Record<"hour" | "day" | "month", { one: string; many: string }> = {
+  hour: { one: "heure", many: "heures" },
+  day: { one: "jour", many: "jours" },
+  month: { one: "mois", many: "mois" },
+};
 
 function insuranceText(raw: unknown, devise: string): string {
   if (typeof raw === "string") return raw;
@@ -151,8 +162,26 @@ export function buildContractSections(t: ContractSnapshot): ContractSection[] {
     ],
   });
 
-  // ---- Article 2 — Jalons et livrables ----
-  if (t.jalons && t.jalons.length > 0) {
+  const temps = t.conditionsTemps ?? null;
+  const unite = temps ? UNITE_TEMPS[temps.rateUnit] : null;
+
+  // ---- Article 2 — Conditions au temps (S2) ----
+  if (temps && unite) {
+    sections.push({
+      title: "Article 2 — Rémunération au temps",
+      paragraphs: [
+        `La mission est rémunérée au temps effectivement travaillé et constaté, au tarif de ${money(temps.rate)} par ${unite.one}, dans la limite de ${temps.maxQuantity.toLocaleString("fr-FR")} ${temps.maxQuantity > 1 ? unite.many : unite.one}.`,
+        `Le régime de rémunération applicable est : ${t.regimeRemuneration ?? "Taux"}.`,
+        "Toute prolongation au-delà de la quantité maximale fait l'objet d'un avenant écrit entre les Parties.",
+      ],
+      table: {
+        columns: ["#", "PRESTATION", "UNITÉ", "TARIF", "QUANTITÉ MAX."],
+        rows: [["01", t.objet ?? "Prestation au temps", unite.one, money(temps.rate), temps.maxQuantity.toLocaleString("fr-FR")]],
+        totalLabel: "PLAFOND DU CONTRAT",
+        totalValue: money(total),
+      },
+    });
+  } else if (t.jalons && t.jalons.length > 0) {
     sections.push({
       title: "Article 2 — Jalons et livrables",
       paragraphs: [
@@ -198,7 +227,20 @@ export function buildContractSections(t: ContractSnapshot): ContractSection[] {
   });
 
   // ---- Article 4 — Rémunération et modalités de paiement ----
-  sections.push({
+  if (temps && unite) {
+    sections.push({
+      title: "Article 4 — Rémunération et modalités de paiement",
+      paragraphs: [
+        `Le Client place sous séquestre, avant le démarrage de la mission, le plafond du contrat, soit ${money(total)}. Seul le temps constaté est dû : le plafond n'est pas un prix acquis.`,
+        "Le paiement est déclenché selon les modalités suivantes :",
+        `1. Le Prestataire déclare chaque période travaillée (relevé de présence, en ${unite.many}) via l'espace de travail du projet ;`,
+        "2. Le Client, ou le responsable de chantier qu'il a désigné, constate le relevé : il le valide, le refuse en le motivant, ou en conteste une partie ;",
+        "3. La part constatée est libérée au Prestataire dans la limite des fonds séquestrés ; une part contestée demeure sous séquestre jusqu'à son arbitrage. Un relevé non constaté ne donne lieu à aucun paiement ;",
+        "4. À la clôture de la mission par le Client, le solde du plafond non consommé lui est restitué.",
+        "Les fonds sont placés sous séquestre auprès d'un prestataire de paiement agréé : la plateforme instruit la libération, elle ne détient jamais les fonds.",
+      ],
+    });
+  } else sections.push({
     title: "Article 4 — Rémunération et modalités de paiement",
     paragraphs: [
       `En contrepartie de la réalisation de la mission, le Client versera au Prestataire la somme totale de ${money(total)}, répartie par jalon conformément au tableau de l'Article 2.`,

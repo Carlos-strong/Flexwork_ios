@@ -366,7 +366,7 @@ describe("G5 — une mission arrêtée peut solder la retenue déjà prélevée"
     expect(await retentionOps(contractId)).toHaveLength(0);
 
     authAs(adminId);
-    const res = await settlePost(postReq({}), { params: Promise.resolve({ contractId }) });
+    const res = await settlePost(postReq({ justification: "Mission arrêtée — solde de la retenue (e2e)" }), { params: Promise.resolve({ contractId }) });
     expect(res.status).toBe(200);
     const body = await res.json();
     // 5 % de 120 000 seulement — le jalon jamais validé n'a jamais rien retenu.
@@ -377,7 +377,7 @@ describe("G5 — une mission arrêtée peut solder la retenue déjà prélevée"
     expect(ops).toHaveLength(1);
 
     // Idempotent : une instruction déjà en vol interdit d'en transmettre une seconde.
-    const encore = await settlePost(postReq({}), { params: Promise.resolve({ contractId }) });
+    const encore = await settlePost(postReq({ justification: "Mission arrêtée — solde de la retenue (e2e)" }), { params: Promise.resolve({ contractId }) });
     expect(encore.status).toBe(409);
     expect((await encore.json()).error).toBe("retention_already_instructed");
   });
@@ -389,7 +389,7 @@ describe("G5 — une mission arrêtée peut solder la retenue déjà prélevée"
     await prisma.mission.update({ where: { id: missionId }, data: { status: "mediation_ouverte" } });
 
     authAs(adminId);
-    expect((await settlePost(postReq({}), { params: Promise.resolve({ contractId }) })).status).toBe(200);
+    expect((await settlePost(postReq({ justification: "Mission arrêtée — solde de la retenue (e2e)" }), { params: Promise.resolve({ contractId }) })).status).toBe(200);
     const [op] = await retentionOps(contractId);
     expect((await operateVirtualPsp("release", op.pspReference!)).ok).toBe(true);
 
@@ -402,13 +402,13 @@ describe("G5 — une mission arrêtée peut solder la retenue déjà prélevée"
     const sansRetenue = await createMission("J1", 200000);
     const a = await createSignedContract(sansRetenue, 0, [120000, 80000]);
     authAs(adminId);
-    const res1 = await settlePost(postReq({}), { params: Promise.resolve({ contractId: a.contractId }) });
+    const res1 = await settlePost(postReq({ justification: "Mission arrêtée — solde de la retenue (e2e)" }), { params: Promise.resolve({ contractId: a.contractId }) });
     expect(res1.status).toBe(409);
     expect((await res1.json()).error).toBe("no_retention_on_contract");
 
     const rienLibere = await createMission("J4", 200000);
     const b = await createSignedContract(rienLibere, RETENTION_RATE_J4, [120000, 80000]);
-    const res2 = await settlePost(postReq({}), { params: Promise.resolve({ contractId: b.contractId }) });
+    const res2 = await settlePost(postReq({ justification: "Mission arrêtée — solde de la retenue (e2e)" }), { params: Promise.resolve({ contractId: b.contractId }) });
     expect(res2.status).toBe(409);
     expect((await res2.json()).error).toBe("no_retention_accrued");
   });
@@ -419,7 +419,7 @@ describe("G5 — une mission arrêtée peut solder la retenue déjà prélevée"
     await prisma.jalon.update({ where: { id: jalonIds[0] }, data: { status: "libere" } });
 
     authAs(clientId); // le client est juge et partie sur une garantie prise contre le prestataire
-    const res = await settlePost(postReq({}), { params: Promise.resolve({ contractId }) });
+    const res = await settlePost(postReq({ justification: "Mission arrêtée — solde de la retenue (e2e)" }), { params: Promise.resolve({ contractId }) });
     expect(res.status).toBe(403);
     expect(await retentionOps(contractId)).toHaveLength(0);
   });
@@ -497,14 +497,16 @@ describe("G7 — le versement progressif ne dépend que du taux atteint, jamais 
         targetCumulative: progressiveReleaseTarget(200000, progress),
       });
 
-    expect((await emit(50))?.amount).toBe(100000);
+    const amountOf = (r: Awaited<ReturnType<typeof emit>>) => (r.ok ? r.operation.amount : null);
+
+    expect(amountOf(await emit(50))).toBe(100000);
     // Rejouer le MÊME palier ne verse rien de plus — quel qu'ait été le chemin entre-temps.
-    expect(await emit(50)).toBeNull();
+    expect(await emit(50)).toEqual({ ok: false, reason: "nothing_to_release" });
     // Et un palier supérieur ne verse QUE la différence, jamais sa part entière.
-    expect((await emit(75))?.amount).toBe(50000);
-    expect((await emit(100))?.amount).toBe(50000);
+    expect(amountOf(await emit(75))).toBe(50000);
+    expect(amountOf(await emit(100))).toBe(50000);
     // Plafond atteint : plus rien ne peut sortir, même en redemandant.
-    expect(await emit(100)).toBeNull();
+    expect(await emit(100)).toEqual({ ok: false, reason: "nothing_to_release" });
 
     const total = await prisma.pspEscrowOperation.aggregate({
       where: { jalonId, instructionType: "release", status: { in: ["pending", "confirmed"] } },
@@ -548,7 +550,7 @@ describe("G8 — une libération refusée par le PSP ne condamne plus le jalon",
       plafond: 200000,
       targetCumulative: 200000,
     });
-    expect(encore?.amount).toBe(200000);
+    expect(encore.ok && encore.operation.amount).toBe(200000);
   });
 });
 

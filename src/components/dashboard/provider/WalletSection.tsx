@@ -10,6 +10,7 @@ type Summary = {
     revenueThisMonth: number;
     missionsCompleted: number;
   };
+  escrow?: { owed: number; awaitingFunding: number; retained: number; blocked: number; inFlight: number };
 };
 
 function formatFCFA(n: number): string {
@@ -33,6 +34,7 @@ export default function WalletSection() {
   const total = summary?.stats.revenueTotal ?? 0;
   const month = summary?.stats.revenueThisMonth ?? 0;
   const completed = summary?.stats.missionsCompleted ?? 0;
+  const escrow = summary?.escrow;
 
   return (
     <div className="space-y-4">
@@ -53,6 +55,35 @@ export default function WalletSection() {
           </div>
         </div>
       </div>
+
+      {/* Ce qui est engagé et pas encore reçu (2026-09-15). « Revenus totaux » ne dit que le
+          passé ; ces quatre montants disent ce qui arrive, et ce qui bloque. Mêmes règles de
+          calcul que le compte du séquestre de chaque mission. */}
+      {escrow && (
+        <div className="bg-white rounded-[16px] border border-gray-100 p-4 md:p-5">
+          <div className="text-[11px] uppercase tracking-widest text-zinc-400 font-semibold mb-3">Ce qui t&apos;est dû</div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {[
+              { label: "Reconnu dû", value: escrow.owed, hint: "validé, couvert par le séquestre", tone: "text-[#008751]" },
+              { label: "Versement en cours", value: escrow.inFlight, hint: "en route vers ton compte", tone: "text-[#0A1931]" },
+              { label: "Retenue de garantie", value: escrow.retained, hint: "versée au dernier jalon", tone: "text-[#0A1931]" },
+              { label: "Gelé par un litige", value: escrow.blocked, hint: "ni versé, ni rendu", tone: escrow.blocked > 0 ? "text-[#B91C1C]" : "text-[#0A1931]" },
+            ].map((t) => (
+              <div key={t.label}>
+                <div className={`text-[18px] font-bold tabular-nums ${t.tone}`}>{formatFCFA(t.value)}</div>
+                <div className="text-[12px] font-medium text-zinc-600">{t.label}</div>
+                <div className="text-[11px] text-zinc-400">{t.hint}</div>
+              </div>
+            ))}
+          </div>
+          {escrow.awaitingFunding > 0 && (
+            <p className="mt-3 rounded-xl bg-amber-50 border border-amber-200 px-3 py-2 text-[12px] text-amber-900">
+              {formatFCFA(escrow.awaitingFunding)} validés attendent un complément de financement du client : ils te sont dus
+              et partiront dès que le séquestre les couvrira.
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
         <div className="bg-white rounded-[16px] border border-gray-100 p-4">

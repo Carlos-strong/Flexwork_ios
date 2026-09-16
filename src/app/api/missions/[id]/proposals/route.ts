@@ -9,6 +9,8 @@ import { notifyMissionParties } from "@/lib/mission-notify";
 import { assertNoSelfDealing } from "@/lib/invariants";
 import { requireMissionParty } from "@/lib/resource-guard";
 import { CLOSED_PROPOSAL_STATUSES, canProviderReviseDevis, computeDevisData } from "@/lib/devis";
+import { getFinancingMode } from "@/lib/financing-modes";
+import { RATE_UNIT_LABEL, expectedMaxAmount } from "@/lib/spot-time";
 
 // Phase 4 : un prestataire propose un prix sur une mission à prix fixe/taux (budgetType !==
 // "QUOTE" — le mode devis a sa propre route, POST /api/missions/[id]/devis).
@@ -89,10 +91,45 @@ export async function POST(
     return NextResponse.json({ error: "revision_not_requested" }, { status: 409 });
   }
 
+  // Mission au TEMPS (S2, 2026-09-15) : le prestataire chiffre un TARIF, et le prix du contrat —
+  // le plafond séquestré — en découle (tarif × quantité maximale publiée). `montant` reste la
+  // seule valeur que la suite de la chaîne lit (acceptation, contrat, séquestre) ; `unitRate` est
+  // conservé pour que le contrat fige le tarif réellement proposé, sans le redériver.
+  //
+  // Un prix resoumis sans tarif (panneau de renégociation générique) reste accepté : le tarif se
+  // déduit alors du plafond, et le dernier relevé en soldera l'arrondi (voir checkCaps).
+  const timeMode = mission.financingModeKey ? getFinancingMode(mission.financingModeKey) : null;
+  let montant = parsed.data.montant;
+  let unitRate: number | null = null;
+  if (timeMode?.family === "temps" && timeMode.rateUnit) {
+    const maxQuantity = mission.timeMaxQuantity ?? 0;
+    if (!(maxQuantity > 0)) {
+      return NextResponse.json({ error: "time_terms_missing" }, { status: 409 });
+    }
+    if (parsed.data.unitRate) {
+      unitRate = parsed.data.unitRate;
+      montant = expectedMaxAmount({ rate: unitRate, maxQuantity });
+    } else if (montant > 0) {
+      unitRate = montant / maxQuantity;
+    } else {
+      return NextResponse.json({ error: "unit_rate_required" }, { status: 400 });
+    }
+  }
+
   // Ligne synthétique unique — un prix fixe/taux n'a pas de jalons, seulement un montant.
-  // tvaRate/laborCost à 0 : totalTTC === parsed.data.montant exactement, aucun calcul caché.
+  // tvaRate/laborCost à 0 : totalTTC === montant exactement, aucun calcul caché. Au temps, la ligne
+  // énonce le tarif et la quantité, pour que la négociation se lise dans les termes du contrat.
   const devis = computeDevisData(
-    [{ description: parsed.data.message?.trim() || "Prix proposé", quantity: 1, unit: "forfait", unitPrice: parsed.data.montant }],
+    [
+      unitRate !== null && timeMode?.rateUnit
+        ? {
+            description: parsed.data.message?.trim() || "Prestation au temps",
+            quantity: mission.timeMaxQuantity ?? 1,
+            unit: RATE_UNIT_LABEL[timeMode.rateUnit].one,
+            unitPrice: unitRate,
+          }
+        : { description: parsed.data.message?.trim() || "Prix proposé", quantity: 1, unit: "forfait", unitPrice: montant },
+    ],
     "",
     "",
     0,
@@ -106,7 +143,8 @@ export async function POST(
       create: {
         missionId,
         providerId,
-        montant: parsed.data.montant,
+        montant,
+        unitRate,
         // Contre-proposition : le délai proposé par le prestataire, figé dans la candidature
         // et repris tel quel dans le contrat (voir POST /api/missions/[id]/contract).
         delaiPropose: parsed.data.delaiPropose ?? null,
@@ -116,7 +154,8 @@ export async function POST(
         devisData: devis as Prisma.InputJsonValue,
       },
       update: {
-        montant: parsed.data.montant,
+        montant,
+        unitRate,
         delaiPropose: parsed.data.delaiPropose ?? null,
         message: parsed.data.message,
         status: "en_negociation",
@@ -147,10 +186,10 @@ export async function POST(
     type: "candidature_recue",
     counterpart: {
       userId: mission.clientId,
-      message: `Nouvelle candidature reçue pour « ${mission.titre} » — ${Math.round(parsed.data.montant).toLocaleString("fr-FR")} ${mission.currency}${parsed.data.delaiPropose ? `, ${parsed.data.delaiPropose} jour(s)` : ""}.`,
+      message: `Nouvelle candidature reçue pour « ${mission.titre} » — ${Math.round(montant).toLocaleString("fr-FR")} ${mission.currency}${parsed.data.delaiPropose ? `, ${parsed.data.delaiPropose} jour(s)` : ""}.`,
       email: {
         subject: `Nouvelle candidature — ${mission.titre}`,
-        text: `Un prestataire vient de candidater à votre mission « ${mission.titre} » pour ${Math.round(parsed.data.montant).toLocaleString("fr-FR")} ${mission.currency}. Connectez-vous pour consulter sa proposition.`,
+        text: `Un prestataire vient de candidater à votre mission « ${mission.titre} » pour ${Math.round(montant).toLocaleString("fr-FR")} ${mission.currency}. Connectez-vous pour consulter sa proposition.`,
       },
     },
     actor: {

@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { getFinancingMode, resolveFinancing, DEFAULT_FINANCING_MODE_KEY } from "@/lib/financing-modes";
 import type { DevisData } from "@/lib/devis";
+import { expectedMaxAmount, resolveTimeTerms } from "@/lib/spot-time";
 
 // Mode de financement d'UNE mission (2026-09-10) — le client le choisit à la publication
 // (POST /api/missions) et peut le corriger ici tant qu'aucun contrat n'est généré.
@@ -21,7 +22,7 @@ async function loadOwnedMission(missionId: string, userId: string) {
       contract: { select: { id: true } },
       proposals: {
         where: { status: { in: ["acceptee", "devis_valide"] } },
-        select: { montant: true, devisData: true },
+        select: { montant: true, devisData: true, unitRate: true },
       },
     },
   });
@@ -43,7 +44,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 
   const mode = mission.financingModeKey ? getFinancingMode(mission.financingModeKey) : null;
   const proposal = mission.proposals[0];
-  const devis = (proposal?.devisData as DevisData | null) ?? null;
+  // Même règle que la génération du contrat : seul le devis d'une mission en mode devis découpe.
+  // La ligne synthétique d'une candidature à prix fixe n'est pas un découpage — l'aperçu doit
+  // renvoyer `devis_required` pour que le client saisisse ses jalons.
+  const devis = mission.budgetType === "QUOTE" ? ((proposal?.devisData as DevisData | null) ?? null) : null;
 
   // Aperçu seulement si un prix est déjà arrêté (proposition acceptée) — avant cela il n'y a
   // rien à répartir.
@@ -53,6 +57,27 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     const resolved = resolveFinancing(mode, devis, proposal.montant);
     if (resolved.ok) preview = resolved.resolved.jalons;
     else previewError = resolved.error;
+  }
+
+  // Contrat au temps : l'aperçu n'est pas un découpage mais les conditions qui seront figées —
+  // exactement celles que la génération du contrat calculera (même fonction).
+  let timeTerms: { rateUnit: string; rate: number; maxQuantity: number; maxAmount: number } | null = null;
+  if (mode?.family === "temps" && mode.rateUnit) {
+    const resolved = resolveTimeTerms({
+      rateUnit: mode.rateUnit,
+      maxQuantity: mission.timeMaxQuantity,
+      unitRate: proposal?.unitRate ?? mission.timeRate,
+      contractPrice:
+        proposal && proposal.montant > 0
+          ? proposal.montant
+          : expectedMaxAmount({ rate: mission.timeRate ?? 0, maxQuantity: mission.timeMaxQuantity ?? 0 }),
+    });
+    if (resolved.ok) {
+      const { rateUnit, rate, maxQuantity, maxAmount } = resolved.terms;
+      timeTerms = { rateUnit, rate, maxQuantity, maxAmount };
+    } else {
+      previewError = resolved.error;
+    }
   }
 
   return NextResponse.json({
@@ -71,8 +96,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
           // Quatrième levier : l'écran de génération décrivait sinon un mode à retenue de
           // garantie comme un mode sans, en promettant un paiement intégral par jalon.
           retentionRate: mode.primitives.retentionRate,
+          family: mode.family,
+          rateUnit: mode.rateUnit ?? null,
         }
       : null,
+    timeTerms,
     preview,
     previewError,
     defaultKey: DEFAULT_FINANCING_MODE_KEY,
@@ -106,9 +134,36 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     );
   }
 
+  // Passer à un mode au TEMPS exige ses conditions (tarif, quantité maximale) : sans elles, le
+  // contrat ne pourrait pas être généré — mieux vaut refuser ici que plus tard, après la
+  // négociation. Le corps peut les porter ; à défaut, celles déjà publiées sont reprises.
+  if (mode.family === "temps") {
+    const timeRate = Number.isInteger(body?.timeRate) && body.timeRate > 0 ? body.timeRate : mission.timeRate;
+    const timeMaxQuantity =
+      typeof body?.timeMaxQuantity === "number" && body.timeMaxQuantity > 0 ? body.timeMaxQuantity : mission.timeMaxQuantity;
+    if (!timeRate || !timeMaxQuantity) {
+      return NextResponse.json({ error: "time_terms_required" }, { status: 409 });
+    }
+    await prisma.mission.update({
+      where: { id: missionId },
+      data: {
+        financingModeKey: mode.key,
+        timeRate,
+        timeMaxQuantity,
+        budgetType: "RATE",
+        // Le budget publié suit le plafond tant qu'aucun prix n'est arrêté ; ensuite, c'est la
+        // candidature acceptée qui fait foi et le budget publié n'est plus qu'un historique.
+        ...(mission.proposals.length === 0 ? { budget: expectedMaxAmount({ rate: timeRate, maxQuantity: timeMaxQuantity }) } : {}),
+      },
+    });
+    return NextResponse.json({ financingModeKey: mode.key });
+  }
+
   await prisma.mission.update({
     where: { id: missionId },
-    data: { financingModeKey: mode.key },
+    // Quitter un mode au temps efface ses conditions : les laisser ferait croire à un tarif que
+    // plus rien n'applique.
+    data: { financingModeKey: mode.key, timeRate: null, timeMaxQuantity: null },
   });
 
   return NextResponse.json({ financingModeKey: mode.key });

@@ -100,8 +100,21 @@ export function canClientRejectDevis(status: ProposalStatus): boolean {
   return OPEN_NEGOTIATION_STATUSES.includes(status);
 }
 
-function round2(value: number): number {
-  return Math.round(value * 100) / 100;
+// ── Arrondi monétaire : à l'UNITÉ, jamais au centime (2026-09-14) ──────────────────────────
+// Le XOF n'a pas de sous-unité en circulation, et le PSP Mobile Money refuse une instruction
+// décimale. Un devis qui produisait des centimes engendrait donc un prix de contrat décimal,
+// puis des jalons décimaux (distributeExact), puis des instructions PSP impossibles à exécuter.
+//
+// C'est ici que la correction devait se faire, et nulle part ailleurs : le prix du contrat EST
+// le totalTTC du devis, donc aucun découpage en aval ne peut être entier si la source ne l'est
+// pas. `src/lib/jalons.ts` arrondissait déjà à l'unité de son côté (progressiveReleaseTarget,
+// retentionAmount) — les deux conventions se rencontraient au milieu de la chaîne de paiement,
+// et l'écart était exactement le résidu qu'aucune instruction ne venait chercher.
+//
+// Arrondi au plus proche (et non tronqué) : sur un devis, tronquer systématiquement à la baisse
+// ferait perdre au prestataire jusqu'à un franc par ligne, toujours dans le même sens.
+function roundAmount(value: number): number {
+  return Math.round(value);
 }
 
 // Principe de calcul : Total HT = sous-total des jalons (Σ quantité × prix unitaire) +
@@ -117,11 +130,11 @@ export function computeDevisData(
 ): DevisData {
   const items: DevisLineItem[] = lineItems.map((item) => ({
     ...item,
-    total: round2(item.quantity * item.unitPrice),
+    total: roundAmount(item.quantity * item.unitPrice),
   }));
   const itemsSubtotal = items.reduce((sum, item) => sum + item.total, 0);
-  const totalHT = round2(itemsSubtotal + laborCost);
-  const tva = round2(totalHT * (tvaRate / 100));
-  const totalTTC = round2(totalHT + tva);
-  return { lineItems: items, laborCost: round2(laborCost), totalHT, tva, totalTTC, tvaRate, delay, notes };
+  const totalHT = roundAmount(itemsSubtotal + laborCost);
+  const tva = roundAmount(totalHT * (tvaRate / 100));
+  const totalTTC = roundAmount(totalHT + tva);
+  return { lineItems: items, laborCost: roundAmount(laborCost), totalHT, tva, totalTTC, tvaRate, delay, notes };
 }

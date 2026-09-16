@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { isProviderPayout, PROVIDER_PAYOUT_TYPES } from "@/lib/escrow-instructions";
+import { IN_FLIGHT_STATUSES, netHeldAmount, PROVIDER_PAYOUT_TYPES } from "@/lib/escrow-instructions";
 import { applyPspWebhookEvent, type PspWebhookPayload } from "@/lib/psp-webhook";
 import { signWebhookPayload } from "@/lib/webhook-signing";
 
@@ -27,12 +27,13 @@ import { signWebhookPayload } from "@/lib/webhook-signing";
 // Interne : aucun appelant hors de ce module (le nom exposé passe par virtualPspName()).
 const PSP_VIRTUAL_NAME = "psp-virtuelle";
 
-export type VirtualPspAction = "authorize" | "release" | "freeze" | "refund" | "fail";
+export type VirtualPspAction = "authorize" | "release" | "freeze" | "unfreeze" | "refund" | "fail";
 
 const EVENT_FOR_ACTION: Record<VirtualPspAction, PspWebhookPayload["event"]> = {
   authorize: "hold_confirmed",
   release: "release_confirmed",
   freeze: "freeze_confirmed",
+  unfreeze: "unfreeze_confirmed",
   refund: "refund_confirmed",
   fail: "failed",
 };
@@ -47,6 +48,7 @@ const ALLOWED_INSTRUCTION_FOR_ACTION: Record<Exclude<VirtualPspAction, "fail">, 
   authorize: ["hold"],
   release: PROVIDER_PAYOUT_TYPES,
   freeze: ["freeze"],
+  unfreeze: ["unfreeze"],
   refund: ["refund"],
 };
 
@@ -105,11 +107,15 @@ export function eventForInstruction(instructionType: string): PspWebhookPayload[
  */
 async function dispatchPspWebhook(
   pspReference: string,
-  event: PspWebhookPayload["event"]
+  event: PspWebhookPayload["event"],
+  channel: "virtual_console" | "autoconfirm"
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const payload: PspWebhookPayload = { pspReference, event };
   const signature = signWebhookPayload(payload as unknown as Record<string, unknown>);
-  return applyPspWebhookEvent(payload, signature);
+  // Le canal est consigné au journal des échanges : en développement, distinguer une confirmation
+  // cliquée sur la console d'une confirmation automatique évite de chercher un webhook qui n'a
+  // jamais existé.
+  return applyPspWebhookEvent(payload, signature, channel);
 }
 
 export type OperateResult =
@@ -142,7 +148,7 @@ export async function operateVirtualPsp(
   }
 
   const event = EVENT_FOR_ACTION[action];
-  const result = await dispatchPspWebhook(op.pspReference!, event);
+  const result = await dispatchPspWebhook(op.pspReference!, event, "virtual_console");
   if (!result.ok) return { ok: false, error: result.error, status: 409 };
   return { ok: true, event };
 }
@@ -161,7 +167,7 @@ export async function autoConfirmPending(pspReference: string): Promise<OperateR
   if (op.status !== "pending") return { ok: false, error: "operation_not_pending", status: 409 };
 
   const event = eventForInstruction(op.instructionType);
-  const result = await dispatchPspWebhook(op.pspReference!, event);
+  const result = await dispatchPspWebhook(op.pspReference!, event, "autoconfirm");
   if (!result.ok) return { ok: false, error: result.error, status: 409 };
   return { ok: true, event };
 }
@@ -210,7 +216,13 @@ export async function getVirtualPspSnapshot(): Promise<VirtualPspSnapshot> {
     return { enabled: false, mode: "console", pspName: virtualPspName(), operations: [], held: [] };
   }
 
+  // Portée `mission_contract` uniquement (2026-09-14) : depuis l'unification des registres, la
+  // même table porte aussi les opérations des commandes Gig. Celles-ci n'ont pas de
+  // `pspReference` et ne passent par aucun webhook — elles sont créées confirmées. Cette console
+  // simule l'opérateur du PSP sur les instructions qu'il a réellement à trancher ; y faire
+  // figurer des opérations qu'aucune action ne peut toucher n'ajouterait que du bruit.
   const operations = await prisma.pspEscrowOperation.findMany({
+    where: { sourceType: "mission_contract" },
     orderBy: { instructionSentAt: "desc" },
     take: 300,
     include: {
@@ -227,31 +239,42 @@ export async function getVirtualPspSnapshot(): Promise<VirtualPspSnapshot> {
     status: op.status,
     instructionSentAt: op.instructionSentAt,
     pspConfirmedAt: op.pspConfirmedAt,
-    contractId: op.contractId,
+    contractId: op.contractId!,
     missionId: op.contract?.missionId ?? null,
     missionTitre: op.contract?.mission?.titre ?? null,
     jalonId: op.jalonId,
   }));
 
-  // Solde séquestré par contrat : HOLD/FREEZE confirmés créditent, RELEASE/REFUND confirmés
-  // débirent. Seuls les mouvements confirmés comptent (jamais les `pending`).
+  // Solde séquestré par contrat, via la règle PARTAGÉE (`netHeldAmount`,
+  // src/lib/escrow-instructions.ts) — 2026-09-14. Cette console portait jusqu'ici sa propre
+  // copie de la règle, et cette copie DIVERGEAIT : elle comptait un `freeze` comme un crédit,
+  // alors qu'un gel ne déplace aucun fonds. Une mission en médiation s'affichait donc au double
+  // de son séquestre réel. C'était la troisième écriture de la même règle, après les deux
+  // moteurs eux-mêmes ; il n'en reste qu'une.
   const heldMap = new Map<string, VirtualPspHeldView>();
+  const rowsByContract = new Map<string, { instructionType: string; status: string; amount: number }[]>();
   for (const op of operations) {
-    if (op.status !== "confirmed") continue;
-    const key = op.contractId;
-    const current = heldMap.get(key) ?? {
-      contractId: op.contractId,
-      missionId: op.contract?.missionId ?? null,
-      missionTitre: op.contract?.mission?.titre ?? null,
-      amount: 0,
-      currency: op.currency,
-    };
-    if (op.instructionType === "hold" || op.instructionType === "freeze") {
-      current.amount += op.amount;
-    } else if (isProviderPayout(op.instructionType) || op.instructionType === "refund") {
-      current.amount -= op.amount;
+    const key = op.contractId!;
+    if (!heldMap.has(key)) {
+      heldMap.set(key, {
+        contractId: key,
+        missionId: op.contract?.missionId ?? null,
+        missionTitre: op.contract?.mission?.titre ?? null,
+        amount: 0,
+        currency: op.currency,
+      });
     }
-    heldMap.set(key, current);
+    // Le TABLEAU de la console affiche aussi les instructions refusées — c'est utile à
+    // l'opérateur. Le SOLDE, lui, ne doit compter que ce qui n'a pas échoué : c'est la
+    // précondition de `netHeldAmount`, et la même que le `where` de tous ses autres appelants.
+    // Sans ce filtre, une instruction refusée débitait un séquestre qu'elle n'avait jamais quitté.
+    if (!IN_FLIGHT_STATUSES.includes(op.status)) continue;
+    const rows = rowsByContract.get(key) ?? [];
+    rows.push({ instructionType: op.instructionType, status: op.status, amount: op.amount });
+    rowsByContract.set(key, rows);
+  }
+  for (const [key, rows] of rowsByContract) {
+    heldMap.get(key)!.amount = netHeldAmount(rows);
   }
 
   return {

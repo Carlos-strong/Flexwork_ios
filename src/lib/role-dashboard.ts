@@ -1,6 +1,13 @@
 // Mappe le rôle utilisateur vers son tableau de bord — était dupliqué à l'identique dans
 // src/components/nav.tsx et src/app/verify-otp/page.tsx.
-export type Role = "client" | "expert_digital" | "expert_btp_autres" | "artisan" | "manoeuvre" | "admin";
+export type Role =
+  | "client"
+  | "expert_digital"
+  | "expert_btp_autres"
+  | "artisan"
+  | "manoeuvre"
+  | "responsable_chantier"
+  | "admin";
 
 export const ROLE_DASHBOARD: Record<string, string> = {
   // Namespace /client/* — mêmes URLs que la sidebar (CLIENT_NAV, DashboardLayout.tsx) et
@@ -12,6 +19,10 @@ export const ROLE_DASHBOARD: Record<string, string> = {
   expert_btp_autres: "/dashboard/expert-btp",
   artisan: "/dashboard/artisan",
   manoeuvre: "/dashboard/manoeuvre",
+  // Le responsable de chantier n'est pas un prestataire : son tableau de bord ne porte ni
+  // missions disponibles, ni candidatures, ni wallet — seulement les chantiers où un client
+  // l'a désigné (voir SiteManagerDashboard).
+  responsable_chantier: "/dashboard/responsable-chantier",
   admin: "/admin",
 };
 

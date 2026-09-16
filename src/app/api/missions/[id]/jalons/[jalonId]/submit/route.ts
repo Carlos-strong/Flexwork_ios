@@ -47,7 +47,7 @@ export async function POST(
   // POST .../review-open et la règle de synchronisation, mission-history-table.tsx).
   const updated = await prisma.jalon.update({
     where: { id: jalonId },
-    data: { status: "livrable_soumis", reviewOpenedAt: null },
+    data: { status: "livrable_soumis", reviewOpenedAt: null, submittedAt: new Date() },
   });
 
   // Notifie le client qu'un livrable attend sa vérification (badge sidebar « À valider » +

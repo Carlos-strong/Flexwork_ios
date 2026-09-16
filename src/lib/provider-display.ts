@@ -9,6 +9,7 @@ export const PROVIDER_ROLE_LABEL: Record<string, string> = {
   expert_btp_autres: "Expert BTP / Autres",
   artisan: "Artisan",
   manoeuvre: "Manœuvre",
+  responsable_chantier: "Responsable chantier",
 };
 
 /** Champs d'identité minimaux nécessaires à l'affichage d'une carte. */

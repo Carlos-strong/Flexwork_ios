@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { weightedJalonsProgress } from "@/lib/jalons";
 
 import { PROVIDER_PAYOUT_TYPES } from "@/lib/escrow-instructions";
+import { escrowBalancesFor } from "@/lib/escrow";
 import { missionDomainFilter } from "@/lib/domain-match";
 
 // Agrégation des données réelles pour la vue d'accueil des dashboards prestataire
@@ -188,13 +189,44 @@ export async function GET() {
       .filter((r) => r.pspConfirmedAt)
       .map((r) => ({
         id: r.id,
-        message: `Paiement reçu : ${Math.round(r.amount).toLocaleString("fr-FR")} ${r.currency}${r.contract.mission ? ` — ${r.contract.mission.titre}` : ""}`,
+        message: `Paiement reçu : ${Math.round(r.amount).toLocaleString("fr-FR")} ${r.currency}${r.contract?.mission ? ` — ${r.contract.mission.titre}` : ""}`,
         time: r.pspConfirmedAt as Date,
         icon: "💰",
       })),
   ]
     .sort((a, b) => b.time.getTime() - a.time.getTime())
     .slice(0, 4);
+
+  // ── Ce qui est engagé et pas encore reçu (2026-09-15) ─────────────────────────────────────
+  // « Revenus totaux » ne dit que le passé. Un prestataire a surtout besoin de savoir ce qui lui
+  // est DÛ : validé mais pas versé, en route vers son compte, retenu en garantie, gelé par un
+  // litige. Ces montants existaient contrat par contrat ; ils sont ici agrégés, avec la même
+  // règle de calcul que le panneau du séquestre (escrowBalancesFor), en un nombre constant de
+  // requêtes quel que soit le nombre de missions.
+  // TOUS les contrats du prestataire, sans filtre de statut. Exclure les missions « remboursées »
+  // cachait des fonds encore engagés : un accord de médiation qui rembourse une part au client
+  // passe la mission `remboursee` alors qu'une autre part peut rester gelée à son nom (constaté par
+  // le test de workflow complet, 2026-09-15). Un contrat soldé ne pèse rien dans les totaux, et
+  // `escrowBalancesFor` reste à nombre constant de requêtes.
+  const openContracts = await prisma.prestationContract.findMany({
+    where: { providerId: userId },
+    select: { id: true },
+  });
+  const openIds = openContracts.map((c) => c.id);
+  const [balances, inFlightAgg] = await Promise.all([
+    escrowBalancesFor(openIds),
+    prisma.payable.aggregate({
+      where: { contractId: { in: openIds }, status: "instructed" },
+      _sum: { amount: true },
+    }),
+  ]);
+  const escrow = { owed: 0, awaitingFunding: 0, retained: 0, blocked: 0, inFlight: inFlightAgg._sum.amount ?? 0 };
+  for (const b of balances.values()) {
+    escrow.owed += b.owedToProvider;
+    escrow.awaitingFunding += Math.max(0, b.releasable - b.owedToProvider);
+    escrow.retained += b.retained;
+    escrow.blocked += b.blocked;
+  }
 
   const pendingProposals = proposals.filter((p) => p.status === "envoyee").length;
   const decidedProposals = proposals.filter((p) => p.status === "acceptee" || p.status === "refusee");
@@ -220,6 +252,7 @@ export async function GET() {
       pendingProposals,
       successRate,
     },
+    escrow,
     newMissionsToday,
     recommended: openMissions.map((m) => ({
       id: m.id,

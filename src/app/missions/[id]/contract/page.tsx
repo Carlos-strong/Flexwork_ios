@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { SignContractModal } from "@/components/sign-contract-modal";
 import { SignatureQRCode } from "@/components/signature-qrcode";
+import { RATE_UNIT_LABEL } from "@/lib/spot-time";
 import { Avatar } from "@/components/avatar";
 import { CONTRACT_STEPS, stepIndexFor } from "@/lib/contract-stepper";
 import { buildContractSections, buildContractParties, contractReference } from "@/lib/contract-clauses";
@@ -68,7 +69,11 @@ type FinancingState = {
     // Fraction retenue sur chaque jalon (0 hors mode J4) — le quatrième levier du catalogue,
     // aussi structurant que `progressive` pour ce que le client doit lire avant de figer.
     retentionRate: number;
+    family: string;
+    rateUnit: "hour" | "day" | "month" | null;
   } | null;
+  // Conditions EXACTES qu'un contrat au temps figera (même fonction que la génération).
+  timeTerms: { rateUnit: "hour" | "day" | "month"; rate: number; maxQuantity: number; maxAmount: number } | null;
   preview: { titre: string; montant: number }[] | null;
   previewError: string | null;
 };
@@ -331,7 +336,9 @@ export default function ContractPage({ params }: { params: { id: string } }) {
           ? `La somme des jalons doit être exactement égale au prix convenu (${acceptedMontant?.toLocaleString("fr-FR")}).`
           : data.error === "no_accepted_proposal"
             ? "Impossible de générer le contrat — vérifiez qu'une proposition a été acceptée."
-            : "Impossible de générer le contrat."
+            : data.error === "time_terms_missing"
+              ? "Cette mission au temps n'a pas de quantité maximale : corrigez son mode de financement avant de générer le contrat."
+              : "Impossible de générer le contrat."
       );
       return;
     }
@@ -411,6 +418,22 @@ export default function ContractPage({ params }: { params: { id: string } }) {
                       <strong>{derivedFinancing.preview.reduce((s, j) => s + j.montant, 0).toLocaleString("fr-FR")}</strong>
                     </div>
                   </div>
+                ) : derivedFinancing.timeTerms ? (
+                  <div className="mt-3 rounded-lg border border-[#E2E8F0] overflow-hidden text-[12.5px]">
+                    {[
+                      ["Tarif", `${derivedFinancing.timeTerms.rate.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} / ${RATE_UNIT_LABEL[derivedFinancing.timeTerms.rateUnit].one}`],
+                      ["Quantité maximale", `${derivedFinancing.timeTerms.maxQuantity.toLocaleString("fr-FR")} ${RATE_UNIT_LABEL[derivedFinancing.timeTerms.rateUnit].many}`],
+                    ].map(([k, v]) => (
+                      <div key={k} className="flex items-center justify-between gap-3 px-3 py-2 border-b border-[#F1F5F9]">
+                        <span className="text-[#64748B]">{k}</span>
+                        <strong className="tabular-nums">{v}</strong>
+                      </div>
+                    ))}
+                    <div className="flex items-center justify-between px-3 py-2 bg-[#F8FAF9]">
+                      <span className="font-semibold">Plafond séquestré</span>
+                      <strong className="text-[#008751] tabular-nums">{derivedFinancing.timeTerms.maxAmount.toLocaleString("fr-FR")}</strong>
+                    </div>
+                  </div>
                 ) : (
                   <div className="mt-3 rounded-lg bg-[#F8FAF9] border border-[#E2E8F0] px-3 py-2.5 text-[12px] text-[#64748B]">
                     Paiement unique sur le prix total du contrat — aucun fractionnement.
@@ -419,7 +442,12 @@ export default function ContractPage({ params }: { params: { id: string } }) {
 
                 <div className="mt-3 rounded-lg bg-[#F8FAF9] border border-[#E2E8F0] px-3 py-2.5 text-[12px] text-[#64748B]">
                   <span className="font-semibold text-[#0f172a]">Avec ce mode : </span>
-                  {derivedFinancing.mode!.usesJalons ? (
+                  {derivedFinancing.mode!.family === "temps" ? (
+                    <>
+                      le plafond sera séquestré une seule fois avant le démarrage ; chaque relevé de présence que vous
+                      constaterez en libérera la part, et le solde non consommé vous sera restitué à la clôture du chantier.
+                    </>
+                  ) : derivedFinancing.mode!.usesJalons ? (
                     <>
                       chaque jalon sera financé, soumis et validé indépendamment,{" "}
                       {derivedFinancing.mode!.sequential

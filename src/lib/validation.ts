@@ -15,7 +15,19 @@ export const signupSchema = z.object({
   password: z.string().min(12).optional(),
   firstname: z.string().min(1).optional(),
   lastname: z.string().min(1).optional(),
-  role: z.enum(["client", "expert_digital", "expert_btp_autres", "artisan", "manoeuvre"]).optional(),
+  // `responsable_chantier` (2026-09-14) : ni client ni prestataire — un délégataire que le
+  // client désigne sur un contrat au temps. L'inscription lui est ouverte parce qu'il lui faut
+  // un compte pour être désigné ; le rôle seul ne lui donne aucun droit.
+  role: z
+    .enum([
+      "client",
+      "expert_digital",
+      "expert_btp_autres",
+      "artisan",
+      "manoeuvre",
+      "responsable_chantier",
+    ])
+    .optional(),
   country: z.string().min(2).optional(),
   city: z.string().min(1).optional(),
   locality: z.string().min(1).optional(),
@@ -83,7 +95,13 @@ export const missionSchema = z.object({
   // vérifiée côté route, qui seule sait si la mission est publiée ou encore en brouillon.
   financingModeKey: z.string().refine(isFinancingModeKey, "mode_de_financement_inconnu").optional(),
   tags: z.array(z.string().min(1)).max(20).optional(),
-  budget: z.number().positive().optional(),
+  // Entier, même raison que `proposalSchema.montant` : un budget publié sert de prix de contrat
+  // quand aucun devis ne le remplace. Le formulaire impose déjà `step={500}`.
+  budget: z.number().int().positive().optional(),
+  // Contrat au temps (modes S2, 2026-09-15) : tarif indicatif par unité (entier, XOF) et quantité
+  // maximale. Le budget publié en est DÉRIVÉ côté serveur — il n'est pas saisi deux fois.
+  timeRate: z.number().int().positive().optional(),
+  timeMaxQuantity: z.number().positive().max(100_000).optional(),
   currency: z.string().min(3).max(3).optional(),
   delaiJours: z.number().int().positive(),
   // Mode devis (budgetType = "QUOTE") : rounds de négociation et date limite de devis.
@@ -96,11 +114,20 @@ export const missionSchema = z.object({
 // `montant` autorise 0 : en mode devis (budgetType = "QUOTE"), le prestataire postule sans
 // montant — le prix viendra du devis soumis via POST /api/missions/[id]/devis.
 export const proposalSchema = z.object({
-  montant: z.number().nonnegative(),
+  // Entier (2026-09-14) : ce montant devient TEL QUEL le prix du contrat, sans étape de calcul
+  // qui pourrait l'arrondir — contrairement au devis, dont `computeDevisData` arrondit le TTC.
+  // Le XOF n'a pas de sous-unité en circulation et le PSP Mobile Money refuse une instruction
+  // décimale : un prix fixe à 1 234,56 produisait un séquestre puis des libérations impossibles
+  // à exécuter. Refusé plutôt qu'arrondi en silence — c'est le prix sur lequel les deux parties
+  // s'engagent, il ne doit pas changer entre la saisie et le contrat.
+  montant: z.number().int().nonnegative(),
   // Contre-proposition : délai (en jours) que le prestataire s'engage à tenir. Optionnel —
   // s'il est absent, le délai du contrat retombe sur celui de la mission (delaiJours).
   delaiPropose: z.number().int().positive().optional(),
   message: z.string().optional(),
+  // Mission au temps (S2) : tarif par unité. Quand il est fourni, `montant` est recalculé côté
+  // serveur (tarif × quantité maximale) — le prestataire chiffre un tarif, pas un plafond.
+  unitRate: z.number().int().positive().optional(),
 });
 
 // Offre formelle envoyée par le client à un candidat à partir d'une proposition existante
@@ -109,13 +136,14 @@ export const offerMilestoneSchema = z.object({
   ordre: z.number().int().nonnegative(),
   description: z.string().min(1),
   unite: z.string().optional(),
-  montant: z.number().nonnegative(),
+  montant: z.number().int().nonnegative(),
 });
 
 export const offerSchema = z.object({
   titre: z.string().min(3),
   description: z.string().min(10),
-  montant: z.number().positive(),
+  // Entier, même raison que `proposalSchema.montant` ci-dessus.
+  montant: z.number().int().positive(),
   milestones: z.array(offerMilestoneSchema).optional(),
 });
 

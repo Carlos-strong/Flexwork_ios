@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   Award, BadgeCheck, Briefcase, Check, Eye, Flag, History, Kanban, LayoutDashboard, LogOut, Menu,
-  PhoneOff, PhoneCall, Scale, ShieldCheck, Trash2, Users, X, type LucideIcon
+  PhoneOff, PhoneCall, Scale, ShieldCheck, Trash2, Users, Wallet, X, type LucideIcon
 } from "lucide-react";
 import { KycDocsViewer } from "@/components/admin/KycDocsViewer";
 import { CHANTIER_ROLES } from "@/lib/age-gate";
@@ -95,7 +95,7 @@ function DecisionModal({
   title, fields, onCancel, onSubmit, danger,
 }: {
   title: string;
-  fields: { key: string; label: string; type: "text" | "textarea" | "date"; required?: boolean; placeholder?: string }[];
+  fields: { key: string; label: string; type: "text" | "textarea" | "date" | "number"; required?: boolean; placeholder?: string }[];
   onCancel: () => void;
   onSubmit: (values: Record<string, string>) => void;
   danger?: boolean;
@@ -116,6 +116,10 @@ function DecisionModal({
                 <textarea rows={3} placeholder={f.placeholder} value={values[f.key] ?? ""}
                   onChange={e => setValues(v => ({ ...v, [f.key]: e.target.value }))}
                   className="w-full px-3 py-2 rounded-lg border border-gray-200 text-[13px] resize-y focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751]" />
+              ) : f.type === "number" ? (
+                <input type="number" min={0} step={500} inputMode="numeric" placeholder={f.placeholder} value={values[f.key] ?? ""}
+                  onChange={e => setValues(v => ({ ...v, [f.key]: e.target.value }))}
+                  className="w-full h-9 px-3 rounded-lg border border-gray-200 text-[13px] tabular-nums focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751]" />
               ) : f.type === "date" ? (
                 <input type="date" value={values[f.key] ?? ""}
                   onChange={e => setValues(v => ({ ...v, [f.key]: e.target.value }))}
@@ -277,11 +281,23 @@ export default function AdminDashboardPage() {
     setMediationModal(null);
     const res = await fetch(`/api/admin/mediations/${id}/propose`, {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ proposedResolution: values.proposedResolution, justification: values.justification }),
+      body: JSON.stringify({
+        proposedResolution: values.proposedResolution,
+        justification: values.justification,
+        // Répartition du §24 : ce qui n'est ni libéré ni remboursé reste gelé au séquestre.
+        resolutionAmount: values.resolutionAmount ? Math.round(Number(values.resolutionAmount)) : undefined,
+        refundAmount: values.refundAmount ? Math.round(Number(values.refundAmount)) : undefined,
+      }),
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      notify(data.error === "forbidden_wrong_admin_role" ? "Refusé : ce compte n'a pas le rôle admin \"mediation\" requis." : `Échec : ${data.error ?? res.status}`);
+      notify(
+        data.error === "forbidden_wrong_admin_role"
+          ? "Refusé : ce compte n'a pas le rôle admin \"mediation\" requis."
+          : data.error === "amount_exceeds_escrow"
+            ? `Refusé : la répartition dépasse ce qui reste au séquestre (${Number(data.held ?? 0).toLocaleString("fr-FR")}).`
+            : `Échec : ${data.error ?? res.status}`
+      );
       return;
     }
     notify("Résolution proposée");
@@ -342,6 +358,7 @@ export default function AdminDashboardPage() {
     },
     {
       title: "Confiance", items: [
+        { id: "finance", label: "Flux financiers", icon: Wallet, href: "/admin/finance", count: 0 },
         { id: "litiges", label: "Médiations", icon: Scale, count: mediations.length },
         { id: "antifraude", label: "Anti-collusion", icon: ShieldCheck, count: collusion.length },
       ]
@@ -797,6 +814,8 @@ export default function AdminDashboardPage() {
           title="Proposer une résolution de médiation"
           fields={[
             { key: "proposedResolution", label: "Résolution proposée (min. 5 caractères)", type: "textarea", required: true, placeholder: "Ex : remboursement partiel de 50%..." },
+            { key: "resolutionAmount", label: "Montant à libérer au prestataire (XOF)", type: "number", placeholder: "0" },
+            { key: "refundAmount", label: "Montant à rembourser au client (XOF) — le reste demeure gelé", type: "number", placeholder: "0" },
             { key: "justification", label: "Justification", type: "textarea", required: true, placeholder: "Motif de la décision, consigné dans le journal d'audit..." },
           ]}
           onCancel={() => setMediationModal(null)}

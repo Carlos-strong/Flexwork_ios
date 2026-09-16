@@ -6,6 +6,7 @@ import { notifyMatchingProviders, notifyMissionUser } from "@/lib/mission-notify
 import { requireVerifiedKyc } from "@/lib/kycGuard";
 import { resolveMissionRisk } from "@/lib/domain-risk";
 import { getFinancingMode } from "@/lib/financing-modes";
+import { expectedMaxAmount } from "@/lib/spot-time";
 import { missionDomainFilter } from "@/lib/domain-match";
 
 // US-401 (Phase 4) : le client publie une mission ; son domaine détermine automatiquement
@@ -23,6 +24,16 @@ export async function POST(req: Request) {
 
   const wantsPublish = (parsed.data.status ?? "publiee") === "publiee";
 
+  // Contrat au TEMPS (S2, 2026-09-15) : le budget publié est le plafond, DÉRIVÉ du tarif et de la
+  // quantité maximale — jamais saisi à part, sans quoi les deux divergeraient dès la première
+  // retouche du formulaire. Le régime de rémunération est « Taux » par construction.
+  const chosenMode = parsed.data.financingModeKey ? getFinancingMode(parsed.data.financingModeKey) : null;
+  const isTimeMode = chosenMode?.family === "temps";
+  const timeRate = isTimeMode ? (parsed.data.timeRate ?? null) : null;
+  const timeMaxQuantity = isTimeMode ? (parsed.data.timeMaxQuantity ?? null) : null;
+  const budget =
+    timeRate && timeMaxQuantity ? expectedMaxAmount({ rate: timeRate, maxQuantity: timeMaxQuantity }) : parsed.data.budget;
+
   let userId: string;
   if (wantsPublish) {
     const guard = await requireVerifiedKyc();
@@ -32,7 +43,10 @@ export async function POST(req: Request) {
     // "QUOTE" (Demande de devis) annonce explicitement l'absence de montant — le client
     // recevra des propositions financières des prestataires plutôt que d'en fixer un.
     // Exiger un budget malgré ce choix contredisait le formulaire lui-même.
-    if (parsed.data.budget === undefined && parsed.data.budgetType !== "QUOTE") {
+    if (isTimeMode && !(timeRate && timeMaxQuantity)) {
+      return NextResponse.json({ error: "time_terms_required_to_publish" }, { status: 400 });
+    }
+    if (budget === undefined && parsed.data.budgetType !== "QUOTE") {
       return NextResponse.json({ error: "budget_required_to_publish" }, { status: 400 });
     }
     // Mode de financement (2026-09-10) : un mode décrit mais pas encore implémenté (F1, F4,
@@ -70,18 +84,20 @@ export async function POST(req: Request) {
       mode: parsed.data.mode ?? "presentiel",
       // Brouillon sans montant fixé : 0 est un simple espace réservé, jamais affiché tant
       // que la mission n'est pas publiée (le budget redevient obligatoire à ce moment-là).
-      budget: parsed.data.budget ?? 0,
+      budget: budget ?? 0,
       currency: parsed.data.currency ?? "XOF",
       delaiJours: parsed.data.delaiJours,
       riskLevel,
       insuranceRequired,
       professionalType: parsed.data.professionalType,
       requiredLevel: parsed.data.level,
-      budgetType: parsed.data.budgetType,
+      budgetType: isTimeMode ? "RATE" : parsed.data.budgetType,
       // Choisi à la publication : c'est lui qui dit au prestataire comment chiffrer son devis
       // (voir Mission.financingModeKey, prisma/schema.prisma). Absent → la génération de
       // contrat retombe sur la saisie manuelle des jalons, comportement historique.
       financingModeKey: parsed.data.financingModeKey ?? null,
+      timeRate,
+      timeMaxQuantity,
       tags: parsed.data.tags ?? [],
       maxRevisionRounds: parsed.data.maxRevisionRounds ?? 3,
       dateExpiration: parsed.data.dateExpiration ?? null,

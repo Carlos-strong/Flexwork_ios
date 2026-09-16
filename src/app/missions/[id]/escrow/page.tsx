@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { fetchDedupe } from "@/lib/fetch-dedupe";
 import { ValidationClientView } from "@/components/validation-client/ValidationClientView";
+import { EscrowAccountPanel } from "@/components/escrow/escrow-account-panel";
+import { AttendancePanel } from "@/components/spot-time/attendance-panel";
 import { releasableBeforeRetention, retentionAmount, totalRetentionAmount } from "@/lib/jalons";
 
 type Mission = { id: string; titre: string; budget: number; currency: string; status: string; isOwner: boolean; contractPrice: number | null; escrowHoldStatus: string | null; escrowHoldReference: string | null };
@@ -255,6 +257,16 @@ export default function EscrowPage({ params }: { params: { id: string } }) {
             ))}
           </div>
         )}
+
+        {/* Compte financier du séquestre (2026-09-14) — placé APRÈS les gestes de financement et
+            AVANT la validation : il répond à « où en est mon argent ? », question qui se pose
+            entre le moment où l'on finance et celui où l'on valide. C'est aussi là que le client
+            voit qu'un complément est requis, et peut le verser. */}
+        <EscrowAccountPanel missionId={missionId} />
+
+        {/* Constat des présences — c'est ici, à côté du compte du séquestre, que le client doit
+            le faire : chaque validation y prélève directement. */}
+        <AttendancePanel missionId={missionId} />
 
         <ValidationClientView missionId={missionId} onMissionChange={(m) => setMission((prev) => (prev ? { ...prev, status: m.status } : prev))} />
 

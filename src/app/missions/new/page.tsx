@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { RATE_UNIT_LABEL } from "@/lib/spot-time";
 
 const PROFESSIONAL_TYPES = [
   { value: "EXPERT_DIGITAL", label: "Expert Digital" },
@@ -24,7 +25,27 @@ type FinancingModeOption = {
   badge: string;
   definition: string;
   available: boolean;
+  // Ce que le client doit lire AVANT de choisir : combien de fois il devra sortir son argent.
+  // Deux modes peuvent découper le devis à l'identique (J1 et S1 le font) et n'être distingués
+  // que par là — sans cette information, le choix se fait à l'aveugle.
+  usesJalons: boolean;
+  fundingGranularity: "per_jalon" | "upfront";
+  family: string;
+  rateUnit: "hour" | "day" | "month" | null;
 };
+
+// Formulation du geste de paiement, du point de vue du CLIENT qui va payer. Dérivée des
+// primitives, jamais écrite mode par mode : un mode ajouté au catalogue hérite de la bonne
+// phrase, et aucun texte ne peut se désynchroniser du comportement réel.
+function paymentCadence(m: FinancingModeOption): string {
+  if (m.family === "temps") {
+    return "Vous séquestrez le plafond une seule fois : chaque période constatée y est prélevée, et le solde non consommé vous revient à la clôture.";
+  }
+  if (!m.usesJalons) return "Vous payez une seule fois, à la signature du contrat.";
+  return m.fundingGranularity === "upfront"
+    ? "Vous payez une seule fois : le total est séquestré d'emblée, et chaque poste validé y est prélevé."
+    : "Vous financez chaque jalon séparément, au fur et à mesure de leur avancement.";
+}
 
 const MISSION_MODES = [
   { value: "presentiel", label: "Présentiel" },
@@ -50,6 +71,16 @@ export default function PublishMissionPage() {
   // badge et surtout la DISPONIBILITÉ d'un mode évoluent côté serveur (src/lib/financing-modes.ts).
   const [financingModes, setFinancingModes] = useState<FinancingModeOption[]>([]);
   const [financingModeKey, setFinancingModeKey] = useState<string>("");
+  const [defaultModeKey, setDefaultModeKey] = useState<string>("");
+  // Contrat au temps (S2, 2026-09-15) : tarif indicatif et quantité maximale. Le budget publié en
+  // découle — le plafond que le client séquestrera — au lieu d'être saisi à part.
+  const [timeRate, setTimeRate] = useState("");
+  const [timeMaxQuantity, setTimeMaxQuantity] = useState("");
+  const selectedMode = financingModes.find((m) => m.key === financingModeKey) ?? null;
+  const isTimeMode = selectedMode?.family === "temps";
+  const unitLabel = RATE_UNIT_LABEL[selectedMode?.rateUnit ?? "day"];
+  const timeCeiling =
+    Number(timeRate) > 0 && Number(timeMaxQuantity) > 0 ? Math.round(Number(timeRate) * Number(timeMaxQuantity)) : null;
 
   useEffect(() => {
     fetch("/api/kyc/status")
@@ -67,9 +98,30 @@ export default function PublishMissionPage() {
         // Présélection sur le mode par défaut du catalogue, pas sur le premier disponible :
         // l'ordre d'affichage est cosmétique, la recommandation ne l'est pas.
         setFinancingModeKey(data.defaultKey);
+        setDefaultModeKey(data.defaultKey);
       })
       .catch(() => {});
   }, []);
+
+  // Régime de rémunération et mode de financement se répondent : un mode au temps EST un régime
+  // « Taux », et choisir « Taux » propose d'emblée le mode qui sait le payer. Sans ce lien, le
+  // formulaire laissait publier un taux journalier financé par jalons — une combinaison qu'aucun
+  // contrat ne sait exécuter.
+  function chooseMode(m: FinancingModeOption) {
+    setFinancingModeKey(m.key);
+    if (m.family === "temps") setBudgetType("RATE");
+    else if (budgetType === "RATE") setBudgetType("FIXED");
+  }
+
+  function chooseBudgetType(value: string) {
+    setBudgetType(value);
+    if (value === "RATE" && !isTimeMode) {
+      const journalier = financingModes.find((m) => m.key === "S2J" && m.available);
+      if (journalier) setFinancingModeKey(journalier.key);
+    } else if (value !== "RATE" && isTimeMode && defaultModeKey) {
+      setFinancingModeKey(defaultModeKey);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -94,7 +146,12 @@ export default function PublishMissionPage() {
     // client, l'utilisateur ne découvrait le problème qu'après un aller-retour réseau, via
     // un message générique "Échec de la publication." ne mentionnant pas le champ en cause.
     const amountValue = form.get("amount") as string;
-    if (publish && budgetType !== "QUOTE" && !amountValue) {
+    if (publish && isTimeMode && !timeCeiling) {
+      setError(`Indiquez le tarif par ${unitLabel.one} et la quantité maximale : ils fixent le plafond que vous séquestrerez.`);
+      setSubmitting(false);
+      return;
+    }
+    if (publish && !isTimeMode && budgetType !== "QUOTE" && !amountValue) {
       setError("Le budget est obligatoire pour publier la mission (sauf en mode \"Demande de devis\").");
       setSubmitting(false);
       return;
@@ -110,10 +167,12 @@ export default function PublishMissionPage() {
         mode: form.get("mode"),
         professionalType: form.get("professional_type"),
         level: form.get("level"),
-        budgetType: form.get("budget_type"),
+        budgetType: isTimeMode ? "RATE" : form.get("budget_type"),
         financingModeKey: financingModeKey || undefined,
         tags: String(form.get("tags") ?? "").split(",").map((t) => t.trim()).filter(Boolean),
-        budget: form.get("amount") ? Number(form.get("amount")) : undefined,
+        budget: !isTimeMode && form.get("amount") ? Number(form.get("amount")) : undefined,
+        timeRate: isTimeMode && Number(timeRate) > 0 ? Math.round(Number(timeRate)) : undefined,
+        timeMaxQuantity: isTimeMode && Number(timeMaxQuantity) > 0 ? Number(timeMaxQuantity) : undefined,
         delaiJours,
         maxRevisionRounds: Number(form.get("max_revisions") || 3),
         dateExpiration: form.get("date_expiration")
@@ -129,6 +188,7 @@ export default function PublishMissionPage() {
       const messages: Record<string, string> = {
         kyc_not_verified: "Votre identité doit être vérifiée avant de publier une mission.",
         budget_required_to_publish: "Le budget est obligatoire pour publier la mission (sauf en mode \"Demande de devis\").",
+        time_terms_required_to_publish: "Indiquez le tarif et la quantité maximale : ils fixent le plafond du contrat au temps.",
         // Le serveur renvoie le motif exact (`reason`) — le préférer au libellé générique :
         // il explique ce qui manque à la plateforme pour ce mode.
         financing_mode_unavailable:
@@ -213,21 +273,30 @@ export default function PublishMissionPage() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Mode de rémunération <span className="text-[#E8112D]">*</span></label>
-                <select name="budget_type" required value={budgetType} onChange={(e) => setBudgetType(e.target.value)} className={inputClass}>
+                <select name="budget_type" required value={budgetType} onChange={(e) => chooseBudgetType(e.target.value)} className={inputClass}>
                   {BUDGET_TYPES.map((bt) => <option key={bt.value} value={bt.value}>{bt.label}</option>)}
                 </select>
               </div>
               <div>
                 <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">
-                  Budget (XOF) {budgetType !== "QUOTE" && <span className="text-[#E8112D]">*</span>}
+                  {isTimeMode ? "Plafond séquestré (XOF)" : "Budget (XOF)"}{" "}
+                  {budgetType !== "QUOTE" && !isTimeMode && <span className="text-[#E8112D]">*</span>}
                 </label>
                 {/* min aligné sur step (500) plutôt que 1 : un `min` qui n'est pas un multiple du
                     pas casse la validation native du navigateur (ex. min=1 + step=500 rend 450000
                     "invalide" car inatteignable depuis 1 par pas de 500) — la soumission échouait
                     alors silencieusement, avant même d'atteindre le handler onSubmit. */}
-                <input type="number" name="amount" placeholder="450000" step={500} min={500} className={inputClass} />
+                {isTimeMode ? (
+                  <div className="h-10 px-3 rounded-xl border border-zinc-200 bg-zinc-50 flex items-center text-[14px] font-semibold tabular-nums text-zinc-800">
+                    {timeCeiling ? timeCeiling.toLocaleString("fr-FR") : "—"}
+                  </div>
+                ) : (
+                  <input type="number" name="amount" placeholder="450000" step={500} min={500} className={inputClass} />
+                )}
                 <p className="text-[11px] text-zinc-400 mt-1">
-                  {budgetType === "QUOTE"
+                  {isTimeMode
+                    ? "Calculé : tarif × quantité maximale. Seul le temps constaté sera versé."
+                    : budgetType === "QUOTE"
                     ? "Optionnel en mode devis : le prix viendra des propositions reçues."
                     : "Obligatoire pour publier. Fourchette de marché indicative affichée selon le domaine."}
                 </p>
@@ -257,7 +326,7 @@ export default function PublishMissionPage() {
                       name="financing_mode"
                       value={m.key}
                       checked={financingModeKey === m.key}
-                      onChange={() => setFinancingModeKey(m.key)}
+                      onChange={() => chooseMode(m)}
                       className="w-auto mt-0.5 shrink-0"
                     />
                     <span className="min-w-0">
@@ -268,15 +337,65 @@ export default function PublishMissionPage() {
                         </span>
                       </span>
                       <span className="block text-[12px] text-zinc-500 mt-0.5 leading-relaxed">{m.definition}</span>
+                      {/* Cadence de paiement — l'information la plus concrète pour qui choisit,
+                          et la seule qui distingue certains modes entre eux. */}
+                      <span className="flex items-start gap-1.5 mt-1.5 text-[11.5px] text-[#00623A]">
+                        <span aria-hidden className="shrink-0">💳</span>
+                        <span>{paymentCadence(m)}</span>
+                      </span>
                     </span>
                   </label>
                 ))}
               </div>
-              <p className="text-[11px] text-zinc-400 mt-1.5">
-                {budgetType === "QUOTE"
-                  ? "Les lignes du devis reçu deviendront directement les jalons du contrat — aucune ressaisie."
-                  : "En prix fixe sans devis, vous détaillerez les jalons à la génération du contrat."}
-              </p>
+              {isTimeMode ? (
+                <div className="mt-3 rounded-xl border border-[#008751]/25 bg-[#008751]/[0.04] p-3.5 space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label htmlFor="time-rate" className="block text-[12px] font-semibold text-zinc-700 mb-1">
+                        Tarif indicatif par {unitLabel.one} (XOF) <span className="text-[#E8112D]">*</span>
+                      </label>
+                      <input
+                        id="time-rate"
+                        type="number"
+                        min={1}
+                        step={1}
+                        inputMode="numeric"
+                        value={timeRate}
+                        onChange={(e) => setTimeRate(e.target.value)}
+                        placeholder={selectedMode?.rateUnit === "hour" ? "1500" : selectedMode?.rateUnit === "month" ? "250000" : "7500"}
+                        className={inputClass}
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="time-max-quantity" className="block text-[12px] font-semibold text-zinc-700 mb-1">
+                        Nombre maximum de {unitLabel.many} <span className="text-[#E8112D]">*</span>
+                      </label>
+                      <input
+                        id="time-max-quantity"
+                        type="number"
+                        min={selectedMode?.rateUnit === "hour" ? 1 : 0.5}
+                        step={selectedMode?.rateUnit === "hour" ? 1 : 0.5}
+                        value={timeMaxQuantity}
+                        onChange={(e) => setTimeMaxQuantity(e.target.value)}
+                        placeholder={selectedMode?.rateUnit === "hour" ? "200" : selectedMode?.rateUnit === "month" ? "3" : "20"}
+                        className={inputClass}
+                      />
+                    </div>
+                  </div>
+                  <p className="text-[12px] text-[#00623A] leading-relaxed tabular-nums">
+                    {timeCeiling
+                      ? `Plafond : ${Number(timeRate).toLocaleString("fr-FR")} × ${Number(timeMaxQuantity).toLocaleString("fr-FR")} = ${timeCeiling.toLocaleString("fr-FR")} XOF, séquestrés avant le démarrage.`
+                      : "Le plafond — tarif × quantité maximale — est ce que vous séquestrerez avant le démarrage."}{" "}
+                    Les prestataires pourront proposer leur propre tarif.
+                  </p>
+                </div>
+              ) : (
+                <p className="text-[11px] text-zinc-400 mt-1.5">
+                  {budgetType === "QUOTE"
+                    ? "Les lignes du devis reçu deviendront directement les jalons du contrat — aucune ressaisie."
+                    : "En prix fixe sans devis, vous détaillerez les jalons à la génération du contrat."}
+                </p>
+              )}
             </div>
 
             {budgetType === "QUOTE" && (

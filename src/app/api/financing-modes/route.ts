@@ -29,7 +29,12 @@ export async function GET() {
       // l'UI ne pouvait pas distinguer un mode à retenue de garantie d'un mode sans, et
       // décrivait J4 avec la phrase de J1.
       retentionRate: m.primitives.retentionRate,
+      // Cinquième levier : c'est la seule différence entre J1 et S1, et elle est concrète pour
+      // le client qui choisit — payer une fois, ou être rappelé à chaque jalon. Sans elle, le
+      // formulaire présentait deux modes que rien ne distinguait à la lecture.
+      fundingGranularity: m.primitives.fundingGranularity,
       jalonStrategy: m.jalonStrategy,
+      rateUnit: m.rateUnit ?? null,
     })),
   });
 }

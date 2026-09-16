@@ -33,7 +33,7 @@ export function isOrderExpired(order: {
 
 // Annule une commande dont le délai de signature du prestataire est dépassé et déclenche
 // le remboursement automatique au client. Idempotent. La plateforme ne détient jamais les
-// fonds : une instruction REFUND est enregistrée (GigOrderEscrowOperation) — ici directement
+// fonds : une instruction REFUND est enregistrée (PspEscrowOperation, portée `gig_order`) — ici directement
 // confirmée (pas de webhook PSP réel dans ce périmètre) — et le statut passe `refunded`.
 export async function refundExpiredOrder(orderId: string): Promise<boolean> {
   const order = await prisma.gigOrder.findUnique({
@@ -52,8 +52,9 @@ export async function refundExpiredOrder(orderId: string): Promise<boolean> {
   if (!isOrderExpired(order)) return false;
 
   await prisma.$transaction([
-    prisma.gigOrderEscrowOperation.create({
+    prisma.pspEscrowOperation.create({
       data: {
+        sourceType: "gig_order",
         orderId,
         pspName: "gig-24h-refund",
         amount: order.montant,

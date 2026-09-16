@@ -20,10 +20,19 @@ const EMPTY: DevisContratsCounts = { brouillon: 0, negociation: 0, valide: 0, re
 // même cadence et même robustesse (échec silencieux, on garde la valeur précédente) que
 // useSidebarBadges. Partage la même URL que la page "Devis & Contrats" via fetchDedupe :
 // pas de double appel réseau quand le bloc sidebar et la page sont montés en même temps.
-export function useDevisContratsBadges(): DevisContratsCounts {
+/**
+ * @param enabled Faux : aucune requête, aucun sondage, compteurs à zéro.
+ *
+ * Ajouté pour le tableau de bord du responsable de chantier (2026-09-14), qui n'affiche pas le
+ * bloc « Documents Contractuels » : il n'a ni devis ni contrat. Sans ce drapeau, son écran
+ * interrogeait `/api/devis-contrats` toutes les trente secondes, indéfiniment, pour des
+ * compteurs que personne ne regardait.
+ */
+export function useDevisContratsBadges(enabled = true): DevisContratsCounts {
   const [counts, setCounts] = useState<DevisContratsCounts>(EMPTY);
 
   const refresh = useCallback(async () => {
+    if (!enabled) return;
     try {
       const r = await fetchDedupe("/api/devis-contrats");
       if (r.ok) {
@@ -33,9 +42,10 @@ export function useDevisContratsBadges(): DevisContratsCounts {
     } catch {
       /* réseau indisponible — on garde la valeur précédente */
     }
-  }, []);
+  }, [enabled]);
 
   useEffect(() => {
+    if (!enabled) return;
     refresh();
     const interval = setInterval(refresh, 30000);
     const onFocus = () => refresh();
@@ -48,7 +58,7 @@ export function useDevisContratsBadges(): DevisContratsCounts {
       window.removeEventListener("focus", onFocus);
       unsubscribe();
     };
-  }, [refresh]);
+  }, [refresh, enabled]);
 
   return counts;
 }

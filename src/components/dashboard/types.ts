@@ -5,6 +5,8 @@ export type ApiMission = {
   budget: number; currency: string; delaiJours: number;
   status: string; riskLevel: string; insuranceRequired: boolean;
   createdAt: string;
+  // Mode de financement et conditions au temps (S2) — renvoyés tels quels par GET /api/missions.
+  financingModeKey?: string | null; timeRate?: number | null; timeMaxQuantity?: number | null;
 };
 
 export const STATUS_LABEL: Record<string, { label: string; bg: string; text: string; dot: string }> = {

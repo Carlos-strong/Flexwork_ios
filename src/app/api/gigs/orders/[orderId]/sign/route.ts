@@ -84,8 +84,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ orderId
   if (result.role === "CLIENT" && !result.isLocked) {
     // 1/2 — le client achète : mise sous séquestre du montant (instruction HOLD) + statut.
     await prisma.$transaction([
-      prisma.gigOrderEscrowOperation.create({
+      prisma.pspEscrowOperation.create({
         data: {
+          sourceType: "gig_order",
           orderId,
           pspName: "gig-hold",
           amount: order.montant,

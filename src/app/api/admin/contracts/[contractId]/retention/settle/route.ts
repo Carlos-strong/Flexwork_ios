@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { requireAdminRole } from "@/lib/adminGuard";
 import { totalRetentionAmount } from "@/lib/jalons";
 import { emitRetentionRelease } from "@/lib/psp-webhook";
+import { logAdminAction } from "@/lib/admin-audit";
 
 // Solde de la retenue de garantie d'une mission qui n'ira PAS au bout (règle 18.10, 2026-09-11).
 //
@@ -25,7 +26,7 @@ import { emitRetentionRelease } from "@/lib/psp-webhook";
 // garde d'idempotence de `emitRetentionRelease` ne compte que les `pending`/`confirmed`, donc
 // un nouvel appel ici la retransmet.
 export async function POST(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ contractId: string }> }
 ) {
   const guard = await requireAdminRole("mediation");
@@ -33,6 +34,14 @@ export async function POST(
     return NextResponse.json({ error: guard.error }, { status: guard.status });
   }
   const { contractId } = await params;
+
+  // Justification obligatoire et geste journalisé (2026-09-15, US-801) — voir la route de
+  // remboursement : même nature d'arbitrage, même exigence de trace.
+  const body = await req.json().catch(() => null);
+  const justification = typeof body?.justification === "string" ? body.justification.trim() : "";
+  if (justification.length < 5) {
+    return NextResponse.json({ error: "justification_required" }, { status: 400 });
+  }
 
   const contract = await prisma.prestationContract.findUnique({
     where: { id: contractId },
@@ -67,6 +76,14 @@ export async function POST(
   if (!result.emitted) {
     return NextResponse.json({ error: "retention_already_instructed" }, { status: 409 });
   }
+
+  await logAdminAction({
+    adminId: guard.user.id,
+    action: "escrow_retention_settle",
+    targetType: "PrestationContract",
+    targetId: contract.id,
+    justification: `${justification} — ${accrued} ${contract.mission.currency}`,
+  });
 
   return NextResponse.json({ amount: accrued, currency: contract.mission.currency, jalonsLiberes: liberes.length });
 }

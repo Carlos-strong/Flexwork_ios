@@ -126,7 +126,7 @@ export default function SignupPage() {
             {/* Role selector — cards */}
             <div>
               <label className="block text-[13px] font-semibold text-zinc-700 mb-2">Je suis...</label>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 <button
                   type="button"
                   onClick={() => setRole("client")}
@@ -152,6 +152,22 @@ export default function SignupPage() {
                   <span className="text-2xl">💼</span>
                   <span className="text-[13px] font-bold text-[#0A1931]">Prestataire</span>
                   <span className="text-[10px] text-zinc-400">Je propose mes services</span>
+                </button>
+                {/* Troisième voie (2026-09-14) : ni client ni prestataire. Le responsable de
+                    chantier ne candidate pas et n'est pas payé par la plateforme — il constate
+                    la présence sur les chantiers où un client l'a désigné. */}
+                <button
+                  type="button"
+                  onClick={() => setRole("responsable_chantier")}
+                  className={`flex flex-col items-center gap-1.5 p-4 rounded-2xl border-2 transition-all text-left ${
+                    role === "responsable_chantier"
+                      ? "border-[#008751] bg-[#f0faf5] shadow-[0_0_0_4px_rgba(0,135,81,0.1)]"
+                      : "border-gray-100 bg-white hover:border-gray-200"
+                  }`}
+                >
+                  <span className="text-2xl">👷</span>
+                  <span className="text-[13px] font-bold text-[#0A1931]">Responsable chantier</span>
+                  <span className="text-[10px] text-zinc-400">Je constate la présence sur site</span>
                 </button>
               </div>
               <input type="hidden" name="role" value={role} />

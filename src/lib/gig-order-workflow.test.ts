@@ -71,7 +71,7 @@ beforeAll(async () => {
 afterAll(async () => {
   await prisma.gigOrderAuditEntry.deleteMany({ where: { order: { gigId } } });
   await prisma.gigOrderSignature.deleteMany({ where: { order: { gigId } } });
-  await prisma.gigOrderEscrowOperation.deleteMany({ where: { order: { gigId } } });
+  await prisma.pspEscrowOperation.deleteMany({ where: { order: { gigId } } });
   await prisma.gigOrder.deleteMany({ where: { gigId } });
   await prisma.gig.deleteMany({ where: { id: gigId } });
   await prisma.digitalCertificate.deleteMany({ where: { userId: { in: [clientId, providerId] } } });
@@ -181,7 +181,7 @@ describe("Workflow modèle Gig (implémentation réelle)", () => {
     expect(order.clientSignedAt).not.toBeNull();
     expect(order.providerSignedAt).toBeNull();
 
-    const holds = await prisma.gigOrderEscrowOperation.findMany({ where: { orderId, instructionType: "hold" } });
+    const holds = await prisma.pspEscrowOperation.findMany({ where: { orderId, instructionType: "hold" } });
     expect(holds.length).toBe(1);
     expect(holds[0].status).toBe("confirmed");
     expect(holds[0].amount).toBe(250000);
@@ -254,7 +254,7 @@ describe("Workflow modèle Gig (implémentation réelle)", () => {
     expect(updated.status).toBe("refunded");
     expect(updated.refundedAt).not.toBeNull();
 
-    const refunds = await prisma.gigOrderEscrowOperation.findMany({
+    const refunds = await prisma.pspEscrowOperation.findMany({
       where: { orderId: order.id, instructionType: "refund" },
     });
     expect(refunds.length).toBe(1);
@@ -270,7 +270,7 @@ describe("Workflow modèle Gig (implémentation réelle)", () => {
     // Nettoyage de la commande de test d'expiration
     await prisma.gigOrderAuditEntry.deleteMany({ where: { orderId: order.id } });
     await prisma.gigOrderSignature.deleteMany({ where: { orderId: order.id } });
-    await prisma.gigOrderEscrowOperation.deleteMany({ where: { orderId: order.id } });
+    await prisma.pspEscrowOperation.deleteMany({ where: { orderId: order.id } });
     await prisma.gigOrder.deleteMany({ where: { id: order.id } });
   });
 });

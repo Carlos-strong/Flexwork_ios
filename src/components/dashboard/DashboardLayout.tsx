@@ -24,10 +24,18 @@ type Props = {
   children: ReactNode;
   /** Remplace les badges statiques par des valeurs dynamiques (ex: { messages: 2, propositions: 5 }) */
   badgeCounts?: Record<string, number>;
+  /**
+   * Masque le bloc « Documents Contractuels » (2026-09-14).
+   *
+   * Le responsable de chantier n'a ni devis ni contrat : il ne candidate pas et n'est pas partie
+   * au contrat, il constate une présence pour le compte du client. Lui afficher ces rubriques
+   * lui promettait sept sous-rubriques toujours vides, et noyait la seule qui le concerne.
+   */
+  hideDocuments?: boolean;
 };
 
 export default function DashboardLayout(p: Props) {
-  const { mode, user, navItems, activeNav, onNavChange, solde, title, topAction, badgeCounts, children } = p;
+  const { mode, user, navItems, activeNav, onNavChange, solde, title, topAction, badgeCounts, hideDocuments, children } = p;
   const [sidebarOpen, setSidebarOpen] = useState(false);
   // Compteurs du bloc « Documents Contractuels » — calculés ici une seule fois, pour toutes
   // les pages qui montent DashboardLayout (client et prestataire), plutôt que dans chacun
@@ -36,7 +44,9 @@ export default function DashboardLayout(p: Props) {
   // contrats pour le client (route dédiée, pas de sous-chemin du dashboard), /dashboard/
   // {role}/devis-contrats pour un prestataire (déjà une section valide, voir
   // src/lib/provider-urls.ts).
-  const counts = useDevisContratsBadges();
+  // Aucun sondage quand le bloc est masqué : le responsable de chantier n'a ni devis ni
+  // contrat, et interrogeait pourtant l'API toutes les trente secondes.
+  const counts = useDevisContratsBadges(!hideDocuments);
   const dashboardHref = navItems.find((n) => n.id === "dashboard")?.href ?? "/client/dashboard";
   const documentsBase = mode === "client" ? "/client/devis-contrats" : `${dashboardHref}/devis-contrats`;
   const documents: DocumentsBlock = {
@@ -66,7 +76,7 @@ export default function DashboardLayout(p: Props) {
         user={user}
         badgeCounts={badgeCounts}
         footerActions={[{ id: "logout", label: "Déconnexion", Icon: LogOut, href: "/signin" }]}
-        documents={documents}
+        documents={hideDocuments ? undefined : documents}
       />
 
       <div className="flex-1 min-w-0 flex flex-col">

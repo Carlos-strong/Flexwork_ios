@@ -117,17 +117,74 @@ describe("computeDevisData", () => {
     expect(devis.totalTTC).toBe(156);
   });
 
-  it("arrondit proprement les montants décimaux", () => {
+  // ── Arrondi à l'UNITÉ (2026-09-14) ──────────────────────────────────────────────────────
+  // Le XOF n'a pas de sous-unité en circulation et le PSP Mobile Money refuse une instruction
+  // décimale. Le devis est la SOURCE du prix du contrat : s'il produit des centimes, aucun
+  // découpage en jalons ni aucune libération ne peut être entier en aval.
+  it("arrondit chaque ligne à l'unité — jamais de centimes dans un devis", () => {
     const devis = computeDevisData(
       [{ description: "A", quantity: 3, unit: "u", unitPrice: 0.1 }],
       "1 semaine",
       "",
       20
     );
-    expect(devis.lineItems[0].total).toBe(0.3);
-    expect(devis.totalHT).toBe(0.3);
-    expect(devis.tva).toBe(0.06);
-    expect(devis.totalTTC).toBe(0.36);
+    expect(devis.lineItems[0].total).toBe(0);
+    expect(devis.totalTTC).toBe(0);
+  });
+
+  it("arrondit au PLUS PROCHE, sans rogner systématiquement le prestataire", () => {
+    // Tronquer à la baisse ferait perdre jusqu'à un franc par ligne, toujours dans le même sens.
+    const devis = computeDevisData(
+      [
+        { description: "Arrondi bas", quantity: 1, unit: "u", unitPrice: 100.4 },
+        { description: "Arrondi haut", quantity: 1, unit: "u", unitPrice: 100.6 },
+      ],
+      "1 semaine",
+      "",
+      0
+    );
+    expect(devis.lineItems[0].total).toBe(100);
+    expect(devis.lineItems[1].total).toBe(101);
+  });
+
+  it("une TVA fractionnaire est ramenée à l'unité, TTC compris", () => {
+    // 487 000 × 18 % = 87 660 pile ; on prend un HT qui ne tombe pas juste.
+    const devis = computeDevisData(
+      [{ description: "Poste", quantity: 1, unit: "forfait", unitPrice: 1001 }],
+      "1 semaine",
+      "",
+      18
+    );
+    expect(devis.totalHT).toBe(1001);
+    expect(devis.tva).toBe(180); // 180.18 arrondi
+    expect(devis.totalTTC).toBe(1181);
+    // L'invariant qui compte en aval : le TTC est un ENTIER, donc le prix du contrat aussi.
+    expect(Number.isInteger(devis.totalTTC)).toBe(true);
+  });
+
+  it("une quantité fractionnaire reste permise — c'est le MONTANT qui doit être entier", () => {
+    // 2,5 m² × 1 333 XOF : la quantité est une mesure, pas de l'argent.
+    const devis = computeDevisData(
+      [{ description: "Carrelage", quantity: 2.5, unit: "m2", unitPrice: 1333 }],
+      "1 semaine",
+      "",
+      0
+    );
+    expect(devis.lineItems[0].quantity).toBe(2.5);
+    expect(devis.lineItems[0].total).toBe(3333); // 3332.5 arrondi au plus proche
+    expect(Number.isInteger(devis.totalTTC)).toBe(true);
+  });
+
+  it("la main d'œuvre est arrondie elle aussi", () => {
+    const devis = computeDevisData(
+      [{ description: "A", quantity: 1, unit: "u", unitPrice: 1000 }],
+      "1 semaine",
+      "",
+      0,
+      250.7
+    );
+    expect(devis.laborCost).toBe(251);
+    expect(devis.totalHT).toBe(1251);
   });
 
   it("laborCost par défaut à 0 quand omis (comportement inchangé)", () => {

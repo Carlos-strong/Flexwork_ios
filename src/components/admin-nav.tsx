@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, BadgeCheck, ShieldCheck, Scale, Flag,
-  FileText, History
+  FileText, History, Wallet
 } from "lucide-react";
 
 const links = [
@@ -12,6 +12,7 @@ const links = [
   { href: "/admin/kyc", label: "KYC", icon: BadgeCheck },
   { href: "/admin/kyc/historique", label: "Histo. KYC", icon: History },
   { href: "/admin/moderation", label: "Modération", icon: ShieldCheck },
+  { href: "/admin/finance", label: "Flux financiers", icon: Wallet },
   { href: "/admin/mediation", label: "Médiation", icon: Scale },
   { href: "/admin/risk", label: "Risques", icon: Flag },
   { href: "/admin/audit", label: "Audit", icon: History },

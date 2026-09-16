@@ -142,11 +142,35 @@ export default function GigOrderDetail({ orderId, onBack }: { orderId: string; o
   const [order, setOrder] = useState<Order | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [signingRole, setSigningRole] = useState<"client" | "freelancer" | null>(null);
+  // Validation de la livraison (2026-09-14) : le geste qui libère les fonds au prestataire.
+  // Il n'existait pas — une commande livrée restait `active` indéfiniment et son séquestre
+  // n'avait aucune sortie vers le prestataire.
+  const [validating, setValidating] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   async function load() {
     const res = await fetchDedupe(`/api/gigs/orders/${orderId}`);
     if (!res.ok) return setNotFound(true);
     setOrder(await res.json());
+  }
+
+  async function validerLivraison() {
+    setValidationError(null);
+    setValidating(true);
+    const res = await fetch(`/api/gigs/orders/${orderId}/validate`, { method: "POST" });
+    const data = await res.json().catch(() => ({}));
+    setValidating(false);
+    if (!res.ok) {
+      setValidationError(
+        data.error === "order_not_active"
+          ? "Cette commande n'est plus en cours — elle a peut-être déjà été validée."
+          : data.error === "nothing_to_release"
+            ? "Aucun fonds à libérer sur cette commande."
+            : "La validation n'a pas pu aboutir."
+      );
+      return;
+    }
+    await load();
   }
 
   useEffect(() => {
@@ -202,8 +226,43 @@ export default function GigOrderDetail({ orderId, onBack }: { orderId: string; o
         </div>
       )}
       {order.status === "active" && (
+        <div className="rounded-xl border border-[#A7F3D0] bg-[#f0faf5] p-3.5 space-y-2.5">
+          <p className="text-[13px] text-[#008751] leading-relaxed">
+            🤝 <strong>Commande engagée.</strong> Les deux parties ont signé — le prestataire réalise la prestation
+            sous {order.gig.delaiJours} jour{order.gig.delaiJours > 1 ? "s" : ""}. Les fonds restent sous séquestre
+            jusqu&apos;à votre validation.
+          </p>
+          {/* Réservé au CLIENT — symétrie exacte de la validation d'un livrable de mission : un
+              prestataire capable de déclencher son propre paiement viderait le séquestre de sa
+              fonction. */}
+          {isClient && (
+            <button
+              onClick={validerLivraison}
+              disabled={validating}
+              className="w-full h-10 rounded-lg bg-[#008751] text-white text-[13px] font-semibold hover:bg-[#007a49] transition-colors disabled:opacity-50"
+            >
+              {validating
+                ? "Validation…"
+                : `Valider la livraison et libérer ${order.montant.toLocaleString("fr-FR")} ${order.currency}`}
+            </button>
+          )}
+          {isProvider && (
+            <p className="text-[12px] text-[#00623A]">
+              Le client validera la livraison pour déclencher votre paiement.
+            </p>
+          )}
+          {validationError && (
+            <div className="rounded-lg border border-[#FECACA] bg-[#FEF2F2] p-2.5 text-[12.5px] text-[#B91C1C]">
+              {validationError}
+            </div>
+          )}
+        </div>
+      )}
+
+      {order.status === "completed" && (
         <div className="rounded-xl border border-[#A7F3D0] bg-[#f0faf5] p-3.5 text-[13px] text-[#008751] leading-relaxed">
-          🤝 <strong>Commande engagée.</strong> Les deux parties ont signé — le prestataire réalise la prestation sous {order.gig.delaiJours} jour{order.gig.delaiJours > 1 ? "s" : ""}.
+          ✅ <strong>Livraison validée.</strong> Les fonds sous séquestre ont été libérés au prestataire et la
+          commande est clôturée.
         </div>
       )}
 

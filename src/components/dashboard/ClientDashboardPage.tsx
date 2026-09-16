@@ -17,6 +17,7 @@ import { ArrowLeft } from "lucide-react";
 import DashboardLayout, { CLIENT_NAV, type DashboardUser } from "@/components/dashboard/DashboardLayout";
 import ClientOffresPanel from "@/components/dashboard/gig/ClientOffresPanel";
 import ClientPropositionsSection from "@/components/dashboard/client/PropositionsSection";
+import ClientPaiementsSection from "@/components/dashboard/client/PaiementsSection";
 import DevisContratsSection from "@/components/dashboard/DevisContratsSection";
 import { MISSION_STATUS_STYLE } from "@/lib/mission-status";
 import { useSidebarBadges } from "@/components/dashboard/useSidebarBadges";
@@ -139,11 +140,7 @@ export default function ClientDashboardPage({ initialNav = "dashboard" }: { init
             <p className="text-[12px] text-zinc-500 mt-0.5">Suis tes paiements et séquestres.</p>
           </div>
         </div>
-        <div className="bg-white rounded-[20px] border border-gray-100 p-12 text-center">
-          <div className="text-4xl mb-3">💳</div>
-          <p className="text-[14px] text-zinc-500 font-medium">Aucun paiement à afficher</p>
-          <p className="text-[12px] text-zinc-400 mt-1">Les paiements liés à tes missions apparaîtront ici.</p>
-        </div>
+        <ClientPaiementsSection />
       </>}
       {nav==="dashboard" && <>
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">

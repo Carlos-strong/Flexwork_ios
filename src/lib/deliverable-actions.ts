@@ -207,14 +207,19 @@ async function emitProgressiveRelease(scope: DeliverableScope, progress: number)
   // L'émetteur relit le cumul déjà parti et écrit dans la même transaction verrouillée : le
   // plafond 18.3 tient sous appels concurrents, et la CIBLE rend le versement indépendant du
   // chemin par lequel la progression est arrivée là (voir emitScopedRelease).
-  const operation = await emitScopedRelease({
+  const released = await emitScopedRelease({
     contractId: scope.contractId,
     jalonId: scope.jalonId,
+    missionId: scope.missionId,
     currency: scope.currency,
     plafond,
+    retentionRate: scope.retentionRate,
     targetCumulative: progressiveReleaseTarget(plafond, progress),
   });
-  return operation?.amount ?? 0;
+  // Séquestre insuffisant : le payable reste dû (`validated`) et attend une recharge — rien
+  // n'est versé à ce palier. Le point d'étape est malgré tout enregistré : la progression
+  // constatée est un fait, indépendant de sa couverture financière.
+  return released.ok ? released.operation.amount : 0;
 }
 
 // ── POST .../reject ────────────────────────────────────────────────────────────────────────
@@ -373,17 +378,34 @@ export async function handleValidateDeliverable(args: ActionArgs): Promise<NextR
 
   // Émission verrouillée (règle 18.3) : le solde est relu et l'instruction écrite dans la même
   // transaction, donc deux validations concurrentes ne peuvent pas transmettre deux fois.
-  const operation = await emitScopedRelease({
+  const released = await emitScopedRelease({
     contractId: scope.contractId,
     jalonId: scope.jalonId,
+    missionId: scope.missionId,
     currency: scope.currency,
     plafond,
+    retentionRate: scope.retentionRate,
     // Clôture : la cible est le plafond entier — on transmet tout ce qui n'est pas déjà parti.
     targetCumulative: plafond,
   });
-  // Course perdue : un autre appel a libéré le solde entre le calcul ci-dessus et le verrou.
-  // Rien n'a été transmis — réponse identique à celle du cas « déjà parti, pas encore confirmé ».
-  if (!operation) {
+  if (!released.ok) {
+    // Séquestre insuffisant : la validation est ACQUISE — le payable est enregistré et reste dû
+    // — mais rien n'est transmis tant que le solde ne couvre pas le montant entier (§13 du
+    // cahier des charges : jamais de paiement partiel implicite). Le client doit recharger.
+    if (released.reason === "escrow_insufficient") {
+      return NextResponse.json(
+        {
+          error: "escrow_insufficient",
+          due: released.wanted,
+          available: released.available,
+          missing: released.wanted - released.available,
+          currency: scope.currency,
+        },
+        { status: 409 }
+      );
+    }
+    // Course perdue : un autre appel a libéré le solde entre le calcul ci-dessus et le verrou.
+    // Rien n'a été transmis — réponse identique à celle du cas « déjà parti, pas encore confirmé ».
     return NextResponse.json({
       id: null,
       status: scope.status,
@@ -391,6 +413,7 @@ export async function handleValidateDeliverable(args: ActionArgs): Promise<NextR
       releasePending: true,
     });
   }
+  const operation = released.operation;
 
   // Portée jalon : `valide` marque l'attente de la confirmation PSP. Portée mission : aucun
   // statut intermédiaire, le webhook passe directement à `cloturee`.

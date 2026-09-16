@@ -37,6 +37,12 @@ export async function POST(
   if (!contract.clientSignedAt || !contract.providerSignedAt) {
     return NextResponse.json({ error: "contract_not_signed" }, { status: 409 });
   }
+  // Granularité `upfront` (§8, mode S1) : le contrat est financé EN UNE FOIS, et les jalons
+  // consomment ce séquestre unique. Financer un jalon séparément créerait exactement le second
+  // séquestre que ce modèle interdit — et ferait payer le client deux fois pour le même poste.
+  if (contract.fundingGranularity === "upfront") {
+    return NextResponse.json({ error: "use_contract_hold" }, { status: 409 });
+  }
 
   // UNE seule lecture des jalons du contrat : la règle séquentielle a de toute façon besoin de
   // la fratrie entière, et le jalon ciblé en fait partie. Le filtre sur `contractId` fait aussi

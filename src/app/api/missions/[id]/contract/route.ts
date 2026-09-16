@@ -9,6 +9,7 @@ import { getFinancingMode, resolveFinancing } from "@/lib/financing-modes";
 import type { DevisData } from "@/lib/devis";
 import { isCounterSignExpired, cancelExpiredContract } from "@/lib/contract-expiry";
 import { notifyMissionParties } from "@/lib/mission-notify";
+import { resolveTimeTerms, type SpotTimeTerms } from "@/lib/spot-time";
 
 // US-402 (Phase 4) : génère le contrat de prestation à partir de la proposition acceptée.
 // La plateforme n'est jamais signataire — voir la mention obligatoire ci-dessous, testée en
@@ -91,13 +92,27 @@ export async function POST(
   // publiée avant les modes) n'a donc jamais de retenue : on n'en invente pas une sur un
   // contrat dont le prestataire n'a pas pu la connaître en chiffrant.
   let retentionRate = 0;
+  // Granularité du financement (§8, 2026-09-14) — comme `retentionRate`, elle ne vient QUE du
+  // mode : aucun corps de requête ne la porte. Un contrat généré sans mode garde le
+  // comportement historique (`per_jalon`), inchangé.
+  let fundingGranularity: "per_jalon" | "upfront" = "per_jalon";
   let appliedModeKey: string | null = null;
   // Distinct de `appliedModeKey` : un mode peut s'appliquer (son régime est retenu) sans que
   // les JALONS aient pu en être dérivés (mission à prix fixe sans devis, voir plus bas).
   let jalonsDerived = false;
 
+  // Seul un VRAI devis (mission en mode devis) découpe le contrat. Une candidature à prix fixe
+  // porte elle aussi un `devisData`, mais c'est une ligne SYNTHÉTIQUE unique, créée pour réutiliser
+  // l'affichage de la négociation par rounds (POST .../proposals). La prendre pour un découpage
+  // réduisait tout contrat à jalons en prix fixe à UN jalon et ignorait ceux saisis par le client :
+  // J4 devenait impossible (retenue sur un jalon unique refusée), S1/J1/J3 perdaient leur découpage
+  // sans le dire. Constaté par le test de workflow complet (2026-09-15).
   const derived = mode
-    ? resolveFinancing(mode, (proposal.devisData as DevisData | null) ?? null, proposal.montant)
+    ? resolveFinancing(
+        mode,
+        mission.budgetType === "QUOTE" ? ((proposal.devisData as DevisData | null) ?? null) : null,
+        proposal.montant
+      )
     : null;
 
   if (derived?.ok) {
@@ -105,6 +120,7 @@ export async function POST(
     financingMode = derived.resolved.financingMode;
     jalonsSequential = derived.resolved.jalonsSequential;
     retentionRate = derived.resolved.retentionRate;
+    fundingGranularity = derived.resolved.fundingGranularity;
     appliedModeKey = mode!.key;
     jalonsDerived = derived.resolved.jalons !== null;
   } else if (derived && derived.error === "devis_required") {
@@ -117,6 +133,7 @@ export async function POST(
     financingMode = mode!.primitives.financingMode;
     jalonsSequential = mode!.primitives.jalonsSequential;
     retentionRate = mode!.primitives.retentionRate;
+    fundingGranularity = mode!.primitives.fundingGranularity;
     appliedModeKey = mode!.key;
   } else if (derived) {
     // Une vraie erreur de dérivation (prix invalide) : ne pas la masquer en retombant
@@ -124,10 +141,31 @@ export async function POST(
     return NextResponse.json({ error: derived.error }, { status: 400 });
   }
 
+  // ── Contrat au TEMPS (S2, 2026-09-15) ────────────────────────────────────────────────────
+  // Jusqu'ici un mode S2 générait un contrat SANS conditions tarifaires : aucun code ne créait
+  // `SpotTimeTerms`, et tous les relevés de présence répondaient `not_a_time_contract`. Le mode
+  // était publiable, et inexécutable. Les conditions sont désormais dérivées de la mission
+  // (quantité maximale) et de la candidature acceptée (tarif, plafond = prix du contrat), puis
+  // figées au contrat comme le reste.
+  let conditionsTemps: SpotTimeTerms | null = null;
+  if (mode?.family === "temps" && mode.rateUnit) {
+    const resolved = resolveTimeTerms({
+      rateUnit: mode.rateUnit,
+      maxQuantity: mission.timeMaxQuantity,
+      unitRate: proposal.unitRate,
+      contractPrice: proposal.montant,
+    });
+    if (!resolved.ok) {
+      return NextResponse.json({ error: resolved.error }, { status: 409 });
+    }
+    conditionsTemps = resolved.terms;
+  }
+
   // Repli — mission sans mode (publiée avant 2026-09-10), ou mode à jalons sur une mission à
   // prix fixe SANS devis (`devis_required`) : les jalons éventuels viennent alors du corps de
-  // la requête, exactement comme avant.
-  if (!jalons && rawJalons) {
+  // la requête, exactement comme avant. Jamais sur un contrat au temps : ce sont les relevés, et
+  // non un découpage d'avance, qui fractionnent son paiement.
+  if (!jalons && rawJalons && !conditionsTemps) {
     const parsed = rawJalons
       .filter((j) => j && typeof j.titre === "string" && typeof j.montant === "number")
       .map((j) => ({ titre: j.titre, montant: j.montant }));
@@ -156,6 +194,8 @@ export async function POST(
   // total, et une retenue y serait libérée dans la même seconde que le solde (voir
   // PrestationContract.retentionRate, prisma/schema.prisma).
   const effectiveRetentionRate = jalons ? retentionRate : 0;
+  // Sans jalon, la granularité n'a pas d'objet — un seul financement, une seule libération.
+  const effectiveFundingGranularity = jalons ? fundingGranularity : "per_jalon";
 
   // Une retenue de garantie sur UN SEUL jalon ne garantit rien : elle est libérée dans la
   // foulée de la validation de ce jalon unique, puisque c'est déjà le dernier. Le mode J4
@@ -251,15 +291,18 @@ export async function POST(
     //    XOF : sans SIRET ni forme juridique — non collectées —, droit béninois). Figées
     //    dans le snapshot immuable comme le reste des conditions. ──
     dateDebut: new Date().toISOString(),
-    clauseDuree: `La mission débute le ${new Date().toLocaleDateString("fr-FR")} pour une durée prévisionnelle de ${delaiJours} jours, soit une échéance au ${new Date(Date.now() + delaiJours * 86400000).toLocaleDateString("fr-FR")}. Cette durée est indicative et pourra être ajustée d'un commun accord selon l'avancement des jalons. Le présent contrat prend effet à sa signature par les deux parties et s'achève à la validation et au paiement du dernier jalon, sauf résiliation anticipée.`,
+    clauseDuree: conditionsTemps
+      ? `La mission débute le ${new Date().toLocaleDateString("fr-FR")} pour une durée prévisionnelle de ${delaiJours} jours. Cette durée est indicative. Le présent contrat prend effet à sa signature par les deux parties et s'achève à la clôture de la mission par le Client, ou à l'épuisement de la quantité maximale convenue à l'Article 2, sauf résiliation anticipée.`
+      : `La mission débute le ${new Date().toLocaleDateString("fr-FR")} pour une durée prévisionnelle de ${delaiJours} jours, soit une échéance au ${new Date(Date.now() + delaiJours * 86400000).toLocaleDateString("fr-FR")}. Cette durée est indicative et pourra être ajustée d'un commun accord selon l'avancement des jalons. Le présent contrat prend effet à sa signature par les deux parties et s'achève à la validation et au paiement du dernier jalon, sauf résiliation anticipée.`,
     clauseStatutIndependant:
       "Le Prestataire exerce sa mission en toute indépendance, sans lien de subordination juridique avec le Client. Il organise librement son travail, ses méthodes et ses horaires, sous la seule réserve du respect des délais convenus. Il est seul responsable de ses obligations sociales, fiscales et déclaratives.",
     clauseProprieteIntellectuelle:
       "Sous réserve du complet paiement des sommes dues, le Prestataire cède au Client les droits patrimoniaux de propriété intellectuelle sur les livrables développés spécifiquement dans le cadre de la mission, pour le monde entier et pour la durée légale de protection. Cette cession ne s'étend pas aux outils, bibliothèques, composants génériques ou méthodes propres au Prestataire, préexistants ou développés hors du cadre strict de la mission.",
     clauseConfidentialite:
       "Chaque partie s'engage à conserver strictement confidentielles les informations techniques, commerciales ou financières dont elle aurait connaissance à l'occasion de la mission, et à ne les utiliser qu'aux fins de sa réalisation. Cette obligation perdure pendant la durée du contrat et pour une période de deux ans à compter de son terme.",
-    clauseResiliation:
-      "Chaque partie peut résilier le présent contrat en cas de manquement grave non réparé dans les quinze jours suivant une mise en demeure restée sans effet. Les jalons achevés et validés à la date de résiliation restent dus ; les jalons non engagés ne donnent lieu à aucun paiement.",
+    clauseResiliation: conditionsTemps
+      ? "Chaque partie peut résilier le présent contrat en cas de manquement grave non réparé dans les quinze jours suivant une mise en demeure restée sans effet. Les relevés de présence constatés à la date de résiliation restent dus ; le solde non consommé du plafond est restitué au Client."
+      : "Chaque partie peut résilier le présent contrat en cas de manquement grave non réparé dans les quinze jours suivant une mise en demeure restée sans effet. Les jalons achevés et validés à la date de résiliation restent dus ; les jalons non engagés ne donnent lieu à aucun paiement.",
     clauseResponsabilite:
       "Le Prestataire est tenu à une obligation de moyens dans l'exécution de sa mission. Sa responsabilité ne peut être engagée qu'en cas de faute prouvée, et est en tout état de cause limitée au montant total perçu au titre du présent contrat.",
     clauseDroitApplicable:
@@ -278,11 +321,21 @@ export async function POST(
     financingMode,
     jalonsSequential,
     retentionRate: effectiveRetentionRate,
+    fundingGranularity: effectiveFundingGranularity,
     // Mode de financement effectivement APPLIQUÉ (2026-09-10), null si les jalons viennent du
     // chemin de repli (saisie manuelle). Figé ici parce que le catalogue, lui, peut évoluer :
     // le contrat doit garder trace du régime sous lequel il a été signé, même si le libellé
     // ou la disponibilité du mode changent plus tard côté plateforme.
     financingModeKey: appliedModeKey,
+    // Conditions au temps figées (S2) — lues par les Articles 2 et 4 (contract-clauses.ts).
+    conditionsTemps: conditionsTemps
+      ? {
+          rateUnit: conditionsTemps.rateUnit,
+          rate: conditionsTemps.rate,
+          maxQuantity: conditionsTemps.maxQuantity,
+          maxAmount: conditionsTemps.maxAmount,
+        }
+      : null,
   };
 
   const currentHash = computeChainedHash(null, termsSnapshot);
@@ -298,8 +351,12 @@ export async function POST(
         financingMode,
         jalonsSequential,
         retentionRate: effectiveRetentionRate,
+        fundingGranularity: effectiveFundingGranularity,
       },
     });
+    if (conditionsTemps) {
+      await tx.spotTimeTerms.create({ data: { contractId: created.id, ...conditionsTemps } });
+    }
     if (jalons) {
       await tx.jalon.createMany({
         data: jalons.map((j, i) => ({ contractId: created.id, ordre: i + 1, titre: j.titre, montant: j.montant })),

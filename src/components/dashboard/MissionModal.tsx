@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { ArrowLeft, X, Send, LoaderCircle } from "lucide-react";
 import { STATUS_LABEL, RISK_BADGE, type ApiMission } from "./types";
+import { getFinancingMode } from "@/lib/financing-modes";
+import { RATE_UNIT_LABEL } from "@/lib/spot-time";
 
 type MissionModalProps = {
   mission: ApiMission | null;
@@ -37,6 +39,12 @@ export default function MissionModal({
 
   const st = STATUS_LABEL[mission.status] ?? STATUS_LABEL.brouillon;
   const risk = RISK_BADGE[mission.riskLevel] ?? RISK_BADGE.low;
+  // Mission au temps (S2) : le candidat chiffre un tarif par unité, le plafond en découle.
+  const mode = getFinancingMode(mission.financingModeKey ?? "");
+  const time =
+    mode?.family === "temps" && mode.rateUnit && mission.timeMaxQuantity
+      ? { unit: RATE_UNIT_LABEL[mode.rateUnit], maxQuantity: mission.timeMaxQuantity }
+      : null;
 
   const submitProposal = async () => {
     if (!mission) return;
@@ -44,7 +52,11 @@ export default function MissionModal({
     const delaiPropose = delai.trim() ? Number(delai) : undefined;
     const res = await fetch(`/api/missions/${mission.id}/proposals`, {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ montant: Number(montant), delaiPropose, message: message || undefined }),
+      body: JSON.stringify(
+        time
+          ? { montant: Math.round(Number(montant) * time.maxQuantity), unitRate: Math.round(Number(montant)), delaiPropose, message: message || undefined }
+          : { montant: Number(montant), delaiPropose, message: message || undefined }
+      ),
     });
     setSubmitting(false);
     if (res.ok) {
@@ -130,10 +142,19 @@ export default function MissionModal({
 
               <div className="space-y-3">
                 <div>
-                  <label className="text-[11px] uppercase tracking-widest font-semibold text-zinc-500">Montant proposé ({mission.currency})</label>
+                  <label className="text-[11px] uppercase tracking-widest font-semibold text-zinc-500">
+                    {time ? `Tarif proposé par ${time.unit.one} (${mission.currency})` : `Montant proposé (${mission.currency})`}
+                  </label>
                   <input type="number" value={montant} onChange={(e) => setMontant(e.target.value)}
-                    placeholder={String(mission.budget)}
+                    placeholder={String(time ? (mission.timeRate ?? "") : mission.budget)}
                     className="mt-1 w-full h-10 px-3 rounded-xl bg-white border border-gray-200 text-[14px] focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751] transition" />
+                  {time && (
+                    <p className="mt-1 text-[11px] text-zinc-500 tabular-nums">
+                      {Number(montant) > 0
+                        ? `Plafond : ${Math.round(Number(montant) * time.maxQuantity).toLocaleString("fr-FR")} ${mission.currency} pour ${time.maxQuantity} ${time.unit.many} maximum.`
+                        : `${time.maxQuantity} ${time.unit.many} maximum — seul le temps constaté est versé.`}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="text-[11px] uppercase tracking-widest font-semibold text-zinc-500">Délai proposé (jours) — optionnel</label>

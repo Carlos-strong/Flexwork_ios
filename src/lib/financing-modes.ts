@@ -24,9 +24,22 @@
 import type { DevisData } from "@/lib/devis";
 import type { JalonInput } from "@/lib/jalons";
 
-export type FinancingModeKey = "F1" | "F2" | "F3" | "F4" | "J1" | "J2" | "J3" | "J4" | "J5";
+export type FinancingModeKey =
+  | "F1"
+  | "F2"
+  | "F3"
+  | "F4"
+  | "J1"
+  | "J2"
+  | "J3"
+  | "J4"
+  | "J5"
+  | "S1"
+  | "S2H"
+  | "S2J"
+  | "S2M";
 
-export type FinancingModeFamily = "fixe" | "jalon";
+export type FinancingModeFamily = "fixe" | "jalon" | "temps";
 
 // Comment les jalons du contrat se déduisent du devis pour ce mode :
 //   - "none"        : aucun jalon, un seul HOLD/RELEASE sur le prix total du contrat ;
@@ -52,6 +65,19 @@ export type FinancingPrimitives = {
   useJalons: boolean;
   financingMode: "lump_sum" | "progressive";
   jalonsSequential: boolean;
+  /**
+   * Par où l'argent ENTRE au séquestre (2026-09-14, §8 du cahier des charges).
+   *
+   * "per_jalon" : chaque jalon porte son propre financement — comportement historique.
+   * "upfront"   : un financement unique, que les jalons CONSOMMENT. C'est le modèle que le §8
+   *               désigne nommément : « les sous-tâches ne doivent pas créer un second
+   *               séquestre ».
+   *
+   * Ne change rien aux LIBÉRATIONS : `availableFrom` (src/lib/escrow.ts) bornait déjà chaque
+   * libération par le solde du contrat entier, jamais par le séquestre du jalon. Seule l'entrée
+   * des fonds diffère — et c'est tout ce que le §8 demande.
+   */
+  fundingGranularity: "per_jalon" | "upfront";
   // Fraction de chaque jalon retenue jusqu'à la libération finale (0 = aucune retenue).
   // Voir PrestationContract.retentionRate et releasableBeforeRetention (src/lib/jalons.ts).
   retentionRate: number;
@@ -71,6 +97,12 @@ export type FinancingModeDescriptor = {
   unavailableReason?: string;
   primitives: FinancingPrimitives;
   jalonStrategy: JalonStrategy;
+  /**
+   * Unité tarifaire d'un mode au TEMPS (famille `temps`), absente partout ailleurs. Portée par le
+   * mode et non saisie : choisir S2-J, c'est déjà dire « au jour ». La recopier dans un champ de
+   * formulaire ouvrirait la seule incohérence possible — un mode journalier facturé à l'heure.
+   */
+  rateUnit?: "hour" | "day" | "month";
 };
 
 export const FINANCING_MODES: Record<FinancingModeKey, FinancingModeDescriptor> = {
@@ -89,7 +121,7 @@ export const FINANCING_MODES: Record<FinancingModeKey, FinancingModeDescriptor> 
     available: false,
     unavailableReason:
       "Le séquestre préalable est obligatoire : aucun livrable ne peut être soumis avant que les fonds soient bloqués. Choisissez « Fixe 100 % escrow upfront » pour un paiement unique en fin de mission.",
-    primitives: { useJalons: false, financingMode: "lump_sum", jalonsSequential: false, retentionRate: 0 },
+    primitives: { useJalons: false, financingMode: "lump_sum", jalonsSequential: false, retentionRate: 0, fundingGranularity: "per_jalon" },
     jalonStrategy: "none",
   },
   F2: {
@@ -101,7 +133,7 @@ export const FINANCING_MODES: Record<FinancingModeKey, FinancingModeDescriptor> 
       "Le client bloque 100 % du montant dès la signature du contrat. Libération unique à la fin, après validation des preuves.",
     recommendation: "Idéal pour une mission courte ou un premier client.",
     available: true,
-    primitives: { useJalons: false, financingMode: "lump_sum", jalonsSequential: false, retentionRate: 0 },
+    primitives: { useJalons: false, financingMode: "lump_sum", jalonsSequential: false, retentionRate: 0, fundingGranularity: "per_jalon" },
     jalonStrategy: "none",
   },
   F3: {
@@ -124,7 +156,7 @@ export const FINANCING_MODES: Record<FinancingModeKey, FinancingModeDescriptor> 
     // Séquentiel : le solde ne se finance qu'une fois l'acompte validé — sinon les deux
     // moitiés seraient finançables dans n'importe quel ordre, ce qui viderait le « 50/50 »
     // de son sens.
-    primitives: { useJalons: true, financingMode: "lump_sum", jalonsSequential: true, retentionRate: 0 },
+    primitives: { useJalons: true, financingMode: "lump_sum", jalonsSequential: true, retentionRate: 0, fundingGranularity: "per_jalon" },
     jalonStrategy: "halves",
   },
   F4: {
@@ -138,7 +170,7 @@ export const FINANCING_MODES: Record<FinancingModeKey, FinancingModeDescriptor> 
     available: false,
     unavailableReason:
       "Nécessite une échéance datée sur le jalon (Jalon.dueDate) et un déclencheur calendaire : toute libération est aujourd'hui déclenchée par une action humaine, jamais par une date.",
-    primitives: { useJalons: true, financingMode: "lump_sum", jalonsSequential: false, retentionRate: 0 },
+    primitives: { useJalons: true, financingMode: "lump_sum", jalonsSequential: false, retentionRate: 0, fundingGranularity: "per_jalon" },
     jalonStrategy: "equal_split",
   },
   J1: {
@@ -150,7 +182,7 @@ export const FINANCING_MODES: Record<FinancingModeKey, FinancingModeDescriptor> 
       "Chaque ligne du devis devient un jalon à son montant réel. Libération à la validation des preuves de chaque jalon.",
     recommendation: "Le mode le plus juste et le plus traçable pour une mission technique.",
     available: true,
-    primitives: { useJalons: true, financingMode: "lump_sum", jalonsSequential: false, retentionRate: 0 },
+    primitives: { useJalons: true, financingMode: "lump_sum", jalonsSequential: false, retentionRate: 0, fundingGranularity: "per_jalon" },
     jalonStrategy: "devis_lines",
   },
   J2: {
@@ -167,7 +199,7 @@ export const FINANCING_MODES: Record<FinancingModeKey, FinancingModeDescriptor> 
     available: false,
     unavailableReason:
       "Non proposé actuellement : « Jalons pondérés au coût réel » découpe le même devis, mais au montant réel de chaque poste.",
-    primitives: { useJalons: true, financingMode: "lump_sum", jalonsSequential: false, retentionRate: 0 },
+    primitives: { useJalons: true, financingMode: "lump_sum", jalonsSequential: false, retentionRate: 0, fundingGranularity: "per_jalon" },
     jalonStrategy: "equal_split",
   },
   J3: {
@@ -179,7 +211,7 @@ export const FINANCING_MODES: Record<FinancingModeKey, FinancingModeDescriptor> 
       "Chaque point d'étape confirmé par le client libère aussitôt la part correspondant à l'incrément validé, sans attendre la fin du jalon.",
     recommendation: "Avancement continu, anti-litige — le paiement suit le chantier.",
     available: true,
-    primitives: { useJalons: true, financingMode: "progressive", jalonsSequential: false, retentionRate: 0 },
+    primitives: { useJalons: true, financingMode: "progressive", jalonsSequential: false, retentionRate: 0, fundingGranularity: "per_jalon" },
     jalonStrategy: "devis_lines",
   },
   J4: {
@@ -196,8 +228,112 @@ export const FINANCING_MODES: Record<FinancingModeKey, FinancingModeDescriptor> 
       financingMode: "lump_sum",
       jalonsSequential: false,
       retentionRate: RETENTION_RATE_J4,
+      fundingGranularity: "per_jalon",
     },
     jalonStrategy: "devis_lines",
+  },
+  // ── S1 — forfait financé d'un coup, découpé en sous-tâches (2026-09-14) ──────────────────
+  // Le seul mode qui porte `fundingGranularity: "upfront"`, et la raison pour laquelle ce levier
+  // existe. Il implémente les §7 et §8 du cahier des charges : un devis découpé en sous-tâches,
+  // dont le TOTAL est séquestré dès le départ, et que chaque validation vient consommer.
+  //
+  // Ce qui le distingue de J1 n'est PAS le découpage — les deux dérivent leurs lots des lignes
+  // du devis, à l'identique. C'est l'entrée des fonds : J1 fait financer chaque jalon
+  // séparément, S1 fait financer une seule fois. Le §8 isole précisément ce point (« les
+  // sous-tâches ne doivent pas créer un second séquestre »), et c'est ce qui justifie un mode
+  // distinct plutôt qu'un libellé différent sur J1.
+  //
+  // Pour le client, la différence est concrète : il paie une fois, au lieu d'être rappelé à
+  // chaque jalon. Pour le prestataire, elle l'est aussi : la totalité est garantie dès le
+  // départ, et non jalon par jalon au fil de la bonne volonté du client.
+  S1: {
+    key: "S1",
+    family: "jalon",
+    label: "Forfait avec sous-tâches",
+    badge: "Séquestre unique",
+    definition:
+      "Le prix total est séquestré en une seule fois, puis chaque sous-tâche validée libère sa part. Le client ne finance qu'une fois.",
+    recommendation:
+      "Prestation ponctuelle découpée en étapes — installation, réparation, intervention technique.",
+    available: true,
+    primitives: {
+      useJalons: true,
+      financingMode: "lump_sum",
+      jalonsSequential: false,
+      retentionRate: 0,
+      fundingGranularity: "upfront",
+    },
+    jalonStrategy: "devis_lines",
+  },
+  // ── S2 — rémunération au TEMPS (§9 à §13) ────────────────────────────────────────────────
+  // Trois modes pour une seule mécanique, et c'est voulu : seule l'UNITÉ tarifaire change
+  // (heure, jour, mois). Le cahier des charges insiste pour ne pas confondre unité tarifaire et
+  // fréquence de règlement — ici l'unité est dans le mode, et le règlement suit la validation
+  // de chaque relevé, jamais un calendrier.
+  //
+  // `useJalons: false` : un contrat au temps n'a pas de jalons. Ce qui fractionne le paiement
+  // n'est pas un découpage convenu d'avance mais les RELEVÉS DE PRÉSENCE, qui n'existent pas
+  // encore à la signature. Le séquestre porte le plafond (§10 : 20 jours × 7 500 = 150 000), et
+  // chaque relevé validé le consomme — exactement le modèle du §8, obtenu ici sans jalon.
+  //
+  // Le prix du contrat EST le plafond financier. C'est ce que le client finance avant le
+  // démarrage, et ce que `requestContractHold` séquestre en une fois.
+  S2H: {
+    key: "S2H",
+    family: "temps",
+    label: "Au temps — tarif horaire",
+    badge: "Heures pointées",
+    definition:
+      "Un tarif horaire et un plafond d'heures. Le client séquestre le plafond avant le démarrage ; chaque relevé d'heures validé libère sa part.",
+    recommendation: "Maintenance, interventions techniques, renfort ponctuel.",
+    available: true,
+    primitives: {
+      useJalons: false,
+      financingMode: "lump_sum",
+      jalonsSequential: false,
+      retentionRate: 0,
+      fundingGranularity: "per_jalon",
+    },
+    jalonStrategy: "none",
+    rateUnit: "hour",
+  },
+  S2J: {
+    key: "S2J",
+    family: "temps",
+    label: "Au temps — tarif journalier",
+    badge: "Journées pointées",
+    definition:
+      "Un tarif journalier et un plafond de jours. Le client séquestre le plafond avant le démarrage ; chaque journée validée libère sa part.",
+    recommendation: "Artisans, manœuvres, personnel de chantier.",
+    available: true,
+    primitives: {
+      useJalons: false,
+      financingMode: "lump_sum",
+      jalonsSequential: false,
+      retentionRate: 0,
+      fundingGranularity: "per_jalon",
+    },
+    jalonStrategy: "none",
+    rateUnit: "day",
+  },
+  S2M: {
+    key: "S2M",
+    family: "temps",
+    label: "Au temps — tarif mensuel",
+    badge: "Périodes mensuelles",
+    definition:
+      "Un tarif mensuel. Le client séquestre la période avant le démarrage ; chaque mois validé libère sa part, une seule fois par période.",
+    recommendation: "Équipe dédiée, mission longue avec présence régulière.",
+    available: true,
+    primitives: {
+      useJalons: false,
+      financingMode: "lump_sum",
+      jalonsSequential: false,
+      retentionRate: 0,
+      fundingGranularity: "per_jalon",
+    },
+    jalonStrategy: "none",
+    rateUnit: "month",
   },
   J5: {
     key: "J5",
@@ -210,7 +346,7 @@ export const FINANCING_MODES: Record<FinancingModeKey, FinancingModeDescriptor> 
     available: false,
     unavailableReason:
       "Ferait varier un montant après signature, ce que le contrat interdit (termsSnapshot immuable, la scission ne fait que redistribuer un montant déjà engagé). Demande un mécanisme d'avenant.",
-    primitives: { useJalons: true, financingMode: "lump_sum", jalonsSequential: false, retentionRate: 0 },
+    primitives: { useJalons: true, financingMode: "lump_sum", jalonsSequential: false, retentionRate: 0, fundingGranularity: "per_jalon" },
     jalonStrategy: "devis_lines",
   },
 };
@@ -238,21 +374,21 @@ export function listAvailableFinancingModes(): FinancingModeDescriptor[] {
 }
 
 // ── Répartition exacte d'un total entre des parts pondérées ────────────────────────────────
-// `validateJalonsSum` exige que Σ montants == prix du contrat à 0,01 près : arrondir chaque
-// part indépendamment ne le garantit pas (3 parts d'un tiers de 100 donnent 99,99). La
-// dernière part absorbe donc le reliquat — elle vaut `total − Σ(parts précédentes)`, ce qui
-// rend la somme exacte par construction quel que soit le nombre de parts.
-// Arrondi au CENTIME, et non à l'unité, alors même que le XOF n'a pas de sous-unité courante.
-// Ce n'est pas un oubli : la contrainte forte est `Σ montants == prixContrat` à 0,01 près
-// (validateJalonsSum), et le prix d'un contrat PEUT avoir des décimales — c'est le TTC d'un
-// devis, TVA comprise. Arrondir les parts à l'unité sous un total fractionnaire briserait cette
-// somme, donc le contrat lui-même.
+// `validateJalonsSum` exige que Σ montants == prix du contrat : arrondir chaque part
+// indépendamment ne le garantit pas (3 parts d'un tiers de 100 donnent 99). La dernière part
+// absorbe donc le reliquat — elle vaut `total − Σ(parts précédentes)`, ce qui rend la somme
+// exacte par construction quel que soit le nombre de parts, et quelle que soit la maille
+// d'arrondi.
 //
-// Rendre les montants entiers de bout en bout est souhaitable (un PSP XOF refuse les décimales)
-// mais se décide EN AMONT, dans le calcul du devis (computeDevisData, src/lib/devis.ts) : c'est
-// le prix du contrat qui doit devenir entier en premier, sinon aucun découpage ne peut l'être.
-function round2(value: number): number {
-  return Math.round(value * 100) / 100;
+// Arrondi à l'UNITÉ (2026-09-14). Ce fichier arrondissait auparavant au centime, faute de
+// pouvoir faire mieux : le prix du contrat est le totalTTC du devis, et `computeDevisData`
+// produisait alors des décimales — arrondir les parts à l'unité sous un total fractionnaire
+// aurait brisé la somme, donc le contrat. La correction a été portée à la source
+// (src/lib/devis.ts, roundAmount) : le totalTTC étant désormais entier, le découpage peut l'être
+// aussi, et toute la chaîne — devis, jalons, cibles de libération progressive, retenue de
+// garantie — partage enfin une seule maille monétaire.
+function roundAmount(value: number): number {
+  return Math.round(value);
 }
 
 export function distributeExact(weights: number[], total: number): number[] {
@@ -266,11 +402,21 @@ export function distributeExact(weights: number[], total: number): number[] {
   const amounts: number[] = [];
   let allocated = 0;
   for (let i = 0; i < effective.length - 1; i++) {
-    const part = round2((effective[i] / effectiveSum) * total);
+    const part = roundAmount((effective[i] / effectiveSum) * total);
     amounts.push(part);
     allocated += part;
   }
-  amounts.push(round2(total - allocated));
+  // Dernière part : le reliquat EXACT, jamais ré-arrondi — c'est lui, et lui seul, qui garantit
+  // Σ parts == total. Un `roundAmount` ici casserait la somme dès que `total` n'est PAS entier :
+  // le prix d'un contrat à prix fixe est saisi librement (validation.ts, `montant`), et les
+  // contrats générés avant l'arrondi entier du devis peuvent en porter un. Découper 1 234,56 en
+  // parts entières donnerait alors 1 235 — et `validateJalonsSum` refuserait le contrat.
+  //
+  // Le nettoyage au centime ne gomme que l'erreur de représentation flottante accumulée par les
+  // soustractions successives ; sur un total entier, toutes les parts précédentes l'étant aussi,
+  // il est sans effet et le reliquat est entier de lui-même. L'intégralité des montants découle
+  // ainsi de celle du total, au lieu d'être forcée contre lui.
+  amounts.push(Math.round((total - allocated) * 100) / 100);
   return amounts;
 }
 
@@ -354,6 +500,7 @@ export type ResolvedFinancing = {
   financingMode: "lump_sum" | "progressive";
   jalonsSequential: boolean;
   retentionRate: number;
+  fundingGranularity: "per_jalon" | "upfront";
 };
 
 export function resolveFinancing(
@@ -377,6 +524,9 @@ export function resolveFinancing(
       // fin » ; sur un contrat à libération unique il n'existe pas de « toute fin » distincte
       // à laquelle la rattacher (voir PrestationContract.retentionRate, prisma/schema.prisma).
       retentionRate: derived.jalons ? mode.primitives.retentionRate : 0,
+      // Sans jalon, la granularité n'a pas d'objet : il n'y a qu'un financement et qu'une
+      // libération, donc rien à « consommer ». Même règle que les deux options ci-dessus.
+      fundingGranularity: derived.jalons ? mode.primitives.fundingGranularity : "per_jalon",
     },
   };
 }
@@ -437,6 +587,21 @@ export function providerBrief(
   }
 
   const points: string[] = [];
+  // Consigne propre aux contrats au temps : ce que le prestataire doit savoir avant d'accepter
+  // n'est pas « comment découper », mais que sa rémunération dépendra de relevés VALIDÉS par le
+  // client — et que le plafond est séquestré d'avance, donc garanti.
+  if (mode.family === "temps") {
+    return {
+      headline:
+        "Convenez d'un tarif et d'un plafond : le client séquestre le plafond entier avant le démarrage, et chaque relevé de présence validé vous en libère la part correspondante.",
+      points: [
+        "Un relevé validé = une libération : vous êtes payé au fil des périodes travaillées, jamais à la fin seulement.",
+        "Un relevé ne paie rien par lui-même : il doit être validé par le client. C'est sa validation, pas votre déclaration, qui déclenche le versement.",
+        "Le plafond est séquestré dès le départ : vous ne travaillez jamais sur des fonds qui ne sont pas déjà bloqués.",
+      ],
+    };
+  }
+
   const fractionne = mode.primitives.useJalons && !(derivesFromLines && !quoteMode);
   points.push(
     fractionne
@@ -451,6 +616,14 @@ export function providerBrief(
   if (fractionne && mode.primitives.jalonsSequential) {
     points.push(
       "Les jalons se financent dans l'ordre : le suivant n'est séquestré qu'une fois le précédent validé."
+    );
+  }
+  // Le §8 est une garantie pour le PRESTATAIRE avant d'être une commodité pour le client : la
+  // totalité est séquestrée dès le départ, et non lot par lot au fil de la bonne volonté du
+  // client. C'est l'information qui change sa décision de chiffrer, donc elle a sa place ici.
+  if (fractionne && mode.primitives.fundingGranularity === "upfront") {
+    points.push(
+      "Le client séquestre la TOTALITÉ dès le départ, en une seule fois : chaque poste validé consomme ce séquestre. Vous n'avez jamais à attendre qu'il finance le poste suivant."
     );
   }
   if (fractionne && mode.primitives.retentionRate > 0) {
