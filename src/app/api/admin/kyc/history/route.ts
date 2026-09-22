@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { requireAdminRole } from "@/lib/adminGuard";
+import { requireAnyAdminRole } from "@/lib/adminGuard";
 import { displayFileName } from "@/lib/storage";
 
 // Historique des validations KYC pour l'Admin KYC — chaque document examiné (validé ou
@@ -8,7 +8,7 @@ import { displayFileName } from "@/lib/storage";
 // C'est la base de la révocation d'une validation potentiellement erronée
 // (POST /api/admin/kyc/[userId]/documents/[docId]/revoke).
 export async function GET() {
-  const guard = await requireAdminRole("kyc");
+  const guard = await requireAnyAdminRole(["kyc", "superviseur"]);
   if ("error" in guard) {
     return NextResponse.json({ error: guard.error }, { status: guard.status });
   }

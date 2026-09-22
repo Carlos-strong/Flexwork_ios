@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { requireAdmin } from "@/lib/adminGuard";
+import { requireAdminRole } from "@/lib/adminGuard";
+import { logAdminAction } from "@/lib/admin-audit";
 
 const schema = z.object({
   domain: z.string().min(2),
@@ -15,7 +16,7 @@ const schema = z.object({
 // dérivé de riskLevel côté serveur — true uniquement pour "high", jamais configurable à
 // false pour ce palier (garde-fou métier, pas une simple convention d'usage).
 export async function POST(req: Request) {
-  const guard = await requireAdmin();
+  const guard = await requireAdminRole("superviseur");
   if ("error" in guard) {
     return NextResponse.json({ error: guard.error }, { status: guard.status });
   }
@@ -32,11 +33,19 @@ export async function POST(req: Request) {
     update: { ...parsed.data, insuranceRequired: parsed.data.riskLevel === "high" },
   });
 
+  await logAdminAction({
+    adminId: guard.user.id,
+    action: "domain_risk_level_set",
+    targetType: "DomainRiskLevel",
+    targetId: entry.id,
+    justification: parsed.data.justification?.trim() || `${parsed.data.domain} (${parsed.data.country}) → ${parsed.data.riskLevel}`,
+  });
+
   return NextResponse.json(entry);
 }
 
 export async function GET() {
-  const guard = await requireAdmin();
+  const guard = await requireAdminRole("superviseur");
   if ("error" in guard) {
     return NextResponse.json({ error: guard.error }, { status: guard.status });
   }

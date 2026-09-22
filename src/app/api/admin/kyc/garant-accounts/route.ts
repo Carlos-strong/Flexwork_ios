@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { requireAdmin } from "@/lib/adminGuard";
+import { requireAnyAdminRole } from "@/lib/adminGuard";
 import { CHANTIER_ROLES } from "@/lib/age-gate";
 
 // Comptes de filière chantier (artisan, manœuvre, expert BTP) — TOUS statuts KYC confondus —
@@ -13,7 +13,7 @@ import { CHANTIER_ROLES } from "@/lib/age-gate";
 // de la file : le drapeau devenait inatteignable dès le dossier validé. Cette route expose
 // la population pertinente, sans filtre de statut (2026-09-09).
 export async function GET() {
-  const guard = await requireAdmin();
+  const guard = await requireAnyAdminRole(["kyc", "superviseur"]);
   if ("error" in guard) {
     return NextResponse.json({ error: guard.error }, { status: guard.status });
   }

@@ -5,22 +5,24 @@ import { useRouter } from 'next/navigation'
 import { useSession, signOut } from 'next-auth/react'
 import { ROLE_DASHBOARD, type Role } from '@/lib/role-dashboard'
 import { NotificationsBell } from '@/components/notifications-bell'
+import { DEFAULT_MENUS } from '@/lib/frontend-defaults'
 
-// Entrées du menu « Explorer » — uniquement des pages qui existent réellement dans
-// src/app. Ne PAS y remettre /missions : la page autonome a été supprimée, la liste des
-// missions ne vit plus que dans les dashboards (voir missionsHrefForRole dans
-// src/lib/role-dashboard.ts).
-const EXPLORE_LINKS: { href: string; label: string; description: string }[] = [
-  { href: '/recherche', label: 'Trouver un prestataire', description: 'Annuaire des profils à identité vérifiée' },
-  { href: '/comment-ca-marche', label: 'Comment ça marche', description: 'Du dépôt de mission au paiement' },
-  { href: '/confiance', label: 'Confiance & Sécurité', description: 'Vérification, séquestre, médiation' },
-  { href: '/tarifs', label: 'Tarifs', description: 'Commissions et frais de la plateforme' },
-  { href: '/faq', label: 'FAQ', description: 'Les questions les plus fréquentes' },
-  { href: '/a-propos', label: 'À propos', description: 'Qui nous sommes' },
-  { href: '/contact', label: 'Contact', description: 'Écrire à l’équipe' },
-]
+// Entrées du menu « Explorer ». Éditables depuis /backoffice/content (menu `header_explore`),
+// et reçues en PROP plutôt que lues ici : ce composant est client (il lit la session), il ne
+// peut donc pas interroger la base. Le parent serveur les lui passe.
+//
+// Le repli est DEFAULT_MENUS.header_explore, c'est-à-dire les mêmes sept entrées qu'avant.
+// Ne PAS y remettre /missions : la page autonome a été supprimée, la liste des missions ne
+// vit plus que dans les dashboards (voir missionsHrefForRole dans src/lib/role-dashboard.ts).
+// Toute destination est de toute façon validée à l'écriture contre les routes réelles
+// (isLinkableHref), pour que le menu ne puisse pas se remplir de liens morts.
+export type ExploreLink = { href: string; label: string; description?: string }
 
-export default function Header() {
+export default function Header({ exploreLinks }: { exploreLinks?: ExploreLink[] } = {}) {
+  const EXPLORE_LINKS: ExploreLink[] = exploreLinks?.length
+    ? exploreLinks
+    : DEFAULT_MENUS.header_explore.items
+
   const { data: session, status } = useSession()
   const router = useRouter()
   const user = session?.user as { id?: string; role?: string; isAdmin?: boolean } | undefined
@@ -60,7 +62,7 @@ export default function Header() {
 
   return (
     <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-orange-100">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 lg:h-18 flex items-center justify-between gap-4">
+      <div className="page-shell h-16 lg:h-18 flex items-center justify-between gap-4">
         {/* Logo */}
         <div className="flex items-center gap-6 lg:gap-8">
           <Link href="/" className="flex items-center gap-1">
@@ -106,7 +108,7 @@ export default function Header() {
                     className="block px-3 py-2.5 rounded-xl hover:bg-orange-50 transition"
                   >
                     <span className="block text-sm font-semibold text-[#0A1931]">{l.label}</span>
-                    <span className="block text-xs text-gray-500">{l.description}</span>
+                    {l.description && <span className="block text-xs text-gray-500">{l.description}</span>}
                   </Link>
                 ))}
               </div>

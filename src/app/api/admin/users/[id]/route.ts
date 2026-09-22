@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { requireAdmin } from "@/lib/adminGuard";
+import { requireAdminRole } from "@/lib/adminGuard";
 import { logAdminAction } from "@/lib/admin-audit";
 
 const schema = z.object({ justification: z.string().min(1) });
@@ -14,7 +14,7 @@ export async function DELETE(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const guard = await requireAdmin();
+  const guard = await requireAdminRole("kyc");
   if ("error" in guard) {
     return NextResponse.json({ error: guard.error }, { status: guard.status });
   }

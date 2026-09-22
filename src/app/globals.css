@@ -389,3 +389,39 @@ tr:hover { background: var(--surface-raised); }
   border: 2px solid white;
   cursor: pointer;
 }
+
+/* ──────────────────────────────────────────────────────────────────────────────────────────
+   Gouttière des sections publiques (2026-09-21)
+
+   Les neuf conteneurs de la page d'accueil répétaient la même chaîne
+   `max-w-7xl mx-auto px-4 sm:px-6 lg:px-8`, soit un plafond de 1280 px. Sur un écran de
+   1728 px, cela laissait 224 px vides de chaque côté ; le vide de droite se remarquait
+   davantage parce que la colonne d'images du héros s'y arrête, d'où l'impression d'une
+   « colonne vide » alors que les marges sont symétriques.
+
+   La largeur vit désormais ICI, à un seul endroit, et non recopiée dans neuf composants :
+   une console d'administration s'appuie maintenant sur ces sections, et une largeur à neuf
+   exemplaires finit toujours par diverger.
+
+   En dessous de 1536 px, rien ne change — le plafond reste 1280 px, et les écrans courants
+   rendent exactement comme avant. Au-delà, le contenu s'élargit par paliers plutôt que de
+   suivre la fenêtre sans limite : une ligne de texte de 2000 px de large ne se lit plus.
+   ────────────────────────────────────────────────────────────────────────────────────────── */
+.page-shell {
+  width: 100%;
+  margin-inline: auto;
+  max-width: 80rem; /* 1280 px — inchangé */
+  padding-inline: 1rem;
+}
+@media (min-width: 640px) {
+  .page-shell { padding-inline: 1.5rem; }
+}
+@media (min-width: 1024px) {
+  .page-shell { padding-inline: 2rem; }
+}
+@media (min-width: 1536px) {
+  .page-shell { max-width: 96rem; } /* 1536 px */
+}
+@media (min-width: 1800px) {
+  .page-shell { max-width: 108rem; } /* 1728 px */
+}

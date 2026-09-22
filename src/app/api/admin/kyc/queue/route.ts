@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { requireAdmin } from "@/lib/adminGuard";
+import { requireAnyAdminRole } from "@/lib/adminGuard";
 
 // US-103 : file d'attente KYC triée par date de dépôt, pour revue admin.
 export async function GET() {
-  const guard = await requireAdmin();
+  const guard = await requireAnyAdminRole(["kyc", "superviseur"]);
   if ("error" in guard) {
     return NextResponse.json({ error: guard.error }, { status: guard.status });
   }

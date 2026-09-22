@@ -1,38 +1,39 @@
 import Link from 'next/link'
+import { getPublishedFrontendConfig, resolveSection } from '@/lib/frontend-config'
 
-// Chaque catégorie envoie sur /recherche?domaine=… (correspondance partielle insensible à
-// la casse côté API) — c'étaient des <a> sans href, donc neuf éléments inertes.
-const CATEGORIES: { name: string; color: string }[] = [
-  { name: 'Design Graphique', color: 'bg-[#FF6B35]' },
-  { name: 'Programmation', color: 'bg-[#0A1931]' },
-  { name: 'Marketing Digital', color: 'bg-[#1B9C6A]' },
-  { name: 'Vidéo & Animation', color: 'bg-[#8B2E86]' },
-  { name: 'Rédaction', color: 'bg-[#FF3E6C]' },
-  { name: 'Maçonnerie', color: 'bg-[#F7C948] text-black' },
-  { name: 'Plomberie', color: 'bg-[#FF6B35]' },
-  { name: 'Électricité', color: 'bg-[#1B9C6A]' },
-  { name: 'Menuiserie', color: 'bg-gradient-to-r from-[#FF6B35] to-[#8B2E86]' },
-]
+// Composant SERVEUR : les catégories viennent de la configuration publiée (module
+// « Sections d'accueil » de /backoffice/content), plus des neuf entrées codées en dur qui
+// vivaient ici. Sans publication, `resolveSection` rend exactement ces neuf entrées — la
+// barre ne peut donc pas disparaître parce que la base est vide ou muette.
+//
+// `color` transporte la classe utilitaire de la pastille. Elle est écrite par un
+// administrateur, jamais par un visiteur, et n'est pas interpolée dans du HTML brut : une
+// valeur inattendue produit une pastille sans couleur, rien de plus.
+export default async function CategoriesBar() {
+  const config = await getPublishedFrontendConfig()
+  const section = resolveSection(config, 'categories_bar')
+  if (!section || section.items.length === 0) return null
 
-export default function CategoriesBar() {
   return (
     <div className="border-b border-gray-100 bg-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="page-shell">
         <div className="flex items-center gap-6 lg:gap-8 overflow-x-auto scrollbar-hide py-3 text-sm font-medium whitespace-nowrap">
-          {CATEGORIES.map((c) => (
+          {section.items.map((c) => (
             <Link
-              key={c.name}
-              href={`/recherche?domaine=${encodeURIComponent(c.name)}`}
+              key={c.label}
+              href={c.href ?? `/recherche?domaine=${encodeURIComponent(c.label)}`}
               className="flex items-center gap-2 hover:text-[#FF6B35] transition"
               style={{ textDecoration: 'none' }}
             >
-              <span className={`w-2 h-2 rounded-full ${c.color}`}></span>
-              {c.name}
+              <span className={`w-2 h-2 rounded-full ${c.color ?? 'bg-gray-300'}`}></span>
+              {c.label}
             </Link>
           ))}
-          <Link href="/recherche" className="ml-auto hidden lg:block text-[#FF6B35] font-bold hover:underline">
-            + Voir plus →
-          </Link>
+          {section.ctaText && (
+            <Link href={section.ctaLink ?? '/recherche'} className="ml-auto hidden lg:block text-[#FF6B35] font-bold hover:underline">
+              {section.ctaText}
+            </Link>
+          )}
         </div>
       </div>
     </div>

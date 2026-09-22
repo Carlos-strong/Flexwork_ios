@@ -1,7 +1,9 @@
-import type { Metadata } from "next";
+import { frontendPageMetadata } from "@/lib/frontend-config";
 import { PageHero } from "@/components/public/PageHero";
 
-export const metadata: Metadata = { title: "Conditions générales — FlexWork" };
+export function generateMetadata() {
+  return frontendPageMetadata("/cgu", "Conditions générales — FlexWork");
+}
 
 const SECTIONS = [
   {

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { requireAdmin } from "@/lib/adminGuard";
+import { requireAdminRole } from "@/lib/adminGuard";
 import { logAdminAction } from "@/lib/admin-audit";
 import { isValidMinimumAge, isChantierRole } from "@/lib/age-gate";
 
@@ -18,7 +18,7 @@ const schema = z.object({
 // dessous de 18 ans — rejeté côté serveur, pas seulement empêché par l'UI. Une valeur ne
 // peut être ajustée que vers le haut (ex. 21 ans pour la conduite d'engins).
 export async function POST(req: Request) {
-  const guard = await requireAdmin();
+  const guard = await requireAdminRole("superviseur");
   if ("error" in guard) {
     return NextResponse.json({ error: guard.error }, { status: guard.status });
   }
@@ -68,7 +68,7 @@ export async function POST(req: Request) {
 }
 
 export async function GET() {
-  const guard = await requireAdmin();
+  const guard = await requireAdminRole("superviseur");
   if ("error" in guard) {
     return NextResponse.json({ error: guard.error }, { status: guard.status });
   }

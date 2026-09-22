@@ -1,7 +1,9 @@
-import type { Metadata } from "next";
+import { frontendPageMetadata } from "@/lib/frontend-config";
 import { PageHero } from "@/components/public/PageHero";
 
-export const metadata: Metadata = { title: "Comment ça marche — FlexWork" };
+export function generateMetadata() {
+  return frontendPageMetadata("/comment-ca-marche", "Comment ça marche — FlexWork");
+}
 
 const ETAPES_CLIENT = [
   { n: "1", t: "Publiez une mission", d: "Décrivez votre besoin, fixez le budget et le délai. Votre identité est vérifiée (KYC) avant publication." },

@@ -333,3 +333,17 @@ export async function runTacitAcceptanceSweep(now: Date = new Date()): Promise<S
 
   return report;
 }
+
+/**
+ * Mesure à blanc du balayage : combien de livrables l'acceptation tacite libérerait maintenant.
+ *
+ * Même sélection que `runTacitAcceptanceSweep` (mêmes candidats, même échéance), sans rien
+ * appliquer. Sert à l'écran « Queues » de l'administration, qui montre ce qu'une tâche a en
+ * attente sans jamais l'exécuter : exécuter ce balayage libère des fonds, et aucun rôle
+ * d'administration n'a ce pouvoir (§13 — la médiation ne libère rien unilatéralement).
+ */
+export async function countDueTacitAcceptances(now: Date = new Date()): Promise<{ candidates: number; due: number }> {
+  const candidates = await findCandidates();
+  const due = candidates.filter((c) => isTacitlyAccepted(c.submittedAt, c.acceptanceDeadlineDays, now)).length;
+  return { candidates: candidates.length, due };
+}

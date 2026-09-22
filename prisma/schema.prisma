@@ -46,14 +46,22 @@ enum UserStatus {
   banned
 }
 
-// Séparation des pouvoirs administratifs (modele-skillafrica-v3-Flexwork.md §13) : 4 rôles
-// distincts. `null` = pas un admin. Un admin garde `isAdmin = true` pour compat des guards
-// existants, `adminRole` porte la granularité de pouvoir.
+// Séparation des pouvoirs administratifs (modele-skillafrica-v3-Flexwork.md §13) : 5 rôles
+// distincts, chacun avec SON tableau de bord et SA sidebar (src/lib/admin-roles.ts déclare la
+// superposition rôle ↔ modules, qui doit rester alignée sur les gardes d'API ci-dessous).
+// `null` = pas un admin. Un admin garde `isAdmin = true` pour compat des guards existants,
+// `adminRole` porte la granularité de pouvoir.
 enum AdminRole {
   kyc
   moderation
   mediation
   superviseur
+  // Éditeur du contenu public (2026-09-21) — taxonomie, sections d'accueil, menus, référencement.
+  // Cinquième pouvoir distinct plutôt qu'une prérogative de plus pour le superviseur : éditer
+  // ce que le visiteur lit n'est ni instruire un KYC, ni arbitrer un litige, ni toucher aux
+  // flux financiers, et la règle §13 veut qu'un pouvoir qui ne recoupe pas les autres ait son
+  // propre rôle. Ce rôle ne donne aucun accès aux personnes, aux missions ni à l'argent.
+  frontend
 }
 
 model User {
@@ -102,8 +110,8 @@ model User {
   updatedAt DateTime @updatedAt
 
   otpCodes        OtpCode[]
-  attendances     Attendance[]    @relation("AttendanceWorker")
-  managedSites    SpotTimeTerms[] @relation("SiteManagedContracts")
+  attendances     Attendance[]     @relation("AttendanceWorker")
+  managedSites    SpotTimeTerms[]  @relation("SiteManagedContracts")
   kycDocuments    KycDocument[]
   kycReviewsDone  KycDocument[]    @relation("KycReviewer")
   livenessChecks  LivenessCheck[]
@@ -142,6 +150,10 @@ model User {
 
   progressCheckpointsValidees ProgressCheckpoint[]
   progressRejectionsPosees    ProgressRejection[]
+
+  frontendReleases FrontendRelease[] @relation("FrontendReleasePublisher")
+  reportsFiled     Report[]          @relation("ReportAuthor")
+  reportsHandled   Report[]          @relation("ReportHandler")
 
   @@index([kycStatus])
   @@index([role])
@@ -1653,7 +1665,6 @@ model GigOrderAuditEntry {
   @@index([orderId, createdAt])
 }
 
-
 // ── Journal des échanges avec le PSP (2026-09-15) ───────────────────────────────────────────
 // Chaque message reçu du PSP — webhook réel, console de la PSP virtuelle, confirmation
 // automatique — est consigné avec son ISSUE : appliqué, rejeu ignoré, ou rejeté avec son motif.
@@ -1701,4 +1712,289 @@ model PspEventLog {
   @@index([pspReference])
   @@index([operationId])
   @@index([outcome, receivedAt])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+// Administration du frontend (2026-09-21)
+//
+// Jusqu'ici, tout ce que le visiteur voit avant de se connecter était écrit en dur dans des
+// composants React : les neuf catégories de `CategoriesBar`, les huit vignettes de
+// `PopularServices`, la grille d'icônes de `src/app/page.tsx`, les garanties de `TrustedBy`,
+// les entrées « Explorer » du `Header`, les quatre colonnes du `Footer`. Changer un libellé
+// public exigeait un déploiement.
+//
+// Ces tables portent ce contenu. Deux principes les gouvernent :
+//
+//   1. BROUILLON ≠ PUBLIÉ. Les tables ci-dessous sont l'espace de TRAVAIL de l'administrateur.
+//      Le public ne les lit JAMAIS : il lit l'instantané figé du dernier `FrontendRelease`.
+//      Sans cette séparation, une frappe en cours d'édition serait immédiatement en ligne.
+//
+//   2. Le frontend garde ses valeurs codées en dur comme SOCLE DE REPLI. Une base vide, une
+//      requête en échec ou une publication jamais faite rendent exactement la page
+//      d'aujourd'hui. L'administration ajoute un pouvoir ; elle n'introduit pas une
+//      dépendance qui casse la page d'accueil quand la base ne répond pas.
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+
+// Cycle de vie commun à tout contenu éditorial, repris de la maquette Flexwork-Taxonomie :
+// brouillon → publié → désactivé → archivé.
+//
+// `desactive` et `archive` se ressemblent mais ne disent pas la même chose : désactivé est un
+// retrait TEMPORAIRE décidé par l'éditeur (la saison est finie, on remettra), archivé est un
+// retrait DÉFINITIF d'un élément qu'on ne peut pas supprimer parce que des missions y font
+// référence. Les deux sont invisibles du public ; seul l'archivé sort des écrans d'édition.
+enum FrontendStatus {
+  brouillon
+  publie
+  desactive
+  archive
+}
+
+// ── Taxonomie : domaine → spécialité → compétence ──────────────────────────────────────────
+//
+// Le lien avec l'existant se fait par le NOM, pas par une clé étrangère, et c'est délibéré :
+// `Mission.domaine`, `Profile.mainDomain`, `Gig.domaine` et `DomainRiskLevel.domain` sont
+// aujourd'hui du texte libre, saisi à la main, déjà présent en base sur des missions réelles.
+// Migrer ces quatre colonnes vers `domainId` casserait les missions dont le domaine ne
+// correspond à aucune entrée du référentiel — et il y en a, puisque rien ne l'a jamais
+// contraint. Le référentiel commence donc par DÉCRIRE ce qui existe ; la contrainte d'intégrité
+// viendra quand la couverture sera mesurée (l'écran d'administration l'affiche, domaine par
+// domaine, sous « missions rattachées »).
+model TaxonomyDomain {
+  id        String         @id @default(cuid())
+  slug      String         @unique
+  name      String         @unique
+  icon      String?
+  sortOrder Int            @default(0)
+  status    FrontendStatus @default(brouillon)
+
+  specialties TaxonomySpecialty[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, sortOrder])
+}
+
+model TaxonomySpecialty {
+  id          String         @id @default(cuid())
+  domainId    String
+  domain      TaxonomyDomain @relation(fields: [domainId], references: [id], onDelete: Cascade)
+  slug        String
+  name        String
+  description String?
+  sortOrder   Int            @default(0)
+  status      FrontendStatus @default(brouillon)
+
+  competencies TaxonomyCompetency[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([domainId, slug])
+  @@index([domainId, sortOrder])
+}
+
+model TaxonomyCompetency {
+  id          String            @id @default(cuid())
+  specialtyId String
+  specialty   TaxonomySpecialty @relation(fields: [specialtyId], references: [id], onDelete: Cascade)
+  slug        String
+  name        String
+  sortOrder   Int               @default(0)
+  status      FrontendStatus    @default(brouillon)
+
+  // Correspond au badge « VERIF » de la maquette. La compétence reste DÉCLARÉE par le
+  // prestataire (arbitrage A11, §6 de etat-consolide-Flexwork.md : la plateforme ne vérifie
+  // ni qualification ni compétence). Ce drapeau signale au client qu'une pièce justificative
+  // est attendue sur cette compétence — il ne transforme pas la déclaration en vérification,
+  // et aucun code ne doit lui faire produire un badge de confiance.
+  verificationExpected Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([specialtyId, slug])
+  @@index([specialtyId, sortOrder])
+}
+
+// ── Sections d'accueil ─────────────────────────────────────────────────────────────────────
+//
+// Une section = un bloc de la page d'accueil. `key` est le point d'ancrage du composant React
+// qui la consomme (`categories_bar` → CategoriesBar.tsx) : c'est une clé technique, immuable,
+// jamais affichée. Les champs de texte portent l'en-tête du bloc, les `items` son contenu
+// répétitif — ce qui couvre d'un seul modèle une barre de catégories, une grille de vignettes
+// et une liste de garanties, dont la seule différence réelle est le gabarit de rendu.
+model FrontendSection {
+  id       String  @id @default(cuid())
+  key      String  @unique
+  label    String
+  title    String?
+  subtitle String?
+  ctaText  String?
+  ctaLink  String?
+
+  sortOrder Int            @default(0)
+  status    FrontendStatus @default(brouillon)
+
+  items FrontendSectionItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, sortOrder])
+}
+
+model FrontendSectionItem {
+  id        String          @id @default(cuid())
+  sectionId String
+  section   FrontendSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  label    String
+  sublabel String?
+  href     String?
+  icon     String?
+  // Classe utilitaire Tailwind ou valeur hexadécimale, selon le gabarit de la section.
+  // Le composant décide de l'usage ; l'administration ne fait que transporter la valeur.
+  color    String?
+  imageUrl String?
+
+  sortOrder Int            @default(0)
+  status    FrontendStatus @default(brouillon)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sectionId, sortOrder])
+}
+
+// ── Menus (Header « Explorer », colonnes du Footer) ────────────────────────────────────────
+//
+// `href` est validé à l'écriture contre les routes réellement présentes dans src/app : le
+// Footer a déjà porté quatre liens morts (« Carrières », « Presse », « Blog AfroTech »,
+// « Événements Dakar »), retirés à la main le 2026-09-09. Rendre le menu éditable sans cette
+// garde reviendrait à rouvrir exactement cette porte, mais cette fois sans déploiement pour
+// s'en apercevoir.
+model FrontendMenuItem {
+  id          String  @id @default(cuid())
+  menu        String
+  label       String
+  href        String
+  description String?
+
+  sortOrder Int            @default(0)
+  status    FrontendStatus @default(brouillon)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([menu, sortOrder])
+}
+
+// ── Pages éditoriales ──────────────────────────────────────────────────────────────────────
+//
+// Le CORPS de ces pages reste du JSX dans src/app/(public)/ — l'administration ne prétend pas
+// gérer un contenu qu'elle ne stocke pas. Ce modèle porte ce qui est réellement éditable sans
+// déploiement : le titre d'onglet, la description de référencement, et la présence de la page
+// dans les menus. `path` est en lecture seule côté administration : il est créé par le code,
+// et une entrée dont la route a disparu est signalée comme orpheline plutôt que servie.
+model FrontendPage {
+  id             String         @id @default(cuid())
+  path           String         @unique
+  title          String
+  seoTitle       String?
+  seoDescription String?
+  status         FrontendStatus @default(publie)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ── Réglages globaux (SEO du layout racine, identité du site) ──────────────────────────────
+model FrontendSetting {
+  key       String   @id
+  value     String
+  group     String
+  label     String
+  updatedAt DateTime @updatedAt
+}
+
+// ── Publication ────────────────────────────────────────────────────────────────────────────
+//
+// Une publication fige l'état COMPLET des tables ci-dessus dans `snapshot`, et c'est ce
+// document — jamais les tables — que sert l'API publique. Trois propriétés en découlent :
+//
+//   · le brouillon ne fuit pas : une section en cours d'écriture reste invisible ;
+//   · l'ETag est honnête : `version` change si et seulement si le contenu servi a changé,
+//     ce qu'un hachage des tables de travail ne garantirait pas (un `updatedAt` bouge à
+//     chaque frappe sans rien changer au rendu public) ;
+//   · le retour arrière est une opération ordinaire : republier l'instantané de la v23 crée
+//     une v25 au contenu identique. L'historique ne se réécrit pas, il s'allonge.
+model FrontendRelease {
+  id       String @id @default(cuid())
+  version  Int    @unique
+  snapshot Json
+
+  publishedAt   DateTime @default(now())
+  publishedById String?
+  publishedBy   User?    @relation("FrontendReleasePublisher", fields: [publishedById], references: [id], onDelete: SetNull)
+
+  note                  String?
+  // Renseigné quand la publication est un retour arrière : version dont l'instantané a été
+  // repris. Sans ce champ, une v25 identique à la v23 serait indiscernable d'une réécriture.
+  rolledBackFromVersion Int?
+
+  @@index([publishedAt])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+// Signalements (2026-09-21) — US-802, Phase 8 du modèle v3
+//
+// La page publique /signalement postait vers /api/reports, une route qui n'a jamais existé :
+// chaque signalement partait dans un 404, et l'utilisateur voyait « Échec de l'envoi ». Or le
+// §13 fait de la Modération un pouvoir qui « agit sur signalement » : sans cette table, le rôle
+// n'avait littéralement aucune file de travail.
+//
+// Un signalement OUVRE UNE REVUE, il ne sanctionne rien. `retenu` dit que le modérateur l'a
+// jugé fondé ; le retrait d'une déclaration ou la suspension d'un compte restent des gestes
+// distincts, chacun justifié et journalisé de son côté. Lier automatiquement l'un à l'autre
+// ferait d'un clic sur « retenu » une sanction sans motif propre.
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+
+enum ReportTargetType {
+  declaration
+  profile
+  mission
+  review
+}
+
+enum ReportStatus {
+  ouvert
+  retenu
+  classe
+}
+
+model Report {
+  id         String           @id @default(cuid())
+  targetType ReportTargetType
+  // Facultatif : le formulaire public accepte un signalement sans identifiant précis.
+  targetId   String?
+  reason     String
+
+  // Signalement possible sans compte. `sourceHash` (empreinte HMAC de l'adresse IP, jamais
+  // l'adresse elle-même) sert uniquement à limiter la cadence d'une même source anonyme.
+  reporterId String?
+  reporter   User?   @relation("ReportAuthor", fields: [reporterId], references: [id], onDelete: SetNull)
+  sourceHash String?
+
+  status       ReportStatus @default(ouvert)
+  handledById  String?
+  handledBy    User?        @relation("ReportHandler", fields: [handledById], references: [id], onDelete: SetNull)
+  handledAt    DateTime?
+  decisionNote String?
+
+  createdAt DateTime @default(now())
+
+  @@index([status, createdAt])
+  @@index([sourceHash, createdAt])
+  @@index([reporterId, createdAt])
 }

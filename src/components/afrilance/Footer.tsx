@@ -1,60 +1,54 @@
 import Link from 'next/link'
+import { getPublishedFrontendConfig, resolveMenu, resolveSetting } from '@/lib/frontend-config'
+import { DEFAULT_MENUS, FOOTER_MENU_KEYS } from '@/lib/frontend-defaults'
 
-// Toutes les entrées étaient de simples <li> non cliquables. Elles sont désormais des liens
-// vers des pages qui existent dans src/app. Les rubriques sans page réelle (« Carrières »,
-// « Presse », « Blog AfroTech », « Événements Dakar ») ont été retirées plutôt que
-// transformées en liens morts ou en pages vides — elles reviendront avec leur contenu.
-const COLUMNS: { title: string; links: { href: string; label: string }[] }[] = [
-  {
-    title: 'Prestataires',
-    links: [
-      { href: '/recherche', label: 'Trouver un prestataire' },
-      { href: '/signup', label: 'Devenir prestataire' },
-      { href: '/missions/new', label: 'Publier une mission' },
-    ],
-  },
-  {
-    title: 'À propos',
-    links: [
-      { href: '/a-propos', label: 'Qui sommes-nous' },
-      { href: '/comment-ca-marche', label: 'Comment ça marche' },
-      { href: '/tarifs', label: 'Tarifs' },
-    ],
-  },
-  {
-    title: 'Support',
-    links: [
-      { href: '/faq', label: 'FAQ' },
-      { href: '/contact', label: 'Contact' },
-      { href: '/confiance', label: 'Confiance & Sécurité' },
-    ],
-  },
-  {
-    title: 'Légal',
-    links: [
-      { href: '/cgu', label: 'Conditions générales' },
-      { href: '/confidentialite', label: 'Confidentialité' },
-      { href: '/signalement', label: 'Signaler un contenu' },
-    ],
-  },
-]
+// Colonnes du pied de page, éditables depuis /backoffice/content.
+//
+// Toutes les entrées étaient de simples <li> non cliquables jusqu'au 2026-08. Elles sont
+// devenues des liens vers des pages qui existent dans src/app, et les rubriques sans page
+// réelle (« Carrières », « Presse », « Blog AfroTech », « Événements Dakar ») ont été
+// retirées plutôt que transformées en liens morts. Ce garde-fou est maintenant appliqué à
+// l'écriture par isLinkableHref : une destination inexistante est refusée par l'API avant
+// d'atteindre la base, ce qui vaut mieux que de la découvrir en production.
+//
+// L'intitulé de colonne est celui du menu, amputé de son préfixe technique.
+function columnTitle(key: string): string {
+  return (DEFAULT_MENUS[key]?.label ?? key).replace(/^Pied de page — /, '')
+}
 
-export default function Footer() {
+// Le logo textuel colore la seconde moitié du nom : « Flex » + « Work » en orange. La coupure
+// se fait sur la majuscule interne plutôt qu'à un rang fixe, pour qu'un nom renommé depuis les
+// réglages ne soit pas tranché au milieu d'un mot.
+function splitBrand(name: string): [string, string] {
+  const match = name.match(/^(.[^A-ZÀ-Ý]*)(.*)$/u)
+  return match ? [match[1], match[2]] : [name, '']
+}
+
+export default async function Footer() {
+  const config = await getPublishedFrontendConfig()
+  const columns = FOOTER_MENU_KEYS.map((key) => ({
+    key,
+    title: columnTitle(key),
+    links: resolveMenu(config, key),
+  })).filter((column) => column.links.length > 0)
+
+  const siteName = resolveSetting(config, 'site.name')
+  const [brandHead, brandTail] = splitBrand(siteName)
+  const baseline = resolveSetting(config, 'site.baseline')
+  const footerNote = resolveSetting(config, 'site.footerNote')
+
   return (
     <footer className="bg-[#0A1931] text-white">
       <div className="h-1 w-full bg-gradient-to-r from-[#FF6B35] via-[#F7C948] via-[#1B9C6A] to-[#8B2E86]"></div>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14 lg:py-16 grid grid-cols-2 md:grid-cols-5 gap-8 lg:gap-10 text-sm lg:text-base">
+      <div className="page-shell py-14 lg:py-16 grid grid-cols-2 md:grid-cols-5 gap-8 lg:gap-10 text-sm lg:text-base">
         <div>
           <Link href="/" className="font-extrabold text-xl mb-4 block" style={{ textDecoration: 'none', color: 'inherit' }}>
-            Flex<span className="text-[#FF6B35]">Work</span>.
+            {brandHead}<span className="text-[#FF6B35]">{brandTail}</span>.
           </Link>
-          <p className="text-white/60 text-sm leading-relaxed">
-            La plateforme des talents africains : identité vérifiée, contrat signé, paiement sous séquestre
-            en FCFA et Mobile Money.
-          </p>
+          <p className="text-white/60 text-sm leading-relaxed">{baseline}</p>
         </div>
-        {COLUMNS.map((col) => (
-          <div key={col.title}>
+        {columns.map((col) => (
+          <div key={col.key}>
             <p className="font-bold mb-4">{col.title}</p>
             <ul className="space-y-2.5 text-white/60 text-sm">
               {col.links.map((l) => (
@@ -69,8 +63,8 @@ export default function Footer() {
         ))}
       </div>
       <div className="border-t border-white/10 py-4 lg:py-5">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between text-xs lg:text-sm text-white/50">
-          <p>© {new Date().getFullYear()} FlexWork — Made with ❤️ à Cotonou 🇧🇯</p>
+        <div className="page-shell flex items-center justify-between text-xs lg:text-sm text-white/50">
+          <p>© {new Date().getFullYear()} {siteName} — {footerNote}</p>
           <div className="flex gap-4"><span>FR</span><span>FCFA</span><span>● Mobile Money</span></div>
         </div>
       </div>

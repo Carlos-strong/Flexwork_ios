@@ -118,3 +118,28 @@ export async function runResidualRefundSweep(): Promise<ResidualRefundReport> {
 
   return report;
 }
+
+/**
+ * Mesure à blanc du balayage des reliquats : combien de missions closes gardent un solde
+ * disponible au séquestre, et pour quel montant. Même sélection et même critère (`available`)
+ * que `runResidualRefundSweep`, sans rien rembourser — pour l'écran « Queues ».
+ */
+export async function countResidualRefundsDue(): Promise<{ examined: number; due: number; amount: number }> {
+  const contracts = await prisma.prestationContract.findMany({
+    where: { mission: { status: { in: [...TERMINAL_STATUSES] } } },
+    select: { id: true },
+  });
+  if (contracts.length === 0) return { examined: 0, due: 0, amount: 0 };
+
+  const soldes = await escrowBalancesFor(contracts.map((c) => c.id));
+  let due = 0;
+  let amount = 0;
+  for (const c of contracts) {
+    const available = soldes.get(c.id)?.available ?? 0;
+    if (available > 0) {
+      due++;
+      amount += available;
+    }
+  }
+  return { examined: contracts.length, due, amount };
+}

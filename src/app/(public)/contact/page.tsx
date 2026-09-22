@@ -1,7 +1,9 @@
-import type { Metadata } from "next";
+import { frontendPageMetadata } from "@/lib/frontend-config";
 import { PageHero } from "@/components/public/PageHero";
 
-export const metadata: Metadata = { title: "Contact — FlexWork" };
+export function generateMetadata() {
+  return frontendPageMetadata("/contact", "Contact — FlexWork");
+}
 
 const CANAUX = [
   { t: "Support client", d: "questions@flexwork.bj", icon: "✉️" },

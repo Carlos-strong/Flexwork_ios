@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { requireAdmin } from "@/lib/adminGuard";
+import { requireAdminRole } from "@/lib/adminGuard";
 import { detectCollusionSuspicion } from "@/lib/collusion-detection";
 
 // Alerte sur les opérations d'escrow PSP anormales entre deux mêmes comptes (même device,
@@ -8,7 +8,7 @@ import { detectCollusionSuspicion } from "@/lib/collusion-detection";
 // `PspEscrowOperation` (instructions transmises au PSP), pas sur un solde interne détenu
 // par la plateforme (qui n'existe plus, modele-skillafrica-v3-Flexwork.md §6).
 export async function GET() {
-  const guard = await requireAdmin();
+  const guard = await requireAdminRole("superviseur");
   if ("error" in guard) {
     return NextResponse.json({ error: guard.error }, { status: guard.status });
   }

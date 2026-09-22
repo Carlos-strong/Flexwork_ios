@@ -1,7 +1,9 @@
-import type { Metadata } from "next";
+import { frontendPageMetadata } from "@/lib/frontend-config";
 import { PageHero } from "@/components/public/PageHero";
 
-export const metadata: Metadata = { title: "À propos — FlexWork" };
+export function generateMetadata() {
+  return frontendPageMetadata("/a-propos", "À propos — FlexWork");
+}
 
 const PROFILS = [
   { nom: "Client", desc: "Publie une mission, compare les candidatures et paie en toute sécurité via le séquestre." },

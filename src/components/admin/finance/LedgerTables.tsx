@@ -52,9 +52,9 @@ function usePaged<T>(buildUrl: (cursor: string | null) => string, deps: unknown[
 
 function TableShell({ children, footer }: { children: React.ReactNode; footer: React.ReactNode }) {
   return (
-    <div className="bg-white border border-[#E2E8F0] rounded-xl overflow-hidden">
+    <div className="bg-white border border-[#E2E0D9] rounded-xl overflow-hidden">
       <div className="overflow-x-auto">{children}</div>
-      <div className="px-4 py-2.5 border-t border-[#F1F5F9] text-[12px] text-[#64748B] flex items-center justify-between gap-3">{footer}</div>
+      <div className="px-4 py-2.5 border-t border-[#F4F3EF] text-[12px] text-[#5A5750] flex items-center justify-between gap-3">{footer}</div>
     </div>
   );
 }
@@ -117,7 +117,7 @@ export function OperationsTable({ onOpenContract, refreshKey }: { onOpenContract
           <>
             <span>{error ? "Le registre n'a pas pu être chargé." : `${items.length} opération${items.length > 1 ? "s" : ""} affichée${items.length > 1 ? "s" : ""}`}</span>
             {hasMore && (
-              <button onClick={loadMore} disabled={loading} className="h-8 px-3 rounded-lg border border-[#E2E8F0] bg-white font-medium hover:bg-[#F8FAF9] disabled:opacity-50">
+              <button onClick={loadMore} disabled={loading} className="h-8 px-3 rounded-lg border border-[#E2E0D9] bg-white font-medium hover:bg-[#FAFAF8] disabled:opacity-50">
                 {loading ? "Chargement…" : "Charger plus"}
               </button>
             )}
@@ -126,7 +126,7 @@ export function OperationsTable({ onOpenContract, refreshKey }: { onOpenContract
       >
         <table className="w-full text-[12.5px] min-w-[860px]">
           <thead>
-            <tr className="text-[10.5px] tracking-widest text-[#64748B] uppercase bg-[#F8FAF9] border-b border-[#E2E8F0]">
+            <tr className="text-[10.5px] tracking-widest text-[#5A5750] uppercase bg-[#FAFAF8] border-b border-[#E2E0D9]">
               <th className={th}>Transmise</th>
               <th className={th}>Instruction</th>
               <th className={th}>Portée</th>
@@ -140,38 +140,38 @@ export function OperationsTable({ onOpenContract, refreshKey }: { onOpenContract
             {items.map((op) => {
               const t = OP_TYPE[op.instructionType];
               return (
-                <tr key={op.id} className="border-b border-[#F1F5F9] last:border-0 hover:bg-[#F8FAF9]">
-                  <td className="py-2 px-3 whitespace-nowrap text-[#475569] tabular-nums">{dateTime(op.instructionSentAt)}</td>
+                <tr key={op.id} className="border-b border-[#F4F3EF] last:border-0 hover:bg-[#FAFAF8]">
+                  <td className="py-2 px-3 whitespace-nowrap text-[#5A5750] tabular-nums">{dateTime(op.instructionSentAt)}</td>
                   <td className="py-2 px-3">
                     <Chip tone={t?.tone ?? "slate"}>{t?.label ?? op.instructionType}</Chip>
                   </td>
                   <td className="py-2 px-3 max-w-[260px]">
                     {op.contractId ? (
-                      <button onClick={() => onOpenContract(op.contractId!)} className="text-left text-[#008751] font-medium hover:underline truncate block max-w-full">
+                      <button onClick={() => onOpenContract(op.contractId!)} className="text-left text-[#2D5BE3] font-medium hover:underline truncate block max-w-full">
                         {op.label}
                       </button>
                     ) : (
-                      <span className="text-[#475569]">{op.label}</span>
+                      <span className="text-[#5A5750]">{op.label}</span>
                     )}
-                    {op.jalon && <div className="text-[11px] text-[#94A3B8] truncate">{op.jalon}</div>}
+                    {op.jalon && <div className="text-[11px] text-[#9C9A95] truncate">{op.jalon}</div>}
                   </td>
-                  <td className={`py-2 px-3 text-right tabular-nums whitespace-nowrap font-semibold ${t?.sign === 1 ? "text-[#1E40AF]" : t?.sign === 0 ? "text-[#94A3B8]" : ""}`}>
+                  <td className={`py-2 px-3 text-right tabular-nums whitespace-nowrap font-semibold ${t?.sign === 1 ? "text-[#1E40AF]" : t?.sign === 0 ? "text-[#9C9A95]" : ""}`}>
                     {t?.sign === 1 ? "+" : t?.sign === -1 ? "−" : ""}
                     {money(op.amount, op.currency)}
                   </td>
                   <td className="py-2 px-3">
                     <Chip tone={OP_STATUS[op.status]?.tone ?? "slate"}>{OP_STATUS[op.status]?.label ?? op.status}</Chip>
                   </td>
-                  <td className="py-2 px-3 font-mono text-[11px] text-[#64748B] max-w-[220px] truncate" title={op.pspReference ?? undefined}>
+                  <td className="py-2 px-3 font-mono text-[11px] text-[#5A5750] max-w-[220px] truncate" title={op.pspReference ?? undefined}>
                     {op.pspReference ?? "—"}
                   </td>
-                  <td className="py-2 px-3 whitespace-nowrap text-[#475569] tabular-nums">{dateTime(op.pspConfirmedAt)}</td>
+                  <td className="py-2 px-3 whitespace-nowrap text-[#5A5750] tabular-nums">{dateTime(op.pspConfirmedAt)}</td>
                 </tr>
               );
             })}
             {!loading && items.length === 0 && !error && (
               <tr>
-                <td colSpan={7} className="py-6 text-center text-[#94A3B8]">Aucune opération ne correspond à ces filtres.</td>
+                <td colSpan={7} className="py-6 text-center text-[#9C9A95]">Aucune opération ne correspond à ces filtres.</td>
               </tr>
             )}
           </tbody>
@@ -221,7 +221,7 @@ export function PayablesTable({ onOpenContract, refreshKey }: { onOpenContract: 
           <>
             <span>{error ? "Les créances n'ont pas pu être chargées." : `${items.length} créance${items.length > 1 ? "s" : ""} affichée${items.length > 1 ? "s" : ""}`}</span>
             {hasMore && (
-              <button onClick={loadMore} disabled={loading} className="h-8 px-3 rounded-lg border border-[#E2E8F0] bg-white font-medium hover:bg-[#F8FAF9] disabled:opacity-50">
+              <button onClick={loadMore} disabled={loading} className="h-8 px-3 rounded-lg border border-[#E2E0D9] bg-white font-medium hover:bg-[#FAFAF8] disabled:opacity-50">
                 {loading ? "Chargement…" : "Charger plus"}
               </button>
             )}
@@ -230,7 +230,7 @@ export function PayablesTable({ onOpenContract, refreshKey }: { onOpenContract: 
       >
         <table className="w-full text-[12.5px] min-w-[760px]">
           <thead>
-            <tr className="text-[10.5px] tracking-widest text-[#64748B] uppercase bg-[#F8FAF9] border-b border-[#E2E8F0]">
+            <tr className="text-[10.5px] tracking-widest text-[#5A5750] uppercase bg-[#FAFAF8] border-b border-[#E2E0D9]">
               <th className={th}>Reconnue</th>
               <th className={th}>Source</th>
               <th className={th}>Mission</th>
@@ -241,28 +241,28 @@ export function PayablesTable({ onOpenContract, refreshKey }: { onOpenContract: 
           </thead>
           <tbody>
             {items.map((p) => (
-              <tr key={p.id} className="border-b border-[#F1F5F9] last:border-0 hover:bg-[#F8FAF9]">
-                <td className="py-2 px-3 whitespace-nowrap text-[#475569] tabular-nums">{dateTime(p.validatedAt)}</td>
-                <td className="py-2 px-3 text-[#0f172a] max-w-[220px] truncate">{p.label}</td>
+              <tr key={p.id} className="border-b border-[#F4F3EF] last:border-0 hover:bg-[#FAFAF8]">
+                <td className="py-2 px-3 whitespace-nowrap text-[#5A5750] tabular-nums">{dateTime(p.validatedAt)}</td>
+                <td className="py-2 px-3 text-[#1A1916] max-w-[220px] truncate">{p.label}</td>
                 <td className="py-2 px-3 max-w-[240px]">
                   {p.contractId ? (
-                    <button onClick={() => onOpenContract(p.contractId!)} className="text-left text-[#008751] font-medium hover:underline truncate block max-w-full">
+                    <button onClick={() => onOpenContract(p.contractId!)} className="text-left text-[#2D5BE3] font-medium hover:underline truncate block max-w-full">
                       {p.missionTitle}
                     </button>
                   ) : (
-                    <span className="text-[#475569]">{p.missionTitle}</span>
+                    <span className="text-[#5A5750]">{p.missionTitle}</span>
                   )}
                 </td>
                 <td className="py-2 px-3 text-right tabular-nums font-semibold whitespace-nowrap">{money(p.amount, p.currency)}</td>
                 <td className="py-2 px-3">
                   <Chip tone={PAYABLE_STATUS[p.status]?.tone ?? "slate"}>{PAYABLE_STATUS[p.status]?.label ?? p.status}</Chip>
                 </td>
-                <td className="py-2 px-3 whitespace-nowrap text-[#475569] tabular-nums">{dateTime(p.paidAt)}</td>
+                <td className="py-2 px-3 whitespace-nowrap text-[#5A5750] tabular-nums">{dateTime(p.paidAt)}</td>
               </tr>
             ))}
             {!loading && items.length === 0 && !error && (
               <tr>
-                <td colSpan={6} className="py-6 text-center text-[#94A3B8]">Aucune créance ne correspond à ces filtres.</td>
+                <td colSpan={6} className="py-6 text-center text-[#9C9A95]">Aucune créance ne correspond à ces filtres.</td>
               </tr>
             )}
           </tbody>

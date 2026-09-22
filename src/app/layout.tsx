@@ -4,6 +4,7 @@ import "./globals.css";
 import { Providers } from "@/components/providers";
 import { UserIdentityProvider } from "@/components/user-identity";
 import { auth } from "@/auth";
+import { getPublishedFrontendConfig, resolveSetting } from "@/lib/frontend-config";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -20,24 +21,33 @@ const fraunces = Fraunces({
   display: "swap",
 });
 
-export const metadata: Metadata = {
-  title: "FlexWork — Talents vérifiés, zéro arnaque",
-  description:
-    "FlexWork met en relation clients et prestataires en Afrique de l'Ouest. Identité vérifiée, paiement sécurisé.",
-  manifest: "/manifest.json",
-  icons: {
-    icon: "/favicon.ico",
-    apple: "/icon.svg",
-  },
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "default",
-    title: "FlexWork",
-  },
-  other: {
-    "mobile-web-app-capable": "yes",
-  },
-};
+// Titre et description viennent des réglages publiés (module « Référencement global » de
+// /backoffice/content). `generateMetadata` remplace l'objet statique : c'est la seule façon, dans
+// l'App Router, de composer des métadonnées à partir d'une lecture asynchrone.
+//
+// Le reste — manifeste, icônes, réglages d'application web — n'est PAS éditable : ce sont des
+// fichiers servis par le déploiement, et une console qui prétendrait les changer ne pourrait
+// pas tenir sa promesse.
+export async function generateMetadata(): Promise<Metadata> {
+  const config = await getPublishedFrontendConfig();
+  return {
+    title: resolveSetting(config, "seo.title"),
+    description: resolveSetting(config, "seo.description"),
+    manifest: "/manifest.json",
+    icons: {
+      icon: "/favicon.ico",
+      apple: "/icon.svg",
+    },
+    appleWebApp: {
+      capable: true,
+      statusBarStyle: "default",
+      title: resolveSetting(config, "site.name"),
+    },
+    other: {
+      "mobile-web-app-capable": "yes",
+    },
+  };
+}
 
 export const viewport = {
   themeColor: "#008751",

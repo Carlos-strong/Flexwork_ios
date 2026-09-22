@@ -16,6 +16,25 @@ const nextConfig = {
   // constaté deux fois le 16/09/2026. Aucune option ne s'en prémunit : après une opération de ce
   // genre, redémarrer avec `npm run dev:reset`, qui purge `.next` avant de relancer.
   distDir: process.env.NEXT_DIST_DIR ?? ".next",
+  // Anciennes adresses de l'administration (avant la reprise de l'architecture de flexwork_job,
+  // 2026-09-21). Redirections TEMPORAIRES (307) : un navigateur ne les mémorise pas, ce qui
+  // laisse la liberté de réaffecter ces chemins plus tard. Sans elles, un favori, un onglet resté
+  // ouvert ou un lien dans un e-mail déjà envoyé tomberaient sur une 404.
+  async redirects() {
+    return [
+      { source: "/admin/superviseur", destination: "/admin", permanent: false },
+      { source: "/admin/mediation", destination: "/admin/disputes", permanent: false },
+      { source: "/admin/finance", destination: "/admin/paiements", permanent: false },
+      { source: "/admin/moderation", destination: "/admin/reports/declarations", permanent: false },
+      { source: "/admin/audit", destination: "/backoffice/audit", permanent: false },
+      { source: "/admin/risk", destination: "/backoffice/locations", permanent: false },
+      { source: "/admin/prerequisites", destination: "/backoffice/settings/filieres", permanent: false },
+      { source: "/admin/frontend", destination: "/backoffice/content", permanent: false },
+      { source: "/admin/frontend/taxonomie", destination: "/backoffice/catalog", permanent: false },
+      { source: "/admin/frontend/reglages", destination: "/backoffice/settings", permanent: false },
+      { source: "/admin/frontend/:page(accueil|menus|pages|versions)", destination: "/backoffice/content/:page", permanent: false },
+    ];
+  },
   experimental: {
     // lucide-react est importé partout ; transforme les imports nommés en imports
     // directs de modules pour réduire significativement le bundle JS client.

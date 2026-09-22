@@ -108,12 +108,12 @@ export function ContractDrawer({
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" aria-label="Fiche financière du contrat">
-      <div className="absolute inset-0 bg-[#0f172a]/40" onClick={onClose} />
-      <div className="relative w-full max-w-[620px] h-full bg-[#F8FAF9] overflow-y-auto shadow-2xl">
-        <div className="sticky top-0 z-10 bg-white border-b border-[#E2E8F0] px-4 lg:px-5 py-3 flex items-start justify-between gap-3">
+      <div className="absolute inset-0 bg-[#1A1916]/40" onClick={onClose} />
+      <div className="relative w-full max-w-[620px] h-full bg-[#FAFAF8] overflow-y-auto shadow-2xl">
+        <div className="sticky top-0 z-10 bg-white border-b border-[#E2E0D9] px-4 lg:px-5 py-3 flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <div className="text-[11px] text-[#94A3B8] font-mono">Contrat {contractId.slice(0, 10)}</div>
-            <h2 className="text-[15px] font-bold text-[#0f172a] truncate">{d?.row.titre ?? "Chargement…"}</h2>
+            <div className="text-[11px] text-[#9C9A95] font-mono">Contrat {contractId.slice(0, 10)}</div>
+            <h2 className="text-[15px] font-bold text-[#1A1916] truncate">{d?.row.titre ?? "Chargement…"}</h2>
             {d && (
               <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                 <Chip tone={FIN_STATE[d.row.financialState]?.tone ?? "slate"}>{FIN_STATE[d.row.financialState]?.label}</Chip>
@@ -124,7 +124,7 @@ export function ContractDrawer({
           </div>
           <button
             onClick={onClose}
-            className="shrink-0 h-8 w-8 rounded-lg border border-[#E2E8F0] bg-white text-[#475569] hover:bg-[#F1F5F9]"
+            className="shrink-0 h-8 w-8 rounded-lg border border-[#E2E0D9] bg-white text-[#5A5750] hover:bg-[#F4F3EF]"
             aria-label="Fermer"
           >
             ✕
@@ -143,26 +143,26 @@ export function ContractDrawer({
               ].map(([role, p]) => {
                 const party = p as Detail["row"]["client"];
                 return (
-                  <div key={role as string} className="rounded-xl border border-[#E2E8F0] bg-white p-2.5 min-w-0">
-                    <div className="text-[10px] uppercase tracking-widest text-[#94A3B8] font-semibold">{role as string}</div>
-                    <div className="font-semibold text-[#0f172a] truncate">{party.name}</div>
-                    <div className="text-[#64748B] truncate">{party.email ?? "—"}</div>
+                  <div key={role as string} className="rounded-xl border border-[#E2E0D9] bg-white p-2.5 min-w-0">
+                    <div className="text-[10px] uppercase tracking-widest text-[#9C9A95] font-semibold">{role as string}</div>
+                    <div className="font-semibold text-[#1A1916] truncate">{party.name}</div>
+                    <div className="text-[#5A5750] truncate">{party.email ?? "—"}</div>
                   </div>
                 );
               })}
             </div>
 
             {/* Compte du séquestre */}
-            <section className="rounded-xl border border-[#E2E8F0] bg-white p-3.5">
+            <section className="rounded-xl border border-[#E2E0D9] bg-white p-3.5">
               <div className="flex items-center justify-between gap-2 mb-2">
                 <h3 className="text-[13px] font-semibold">Compte du séquestre</h3>
-                <span className="text-[11.5px] text-[#64748B] tabular-nums">Prix du contrat {money(d.price, d.row.currency)}</span>
+                <span className="text-[11.5px] text-[#5A5750] tabular-nums">Prix du contrat {money(d.price, d.row.currency)}</span>
               </div>
               <dl className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2 text-[12px]">
                 {(
                   [
                     ["Financé", b.funded, ""],
-                    ["Versé au prestataire", b.released, "text-[#008751]"],
+                    ["Versé au prestataire", b.released, "text-[#2D5BE3]"],
                     ["Remboursé au client", b.refunded, ""],
                     ["Détenu", b.held, "font-bold"],
                     ["Gelé", b.blocked, b.blocked > 0 ? "text-[#B91C1C]" : ""],
@@ -173,8 +173,8 @@ export function ContractDrawer({
                   ] as const
                 ).map(([label, value, cls]) => (
                   <div key={label}>
-                    <dt className="text-[#64748B]">{label}</dt>
-                    <dd className={`tabular-nums text-[#0f172a] ${cls}`}>{money(value, d.row.currency)}</dd>
+                    <dt className="text-[#5A5750]">{label}</dt>
+                    <dd className={`tabular-nums text-[#1A1916] ${cls}`}>{money(value, d.row.currency)}</dd>
                   </div>
                 ))}
               </dl>
@@ -216,18 +216,18 @@ export function ContractDrawer({
             )}
 
             {/* Gestes */}
-            <section className="rounded-xl border border-[#E2E8F0] bg-white p-3.5 space-y-3">
+            <section className="rounded-xl border border-[#E2E0D9] bg-white p-3.5 space-y-3">
               <div className="flex items-center justify-between gap-2">
                 <h3 className="text-[13px] font-semibold">Gestes administratifs</h3>
                 {!canAct && <Chip tone="slate">Lecture seule — rôle Médiation requis</Chip>}
               </div>
 
-              <div className="rounded-lg border border-[#E2E8F0] p-3 space-y-2">
+              <div className="rounded-lg border border-[#E2E0D9] p-3 space-y-2">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <strong className="text-[12.5px]">Rembourser le reliquat au client</strong>
-                  <span className="text-[12px] text-[#64748B] tabular-nums">Disponible : {money(d.actions.refund.amount, d.row.currency)}</span>
+                  <span className="text-[12px] text-[#5A5750] tabular-nums">Disponible : {money(d.actions.refund.amount, d.row.currency)}</span>
                 </div>
-                <p className="text-[11.5px] text-[#64748B]">
+                <p className="text-[11.5px] text-[#5A5750]">
                   Borné par le disponible : ni le gelé, ni la retenue ne partent. À réserver aux missions qui ne produiront plus aucun versement.
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-[140px_1fr] gap-2">
@@ -257,7 +257,7 @@ export function ContractDrawer({
                 <button
                   onClick={() => act("refund")}
                   disabled={!canAct || !d.actions.refund.available || refundReason.trim().length < 5 || busy !== null}
-                  className="h-9 px-4 rounded-lg bg-[#0f172a] text-white text-[12.5px] font-semibold hover:bg-black disabled:opacity-40"
+                  className="h-9 px-4 rounded-lg bg-[#1A1916] text-white text-[12.5px] font-semibold hover:bg-black disabled:opacity-40"
                 >
                   {busy === "refund"
                     ? "Instruction…"
@@ -265,13 +265,13 @@ export function ContractDrawer({
                 </button>
               </div>
 
-              <div className="rounded-lg border border-[#E2E8F0] p-3 space-y-2">
+              <div className="rounded-lg border border-[#E2E0D9] p-3 space-y-2">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <strong className="text-[12.5px]">Solder la retenue au prestataire</strong>
-                  <span className="text-[12px] text-[#64748B] tabular-nums">Retenue : {money(d.actions.retention.amount, d.row.currency)}</span>
+                  <span className="text-[12px] text-[#5A5750] tabular-nums">Retenue : {money(d.actions.retention.amount, d.row.currency)}</span>
                 </div>
                 {d.actions.retention.reason ? (
-                  <p className="text-[11.5px] text-[#64748B]">{d.actions.retention.reason}</p>
+                  <p className="text-[11.5px] text-[#5A5750]">{d.actions.retention.reason}</p>
                 ) : (
                   <>
                     <input
@@ -287,7 +287,7 @@ export function ContractDrawer({
                     <button
                       onClick={() => act("retention")}
                       disabled={!canAct || retentionReason.trim().length < 5 || busy !== null}
-                      className="h-9 px-4 rounded-lg bg-[#008751] text-white text-[12.5px] font-semibold hover:bg-[#007a49] disabled:opacity-40"
+                      className="h-9 px-4 rounded-lg bg-[#2D5BE3] text-white text-[12.5px] font-semibold hover:bg-[#007a49] disabled:opacity-40"
                     >
                       {busy === "retention" ? "Instruction…" : "Solder la retenue"}
                     </button>
@@ -303,9 +303,9 @@ export function ContractDrawer({
             </section>
 
             {/* Registre du contrat */}
-            <section className="rounded-xl border border-[#E2E8F0] bg-white">
+            <section className="rounded-xl border border-[#E2E0D9] bg-white">
               <h3 className="text-[13px] font-semibold px-3.5 pt-3">Registre PSP ({d.operations.length})</h3>
-              <ul className="divide-y divide-[#F1F5F9] mt-2">
+              <ul className="divide-y divide-[#F4F3EF] mt-2">
                 {d.operations.map((op) => {
                   const t = OP_TYPE[op.instructionType];
                   return (
@@ -314,14 +314,14 @@ export function ContractDrawer({
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <Chip tone={t?.tone ?? "slate"}>{t?.label ?? op.instructionType}</Chip>
                           <Chip tone={OP_STATUS[op.status]?.tone ?? "slate"}>{OP_STATUS[op.status]?.label ?? op.status}</Chip>
-                          {op.jalon && <span className="text-[#64748B] truncate">{op.jalon}</span>}
+                          {op.jalon && <span className="text-[#5A5750] truncate">{op.jalon}</span>}
                         </div>
-                        <div className="text-[11px] text-[#94A3B8] mt-0.5 font-mono truncate">
+                        <div className="text-[11px] text-[#9C9A95] mt-0.5 font-mono truncate">
                           {dateTime(op.instructionSentAt)} · {op.pspReference ?? "sans référence"}
                         </div>
                       </div>
                       <strong
-                        className={`tabular-nums shrink-0 ${t?.sign === 1 ? "text-[#1E40AF]" : t?.sign === -1 ? "text-[#0f172a]" : "text-[#94A3B8]"}`}
+                        className={`tabular-nums shrink-0 ${t?.sign === 1 ? "text-[#1E40AF]" : t?.sign === -1 ? "text-[#1A1916]" : "text-[#9C9A95]"}`}
                       >
                         {t?.sign === 1 ? "+" : t?.sign === -1 ? "−" : ""}
                         {money(op.amount, op.currency)}
@@ -329,15 +329,15 @@ export function ContractDrawer({
                     </li>
                   );
                 })}
-                {d.operations.length === 0 && <li className="px-3.5 py-3 text-[12px] text-[#94A3B8]">Aucun mouvement.</li>}
+                {d.operations.length === 0 && <li className="px-3.5 py-3 text-[12px] text-[#9C9A95]">Aucun mouvement.</li>}
               </ul>
             </section>
 
             {/* Créances */}
             {d.payables.length > 0 && (
-              <section className="rounded-xl border border-[#E2E8F0] bg-white">
+              <section className="rounded-xl border border-[#E2E0D9] bg-white">
                 <h3 className="text-[13px] font-semibold px-3.5 pt-3">Créances ({d.payables.length})</h3>
-                <ul className="divide-y divide-[#F1F5F9] mt-2">
+                <ul className="divide-y divide-[#F4F3EF] mt-2">
                   {d.payables.map((p) => {
                     const due = p.status === "failed" || p.status === "validated";
                     const open = reinstruct?.id === p.id;
@@ -345,10 +345,10 @@ export function ContractDrawer({
                       <li key={p.id} className="px-3.5 py-2 text-[12px]">
                         <div className="flex items-center justify-between gap-3">
                           <div className="min-w-0">
-                            <div className="truncate text-[#0f172a]">{p.label}</div>
+                            <div className="truncate text-[#1A1916]">{p.label}</div>
                             <div className="flex items-center gap-1.5 mt-0.5">
                               <Chip tone={PAYABLE_STATUS[p.status]?.tone ?? "slate"}>{PAYABLE_STATUS[p.status]?.label ?? p.status}</Chip>
-                              <span className="text-[11px] text-[#94A3B8]">{dateTime(p.paidAt ?? p.validatedAt)}</span>
+                              <span className="text-[11px] text-[#9C9A95]">{dateTime(p.paidAt ?? p.validatedAt)}</span>
                             </div>
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
@@ -359,7 +359,7 @@ export function ContractDrawer({
                                   setActionError(null);
                                   setReinstruct({ id: p.id, reason: "" });
                                 }}
-                                className="h-7 px-2.5 rounded-md border border-[#E2E8F0] bg-white text-[11.5px] font-medium hover:bg-[#F1F5F9]"
+                                className="h-7 px-2.5 rounded-md border border-[#E2E0D9] bg-white text-[11.5px] font-medium hover:bg-[#F4F3EF]"
                               >
                                 Réinstruire
                               </button>
@@ -382,13 +382,13 @@ export function ContractDrawer({
                               <button
                                 onClick={reinstructPayable}
                                 disabled={reinstruct.reason.trim().length < 5 || busy !== null}
-                                className="h-9 px-3 rounded-lg bg-[#0f172a] text-white text-[12px] font-semibold hover:bg-black disabled:opacity-40"
+                                className="h-9 px-3 rounded-lg bg-[#1A1916] text-white text-[12px] font-semibold hover:bg-black disabled:opacity-40"
                               >
                                 {busy === "reinstruct" ? "Instruction…" : `Réinstruire ${money(p.amount, p.currency)}`}
                               </button>
                               <button
                                 onClick={() => setReinstruct(null)}
-                                className="h-9 px-3 rounded-lg border border-[#E2E8F0] bg-white text-[12px] font-medium hover:bg-[#F1F5F9]"
+                                className="h-9 px-3 rounded-lg border border-[#E2E0D9] bg-white text-[12px] font-medium hover:bg-[#F4F3EF]"
                               >
                                 Annuler
                               </button>
@@ -404,10 +404,10 @@ export function ContractDrawer({
 
             {/* Structure du contrat */}
             {(d.jalons.length > 0 || d.timeTerms) && (
-              <section className="rounded-xl border border-[#E2E8F0] bg-white p-3.5 text-[12px] space-y-1.5">
+              <section className="rounded-xl border border-[#E2E0D9] bg-white p-3.5 text-[12px] space-y-1.5">
                 <h3 className="text-[13px] font-semibold">Structure</h3>
                 {d.timeTerms && (
-                  <p className="text-[#475569] tabular-nums">
+                  <p className="text-[#5A5750] tabular-nums">
                     Au temps : {money(d.timeTerms.rate, d.row.currency)} / {d.timeTerms.rateUnit} × {d.timeTerms.maxQuantity} — plafond{" "}
                     {money(d.timeTerms.maxAmount, d.row.currency)}. Relevés :{" "}
                     {Object.entries(d.attendance).map(([s, n]) => `${n} ${s}`).join(", ") || "aucun"}.
@@ -415,7 +415,7 @@ export function ContractDrawer({
                 )}
                 {d.jalons.map((j) => (
                   <div key={j.ordre} className="flex items-center justify-between gap-3">
-                    <span className="truncate text-[#475569]">
+                    <span className="truncate text-[#5A5750]">
                       #{j.ordre} {j.titre}
                     </span>
                     <span className="flex items-center gap-2 shrink-0">
@@ -430,17 +430,17 @@ export function ContractDrawer({
 
             {/* Médiations */}
             {d.mediations.length > 0 && (
-              <section className="rounded-xl border border-[#E2E8F0] bg-white p-3.5 text-[12px] space-y-2">
+              <section className="rounded-xl border border-[#E2E0D9] bg-white p-3.5 text-[12px] space-y-2">
                 <h3 className="text-[13px] font-semibold">Médiations</h3>
                 {d.mediations.map((m) => (
-                  <div key={m.id} className="border-t border-[#F1F5F9] pt-2 first:border-0 first:pt-0">
+                  <div key={m.id} className="border-t border-[#F4F3EF] pt-2 first:border-0 first:pt-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <Chip tone={m.outcome === "en_cours" ? "amber" : m.outcome === "agreement" ? "green" : "slate"}>{m.outcome}</Chip>
-                      <span className="text-[#94A3B8]">{dateTime(m.createdAt)}</span>
+                      <span className="text-[#9C9A95]">{dateTime(m.createdAt)}</span>
                     </div>
-                    <p className="text-[#475569] mt-0.5">{m.reason}</p>
+                    <p className="text-[#5A5750] mt-0.5">{m.reason}</p>
                     {(m.resolutionAmount || m.refundAmount) && (
-                      <p className="text-[#64748B] tabular-nums">
+                      <p className="text-[#5A5750] tabular-nums">
                         Proposé : {money(m.resolutionAmount ?? 0)} au prestataire · {money(m.refundAmount ?? 0)} au client
                       </p>
                     )}
@@ -450,16 +450,16 @@ export function ContractDrawer({
             )}
 
             {/* Journal */}
-            <section className="rounded-xl border border-[#E2E8F0] bg-white p-3.5 text-[12px]">
+            <section className="rounded-xl border border-[#E2E0D9] bg-white p-3.5 text-[12px]">
               <h3 className="text-[13px] font-semibold mb-1.5">Gestes admin sur ce contrat</h3>
               {d.adminLogs.length === 0 ? (
-                <p className="text-[#94A3B8]">Aucun geste enregistré.</p>
+                <p className="text-[#9C9A95]">Aucun geste enregistré.</p>
               ) : (
                 <ul className="space-y-1.5">
                   {d.adminLogs.map((l) => (
                     <li key={l.id}>
-                      <span className="text-[#94A3B8]">{dateTime(l.createdAt)}</span> · <strong>{l.action}</strong> par {l.adminEmail ?? "—"}
-                      <div className="text-[#475569]">{l.justification}</div>
+                      <span className="text-[#9C9A95]">{dateTime(l.createdAt)}</span> · <strong>{l.action}</strong> par {l.adminEmail ?? "—"}
+                      <div className="text-[#5A5750]">{l.justification}</div>
                     </li>
                   ))}
                 </ul>

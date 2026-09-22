@@ -14,8 +14,8 @@ const TONE_CLASS: Record<Tone, string> = {
   amber: "bg-[#FFFBEB] text-[#92400E]",
   red: "bg-[#FEF2F2] text-[#B91C1C]",
   blue: "bg-[#EFF6FF] text-[#1E40AF]",
-  slate: "bg-[#F1F5F9] text-[#475569]",
-  dark: "bg-[#0f172a] text-white",
+  slate: "bg-[#F4F3EF] text-[#5A5750]",
+  dark: "bg-[#1A1916] text-white",
 };
 
 export function Chip({ tone, children, className = "" }: { tone: Tone; children: React.ReactNode; className?: string }) {
@@ -76,7 +76,7 @@ export const MISSION_STATUS: Record<string, string> = {
 export const SEVERITY: Record<string, { label: string; tone: Tone; dot: string }> = {
   critical: { label: "Critique", tone: "red", dot: "bg-[#DC2626]" },
   warning: { label: "À traiter", tone: "amber", dot: "bg-[#D97706]" },
-  info: { label: "Info", tone: "slate", dot: "bg-[#94A3B8]" },
+  info: { label: "Info", tone: "slate", dot: "bg-[#9C9A95]" },
 };
 
 export const ANOMALY: Record<string, { label: string; action: string }> = {
@@ -105,10 +105,10 @@ export const ACTION_ERROR: Record<string, string> = {
 };
 
 export const inputCls =
-  "w-full h-9 px-2.5 rounded-lg border border-[#E2E8F0] bg-white text-[13px] focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751]";
+  "w-full h-9 px-2.5 rounded-lg border border-[#E2E0D9] bg-white text-[13px] focus:outline-none focus:ring-2 focus:ring-[#2D5BE3]/20 focus:border-[#2D5BE3]";
 
 export const selectCls =
-  "h-9 px-2.5 rounded-lg border border-[#E2E8F0] bg-white text-[12.5px] focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751]";
+  "h-9 px-2.5 rounded-lg border border-[#E2E0D9] bg-white text-[12.5px] focus:outline-none focus:ring-2 focus:ring-[#2D5BE3]/20 focus:border-[#2D5BE3]";
 
 // ── Journal des échanges PSP ─────────────────────────────────────────────────────────────────
 export const PSP_EVENT: Record<string, string> = {

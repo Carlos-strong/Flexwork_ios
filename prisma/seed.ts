@@ -1,4 +1,6 @@
 import { PrismaClient } from "@prisma/client";
+import { seedFrontendContent } from "../src/lib/frontend-seed";
+import { buildFrontendDraft, publishFrontend } from "../src/lib/frontend-config";
 
 const prisma = new PrismaClient();
 
@@ -29,6 +31,23 @@ async function main() {
     });
   }
   console.log(`Seeded ${DOMAIN_RISK_LEVELS.length} domain risk levels for BJ`);
+
+  // Contenu public éditable — reprend à l'identique ce que les composants affichaient en dur.
+  const frontend = await seedFrontendContent(prisma);
+  console.log(
+    `Seeded frontend: ${frontend.domains} domaines, ${frontend.sections} sections ` +
+      `(${frontend.items} entrées), ${frontend.menuItems} entrées de menu, ` +
+      `${frontend.pages} pages, ${frontend.settings} réglages`
+  );
+
+  // Publication initiale, seulement s'il n'y en a aucune : sans elle, l'API publique n'aurait
+  // rien à servir et tout le site retomberait sur le socle de repli — ce qui marcherait, mais
+  // laisserait croire que l'administration n'est pas branchée.
+  const existingRelease = await prisma.frontendRelease.count();
+  if (existingRelease === 0) {
+    const release = await publishFrontend({ adminId: null, snapshot: await buildFrontendDraft(), note: "Publication initiale (seed)" });
+    console.log(`Published frontend v${release.version}`);
+  }
 }
 
 main()

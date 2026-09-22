@@ -1,7 +1,9 @@
-import type { Metadata } from "next";
+import { frontendPageMetadata } from "@/lib/frontend-config";
 import { PageHero } from "@/components/public/PageHero";
 
-export const metadata: Metadata = { title: "Confiance & sécurité — FlexWork" };
+export function generateMetadata() {
+  return frontendPageMetadata("/confiance", "Confiance & sécurité — FlexWork");
+}
 
 const PILIERS = [
   {

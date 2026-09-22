@@ -1,6 +1,8 @@
 import Link from 'next/link'
 import { HeroSearch } from '@/components/afrilance/HeroSearch'
 import { getPlatformStats } from '@/lib/platform-stats'
+import { getPublishedFrontendConfig, parseHeroTitle, resolveSection } from '@/lib/frontend-config'
+import { HERO_TITLE } from '@/lib/frontend-defaults'
 
 // Composant serveur : les compteurs affichés viennent de la base (voir platform-stats.ts).
 // Les chiffres codés en dur qui figuraient ici — « 12 458 talents connectés maintenant »,
@@ -9,7 +11,13 @@ import { getPlatformStats } from '@/lib/platform-stats'
 // Un compteur nul n'est pas affiché du tout ; le bloc bascule alors sur la promesse produit,
 // vraie quel que soit le volume.
 export default async function Hero() {
-  const stats = await getPlatformStats()
+  const [stats, config] = await Promise.all([getPlatformStats(), getPublishedFrontendConfig()])
+  const section = resolveSection(config, 'hero')
+  // Le titre et le paragraphe sont éditables ; l'ÉTIQUETTE du haut et les tuiles de droite
+  // ne le sont pas, parce qu'elles affichent des compteurs mesurés en base. Rendre un
+  // compteur éditable rouvrirait la porte aux « 12 458 talents connectés maintenant »
+  // retirés le 2026-09-09 : un chiffre saisi à la main est invérifiable par construction.
+  const titleLines = parseHeroTitle(section?.title ?? HERO_TITLE)
 
   return (
     <section className="relative overflow-hidden bg-gradient-to-br from-orange-50 via-yellow-50 to-green-50 ankarapattern">
@@ -19,7 +27,7 @@ export default async function Hero() {
       <div className="absolute top-1/2 right-[40%] w-3 h-3 bg-[#8B2E86] rotate-45"></div>
       <div className="absolute top-32 right-32 w-4 h-4 bg-[#1B9C6A] rounded-full"></div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16 lg:py-24 grid lg:grid-cols-[1.1fr_0.9fr] gap-8 lg:gap-12 items-center relative">
+      <div className="page-shell py-12 sm:py-16 lg:py-24 grid lg:grid-cols-[1.1fr_0.9fr] gap-8 lg:gap-12 items-center relative">
         <div>
           <div className="inline-flex items-center gap-2 bg-white shadow-sm rounded-full px-4 py-2 text-sm font-bold mb-6">
             <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
@@ -29,15 +37,25 @@ export default async function Hero() {
           </div>
 
           <h1 className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-extrabold leading-[1.05] tracking-tight">
-            Trouve le bon<br/>
-            <span className="bg-gradient-to-r from-[#FF6B35] to-[#FF3E6C] bg-clip-text text-transparent">talent africain,</span><br/>
-            tout de suite ✨
+            {titleLines.map((line, lineIndex) => (
+              <span key={lineIndex}>
+                {line.map((part, partIndex) =>
+                  part.highlight ? (
+                    <span key={partIndex} className="bg-gradient-to-r from-[#FF6B35] to-[#FF3E6C] bg-clip-text text-transparent">
+                      {part.text}
+                    </span>
+                  ) : (
+                    <span key={partIndex}>{part.text}</span>
+                  )
+                )}
+                {lineIndex < titleLines.length - 1 && <br />}
+              </span>
+            ))}
           </h1>
 
-          <p className="mt-6 text-lg lg:text-xl text-gray-600 max-w-prose leading-relaxed">
-            Experts digitaux, artisans et professionnels du bâtiment. Identité vérifiée, contrat signé,
-            paiement sous séquestre en FCFA.
-          </p>
+          {section?.subtitle && (
+            <p className="mt-6 text-lg lg:text-xl text-gray-600 max-w-prose leading-relaxed">{section.subtitle}</p>
+          )}
 
           <HeroSearch />
         </div>

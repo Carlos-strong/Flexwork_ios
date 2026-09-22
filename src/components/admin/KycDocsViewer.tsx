@@ -154,7 +154,7 @@ export function KycDocsViewer({
                         <span style={{ fontSize: 26 }}>📄</span>
                       )}
                     </div>
-                    <div onClick={() => setLightbox(d)} style={{ padding: "6px 12px", borderTop: "1px solid #f3f4f6", fontSize: 11, color: "#008751", fontWeight: 600, cursor: "pointer" }}>
+                    <div onClick={() => setLightbox(d)} style={{ padding: "6px 12px", borderTop: "1px solid #f3f4f6", fontSize: 11, color: "#2D5BE3", fontWeight: 600, cursor: "pointer" }}>
                       Ouvrir en plein écran →
                     </div>
                     {!isVerified && (
@@ -168,7 +168,7 @@ export function KycDocsViewer({
                         />
                         <div style={{ display: "flex", gap: 8 }}>
                           <button type="button" disabled={decidingId === d.id} onClick={() => decideDoc(d.id, "verifie")}
-                            style={{ flex: 1, padding: "7px 0", borderRadius: 999, border: "none", background: "#008751", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                            style={{ flex: 1, padding: "7px 0", borderRadius: 999, border: "none", background: "#2D5BE3", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
                             {decidingId === d.id ? "…" : "Valider"}
                           </button>
                           <button type="button" disabled={decidingId === d.id} onClick={() => decideDoc(d.id, "rejete")}
