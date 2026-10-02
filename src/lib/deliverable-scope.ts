@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { contractPrice } from "@/lib/escrow";
 import type { ProofScope } from "@/lib/proof-appreciation";
+import { canVerify, contractRole, type ValidationMode } from "@/lib/validation-mode";
 
 // Portée d'un geste de validation de livrable : UN JALON, ou la MISSION entière quand le
 // contrat n'est pas fractionné.
@@ -33,7 +34,23 @@ export type DeliverableScope = {
   // Montant sur lequel portent les libérations : montant du jalon, ou prix du contrat.
   montant: number;
   jalonTitre: string | null;
+  // Mode de vérification (2026-10-01) : en OPR, le responsable vérifie et transmet, le client
+  // valide définitivement. `verifiedAt` = transmission du responsable pour CE livrable.
+  validationMode: ValidationMode;
+  siteManagerId: string | null;
+  verifiedAt: Date | null;
+  // Rôle de l'appelant sur ce contrat : le client, ou le responsable de chantier désigné.
+  actorRole: "client" | "site_manager";
 };
+
+/**
+ * Qui peut agir via cette résolution :
+ *   - "client"   : le client propriétaire (gestes définitifs : point d'étape, validation) ;
+ *   - "verifier" : celui qui vérifie — le client en « Moi-même », le responsable désigné en OPR
+ *                  (appréciation des preuves, constat d'avancement, transmission) ;
+ *   - "client_or_verifier" : l'un ou l'autre (refus renvoyé au prestataire).
+ */
+export type ScopeActor = "client" | "verifier" | "client_or_verifier";
 
 export type ScopeResult =
   | { ok: true; scope: DeliverableScope }
@@ -52,13 +69,33 @@ export async function resolveClientDeliverableScope(args: {
   userId: string;
   jalonId: string | null;
   wrongScopeError: string;
+  actor?: ScopeActor;
 }): Promise<ScopeResult> {
-  const contract = await prisma.prestationContract.findFirst({
-    where: { missionId: args.missionId, clientId: args.userId },
-    include: { mission: true, jalons: { select: { id: true, titre: true, montant: true, status: true, observedProgress: true } } },
+  const contract = await prisma.prestationContract.findUnique({
+    where: { missionId: args.missionId },
+    include: {
+      mission: true,
+      jalons: { select: { id: true, titre: true, montant: true, status: true, observedProgress: true, verifiedAt: true } },
+    },
   });
-  // 404 et non 403 : un non-propriétaire n'apprend pas l'existence du contrat.
+  // 404 et non 403 : un tiers n'apprend pas l'existence du contrat.
   if (!contract) return { ok: false, error: "not_found", status: 404 };
+  const role = contractRole(contract, args.userId);
+  if (role !== "client" && role !== "site_manager") return { ok: false, error: "not_found", status: 404 };
+
+  const actor = args.actor ?? "client";
+  const verifier = canVerify(contract, args.userId);
+  if (actor === "client" && role !== "client") {
+    // Le responsable voit le livrable, mais la décision définitive appartient au client.
+    return { ok: false, error: "verification_only", status: 403 };
+  }
+  if (actor === "verifier" && !verifier) {
+    // En OPR, le client ne vérifie pas lui-même : le geste revient au responsable désigné.
+    return { ok: false, error: "site_manager_only", status: 409 };
+  }
+  if (actor === "client_or_verifier" && role !== "client" && !verifier) {
+    return { ok: false, error: "not_found", status: 404 };
+  }
 
   const base = {
     missionId: args.missionId,
@@ -69,6 +106,9 @@ export async function resolveClientDeliverableScope(args: {
     missionTitre: contract.mission.titre,
     financingMode: contract.financingMode,
     retentionRate: contract.retentionRate,
+    validationMode: contract.validationMode,
+    siteManagerId: contract.siteManagerId,
+    actorRole: role,
   };
 
   if (args.jalonId === null) {
@@ -85,6 +125,7 @@ export async function resolveClientDeliverableScope(args: {
         status: contract.mission.status,
         observedProgress: contract.mission.observedProgress,
         montant: contractPrice(contract),
+        verifiedAt: contract.mission.verifiedAt,
       },
     };
   }
@@ -104,8 +145,34 @@ export async function resolveClientDeliverableScope(args: {
       status: jalon.status,
       observedProgress: jalon.observedProgress,
       montant: jalon.montant,
+      verifiedAt: jalon.verifiedAt,
     },
   };
+}
+
+/**
+ * Écriture de la transmission du responsable (mode OPR) — ou son effacement (`null`) quand le
+ * livrable repart chez le prestataire. Même patron que `observedProgressUpdate`.
+ */
+export function verificationUpdate(
+  scope: Pick<DeliverableScope, "jalonId" | "missionId">,
+  verification: { verifiedAt: Date; verifiedById: string; verificationNote: string | null } | null
+) {
+  const data = verification ?? { verifiedAt: null, verifiedById: null, verificationNote: null };
+  return scope.jalonId
+    ? prisma.jalon.update({ where: { id: scope.jalonId }, data })
+    : prisma.mission.update({ where: { id: scope.missionId }, data });
+}
+
+/**
+ * Trace de la validation DÉFINITIVE du client (2026-10-01) : qui, et quand. Écrite dès que la
+ * validation est acquise — avant même la confirmation PSP, qui est un autre fait, tracé ailleurs.
+ */
+export function clientValidationUpdate(scope: Pick<DeliverableScope, "jalonId" | "missionId">, clientId: string) {
+  const data = { clientValidatedById: clientId, clientValidatedAt: new Date() };
+  return scope.jalonId
+    ? prisma.jalon.update({ where: { id: scope.jalonId }, data })
+    : prisma.mission.update({ where: { id: scope.missionId }, data });
 }
 
 /** Portée pour la pré-validation des preuves (assertProofsValidated). */

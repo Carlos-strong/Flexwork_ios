@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 
@@ -27,15 +27,14 @@ export default function MediationPage({ params }: { params: { id: string } }) {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<string | null>(null);
 
-  async function load() {
+  const load = useCallback(async () => {
     const res = await fetch(`/api/missions/${missionId}/mediation`);
     if (res.ok) setMediations((await res.json()).items);
-  }
+  }, [missionId]);
 
   useEffect(() => {
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [missionId]);
+  }, [load]);
 
   async function openMediation(e: React.FormEvent) {
     e.preventDefault();

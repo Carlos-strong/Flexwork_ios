@@ -59,6 +59,8 @@ const DEVIS_R1 = {
   tvaRate: 18,
   delay: "30 jours",
   notes: "Devis initial",
+  // Modèle de paiement proposé par le prestataire (2026-10-01) — par jalons.
+  financingModeKey: "J1",
 };
 const TOTAL_TTC_R1 = 236000; // HT 200000 + TVA 36000
 
@@ -244,6 +246,8 @@ describe("Workflow « mode devis » (QUOTE) — négociation → contrat → cl�
 
   it("D6 — le client génère le contrat : le devis est figé (prix = totalTTC, snapshot.devis)", async () => {
     // Jalons sommés au totalTTC du devis validé (194 700 XOF) — somme validée côté serveur.
+    // Ignorés depuis que le devis porte son modèle de paiement (J1) : le contrat dérive ses
+    // jalons des lignes du devis. Gardés pour prouver que la saisie manuelle ne l'emporte pas.
     const jalons = [
       { titre: "Conception graphique", montant: 120000 },
       { titre: "Intégration et déclinaisons", montant: 74700 },
@@ -311,8 +315,10 @@ describe("Workflow « mode devis » (QUOTE) — négociation → contrat → cl�
       expect((await operateVirtualPsp("release", releaseOp.pspReference!)).ok).toBe(true);
     };
 
-    await VALIDATE_JALON(jalonIds[0], 120000);
-    await VALIDATE_JALON(jalonIds[1], 74700);
+    // Devis « par jalons » (J1, 2026-10-01) : les jalons sont DÉRIVÉS des lignes du devis, au
+    // prorata du TTC (100 000 / 50 000 HT → 129 800 / 64 900 TTC), plus saisis par le client.
+    await VALIDATE_JALON(jalonIds[0], 129800);
+    await VALIDATE_JALON(jalonIds[1], 64900);
 
     const mission = await prisma.mission.findUniqueOrThrow({ where: { id: missionId } });
     expect(mission.status).toBe("cloturee");

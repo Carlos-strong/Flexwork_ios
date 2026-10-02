@@ -44,7 +44,8 @@ describe("registre des modules d'administration du frontend", () => {
           source.includes("adminAuditLog") ||
           source.includes("/api/admin/audit") ||
           source.includes("frontend-modules") ||
-          source.includes("taxonomy");
+          source.includes("/api/categories") ||
+          source.includes("frontend-admin-guard");
         expect(touchesConfig, `${file} ne référence aucune pièce de l'administration du frontend`).toBe(true);
       }
     }

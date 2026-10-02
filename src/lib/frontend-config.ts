@@ -40,20 +40,6 @@ export type FrontendConfigSection = {
 
 export type FrontendConfigMenuItem = { label: string; href: string; description?: string };
 
-export type FrontendConfigCompetency = { slug: string; name: string; verificationExpected: boolean };
-export type FrontendConfigSpecialty = {
-  slug: string;
-  name: string;
-  description?: string;
-  competencies: FrontendConfigCompetency[];
-};
-export type FrontendConfigDomain = {
-  slug: string;
-  name: string;
-  icon?: string;
-  specialties: FrontendConfigSpecialty[];
-};
-
 export type FrontendConfigPage = { path: string; title: string; seoTitle?: string; seoDescription?: string };
 
 export type FrontendConfig = {
@@ -62,7 +48,6 @@ export type FrontendConfig = {
   settings: Record<string, string>;
   sections: Record<string, FrontendConfigSection>;
   menus: Record<string, FrontendConfigMenuItem[]>;
-  taxonomy: FrontendConfigDomain[];
   pages: FrontendConfigPage[];
 };
 
@@ -78,7 +63,7 @@ const PUBLISHED = { status: "publie" } as const;
  * même chose, sans quoi l'aperçu mentirait ; d'où une seule fonction plutôt que deux.
  */
 export async function buildFrontendDraft(): Promise<Omit<FrontendConfig, "version" | "publishedAt">> {
-  const [sections, menuItems, settings, domains, pages] = await Promise.all([
+  const [sections, menuItems, settings, pages] = await Promise.all([
     prisma.frontendSection.findMany({
       where: { status: { not: "archive" } },
       orderBy: { sortOrder: "asc" },
@@ -86,17 +71,6 @@ export async function buildFrontendDraft(): Promise<Omit<FrontendConfig, "versio
     }),
     prisma.frontendMenuItem.findMany({ where: PUBLISHED, orderBy: { sortOrder: "asc" } }),
     prisma.frontendSetting.findMany(),
-    prisma.taxonomyDomain.findMany({
-      where: PUBLISHED,
-      orderBy: { sortOrder: "asc" },
-      include: {
-        specialties: {
-          where: PUBLISHED,
-          orderBy: { sortOrder: "asc" },
-          include: { competencies: { where: PUBLISHED, orderBy: { sortOrder: "asc" } } },
-        },
-      },
-    }),
     prisma.frontendPage.findMany({ where: PUBLISHED, orderBy: { path: "asc" } }),
   ]);
 
@@ -137,21 +111,6 @@ export async function buildFrontendDraft(): Promise<Omit<FrontendConfig, "versio
     settings: Object.fromEntries(settings.map((s) => [s.key, s.value])),
     sections: sectionsByKey,
     menus,
-    taxonomy: domains.map((d) => ({
-      slug: d.slug,
-      name: d.name,
-      icon: d.icon ?? undefined,
-      specialties: d.specialties.map((s) => ({
-        slug: s.slug,
-        name: s.name,
-        description: s.description ?? undefined,
-        competencies: s.competencies.map((c) => ({
-          slug: c.slug,
-          name: c.name,
-          verificationExpected: c.verificationExpected,
-        })),
-      })),
-    })),
     pages: pages.map((p) => ({
       path: p.path,
       title: p.title,
@@ -171,7 +130,6 @@ export function fallbackFrontendConfig(): FrontendConfig {
     settings: Object.fromEntries(DEFAULT_SETTINGS.map((s) => [s.key, s.value])),
     sections: {},
     menus: {},
-    taxonomy: [],
     pages: [],
   };
 }
@@ -197,7 +155,12 @@ export const getPublishedFrontendConfig = memoizePerRequest(async (): Promise<Fr
     const release = await prisma.frontendRelease.findFirst({ orderBy: { version: "desc" } });
     if (!release) return fallbackFrontendConfig();
 
-    const snapshot = release.snapshot as unknown as Omit<FrontendConfig, "version" | "publishedAt">;
+    // Les instantanés publiés avant le 2026-09-22 portent encore une clé `taxonomy` : la
+    // taxonomie a quitté le cycle brouillon → publication (elle se lit en direct sur
+    // /api/categories, comme dans flexwork_job). On ne la resservirait plus qu'à l'état figé.
+    const { taxonomy: _legacyTaxonomy, ...snapshot } = release.snapshot as unknown as Omit<FrontendConfig, "version" | "publishedAt"> & {
+      taxonomy?: unknown;
+    };
     return {
       ...snapshot,
       version: release.version,
@@ -368,7 +331,6 @@ export function hasPendingChanges(
       settings: published.settings,
       sections: published.sections,
       menus: published.menus,
-      taxonomy: published.taxonomy,
       pages: published.pages,
     })
   );
@@ -380,6 +342,6 @@ export function hasPendingChanges(
  * servi pour la v24. Un hachage des tables de travail, lui, changerait à chaque frappe de
  * l'éditeur sans que le public voie quoi que ce soit de différent.
  */
-export function frontendEtag(version: number, scope?: string): string {
-  return scope ? `W/"frontend-${version}-${scope}"` : `W/"frontend-${version}"`;
+export function frontendEtag(version: number): string {
+  return `W/"frontend-${version}"`;
 }

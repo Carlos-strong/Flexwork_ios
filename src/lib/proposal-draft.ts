@@ -9,6 +9,9 @@ export type ProposalDraft = {
   // Contre-proposition : délai proposé (jours) — optionnel, restauré avec le reste.
   delaiPropose?: number;
   message: string;
+  // Modèle de paiement proposé (fixe ou par jalons, 2026-10-01) — optionnel pour relire les
+  // brouillons antérieurs.
+  financingModeKey?: string;
   savedAt: string;
 };
 

@@ -1,24 +1,30 @@
 /**
- * Responsable de chantier — délégation du constat de présence (2026-09-14, §8 du prompt S2).
+ * Responsable de chantier — mode de vérification OPR (2026-09-14, refondu le 2026-10-01).
  *
- * Ce rôle introduit la seule délégation de pouvoir de la plateforme : le client confie à un tiers
- * le droit de déclencher des paiements en constatant une présence. Ce qui compte n'est donc pas
- * ce qu'il PEUT faire, mais ce qu'il ne peut pas :
+ * Depuis le choix « Vérification / validation » posé à la publication, le responsable ne VALIDE
+ * plus : il VÉRIFIE et TRANSMET, et le client prononce seul la validation définitive — donc la
+ * libération des fonds. Ce qui compte reste ce qu'il ne peut pas faire :
  *
  *   - un compte `responsable_chantier` NON désigné ne peut rien, sur aucun contrat ;
- *   - le prestataire ne peut jamais constater ses propres heures, quel que soit son rôle ;
- *   - la délégation est révocable, et une révocation reprend le pouvoir immédiatement.
- *
- * C'est pour cela que la désignation vit sur le CONTRAT et non sur le compte : un pouvoir attaché
- * au rôle serait impossible à retirer sans supprimer le compte de la personne.
+ *   - le responsable désigné ne libère jamais de fonds lui-même ;
+ *   - en OPR strict, le client ne valide pas un relevé que le responsable n'a pas vérifié ;
+ *   - le prestataire ne peut jamais constater ses propres heures ;
+ *   - la désignation est révocable, et une révocation retire le pouvoir immédiatement.
  */
 
 import { describe, expect, it, beforeAll, afterAll } from "vitest";
 import { prisma } from "@/lib/db";
-import { requestContractHold } from "@/lib/escrow";
+import { escrowBalance, requestContractHold } from "@/lib/escrow";
 import { operateVirtualPsp } from "@/lib/psp-virtual";
-import { approveAttendance, canValidateAttendance, rejectAttendance, submitAttendance } from "@/lib/spot-time-actions";
+import {
+  approveAttendance,
+  canDecideAttendance,
+  rejectAttendance,
+  submitAttendance,
+  verifyAttendance,
+} from "@/lib/spot-time-actions";
 import { dayPeriod } from "@/lib/spot-time";
+import { canClientFinalize, canVerify, contractRole } from "@/lib/validation-mode";
 
 const RUN = Date.now();
 const TARIF = 7_500;
@@ -82,6 +88,7 @@ beforeAll(async () => {
       riskLevel: "low",
       status: "contrat_signe",
       financingModeKey: "S2J",
+      validationMode: "opr",
     },
   });
   missionId = mission.id;
@@ -95,6 +102,8 @@ beforeAll(async () => {
       currentHash: `hash-rc-${RUN}`,
       clientSignedAt: new Date(),
       providerSignedAt: new Date(),
+      // Mode OPR, responsable PAS ENCORE désigné (« plus tard »).
+      validationMode: "opr",
       spotTimeTerms: {
         create: { rateUnit: "day", rate: TARIF, maxQuantity: 20, maxAmount: PLAFOND },
       },
@@ -102,12 +111,18 @@ beforeAll(async () => {
   });
   contractId = contract.id;
 
+  // Désignation obligatoire AVANT le financement : sans responsable, le séquestre est refusé.
+  const refuse = await requestContractHold(contractId);
+  if (refuse.ok || refuse.error !== "site_manager_required") throw new Error("financement sans responsable accepté");
+  await prisma.prestationContract.update({ where: { id: contractId }, data: { siteManagerId: managerId } });
+
   const hold = await requestContractHold(contractId);
   if (!hold.ok) throw new Error("financement attendu");
   await operateVirtualPsp("authorize", hold.operation.pspReference!);
 });
 
 afterAll(async () => {
+  await prisma.missionNotification.deleteMany({ where: { missionId } });
   await prisma.attendance.deleteMany({ where: { contractId } });
   await prisma.payable.deleteMany({ where: { contractId } });
   await prisma.pspEscrowOperation.deleteMany({ where: { contractId } });
@@ -119,93 +134,150 @@ afterAll(async () => {
   });
 });
 
-describe("canValidateAttendance — la règle d'autorisation, isolée", () => {
-  const contrat = (siteManagerId: string | null) => ({ clientId: "client-1", spotTimeTerms: { siteManagerId } });
-
-  it("le client valide toujours", () => {
-    expect(canValidateAttendance(contrat(null), "client-1")).toBe(true);
+describe("règles d'autorisation, isolées", () => {
+  const contrat = (validationMode: "client" | "opr", siteManagerId: string | null) => ({
+    clientId: "client-1",
+    providerId: "presta-1",
+    validationMode,
+    siteManagerId,
   });
 
-  it("le responsable DÉSIGNÉ valide", () => {
-    expect(canValidateAttendance(contrat("rc-1"), "rc-1")).toBe(true);
+  it("« Moi-même » : le client vérifie, aucun responsable n'a de rôle", () => {
+    expect(canVerify(contrat("client", null), "client-1")).toBe(true);
+    expect(canVerify(contrat("client", "rc-1"), "rc-1")).toBe(false);
+    expect(contractRole(contrat("client", "rc-1"), "rc-1")).toBeNull();
   });
 
-  it("un responsable NON désigné ne valide pas — le rôle seul n'ouvre aucun droit", () => {
-    expect(canValidateAttendance(contrat("rc-1"), "rc-2")).toBe(false);
-    expect(canValidateAttendance(contrat(null), "rc-1")).toBe(false);
+  it("OPR : le responsable DÉSIGNÉ vérifie, le client ne vérifie pas", () => {
+    expect(canVerify(contrat("opr", "rc-1"), "rc-1")).toBe(true);
+    expect(canVerify(contrat("opr", "rc-1"), "client-1")).toBe(false);
+    expect(contractRole(contrat("opr", "rc-1"), "rc-1")).toBe("site_manager");
   });
 
-  it("un contrat sans conditions au temps n'autorise que le client", () => {
-    expect(canValidateAttendance({ clientId: "client-1" }, "client-1")).toBe(true);
-    expect(canValidateAttendance({ clientId: "client-1" }, "rc-1")).toBe(false);
+  it("un responsable NON désigné n'a aucun rôle — le rôle du compte seul n'ouvre aucun droit", () => {
+    expect(canVerify(contrat("opr", "rc-1"), "rc-2")).toBe(false);
+    expect(contractRole(contrat("opr", null), "rc-1")).toBeNull();
+  });
+
+  it("la décision définitive appartient au client seul", () => {
+    expect(canDecideAttendance({ clientId: "client-1" }, "client-1")).toBe(true);
+    expect(canDecideAttendance({ clientId: "client-1" }, "rc-1")).toBe(false);
+    expect(canClientFinalize("client", null)).toBe(true);
+    expect(canClientFinalize("opr", null)).toBe(false);
+    expect(canClientFinalize("opr", new Date())).toBe(true);
   });
 });
 
-describe("délégation de bout en bout", () => {
-  it("avant désignation, le responsable ne peut RIEN valider", async () => {
+describe("relevés en mode OPR, de bout en bout", () => {
+  it("sans responsable (retiré), personne ne vérifie — et le client ne court-circuite pas", async () => {
+    await prisma.prestationContract.update({ where: { id: contractId }, data: { siteManagerId: null } });
     const id = await declare(1);
-    expect(
-      await approveAttendance({ attendanceId: id, validatorId: managerId, approvedQuantity: 1 })
-    ).toEqual({ ok: false, error: "not_found" });
-
-    // Le relevé n'a pas bougé : aucune créance, aucun versement.
-    expect((await prisma.attendance.findUniqueOrThrow({ where: { id } })).status).toBe("submitted");
+    expect(await verifyAttendance({ attendanceId: id, verifierId: managerId, verifiedQuantity: 1 })).toEqual({
+      ok: false,
+      error: "not_found",
+    });
+    expect(await approveAttendance({ attendanceId: id, validatorId: clientId, approvedQuantity: 1 })).toEqual({
+      ok: false,
+      error: "verification_required",
+    });
     expect(await prisma.payable.count({ where: { contractId } })).toBe(0);
   });
 
-  it("une fois désigné, il valide et libère les fonds", async () => {
-    await prisma.spotTimeTerms.update({ where: { contractId }, data: { siteManagerId: managerId } });
+  it("le financement initial exige un responsable désigné", async () => {
+    // Déjà vérifié au montage (beforeAll) ; rappelé ici pour le rapport de test.
+    expect(await prisma.pspEscrowOperation.count({ where: { contractId, instructionType: "hold" } })).toBe(1);
+  });
 
+  it("une fois désigné, le responsable vérifie — sans aucun effet financier", async () => {
+    await prisma.prestationContract.update({ where: { id: contractId }, data: { siteManagerId: managerId } });
     const releve = await prisma.attendance.findFirstOrThrow({ where: { contractId, status: "submitted" } });
-    const res = await approveAttendance({
-      attendanceId: releve.id,
-      validatorId: managerId,
-      approvedQuantity: 1,
-    });
-    expect(res).toMatchObject({ ok: true, amount: TARIF, released: TARIF });
+    const avant = await escrowBalance(contractId);
 
-    // La créance existe, et elle porte le relevé comme source.
+    expect(await verifyAttendance({ attendanceId: releve.id, verifierId: managerId, verifiedQuantity: 1 })).toEqual({ ok: true });
+
+    expect(await prisma.attendance.findUniqueOrThrow({ where: { id: releve.id } })).toMatchObject({
+      status: "verified",
+      verifiedQuantity: 1,
+      verifiedById: managerId,
+    });
+    expect(await prisma.payable.count({ where: { contractId } })).toBe(0);
+    expect((await escrowBalance(contractId)).held).toBe(avant.held);
+  });
+
+  it("le responsable ne valide JAMAIS définitivement", async () => {
+    const releve = await prisma.attendance.findFirstOrThrow({ where: { contractId, status: "verified" } });
+    expect(await approveAttendance({ attendanceId: releve.id, validatorId: managerId, approvedQuantity: 1 })).toEqual({
+      ok: false,
+      error: "verification_only",
+    });
+  });
+
+  it("le client valide définitivement la quantité vérifiée — et c'est là que les fonds partent", async () => {
+    const releve = await prisma.attendance.findFirstOrThrow({ where: { contractId, status: "verified" } });
+    // La quantité envoyée est ignorée en OPR : c'est la quantité vérifiée qui fait foi.
+    const res = await approveAttendance({ attendanceId: releve.id, validatorId: clientId, approvedQuantity: 99 });
+    expect(res).toMatchObject({ ok: true, amount: TARIF, released: TARIF });
     const payable = await prisma.payable.findFirstOrThrow({ where: { contractId } });
     expect(payable).toMatchObject({ sourceType: "attendance", sourceId: releve.id });
   });
 
-  it("un AUTRE responsable chantier, non désigné sur ce contrat, ne peut rien", async () => {
+  it("le client ne vérifie pas lui-même en OPR", async () => {
     const id = await declare(2);
-    expect(
-      await approveAttendance({ attendanceId: id, validatorId: autreManagerId, approvedQuantity: 1 })
-    ).toEqual({ ok: false, error: "not_found" });
-    expect(
-      await rejectAttendance({ attendanceId: id, validatorId: autreManagerId, reason: "non" })
-    ).toEqual({ ok: false, error: "not_found" });
+    expect(await verifyAttendance({ attendanceId: id, verifierId: clientId, verifiedQuantity: 1 })).toEqual({
+      ok: false,
+      error: "site_manager_only",
+    });
+  });
+
+  it("un AUTRE responsable, non désigné sur ce contrat, ne peut rien", async () => {
+    const releve = await prisma.attendance.findFirstOrThrow({ where: { contractId, status: "submitted" } });
+    expect(await verifyAttendance({ attendanceId: releve.id, verifierId: autreManagerId, verifiedQuantity: 1 })).toEqual({
+      ok: false,
+      error: "not_found",
+    });
+    expect(await rejectAttendance({ attendanceId: releve.id, validatorId: autreManagerId, reason: "non" })).toEqual({
+      ok: false,
+      error: "not_found",
+    });
   });
 
   it("le PRESTATAIRE ne peut jamais constater ses propres heures", async () => {
     const releve = await prisma.attendance.findFirstOrThrow({ where: { contractId, status: "submitted" } });
-    expect(
-      await approveAttendance({ attendanceId: releve.id, validatorId: providerId, approvedQuantity: 1 })
-    ).toEqual({ ok: false, error: "not_found" });
+    expect(await verifyAttendance({ attendanceId: releve.id, verifierId: providerId, verifiedQuantity: 1 })).toEqual({
+      ok: false,
+      error: "not_found",
+    });
+    expect(await approveAttendance({ attendanceId: releve.id, validatorId: providerId, approvedQuantity: 1 })).toEqual({
+      ok: false,
+      error: "not_found",
+    });
   });
 
-  it("le client conserve son pouvoir malgré la délégation — il ne l'a pas cédé", async () => {
-    const releve = await prisma.attendance.findFirstOrThrow({ where: { contractId, status: "submitted" } });
-    expect(
-      await approveAttendance({ attendanceId: releve.id, validatorId: clientId, approvedQuantity: 1 })
-    ).toMatchObject({ ok: true });
-  });
-
-  it("la révocation reprend le pouvoir IMMÉDIATEMENT", async () => {
-    await prisma.spotTimeTerms.update({ where: { contractId }, data: { siteManagerId: null } });
+  it("le responsable peut refuser un relevé non conforme ; le client refuse ce qui lui est transmis", async () => {
+    const soumis = await prisma.attendance.findFirstOrThrow({ where: { contractId, status: "submitted" } });
+    expect(await rejectAttendance({ attendanceId: soumis.id, validatorId: managerId, reason: "Absent ce jour-là" })).toEqual({ ok: true });
 
     const id = await declare(3);
-    expect(
-      await approveAttendance({ attendanceId: id, validatorId: managerId, approvedQuantity: 1 })
-    ).toEqual({ ok: false, error: "not_found" });
+    // Le client ne refuse pas un relevé que le responsable n'a pas encore vu.
+    expect(await rejectAttendance({ attendanceId: id, validatorId: clientId, reason: "non" })).toEqual({
+      ok: false,
+      error: "verification_required",
+    });
+    await verifyAttendance({ attendanceId: id, verifierId: managerId, verifiedQuantity: 1 });
+    expect(await rejectAttendance({ attendanceId: id, validatorId: clientId, reason: "Désaccord avec le constat" })).toEqual({ ok: true });
   });
 
-  it("les relevés déjà validés par un responsable révoqué restent valides", async () => {
+  it("la révocation retire le pouvoir IMMÉDIATEMENT", async () => {
+    await prisma.prestationContract.update({ where: { id: contractId }, data: { siteManagerId: null } });
+    const id = await declare(4);
+    expect(await verifyAttendance({ attendanceId: id, verifierId: managerId, verifiedQuantity: 1 })).toEqual({
+      ok: false,
+      error: "not_found",
+    });
+  });
+
+  it("les relevés déjà validés restent valides après la révocation", async () => {
     // Une validation passée était légitime au moment où elle a eu lieu, et l'argent est parti.
-    // La défaire rouvrirait un paiement déjà exécuté.
-    const valides = await prisma.attendance.count({ where: { contractId, status: "approved" } });
-    expect(valides).toBeGreaterThanOrEqual(2);
+    expect(await prisma.attendance.count({ where: { contractId, status: "approved" } })).toBe(1);
   });
 });

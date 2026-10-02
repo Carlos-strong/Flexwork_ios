@@ -7,8 +7,8 @@ export function generateMetadata() {
 
 const PROFILS = [
   { nom: "Client", desc: "Publie une mission, compare les candidatures et paie en toute sécurité via le séquestre." },
-  { nom: "Expert Digital", desc: "Développement web/mobile, design, data, cybersécurité, marketing digital — en présentiel ou à distance." },
-  { nom: "Expert BTP / Autres", desc: "Conseil, études et suivi de chantier pour les métiers techniques du bâtiment et autres." },
+  { nom: "Prestataire indépendant", desc: "Vous travaillez à votre compte : développement, design, data, cybersécurité, marketing, conseil — à distance ou en hybride." },
+  { nom: "Entreprise", desc: "Vous engagez une structure : études, suivi de chantier, expertise technique et corps d'état, avec une équipe." },
   { nom: "Artisan", desc: "Plomberie, électricité, maçonnerie, menuiserie, carrelage — les métiers du chantier." },
   { nom: "Manœuvre", desc: "Aide manutention, déchargement, préparation de chantier — avec certification HSE." },
 ];

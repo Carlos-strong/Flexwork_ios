@@ -15,37 +15,47 @@ function useDebounced<T>(value: T, delay = 300): T {
   return v;
 }
 
-function usePaged<T>(buildUrl: (cursor: string | null) => string, deps: unknown[]) {
+// Le contrat est passé de « je te donne un tableau de dépendances » à « donne-moi une fonction
+// mémoïsée » (2026-09-23). Le tableau était reconstruit à chaque rendu par l'appelant — donc
+// instable par nature — et l'ancien `deps` en dépendance d'effet ne pouvait être vérifié, d'où
+// deux `eslint-disable`. Une fonction mémoïsée dit exactement la même chose, sans ambiguïté.
+function usePaged<T>(buildUrl: (cursor: string | null) => string) {
   const [items, setItems] = useState<T[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
   const requestId = useRef(0);
 
-  const load = useCallback(
-    async (reset: boolean) => {
-      const id = ++requestId.current;
-      setLoading(true);
-      const res = await fetch(buildUrl(reset ? null : cursor), { cache: "no-store" }).catch(() => null);
-      if (id !== requestId.current) return;
-      setLoading(false);
-      if (!res?.ok) {
-        setError(true);
-        return;
-      }
-      const data = (await res.json()) as { items: T[]; nextCursor: string | null };
-      setError(false);
-      setItems((prev) => (reset ? data.items : [...prev, ...data.items]));
-      setCursor(data.nextCursor);
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [cursor, ...deps]
-  );
+  // Dernière URL constructrice et dernier curseur, lus AU MOMENT de l'appel : `load` reste
+  // ainsi stable (aucune dépendance), et l'effet de rechargement peut ne dépendre que du
+  // filtre. Mettre `cursor` en dépendance de l'effet ramenait la liste à la première page à
+  // chaque page suivante chargée — un bug qu'on n'aurait vu qu'en paginant pour de vrai.
+  const buildUrlRef = useRef(buildUrl);
+  useEffect(() => { buildUrlRef.current = buildUrl; }, [buildUrl]);
+  const cursorRef = useRef(cursor);
+  useEffect(() => { cursorRef.current = cursor; }, [cursor]);
 
+  const load = useCallback(async (reset: boolean) => {
+    const id = ++requestId.current;
+    setLoading(true);
+    const res = await fetch(buildUrlRef.current(reset ? null : cursorRef.current), { cache: "no-store" }).catch(() => null);
+    if (id !== requestId.current) return;
+    setLoading(false);
+    if (!res?.ok) {
+      setError(true);
+      return;
+    }
+    const data = (await res.json()) as { items: T[]; nextCursor: string | null };
+    setError(false);
+    setItems((prev) => (reset ? data.items : [...prev, ...data.items]));
+    setCursor(data.nextCursor);
+  }, []);
+
+  // `load` est stable : cet effet ne rejoue donc QUE quand `buildUrl` change, c'est-à-dire
+  // quand un filtre change. Charger la page suivante ne repart pas de zéro.
   useEffect(() => {
     load(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, deps);
+  }, [load, buildUrl]);
 
   return { items, hasMore: cursor !== null, loading, error, loadMore: () => load(false), reload: () => load(true) };
 }
@@ -68,18 +78,25 @@ export function OperationsTable({ onOpenContract, refreshKey }: { onOpenContract
   const [q, setQ] = useState("");
   const dq = useDebounced(q);
 
-  const { items, hasMore, loading, error, loadMore } = usePaged<OperationRow>(
-    (cursor) => {
+  const buildUrl = useCallback(
+    (cursor: string | null) => {
       const p = new URLSearchParams();
       if (type) p.set("type", type);
       if (status) p.set("status", status);
       if (source) p.set("source", source);
       if (dq.trim()) p.set("q", dq.trim());
       if (cursor) p.set("cursor", cursor);
+      // `refreshKey` ne filtre rien : le parent l'incrémente quand une action d'admin a modifié
+      // les données, pour forcer le rechargement. Le faire figurer dans l'URL rend la
+      // dépendance RÉELLE (sans quoi elle était déclarée « inutile » à juste titre) : deux
+      // versions du même registre sont bien deux requêtes différentes. La route ne lit que les
+      // paramètres qu'elle connaît — celui-ci est ignoré côté serveur.
+      p.set("r", String(refreshKey));
       return `/api/admin/finance/operations?${p}`;
     },
-    [type, status, source, dq, refreshKey]
+    [type, status, source, dq, refreshKey],
   );
+  const { items, hasMore, loading, error, loadMore } = usePaged<OperationRow>(buildUrl);
 
   return (
     <div className="space-y-3">
@@ -186,16 +203,20 @@ export function PayablesTable({ onOpenContract, refreshKey }: { onOpenContract: 
   const [q, setQ] = useState("");
   const dq = useDebounced(q);
 
-  const { items, hasMore, loading, error, loadMore } = usePaged<PayableAdminRow>(
-    (cursor) => {
+  const buildUrl = useCallback(
+    (cursor: string | null) => {
       const p = new URLSearchParams();
       if (status) p.set("status", status);
       if (dq.trim()) p.set("q", dq.trim());
       if (cursor) p.set("cursor", cursor);
+      // Même rôle que sur le registre des opérations : signal de rafraîchissement, ignoré par
+      // la route, mais qui rend la dépendance réelle.
+      p.set("r", String(refreshKey));
       return `/api/admin/finance/payables?${p}`;
     },
-    [status, dq, refreshKey]
+    [status, dq, refreshKey],
   );
+  const { items, hasMore, loading, error, loadMore } = usePaged<PayableAdminRow>(buildUrl);
 
   return (
     <div className="space-y-3">

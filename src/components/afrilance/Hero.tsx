@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import Image from 'next/image'
 import { HeroSearch } from '@/components/afrilance/HeroSearch'
 import { getPlatformStats } from '@/lib/platform-stats'
 import { getPublishedFrontendConfig, parseHeroTitle, resolveSection } from '@/lib/frontend-config'
@@ -64,7 +65,26 @@ export default async function Hero() {
         <div className="grid grid-cols-2 gap-3 lg:gap-4">
           <div className="space-y-3 lg:space-y-4">
             <div className="relative rounded-2xl overflow-hidden h-48 sm:h-56 lg:h-64 shadow-xl group">
-              <img src="/images/african_designer_studio.webp" className="w-full h-full object-cover group-hover:scale-105 transition duration-700" alt="" />
+              {/* Asset STATIQUE de public/images (550 Ko) : c'est exactement le cas d'usage de
+                  next/image, qui sert une variante redimensionnée au lieu de l'original complet
+                  pour une vignette. `fill` s'appuie sur le `relative` du parent.
+
+                  `sizes` est mesuré, pas deviné : l'emplacement fait 158 px à 375 px de large,
+                  347 px à 768 (les deux colonnes se resserrent), puis 251-356 px au-delà de
+                  1024. Les valeurs ci-dessous sont volontairement généreuses à chaque palier —
+                  sous-déclarer ferait servir une image plus petite que son cadre.
+
+                  `priority` : Next a lui-même détecté ce visuel comme élément LCP et réclame un
+                  chargement prioritaire. Le second reste en lazy : sur mobile il est sous la
+                  ligne de flottaison, le précharger concurrencerait le vrai LCP (le titre). */}
+              <Image
+                src="/images/african_designer_studio.webp"
+                alt=""
+                fill
+                priority
+                sizes="(max-width: 640px) 45vw, (max-width: 1024px) 46vw, 20vw"
+                className="object-cover group-hover:scale-105 transition duration-700"
+              />
             </div>
             {/* Note moyenne réelle — le bloc disparaît tant qu'aucun avis n'a été déposé,
                 plutôt que d'afficher une satisfaction inventée. */}
@@ -104,7 +124,15 @@ export default async function Hero() {
               )}
             </Link>
             <div className="relative rounded-2xl overflow-hidden h-48 sm:h-56 lg:h-64 shadow-xl group">
-              <img src="/images/lagos_developer_coworking.webp" className="w-full h-full object-cover group-hover:scale-105 transition duration-700" alt="" />
+              {/* Même raison que la vignette ci-dessus (asset statique, mêmes mesures
+                  d'emplacement) — sans `priority` : voir le commentaire plus haut. */}
+              <Image
+                src="/images/lagos_developer_coworking.webp"
+                alt=""
+                fill
+                sizes="(max-width: 640px) 45vw, (max-width: 1024px) 46vw, 20vw"
+                className="object-cover group-hover:scale-105 transition duration-700"
+              />
             </div>
           </div>
         </div>

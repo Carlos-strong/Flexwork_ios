@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { PROFESSIONAL_TYPE_LABELS } from "@/lib/provider-options";
 import { useSession } from "next-auth/react";
 import { MISSION_STATUS_STYLE } from "@/lib/mission-status";
 import { missionsHrefForRole, candidaturesHrefForRole, type Role } from "@/lib/role-dashboard";
@@ -16,10 +17,13 @@ import { fetchDedupe } from "@/lib/fetch-dedupe";
 import ClientValidationWorkspace from "@/components/validation-client/ClientValidationWorkspace";
 import MissionTracker from "@/components/mission-tracker";
 import { FinancingModeNotice } from "@/components/financing/financing-mode-notice";
+import { PaymentModelPicker } from "@/components/financing/payment-model-picker";
+import { VALIDATION_MODE_LABEL } from "@/lib/validation-mode";
 import { EscrowAccountPanel } from "@/components/escrow/escrow-account-panel";
 import { AttendancePanel } from "@/components/spot-time/attendance-panel";
 import { getFinancingMode } from "@/lib/financing-modes";
-import { RATE_UNIT_LABEL } from "@/lib/spot-time";
+import { riskLevelLabel } from "@/lib/metier-risk";
+import { ATTENDANCE_VALIDATION_LABEL, RATE_UNIT_LABEL } from "@/lib/spot-time";
 
 type OfferDetail = {
   id: string;
@@ -71,22 +75,24 @@ type MissionDetail = {
   financingModeKey: string | null;
   timeRate: number | null;
   timeMaxQuantity: number | null;
+  attendanceValidation: "totale" | "partielle" | null;
+  validationMode: "client" | "opr";
+  isSiteManager?: boolean;
   tags: string[];
   maxRevisionRounds: number;
   dateExpiration: string | null;
 };
 
-const PROFESSIONAL_TYPE_LABEL: Record<string, string> = {
-  EXPERT_DIGITAL: "Expert Digital",
-  EXPERT_BTP: "Expert BTP / Autres",
-  ARTISAN: "Artisan",
-  MANOEUVRE: "Manœuvre",
-};
+// Libellés alignés sur les filières (source unique : src/lib/provider-options.ts). Le client
+// qui choisit la cible d'une mission doit lire les mêmes mots que le prestataire qui choisit
+// sa filière.
+const PROFESSIONAL_TYPE_LABEL: Record<string, string> = PROFESSIONAL_TYPE_LABELS;
 
 const BUDGET_TYPE_LABEL: Record<string, string> = {
   FIXED: "Prix fixe",
-  RATE: "Taux (horaire/journalier)",
-  QUOTE: "Demande de devis",
+  // Mêmes mots que le « Modèle de contrat » du formulaire de publication (2026-09-28).
+  RATE: "Au temps",
+  QUOTE: "Devis",
 };
 
 // Conditions au temps d'une mission S2 : le prestataire y chiffre un TARIF, et le plafond en
@@ -159,6 +165,9 @@ export default function MissionDetailPage() {
   const [applyAmount, setApplyAmount] = useState("");
   const [applyDelay, setApplyDelay] = useState("");
   const [applyMessage, setApplyMessage] = useState("");
+  // Modèle de paiement proposé avec le prix (fixe ou par jalons, 2026-10-01) — hors mission au
+  // temps, où l'unité tarifaire publiée fixe déjà le régime.
+  const [applyModeKey, setApplyModeKey] = useState<string | null>(null);
   const [applySubmitting, setApplySubmitting] = useState(false);
   const [applyError, setApplyError] = useState<string | null>(null);
   const [applySuccessMsg, setApplySuccessMsg] = useState<string | null>(null);
@@ -184,9 +193,18 @@ export default function MissionDetailPage() {
     setApplyAmount(draft.montant > 0 ? String(draft.montant) : "");
     setApplyDelay(draft.delaiPropose ? String(draft.delaiPropose) : "");
     setApplyMessage(draft.message);
+    if (draft.financingModeKey) setApplyModeKey(draft.financingModeKey);
     setRestoredFromDraft(true);
     setApplying(true);
   }, [myProposal, missionId]);
+
+  // Mission publiée avant 2026-10-01 avec un mode fixe/jalons : point de départ du choix, que
+  // le prestataire reste libre de changer.
+  useEffect(() => {
+    if (applyModeKey || !mission?.financingModeKey) return;
+    const legacy = getFinancingMode(mission.financingModeKey);
+    if (legacy && legacy.available && legacy.family !== "temps") setApplyModeKey(legacy.key);
+  }, [mission, applyModeKey]);
 
   // Enregistrement manuel du brouillon (2026-09-10) — jusqu'ici la candidature à prix fixe
   // n'était sauvegardée QUE lorsque l'API la refusait pour profil incomplet : une saisie
@@ -200,7 +218,7 @@ export default function MissionDetailPage() {
       return;
     }
     const delaiPropose = applyDelay.trim() ? Number(applyDelay) || undefined : undefined;
-    saveProposalDraft(missionId, { montant, delaiPropose, message });
+    saveProposalDraft(missionId, { montant, delaiPropose, message, financingModeKey: applyModeKey ?? undefined });
     setApplyError(null);
     setDraftSavedMsg("Brouillon enregistré sur cet appareil.");
   }
@@ -221,6 +239,10 @@ export default function MissionDetailPage() {
       setApplyError("Indiquez un délai valide (en jours).");
       return;
     }
+    if (!timeTerms && !applyModeKey) {
+      setApplyError("Choisissez le modèle de paiement : prix fixe ou par jalons.");
+      return;
+    }
     setApplySubmitting(true);
     setApplyError(null);
     setBlockedByProfile(null);
@@ -232,7 +254,7 @@ export default function MissionDetailPage() {
       body: JSON.stringify(
         timeTerms
           ? { montant: Math.round(montant * timeTerms.maxQuantity), unitRate: montant, delaiPropose, message: applyMessage.trim() || undefined }
-          : { montant, delaiPropose, message: applyMessage.trim() || undefined }
+          : { montant, delaiPropose, message: applyMessage.trim() || undefined, financingModeKey: applyModeKey ?? undefined }
       ),
     });
     setApplySubmitting(false);
@@ -244,7 +266,7 @@ export default function MissionDetailPage() {
       // n'est PAS perdue, on l'enregistre en brouillon local et on oriente vers l'action à
       // faire plutôt que d'afficher une simple erreur que le candidat ne saurait pas résoudre.
       if (data.error === "garant_required" || data.error === "insurance_required") {
-        saveProposalDraft(missionId, { montant, delaiPropose, message: applyMessage.trim() });
+        saveProposalDraft(missionId, { montant, delaiPropose, message: applyMessage.trim(), financingModeKey: applyModeKey ?? undefined });
         setBlockedByProfile(data.message ?? "Votre profil doit être complété avant de candidater à cette mission.");
         return;
       }
@@ -266,6 +288,7 @@ export default function MissionDetailPage() {
         already_applied: "Vous avez déjà candidaté à cette mission.",
         mission_not_open: "Cette mission n'est plus ouverte aux candidatures.",
         kyc_not_verified: "Votre identité doit être vérifiée avant de candidater.",
+        payment_mode_invalid: "Ce modèle de paiement n'est pas proposé — choisissez prix fixe ou par jalons.",
       };
       setApplyError(messages[data.error ?? ""] ?? "Échec de l'envoi de la candidature.");
       return;
@@ -286,7 +309,10 @@ export default function MissionDetailPage() {
     setTimeout(() => router.push(candidaturesHrefForRole(role as Role)), 1200);
   }
 
-  const loadMyOffer = async () => {
+  // Mémoïsées : elles sont passées en `onChanged` à deux panneaux enfants (lignes 572/741),
+  // et une nouvelle identité à chaque rendu y relançait des effets. Elles ne dépendent que de
+  // l'identité de la session et de la mission — donc rien qui bouge en cours de page.
+  const loadMyOffer = useCallback(async () => {
     if (!userId || isClient) {
       setMyOffer(null);
       return;
@@ -299,7 +325,7 @@ export default function MissionDetailPage() {
     } catch {
       setMyOffer(null);
     }
-  };
+  }, [userId, isClient, missionId]);
 
   async function respondToOffer(action: "accept" | "decline") {
     if (!myOffer) return;
@@ -314,7 +340,7 @@ export default function MissionDetailPage() {
     await loadMyOffer();
   }
 
-  const loadMyProposal = async () => {
+  const loadMyProposal = useCallback(async () => {
     if (!userId || isClient) {
       setMyProposal(null);
       return;
@@ -325,7 +351,7 @@ export default function MissionDetailPage() {
     } catch {
       setMyProposal(null);
     }
-  };
+  }, [userId, isClient, missionId]);
 
   useEffect(() => {
     fetchDedupe(`/api/missions/${missionId}`)
@@ -343,13 +369,11 @@ export default function MissionDetailPage() {
 
   useEffect(() => {
     loadMyProposal();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [missionId, userId, isClient]);
+  }, [loadMyProposal]);
 
   useEffect(() => {
     loadMyOffer();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [missionId, userId, isClient]);
+  }, [loadMyOffer]);
 
   useEffect(() => {
     if (!mission?.isOwner) return;
@@ -412,6 +436,10 @@ export default function MissionDetailPage() {
   // livrable à soumettre…).
   if (mission.isOwner && mission.status !== "brouillon" && mission.status !== "publiee") {
     return <ClientValidationWorkspace missionId={mission.id} />;
+  }
+  // Mode OPR : le responsable de chantier désigné sur le contrat vérifie dans le même espace.
+  if (mission.isSiteManager) {
+    return <ClientValidationWorkspace missionId={mission.id} role="site_manager" />;
   }
 
   // MISSION_STATUS_STYLE (src/lib/mission-status.ts) — même source que /missions et le
@@ -519,7 +547,7 @@ export default function MissionDetailPage() {
             <div className="py-3 sm:py-1 sm:px-6 last:pr-0">
               <div className="text-[11px] font-semibold tracking-widest text-[#64748B] uppercase mb-1">Risque</div>
               <div className={`inline-flex mt-1 px-2.5 py-1 rounded-full text-[11px] font-bold border items-center gap-1.5 ${mission.riskLevel === "high" ? "bg-[#FEE2E2] text-[#B91C1C] border-[#FECACA]" : mission.riskLevel === "medium" ? "bg-[#FEF3C7] text-[#D97706] border-[#FDE68A]" : "bg-[#E6F4EE] text-[#008751] border-[#A7F3D0]"}`}>
-                {mission.riskLevel?.toUpperCase?.()}
+                {riskLevelLabel(mission.riskLevel).toUpperCase()}
               </div>
               {mission.insuranceRequired && <div className="text-[11px] text-[#B91C1C] mt-2">Assurance obligatoire</div>}
             </div>
@@ -542,9 +570,34 @@ export default function MissionDetailPage() {
                 mission au même titre que la rémunération — il décide de QUAND le prestataire
                 est payé. Les missions publiées avant son introduction n'en ont pas : rien ne
                 s'affiche alors, plutôt qu'un régime par défaut inventé. */}
-            {getFinancingMode(mission.financingModeKey ?? "") && (
-              <div className="flex gap-2"><span className="font-semibold min-w-[110px] text-[#0f172a]">Financement :</span><span className="text-[#475569]">{getFinancingMode(mission.financingModeKey ?? "")!.label}</span></div>
-            )}
+            {/* Au temps, le mode fait partie des conditions publiées. Sinon, fixe ou par jalons
+                se décide dans le devis du prestataire (2026-10-01) — le dire, plutôt que
+                d'afficher un mode publié qui ne gouvernera plus le contrat. */}
+            {/* Vérification / validation : condition d'exécution publiée — le prestataire sait,
+                avant de candidater, qui constatera son travail. */}
+            <div className="flex gap-2">
+              <span className="font-semibold min-w-[110px] text-[#0f172a]">Vérification :</span>
+              <span className="text-[#475569]" title={VALIDATION_MODE_LABEL[mission.validationMode ?? "client"].definition}>
+                {mission.validationMode === "opr"
+                  ? "OPR / responsable chantier — il vérifie, le client valide définitivement"
+                  : "Par le client lui-même"}
+              </span>
+            </div>
+            {getFinancingMode(mission.financingModeKey ?? "")?.family === "temps" ? (
+              <>
+                <div className="flex gap-2"><span className="font-semibold min-w-[110px] text-[#0f172a]">Financement :</span><span className="text-[#475569]">{getFinancingMode(mission.financingModeKey ?? "")!.label}</span></div>
+                {/* Mode de pointage : condition publiée au même titre que le tarif — il dit au
+                    prestataire si un relevé pourra être payé en partie. */}
+                <div className="flex gap-2">
+                  <span className="font-semibold min-w-[110px] text-[#0f172a]">Pointage :</span>
+                  <span className="text-[#475569]" title={ATTENDANCE_VALIDATION_LABEL[mission.attendanceValidation ?? "partielle"].definition}>
+                    {ATTENDANCE_VALIDATION_LABEL[mission.attendanceValidation ?? "partielle"].label}
+                  </span>
+                </div>
+              </>
+            ) : mission.budgetType ? (
+              <div className="flex gap-2"><span className="font-semibold min-w-[110px] text-[#0f172a]">Paiement :</span><span className="text-[#475569]">Prix fixe ou par jalons — proposé par le prestataire dans son devis</span></div>
+            ) : null}
           </div>
           {mission.tags && mission.tags.length > 0 && (
             <div className="mt-4 flex flex-wrap gap-2">
@@ -562,7 +615,6 @@ export default function MissionDetailPage() {
           </div>
         ) : (
           <>
-          <FinancingModeNotice modeKey={mission.financingModeKey} quoteMode />
           <DevisPanel
             missionId={mission.id}
             maxRounds={mission.maxRevisionRounds ?? 3}
@@ -585,7 +637,19 @@ export default function MissionDetailPage() {
             {/* quoteMode={false} : hors mode devis il n'y a aucune ligne à dériver en jalons —
                 la consigne le dit explicitement au lieu de promettre un découpage que le
                 montant unique saisi ici ne décidera pas (voir providerBrief). */}
-            <FinancingModeNotice modeKey={mission.financingModeKey} quoteMode={false} className="mb-3" />
+            {timeTermsOf(mission) ? (
+              <>
+                <FinancingModeNotice modeKey={mission.financingModeKey} quoteMode={false} className="mb-3" />
+                <p className="mb-3 -mt-1 text-[12px] text-[#475569] rounded-lg border border-[#E2E8F0] bg-[#F8FAF9] px-3 py-2">
+                  <strong className="text-[#0f172a]">Mode de pointage : {ATTENDANCE_VALIDATION_LABEL[mission.attendanceValidation ?? "partielle"].label}.</strong>{" "}
+                  {ATTENDANCE_VALIDATION_LABEL[mission.attendanceValidation ?? "partielle"].definition}
+                </p>
+              </>
+            ) : (
+              // Fixe ou par jalons : c'est la candidature qui le propose (2026-10-01), le client
+              // l'accepte avec le prix. Affiché une fois le formulaire ouvert, avec le montant.
+              applying && <PaymentModelPicker value={applyModeKey} onChange={setApplyModeKey} quoteMode={false} className="mb-3" />
+            )}
 
             {restoredFromDraft && !blockedByProfile && (
               <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800 mb-3">

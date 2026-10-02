@@ -243,6 +243,10 @@ describe("acceptation tacite — le cas nominal", () => {
       observedProgress: 0,
       montant: PRIX,
       jalonTitre: jalon!.titre,
+      validationMode: "client",
+      siteManagerId: null,
+      verifiedAt: null,
+      actorRole: "client",
     });
 
     expect(outcome).toMatchObject({ applied: true, amount: PRIX });

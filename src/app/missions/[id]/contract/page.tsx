@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { SignContractModal } from "@/components/sign-contract-modal";
 import { SignatureQRCode } from "@/components/signature-qrcode";
-import { RATE_UNIT_LABEL } from "@/lib/spot-time";
+import { ATTENDANCE_VALIDATION_LABEL, RATE_UNIT_LABEL } from "@/lib/spot-time";
 import { Avatar } from "@/components/avatar";
 import { CONTRACT_STEPS, stepIndexFor } from "@/lib/contract-stepper";
 import { isMissionFundingClosed } from "@/lib/mission-status";
@@ -74,7 +74,13 @@ type FinancingState = {
     rateUnit: "hour" | "day" | "month" | null;
   } | null;
   // Conditions EXACTES qu'un contrat au temps figera (même fonction que la génération).
-  timeTerms: { rateUnit: "hour" | "day" | "month"; rate: number; maxQuantity: number; maxAmount: number } | null;
+  timeTerms: {
+    rateUnit: "hour" | "day" | "week" | "month";
+    rate: number;
+    maxQuantity: number;
+    maxAmount: number;
+    attendanceValidation?: "totale" | "partielle";
+  } | null;
   preview: { titre: string; montant: number }[] | null;
   previewError: string | null;
 };
@@ -259,7 +265,9 @@ export default function ContractPage({ params }: { params: { id: string } }) {
   // pour rediriger vers l'étape de financement à la fermeture de la modale.
   const [clientJustSigned, setClientJustSigned] = useState(false);
 
-  async function loadSignatures(contractId: string) {
+  // Mémoïsée car `load` l'appelle : sans ça, `load` ne pourrait pas déclarer ses dépendances
+  // sans être recréée à chaque rendu, et l'effet de montage partirait en boucle.
+  const loadSignatures = useCallback(async (contractId: string) => {
     try {
       const res = await fetch("/api/signature/verify", {
         method: "POST",
@@ -272,9 +280,9 @@ export default function ContractPage({ params }: { params: { id: string } }) {
     } catch {
       /* la carte retombe sur l'état "✓ Signé le ..." sans QR — pas de simulation */
     }
-  }
+  }, []);
 
-  async function load() {
+  const load = useCallback(async () => {
     const res = await fetchDedupe(`/api/missions/${missionId}/contract`);
     if (res.status === 404) {
       setContract("none");
@@ -291,7 +299,7 @@ export default function ContractPage({ params }: { params: { id: string } }) {
       setContract(c);
       if (c.clientSignedAt || c.providerSignedAt) loadSignatures(c.id);
     }
-  }
+  }, [missionId, loadSignatures]);
 
   useEffect(() => {
     load();
@@ -300,8 +308,7 @@ export default function ContractPage({ params }: { params: { id: string } }) {
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => d && setFinancing(d))
       .catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [missionId]);
+  }, [missionId, load]);
 
   // Le mode pilote la génération dès qu'il produit un découpage exploitable. `devis_required`
   // = mode à jalons sans devis à dériver : on repasse la main au formulaire manuel plutôt que
@@ -424,6 +431,7 @@ export default function ContractPage({ params }: { params: { id: string } }) {
                     {[
                       ["Tarif", `${derivedFinancing.timeTerms.rate.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} / ${RATE_UNIT_LABEL[derivedFinancing.timeTerms.rateUnit].one}`],
                       ["Quantité maximale", `${derivedFinancing.timeTerms.maxQuantity.toLocaleString("fr-FR")} ${RATE_UNIT_LABEL[derivedFinancing.timeTerms.rateUnit].many}`],
+                      ["Mode de pointage", ATTENDANCE_VALIDATION_LABEL[derivedFinancing.timeTerms.attendanceValidation ?? "partielle"].label],
                     ].map(([k, v]) => (
                       <div key={k} className="flex items-center justify-between gap-3 px-3 py-2 border-b border-[#F1F5F9]">
                         <span className="text-[#64748B]">{k}</span>

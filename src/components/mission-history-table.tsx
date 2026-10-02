@@ -1,5 +1,7 @@
 "use client";
 
+import { PROFESSIONAL_TYPE_LABELS } from "@/lib/provider-options";
+
 // Modèle partagé "Historique des soumissions" (règle R03) — factorisé le 2026-09-05 depuis
 // missions/[id]/deliverable/page.tsx (vue PRESTATAIRE) pour être réutilisé À L'IDENTIQUE côté
 // CLIENT (ValidationClientView) : même en-tête de carte (badge domaine + statut + preuves
@@ -15,8 +17,8 @@ import type { Checkpoint } from "@/components/progress-checkpoints";
 // Même libellés que missions/[id]/page.tsx (PROFESSIONAL_TYPE_LABEL) — badge domaine de
 // l'en-tête carte.
 export const PROFESSIONAL_TYPE_LABEL: Record<string, string> = {
-  EXPERT_DIGITAL: "Expert Digital",
-  EXPERT_BTP: "Expert BTP / Autres",
+  EXPERT_DIGITAL: PROFESSIONAL_TYPE_LABELS.EXPERT_DIGITAL,
+  EXPERT_BTP: PROFESSIONAL_TYPE_LABELS.EXPERT_BTP,
   ARTISAN: "Artisan",
   MANOEUVRE: "Manœuvre",
 };

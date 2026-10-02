@@ -5,6 +5,11 @@ import crypto from "crypto";
 const STORAGE_ROOT = path.resolve(process.cwd(), process.env.STORAGE_LOCAL_PATH ?? "./storage");
 const KYC_BUCKET = "kyc-docs"; // bucket privé — jamais servi statiquement, uniquement via route API signée
 const MISSIONS_BUCKET = "mission-attachments";
+// Pièces jointes déposées AVANT que la mission existe (cahier des charges joint à l'étape 1
+// du tunnel). Rangées par utilisateur et non par mission, puisqu'il n'y en a pas encore : à
+// la création, les lignes deviennent des MissionAttachment SANS déplacer le fichier — le
+// chemin est opaque, servi uniquement via URL signée.
+const MISSION_DRAFTS_BUCKET = "mission-draft-attachments";
 const MESSAGE_FILES_BUCKET = "message-files";
 const DECLARATION_DOCS_BUCKET = "declaration-documents";
 const PORTFOLIO_BUCKET = "portfolio"; // photos de chantiers + CV (profil prestataire), servis via /api/files/[token]
@@ -30,6 +35,11 @@ export async function saveKycFile(params: { userId: string; fileName: string; bu
 
 export async function saveMissionAttachment(params: { missionId: string; fileName: string; buffer: Buffer }): Promise<string> {
   return saveFile(MISSIONS_BUCKET, { ownerId: params.missionId, fileName: params.fileName, buffer: params.buffer });
+}
+
+// Pièce jointe d'un brouillon de mission (POST /api/missions/attachments/draft).
+export async function saveMissionDraftAttachment(params: { userId: string; fileName: string; buffer: Buffer }): Promise<string> {
+  return saveFile(MISSION_DRAFTS_BUCKET, { ownerId: params.userId, fileName: params.fileName, buffer: params.buffer });
 }
 
 // Fichier joint à un message de chat (messagerie).

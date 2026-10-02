@@ -129,6 +129,8 @@ async function goldenRules(contractId: string): Promise<EscrowBalance> {
   return b;
 }
 
+const devisModes = new Map<string, string>();
+
 async function publish(body: Record<string, unknown>) {
   authAs(ids.client);
   const res = await expectOk(
@@ -149,12 +151,20 @@ async function publish(body: Record<string, unknown>) {
   );
   const { id } = (await res.json()) as { id: string };
   missionIds.push(id);
+  // Fixe ou par jalons n'est plus posé à la publication (2026-10-01) : c'est le prestataire qui
+  // le propose avec son prix. Le mode demandé ici est donc retenu pour la candidature.
+  if (typeof body.financingModeKey === "string" && !body.financingModeKey.startsWith("S2")) {
+    devisModes.set(id, body.financingModeKey);
+  }
   return prisma.mission.findUniqueOrThrow({ where: { id } });
 }
 
 async function applyAndAccept(missionId: string, proposal: Record<string, unknown>) {
   authAs(ids.provider);
-  const p = await expectOk(await proposalPost(postReq(proposal), at(missionId)), "candidature");
+  const p = await expectOk(
+    await proposalPost(postReq({ financingModeKey: devisModes.get(missionId), ...proposal }), at(missionId)),
+    "candidature"
+  );
   const proposalId = (await p.json()).id as string;
   authAs(ids.client);
   await expectOk(await acceptPost(postReq({}), { params: Promise.resolve({ id: missionId, proposalId }) }), "acceptation");
@@ -381,6 +391,7 @@ describe("W3 — J1 sur vrai devis : les lignes deviennent les jalons", () => {
             delay: "10 jours",
             tvaRate: 0,
             laborCost: 0,
+            financingModeKey: devisModes.get(mission.id),
           }),
           at(mission.id)
         ),
@@ -489,11 +500,20 @@ describe("W4 — S2H : refus PSP, gel, insuffisance, recharge et reprise automat
 
 describe("W5 — S2M : un mois constaté, puis clôture", () => {
   it("720 000 séquestrés pour 3 mois, un mois versé, le reste rendu", async () => {
-    const mission = await publish({ titre: `INC S2M ${RUN}`, budgetType: "RATE", financingModeKey: "S2M", timeRate: 250_000, timeMaxQuantity: 3 });
+    // Mode de pointage « totale » posé à la publication (2026-10-01) : figé au contrat.
+    const mission = await publish({
+      titre: `INC S2M ${RUN}`,
+      budgetType: "RATE",
+      financingModeKey: "S2M",
+      timeRate: 250_000,
+      timeMaxQuantity: 3,
+      attendanceValidation: "totale",
+    });
     expect(mission.budget).toBe(750_000);
+    expect(mission.attendanceValidation).toBe("totale");
     await applyAndAccept(mission.id, { montant: 0, unitRate: 240_000 });
     const contractId = await contractAndSignatures(mission.id);
-    expect(await prisma.spotTimeTerms.findUniqueOrThrow({ where: { contractId } })).toMatchObject({ rateUnit: "month", maxAmount: 720_000 });
+    expect(await prisma.spotTimeTerms.findUniqueOrThrow({ where: { contractId } })).toMatchObject({ rateUnit: "month", maxAmount: 720_000, attendanceValidation: "totale" });
     await fundWholeContract(mission.id, contractId);
 
     const septembre = await declare(mission.id, "2026-09-01T00:00:00.000Z", "2026-09-30T23:59:59.999Z", 1);

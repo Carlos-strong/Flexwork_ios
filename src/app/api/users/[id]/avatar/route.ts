@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import type { UserRole } from "@prisma/client";
 import { readStoredFile } from "@/lib/storage";
+import { PROVIDER_ROLES } from "@/lib/provider-options";
 
 const CONTENT_TYPE_BY_EXT: Record<string, string> = {
   ".jpg": "image/jpeg",
@@ -11,8 +12,6 @@ const CONTENT_TYPE_BY_EXT: Record<string, string> = {
   ".png": "image/png",
   ".webp": "image/webp",
 };
-
-const PROVIDER_ROLES: UserRole[] = ["expert_digital", "expert_btp_autres", "artisan", "manoeuvre"];
 
 // Diffuse la photo de profil d'un utilisateur — contrairement aux documents KYC (privés,
 // URL signée à durée limitée via /api/kyc/file/[token]), une photo de profil est destinée à

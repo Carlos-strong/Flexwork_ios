@@ -230,11 +230,11 @@ Reste ouvert, documenté dans le code : pas d'instruction inverse du `freeze` (d
 | Écran demandé | État |
 |---|---|
 | Client — financement séquestre | OK |
-| Client — solde / consommé / restant | Absent |
-| Client — payables, litiges, recharge | Absent |
-| Prestataire — gagné / en attente / payé | Partiel (`WalletSection`) |
-| Responsable chantier | Absent (rôle inexistant) |
-| Admin — escrow, mouvements, PSP, audits | Partiel |
+| Client — solde / consommé / restant | OK (2026-09-15) — `PaiementsSection`, `EscrowAccountPanel` par mission |
+| Client — payables, litiges, recharge | OK (2026-09-15) — panneau du séquestre, complément requis signalé |
+| Prestataire — gagné / en attente / payé | OK (2026-09-15) — `WalletSection` : reçu, dû, en vol, retenue, gelé |
+| Responsable chantier | OK — `/dashboard/responsable-chantier` (`site-manager-summary`) |
+| Admin — escrow, mouvements, PSP, audits | OK (2026-09-15) — `/admin/paiements` + `ContractDrawer` : remboursement, solde de retenue, réinstruction (rôle Médiation, justification journalisée) |
 
 ### §23 — Audit trail
 
@@ -664,9 +664,7 @@ le gel accompagnant une médiation — et en faire deux chiffres laisserait croi
 soldes sans état, et aucun état inatteignable) et 4 cas de partition dans
 `escrow-balance.e2e.test.ts`. Suite complète : **684 tests, 72 fichiers, aucune régression**.
 
-**Reste à faire** : l'affichage. Les écrans du §22 (client : solde / consommé / restant ;
-prestataire : gagné / en attente / payé ; admin : mouvements) n'existent toujours pas — la donnée
-est désormais servie, elle n'est pas montrée.
+**Affichage** : fait le 2026-09-15 — voir le tableau §22 plus haut (client, prestataire, admin).
 
 ---
 

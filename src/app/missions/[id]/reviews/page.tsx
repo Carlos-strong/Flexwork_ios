@@ -6,7 +6,7 @@
 // US-304 mentionne la "note moyenne" comme fait constaté dans le bloc Activité,
 // pas comme action utilisateur. À valider avec le PO avant activation.
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
@@ -48,19 +48,18 @@ export default function ReviewsPage() {
   const [success, setSuccess] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  async function load() {
+  const load = useCallback(async () => {
     const res = await fetch(`/api/missions/${missionId}/reviews`);
     if (res.ok) {
       const data = await res.json();
       setReviews(data.items);
       setTarget(data.target ?? null);
     }
-  }
+  }, [missionId]);
 
   useEffect(() => {
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [missionId]);
+  }, [load]);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();

@@ -160,6 +160,12 @@ export const ADMIN_MODULES: readonly AdminModule[] = [
       { id: "kyc-file", label: "File d'attente", href: "/admin/kyc", hint: "Tous les dossiers instruisibles." },
       { id: "kyc-entreprises", label: "Clients", href: "/admin/kyc/entreprises", hint: "Dossiers des comptes client." },
       { id: "kyc-freelances", label: "Prestataires", href: "/admin/kyc/freelances", hint: "Dossiers des cinq filières prestataires." },
+      // Deux files distinctes du dossier d'identité (2026-09-23) : un badge se décerne sur un
+      // diplôme d'État déclaré, un compte de versement se contrôle sur un numéro Mobile Money.
+      // Les mélanger à la file d'identité aurait fait chercher trois gestes différents dans un
+      // seul tableau, chacun avec son exigence propre.
+      { id: "kyc-badges", label: "Badges", href: "/admin/kyc/badges", hint: "Demandes de badge « Vérifié » à instruire." },
+      { id: "kyc-versements", label: "Versements", href: "/admin/kyc/versements", hint: "Comptes Mobile Money à vérifier avant paiement." },
       { id: "kyc-historique", label: "Historique", href: "/admin/kyc/historique", hint: "Toutes les décisions rendues, révocables." },
     ],
   },
@@ -278,7 +284,7 @@ export const ADMIN_MODULES: readonly AdminModule[] = [
     icon: "🗂️",
     roles: ["frontend", "superviseur"],
     readOnly: ["superviseur"],
-    hint: "Domaines, spécialités, compétences — et leur couverture face aux saisies réelles.",
+    hint: "Catégories, métiers, services — la hiérarchie de flexwork_job. Le PALIER DE RISQUE se règle ici, sur chaque métier (il décide de l'assurance obligatoire).",
   },
   {
     id: "localisation",
@@ -287,9 +293,8 @@ export const ADMIN_MODULES: readonly AdminModule[] = [
     href: "/backoffice/locations",
     icon: "🌍",
     roles: ["superviseur"],
-    hint: "Réglages par pays : paliers de risque par domaine, âge minimum des filières chantier.",
+    hint: "Âge minimum des filières chantier, par pays.",
     children: [
-      { id: "localisation-risques", label: "Risques par domaine", href: "/backoffice/locations", hint: "Palier et assurance exigée, par pays." },
       { id: "localisation-age", label: "Âge minimum", href: "#age", hint: "Seuil A13 par pays — jamais sous 18 ans." },
     ],
   },

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { PROFESSIONAL_TYPE_LABELS } from "@/lib/provider-options";
 import { useSession } from "next-auth/react";
 import DashboardLayout, { providerNav, type DashboardUser } from "@/components/dashboard/DashboardLayout";
 import { useSidebarBadges } from "@/components/dashboard/useSidebarBadges";
@@ -18,7 +19,8 @@ import { saveDevisDraft, loadDevisDraft, clearDevisDraft, restorableDateDebut } 
 import { candidaturesHrefForRole, type Role } from "@/lib/role-dashboard";
 import type { DevisProposalPayload } from "@/components/devis/types";
 import { countryFlag } from "@/components/person-card";
-import { FinancingModeNotice } from "@/components/financing/financing-mode-notice";
+import { PaymentModelPicker, PaymentModelBadge } from "@/components/financing/payment-model-picker";
+import { getFinancingMode } from "@/lib/financing-modes";
 
 // Rapatrié depuis src/components/dashboard/types.ts, supprimé le 16/09/2026 : cette page en
 // était le seul consommateur restant, le fichier ne portait plus que cette constante, et son
@@ -67,12 +69,7 @@ type EditableItem = DevisLineItemInput & { id: string };
 const UNITS = ["forfait", "m2", "ml", "u", "h", "jour"];
 const DELAY_PRESETS = ["14 jours (2 semaines)", "21 jours (3 semaines)", "28 jours (4 semaines)"];
 
-const PROFESSIONAL_TYPE_LABEL: Record<string, string> = {
-  EXPERT_DIGITAL: "Expert Digital",
-  EXPERT_BTP: "Expert BTP / Autres",
-  ARTISAN: "Artisan",
-  MANOEUVRE: "Manœuvre",
-};
+const PROFESSIONAL_TYPE_LABEL: Record<string, string> = PROFESSIONAL_TYPE_LABELS;
 
 const FALLBACK_USER: DashboardUser = { initials: "PR", name: "Prestataire", role: "Prestataire", avatarGradient: "from-[#FF7A00] to-[#E8112D]" };
 
@@ -137,7 +134,10 @@ export default function OffreCandidaturePage() {
   const [message, setMessage] = useState<string | null>(null);
   const [tvaRate, setTvaRate] = useState(0);
   const [laborCost, setLaborCost] = useState(0);
-  const [priceMode, setPriceMode] = useState<"fixe" | "horaire">("fixe"); // cosmétique — aucune donnée/calcul distinct n'existe pour ces 2 modes
+  // Modèle de paiement (fixe ou par jalons) — c'est CE devis qui le fixe (2026-10-01), le
+  // client l'accepte avec lui. Remplace l'ancien sélecteur « Prix fixe / Taux horaire », qui
+  // n'était que cosmétique.
+  const [paymentModeKey, setPaymentModeKey] = useState<string | null>(null);
   const [highlightProfile, setHighlightProfile] = useState(false); // cosmétique — aucun effet réel
   const [pending, setPending] = useState(false);
   const [feedback, setFeedback] = useState<{ ok: boolean; msg: string } | null>(null);
@@ -173,6 +173,7 @@ export default function OffreCandidaturePage() {
       setMessage(devis.notes);
       setTvaRate(devis.tvaRate);
       setLaborCost(devis.laborCost);
+      setPaymentModeKey(devis.financingModeKey ?? null);
       return;
     }
     const draft = loadDevisDraft(missionId);
@@ -188,6 +189,7 @@ export default function OffreCandidaturePage() {
       setMessage(draft.notes);
       setTvaRate(draft.tvaRate);
       setLaborCost(draft.laborCost);
+      setPaymentModeKey(draft.financingModeKey ?? null);
       setRestoredFromDraft(true);
       return;
     }
@@ -195,6 +197,18 @@ export default function OffreCandidaturePage() {
     setDelay(DELAY_PRESETS[0]);
     setMessage("");
   }, [myProposal, devis, missionId, items]);
+
+  // Mission publiée avant 2026-10-01 avec un mode fixe/jalons : il sert de point de départ,
+  // que le prestataire reste libre de changer.
+  useEffect(() => {
+    if (paymentModeKey || !mission?.financingModeKey) return;
+    const legacy = getFinancingMode(mission.financingModeKey);
+    if (legacy && legacy.available && legacy.family !== "temps") setPaymentModeKey(legacy.key);
+  }, [mission, paymentModeKey]);
+  const isJalonModel = !!paymentModeKey && getFinancingMode(paymentModeKey)?.family === "jalon";
+  // Une ligne n'est un JALON que dans un devis par jalons ; en prix fixe, c'est un simple poste.
+  const lineWord = isJalonModel ? "jalon" : "poste";
+  const needsTwoLines = !!paymentModeKey && (getFinancingMode(paymentModeKey)?.primitives.retentionRate ?? 0) > 0;
 
   const totals = items ? computeDevisData(items.map((i) => ({ description: i.description, quantity: i.quantity, unit: i.unit, unitPrice: i.unitPrice, echeance: i.echeance })), delay ?? "", message ?? "", tvaRate, laborCost) : null;
 
@@ -222,11 +236,14 @@ export default function OffreCandidaturePage() {
 
   const validItems = (items ?? []).every((i) => i.description.trim() && i.unitPrice > 0);
   const messageValid = (message ?? "").trim().length >= 20;
-  const canSubmitForm = validItems && !!delay?.trim() && !!dateDebut && messageValid;
+  const linesOk = !needsTwoLines || (items?.length ?? 0) >= 2;
+  const canSubmitForm = validItems && !!delay?.trim() && !!dateDebut && messageValid && !!paymentModeKey && linesOk;
 
   async function submit() {
     if (!items || !delay) return;
-    if (!validItems) { setFeedback({ ok: false, msg: "Vérifiez les jalons (description + prix unitaire > 0)." }); return; }
+    if (!paymentModeKey) { setFeedback({ ok: false, msg: "Choisissez le modèle de paiement : prix fixe ou par jalons." }); return; }
+    if (!linesOk) { setFeedback({ ok: false, msg: "La retenue de garantie exige au moins deux jalons." }); return; }
+    if (!validItems) { setFeedback({ ok: false, msg: `Vérifiez les ${lineWord}s (description + prix unitaire > 0).` }); return; }
     if (!dateDebut) { setFeedback({ ok: false, msg: "Indiquez une date de début souhaitée." }); return; }
     if (!messageValid) { setFeedback({ ok: false, msg: "Le message au client doit contenir au moins 20 caractères." }); return; }
 
@@ -242,7 +259,7 @@ export default function OffreCandidaturePage() {
     const res = await fetch(`/api/missions/${missionId}/devis`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ lineItems: lineItemsPayload, delay: delay.trim(), notes: notesWithStartDate, tvaRate: Number(tvaRate) || 0, laborCost: Number(laborCost) || 0 }),
+      body: JSON.stringify({ lineItems: lineItemsPayload, delay: delay.trim(), notes: notesWithStartDate, tvaRate: Number(tvaRate) || 0, laborCost: Number(laborCost) || 0, financingModeKey: paymentModeKey }),
     });
     setPending(false);
 
@@ -254,11 +271,15 @@ export default function OffreCandidaturePage() {
     }
     const d = await res.json().catch(() => ({}));
     if (d.error === "garant_required" || d.error === "insurance_required") {
-      saveDevisDraft(missionId, { lineItems: lineItemsPayload, delay: delay.trim(), dateDebut, notes: message ?? "", tvaRate: Number(tvaRate) || 0, laborCost: Number(laborCost) || 0 });
+      saveDevisDraft(missionId, { lineItems: lineItemsPayload, delay: delay.trim(), dateDebut, notes: message ?? "", tvaRate: Number(tvaRate) || 0, laborCost: Number(laborCost) || 0, financingModeKey: paymentModeKey ?? undefined });
       setBlockedByProfile(d.message ?? "Votre profil doit être complété avant de candidater à cette mission.");
       return;
     }
-    setFeedback({ ok: false, msg: d.message ?? d.error ?? "Échec de la soumission." });
+    const paymentErrors: Record<string, string> = {
+      payment_mode_required: "Choisissez le modèle de paiement : prix fixe ou par jalons.",
+      retention_requires_two_lines: "La retenue de garantie exige au moins deux jalons.",
+    };
+    setFeedback({ ok: false, msg: d.message ?? paymentErrors[d.error] ?? d.error ?? "Échec de la soumission." });
   }
 
   function saveDraftNow() {
@@ -270,6 +291,7 @@ export default function OffreCandidaturePage() {
       notes: message ?? "",
       tvaRate,
       laborCost,
+      financingModeKey: paymentModeKey ?? undefined,
     });
     setFeedback({ ok: true, msg: "Brouillon enregistré sur cet appareil." });
   }
@@ -418,10 +440,6 @@ export default function OffreCandidaturePage() {
             <div className="flex items-center justify-between flex-wrap gap-3 mb-5">
               <h2 className="text-[15px] font-semibold tracking-tight">Devis à soumettre</h2>
               <div className="flex items-center gap-2">
-                <div className="p-1 rounded-lg bg-[#F1F5F9] border border-[#E2E8F0] flex">
-                  <button onClick={() => setPriceMode("fixe")} className={`px-3 h-7 rounded-md text-[12px] font-medium transition ${priceMode === "fixe" ? "bg-white shadow-sm border border-[#E2E8F0] text-[#0f172a]" : "text-[#64748B]"}`}>Prix fixe</button>
-                  <button onClick={() => setPriceMode("horaire")} className={`px-3 h-7 rounded-md text-[12px] font-medium transition ${priceMode === "horaire" ? "bg-white shadow-sm border border-[#E2E8F0] text-[#0f172a]" : "text-[#64748B]"}`}>Taux horaire</button>
-                </div>
                 <button onClick={() => setPreviewOpen(true)} className="h-8 px-3 rounded-lg border border-[#E2E8F0] bg-white text-[12px] font-medium hover:bg-[#F8FAF9]">Aperçu</button>
               </div>
             </div>
@@ -441,10 +459,10 @@ export default function OffreCandidaturePage() {
               </div>
             )}
 
-            {/* Le mode dicte ce que doit être une ligne : en J1 une ligne = un jalon payé
-                séparément, en F3 le découpage n'a aucun effet sur le paiement. À lire AVANT
-                de remplir le tableau, donc juste au-dessus de lui. */}
-            <FinancingModeNotice modeKey={mission.financingModeKey} quoteMode className="mb-4" />
+            {/* Le modèle de paiement dicte ce qu'est une ligne : par jalons, une ligne = un jalon
+                payé séparément ; en prix fixe, le découpage reste descriptif. C'est le devis qui
+                le fixe (2026-10-01) — choisi AVANT de remplir le tableau, donc juste au-dessus. */}
+            <PaymentModelPicker value={paymentModeKey} onChange={setPaymentModeKey} quoteMode className="mb-4" />
 
             {/* Demande de révision du client — affichée ICI, sur le formulaire où le prestataire
                 rédige la nouvelle version. Elle n'existait que dans la cloche et l'e-mail, alors
@@ -488,7 +506,7 @@ export default function OffreCandidaturePage() {
                           <input
                             value={item.description}
                             onChange={(e) => updateItem(item.id, { description: e.target.value })}
-                            placeholder="Description du jalon..."
+                            placeholder={`Description du ${lineWord}...`}
                             className={`w-full h-8 px-2 rounded-md border text-[12.5px] focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751] ${!item.description.trim() ? "border-[#FCA5A5] bg-[#FEF2F2]" : "border-[#E2E8F0] bg-white"}`}
                           />
                         </td>
@@ -566,7 +584,7 @@ export default function OffreCandidaturePage() {
                   <input
                     value={item.description}
                     onChange={(e) => updateItem(item.id, { description: e.target.value })}
-                    placeholder="Description du jalon..."
+                    placeholder={`Description du ${lineWord}...`}
                     className={`mt-2 w-full text-sm font-medium border rounded-lg px-3 py-2 ${!item.description.trim() ? "border-[#FCA5A5] bg-[#FEF2F2]" : "border-[#E2E8F0] bg-white"}`}
                   />
                   <div className="grid grid-cols-3 gap-2 mt-3">
@@ -606,8 +624,11 @@ export default function OffreCandidaturePage() {
             </div>
 
             <div className="flex items-center gap-2 mt-3">
-              <button onClick={addItem} className="h-8 px-3 rounded-lg border border-dashed border-[#94A3B8] text-[12px] font-medium hover:border-[#008751] hover:text-[#008751]">+ Ajouter jalon</button>
-              <span className="text-[11px] text-[#94A3B8]">{items.length} jalons • Calcul live</span>
+              <button onClick={addItem} className="h-8 px-3 rounded-lg border border-dashed border-[#94A3B8] text-[12px] font-medium hover:border-[#008751] hover:text-[#008751]">+ Ajouter {lineWord}</button>
+              <span className="text-[11px] text-[#94A3B8]">{items.length} {lineWord}s • Calcul live</span>
+              {needsTwoLines && items.length < 2 && (
+                <span className="text-[11px] text-[#B45309]">La retenue de garantie exige au moins deux jalons.</span>
+              )}
             </div>
 
             <div className="grid lg:grid-cols-2 gap-4 mt-6">
@@ -683,14 +704,14 @@ export default function OffreCandidaturePage() {
           <div className="bg-white border border-[#E2E8F0] rounded-xl shadow-sm p-5">
             <h3 className="font-semibold text-[13px] mb-4 flex items-center justify-between">
               Récap Devis
-              <span className="text-[11px] font-normal px-2 py-0.5 rounded-full bg-[#F1F5F9] text-[#64748B]">{priceMode === "fixe" ? "Prix fixe" : "Taux horaire"}</span>
+              <span className="text-[11px] font-normal px-2 py-0.5 rounded-full bg-[#F1F5F9] text-[#64748B]">{!paymentModeKey ? "Modèle à choisir" : isJalonModel ? "Par jalons" : "Prix fixe"}</span>
             </h3>
             <div className="space-y-2.5 text-[13px]">
               <div className="flex justify-between"><span className="text-[#64748B]">Montant TTC</span><span className="font-bold font-mono text-[15px] text-[#008751]">{totals.totalTTC.toLocaleString("fr-FR")} {mission.currency}</span></div>
               <div className="flex justify-between"><span className="text-[#64748B]">Total HT</span><span className="font-medium font-mono">{totals.totalHT.toLocaleString("fr-FR")}</span></div>
               <div className="flex justify-between"><span className="text-[#64748B]">TVA ({tvaRate}%)</span><span className="font-mono text-[#64748B]">{totals.tva.toLocaleString("fr-FR")}</span></div>
               <div className="h-px bg-[#E2E8F0] my-2" />
-              <div className="flex justify-between"><span className="text-[#64748B]">Jalons</span><span className="font-medium">{items.length}</span></div>
+              <div className="flex justify-between"><span className="text-[#64748B]">{isJalonModel ? "Jalons" : "Postes"}</span><span className="font-medium">{items.length}</span></div>
               <div className="flex justify-between"><span className="text-[#64748B]">Délai</span><span className="font-medium">{delay}</span></div>
             </div>
           </div>
@@ -715,7 +736,7 @@ export default function OffreCandidaturePage() {
             </button>
             {!canSubmitForm && (
               <div className="mt-3 p-2.5 rounded-lg bg-[#FEF2F2] border border-[#FECACA] text-[11px] text-[#B91C1C] leading-4">
-                • Vérifiez les jalons (description + prix &gt; 0) • Message min 20 caractères • Date de début requise
+                • Choisissez le modèle de paiement • Vérifiez les {lineWord}s (description + prix &gt; 0) • Message min 20 caractères • Date de début requise
               </div>
             )}
             {feedback && <p className={`mt-3 text-sm ${feedback.ok ? "text-emerald-700" : "text-red-600"}`}>{feedback.msg}</p>}
@@ -748,7 +769,7 @@ export default function OffreCandidaturePage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-[#0f172a]/50" onClick={() => setDeleteId(null)} />
           <div className="relative bg-white rounded-xl border border-[#E2E8F0] shadow-xl w-full max-w-[360px] p-5">
-            <h4 className="font-semibold text-[14px] mb-1">Supprimer ce jalon ?</h4>
+            <h4 className="font-semibold text-[14px] mb-1">Supprimer ce {lineWord} ?</h4>
             <p className="text-[12px] text-[#64748B] leading-5 mb-4">Cette action recalcule automatiquement le total.</p>
             <div className="flex gap-2 justify-end">
               <button onClick={() => setDeleteId(null)} className="h-9 px-4 rounded-lg border border-[#E2E8F0] bg-white text-[13px] font-medium">Annuler</button>
@@ -774,6 +795,7 @@ export default function OffreCandidaturePage() {
                     <div className="text-[11px] tracking-widest font-bold text-[#94A3B8] uppercase">Devis • Flexwork</div>
                     <div className="text-[20px] font-bold mt-1">{mission.titre}</div>
                     <div className="text-[12px] text-[#64748B] mt-1">Réf {mission.id.slice(-8).toUpperCase()} • {new Date().toLocaleDateString("fr-FR")}</div>
+                    <PaymentModelBadge modeKey={paymentModeKey} className="mt-2" />
                   </div>
                   <div className="text-right">
                     <div className="text-[12px] text-[#64748B]">Total TTC</div>

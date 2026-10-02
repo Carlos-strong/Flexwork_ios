@@ -102,6 +102,7 @@ async function findCandidates(): Promise<Candidate[]> {
           status: true,
           observedProgress: true,
           submittedAt: true,
+          verifiedAt: true,
         },
       },
     },
@@ -118,6 +119,11 @@ async function findCandidates(): Promise<Candidate[]> {
       missionTitre: contract.mission.titre,
       financingMode: contract.financingMode,
       retentionRate: contract.retentionRate,
+      // Le délai tacite court depuis la SOUMISSION, en mode OPR comme en « Moi-même » : il
+      // protège le prestataire de l'inaction du responsable autant que de celle du client.
+      validationMode: contract.validationMode,
+      siteManagerId: contract.siteManagerId,
+      actorRole: "client" as const,
     };
 
     if (contract.jalons.length > 0) {
@@ -132,6 +138,7 @@ async function findCandidates(): Promise<Candidate[]> {
             status: jalon.status,
             observedProgress: jalon.observedProgress,
             montant: jalon.montant,
+            verifiedAt: jalon.verifiedAt,
           },
           submittedAt: jalon.submittedAt,
           acceptanceDeadlineDays: contract.acceptanceDeadlineDays,
@@ -151,6 +158,7 @@ async function findCandidates(): Promise<Candidate[]> {
         status: contract.mission.status,
         observedProgress: contract.mission.observedProgress,
         montant: contractPrice(contract),
+        verifiedAt: contract.mission.verifiedAt,
       },
       submittedAt: contract.mission.submittedAt,
       acceptanceDeadlineDays: contract.acceptanceDeadlineDays,

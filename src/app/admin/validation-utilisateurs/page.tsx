@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { PhoneCall, PhoneOff, RefreshCw } from "lucide-react";
 import { useCanActIn } from "@/components/admin/admin-role-context";
+import { PROVIDER_ROLE_LABELS } from "@/lib/provider-options";
 import {
   AdminCard,
   AdminEmpty,
@@ -35,9 +36,9 @@ type GarantAccount = {
 };
 
 const ROLE_LABEL: Record<string, string> = {
-  expert_btp_autres: "Expert BTP / Autres",
-  artisan: "Artisan",
-  manoeuvre: "Manœuvre",
+  // Source unique — voir src/lib/provider-options.ts. La liste locale s'arrêtait à trois
+  // filières : elle est complétée par la source.
+  ...PROVIDER_ROLE_LABELS,
 };
 
 const KYC_LABEL: Record<string, string> = {

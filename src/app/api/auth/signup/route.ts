@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { requestOtp, isUnderIpRequestLimit, getClientIp, recordOtpRequestAttempt } from "@/lib/otp";
 import { findAccountConflicts } from "@/lib/dedupe";
 import { signupSchema } from "@/lib/validation";
+import { recordTermsAcceptance } from "@/lib/terms";
 
 // US-101 : création de compte email + téléphone, vérifiés par OTP.
 // US-1308 : bloque la création de comptes multiples via empreinte device + téléphone
@@ -15,7 +15,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "invalid_payload", details: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { email, tel, password, firstname, lastname, role, country, city, locality, address, deviceFingerprint } =
+  const { email, tel, firstname, lastname, role, country, city, locality, address, deviceFingerprint } =
     parsed.data;
 
   // Anti-spam par IP sur la création de comptes : la limite par identifiant n'a pas de sens
@@ -46,10 +46,37 @@ export async function POST(req: Request) {
     );
   }
 
-  const passwordHash = password ? await bcrypt.hash(password, 10) : undefined;
-
-  const user = await prisma.user.create({
-    data: { email, tel, passwordHash, firstname, lastname, role, country, city, locality, address, deviceFingerprint },
+  // `cgvAccepted` est validé par signupSchema (z.literal(true)) : un compte ne peut pas être
+  // créé sans consentement.
+  //
+  // Le compte ET l'acceptation VERSIONNÉE des CGU sont écrits dans la MÊME TRANSACTION
+  // (2026-09-23). Ce n'est pas une coquetterie : la première version faisait l'acceptation
+  // APRÈS la création, dans un `try/catch` NON BLOQUANT — et deux inscriptions réelles ont
+  // donc produit un compte sans aucune preuve de consentement, sans que rien ne le signale.
+  // Un `console.error` que personne ne lit n'est pas un filet de sécurité : sur une preuve
+  // légale, une panne doit être BRUYANTE.
+  //
+  // Conséquence assumée : si l'acceptation ne peut pas être écrite, l'inscription échoue et
+  // AUCUN compte n'est créé — l'utilisateur peut réessayer. C'est préférable au compte
+  // à demi-complet, impossible à recréer puisque son email serait désormais pris.
+  const user = await prisma.$transaction(async (tx) => {
+    const created = await tx.user.create({
+      data: {
+        email,
+        tel,
+        firstname,
+        lastname,
+        role,
+        country,
+        city,
+        locality,
+        address,
+        deviceFingerprint,
+        cgvAcceptedAt: new Date(),
+      },
+    });
+    await recordTermsAcceptance(created.id, tx);
+    return created;
   });
 
   await requestOtp({

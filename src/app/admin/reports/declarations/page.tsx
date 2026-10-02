@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { RefreshCw, ShieldCheck, Trash2 } from "lucide-react";
 import { useCanActIn } from "@/components/admin/admin-role-context";
 import { AdminPageHeader, btnSecondary } from "@/components/admin/admin-ui";
+import { PROVIDER_ROLE_LABELS } from "@/lib/provider-options";
 
 // Modération (US-306) — « action sur signalement uniquement », jamais de vérification
 // systématique (modele-skillafrica-v3-Flexwork.md §5).
@@ -41,10 +42,9 @@ const TYPE_LABEL: Record<string, string> = { insurance: "Assurance", qualificati
 
 const ROLE_LABEL: Record<string, string> = {
   client: "Client",
-  expert_digital: "Expert Digital",
-  expert_btp_autres: "Expert BTP",
-  artisan: "Artisan",
-  manoeuvre: "Manœuvre",
+  // Libellés de filière : source unique (src/lib/provider-options.ts). Cette copie avait déjà
+  // divergé (« Expert BTP » ici, « Expert BTP / Autres » ailleurs).
+  ...PROVIDER_ROLE_LABELS,
   responsable_chantier: "Responsable chantier",
 };
 

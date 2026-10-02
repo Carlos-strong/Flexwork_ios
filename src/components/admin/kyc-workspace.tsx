@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { RefreshCw, Trash2 } from "lucide-react";
 import { CHANTIER_ROLES } from "@/lib/age-gate";
+import { PROVIDER_ROLE_LABELS } from "@/lib/provider-options";
 import { useCanActIn } from "@/components/admin/admin-role-context";
 import { AdminPageHeader, KpiStrip, btnSecondary } from "@/components/admin/admin-ui";
 
@@ -34,9 +35,8 @@ const DOC_LABEL: Record<string, string> = {
 };
 
 const ROLE_LABEL: Record<string, string> = {
-  artisan: "Artisan",
-  manoeuvre: "Manœuvre",
-  expert_btp_autres: "Expert BTP",
+  // Source unique — voir src/lib/provider-options.ts.
+  ...PROVIDER_ROLE_LABELS,
 };
 
 
@@ -83,7 +83,7 @@ export function KycWorkspace({ population }: { population: KycPopulation }) {
   // Modal de visualisation des documents + validation par document.
   const [viewing, setViewing] = useState<{ userId: string; email: string; role: string } | null>(null);
   const [viewDocs, setViewDocs] = useState<AdminViewDoc[] | null>(null);
-  // Un seul champ par document (aligné sur KycDocsViewer.tsx et sur le champ unique
+  // Un seul champ par document (aligné sur le champ unique
   // `justifications` de la table ci-dessus) : ce texte sert à la fois de `justification`
   // (exigée par le serveur pour toute décision) et de `rejectionReason` (visible par
   // l'utilisateur) en cas de rejet — plus besoin de retaper deux fois la même idée.
@@ -374,7 +374,7 @@ export function KycWorkspace({ population }: { population: KycPopulation }) {
                                 ? item.garantRequired
                                   ? "Désactiver l'exigence de garant (présentiel/hybride)"
                                   : "Activer l'exigence de garant (présentiel/hybride)"
-                                : "Réservé aux filières chantier (artisan, manœuvre, expert BTP)"
+                                : "Réservé aux filières chantier (artisan, manœuvre, entreprise)"
                             }
                             onClick={() => toggleGarant(item.userId, item.garantRequired)}
                             className={`inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-[11.5px] font-medium border transition disabled:opacity-60 ${item.garantRequired ? "bg-[#F0FDF4] text-[#166534] border-[#BBF7D0]" : "bg-white text-[#5A5750] border-[#E2E0D9] hover:bg-[#FAFAF8]"} ${!(CHANTIER_ROLES as readonly string[]).includes(item.role) ? "opacity-40 cursor-not-allowed" : ""}`}

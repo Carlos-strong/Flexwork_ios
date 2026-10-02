@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Avatar } from "@/components/avatar";
 import { IdentityBadge, DeclaredBadge } from "@/components/IdentityBadge";
 import { MapPin } from "lucide-react";
+import { PROVIDER_ROLE_LABELS } from "@/lib/provider-options";
 
 // Profil public d'un prestataire — alimenté par les DONNÉES RÉELLES de
 // /api/users/[id]/public-profile (modèle v3, trois blocs strictement séparés) :
@@ -52,10 +53,9 @@ type PublicProfile = {
 
 const ROLE_LABELS: Record<string, string> = {
   client: "Client",
-  expert_digital: "Expert Digital",
-  expert_btp_autres: "Expert BTP / Autres",
-  artisan: "Artisan",
-  manoeuvre: "Manœuvre",
+  // Libellés de filière : source unique (src/lib/provider-options.ts). Recopiés ici jusqu'au
+  // 2026-09-24, ce qui faisait de tout renommage un travail sans fin.
+  ...PROVIDER_ROLE_LABELS,
 };
 
 const TARIF_UNITE_LABELS: Record<string, string> = {

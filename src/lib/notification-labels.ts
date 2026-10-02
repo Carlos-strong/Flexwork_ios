@@ -11,6 +11,16 @@ const NOTIFICATION_LABELS: Record<string, string> = {
   kyc_document_decision: "Document KYC examiné",
   kyc_document_revoque: "Document KYC révoqué",
   kyc_decision_admin: "Décision KYC enregistrée",
+  // — Badge « Vérifié » (2026-09-23). Sans ces libellés, les deux décisions s'affichaient
+  // « Notification » dans la cloche : le type de l'événement était bien transmis, mais rien
+  // ne le traduisait.
+  badge_accorde: "Badge « Vérifié » accordé",
+  badge_refuse: "Badge « Vérifié » refusé",
+  // — KYC financier / compte de versement (2026-09-23)
+  payout_verifie: "Compte de versement vérifié",
+  payout_rejete: "Compte de versement rejeté",
+  payout_decision_admin: "Décision de versement enregistrée",
+  provider_active: "Espace prestataire ouvert",
 
   // — Cycle de vie des missions
   mission_publiee: "Mission publiée",

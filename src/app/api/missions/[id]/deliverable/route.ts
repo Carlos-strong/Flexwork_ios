@@ -28,7 +28,7 @@ export async function POST(
   const { id: missionId } = await params;
 
   const contract = await prisma.prestationContract.findFirst({
-    where: { missionId, OR: [{ clientId: userId }, { providerId: userId }] },
+    where: { missionId, OR: [{ clientId: userId }, { providerId: userId }, { siteManagerId: userId, validationMode: "opr" }] },
     include: { mission: true, jalons: { select: { id: true } } },
   });
   if (!contract) {
@@ -107,7 +107,7 @@ export async function GET(
   const { id: missionId } = await params;
 
   const contract = await prisma.prestationContract.findFirst({
-    where: { missionId, OR: [{ clientId: userId }, { providerId: userId }] },
+    where: { missionId, OR: [{ clientId: userId }, { providerId: userId }, { siteManagerId: userId, validationMode: "opr" }] },
   });
   if (!contract) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });

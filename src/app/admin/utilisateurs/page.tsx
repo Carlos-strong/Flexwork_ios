@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { useCanActIn } from "@/components/admin/admin-role-context";
+import { PROVIDER_ROLE_LABELS } from "@/lib/provider-options";
 import {
   AdminCard,
   AdminEmpty,
@@ -41,10 +42,9 @@ type Payload = {
 
 const ROLE_LABEL: Record<string, string> = {
   client: "Client",
-  expert_digital: "Expert Digital",
-  expert_btp_autres: "Expert BTP / Autres",
-  artisan: "Artisan",
-  manoeuvre: "Manœuvre",
+  // Libellés de filière : source unique (src/lib/provider-options.ts). Recopiés ici jusqu'au
+  // 2026-09-24, ce qui faisait de tout renommage un travail sans fin.
+  ...PROVIDER_ROLE_LABELS,
   responsable_chantier: "Responsable chantier",
 };
 

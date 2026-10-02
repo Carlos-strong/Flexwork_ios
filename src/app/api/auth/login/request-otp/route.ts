@@ -9,7 +9,15 @@ import {
   recordOtpRequestAttempt,
 } from "@/lib/otp";
 
-const schema = z.object({ identifier: z.string().min(3) });
+// `purpose` (2026-09-23) : l'écran /verify-otp doit pouvoir RENVOYER le code reçu à
+// l'inscription. `verifyOtp` filtre par `purpose` (src/lib/otp.ts) et la vérification envoie
+// `purpose=signup` (src/auth.ts) : un renvoi créé en `login` ne serait JAMAIS retrouvé par
+// elle. Liste FERMÉE, et non un `z.string()` : `purpose` vient du client, on n'accepte que ce
+// dont cet écran a besoin.
+const schema = z.object({
+  identifier: z.string().min(3),
+  purpose: z.enum(["login", "signup"]).optional(),
+});
 
 export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
@@ -19,6 +27,7 @@ export async function POST(req: Request) {
   }
 
   const { identifier } = parsed.data;
+  const purpose = parsed.data.purpose ?? "login";
   const ip = getClientIp(req);
 
   // Les deux limites (par identifiant et par IP) tournent pour CHAQUE requête, compte
@@ -63,7 +72,7 @@ export async function POST(req: Request) {
       userId: user.id,
       identifier,
       channel: identifier.includes("@") ? "email" : "sms",
-      purpose: "login",
+      purpose,
     }).catch((err) => {
       console.error("[request-otp] échec de l'envoi OTP en arrière-plan :", err);
     });

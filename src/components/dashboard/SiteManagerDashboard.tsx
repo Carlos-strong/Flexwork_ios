@@ -22,8 +22,11 @@ import type { Session } from "next-auth";
 // Son périmètre est entièrement dérivé des DÉSIGNATIONS que les clients lui ont faites, contrat
 // par contrat. Un compte sans désignation voit un tableau vide — c'est exact, et c'est voulu :
 // le rôle seul n'ouvre aucun droit.
+//
+// Depuis le mode de vérification OPR (2026-10-01), il vérifie aussi les JALONS et TÂCHES des
+// missions qui lui sont confiées, et transmet au client — qui seul valide définitivement.
 
-type RateUnit = "hour" | "day" | "month";
+type RateUnit = "hour" | "day" | "week" | "month";
 
 type Chantier = {
   missionId: string;
@@ -39,11 +42,21 @@ type Chantier = {
   pending: { id: string; periodStart: string; declaredQuantity: number; amount: number }[];
 };
 
-type Summary = { chantiers: Chantier[]; pendingCount: number; lowFundsCount: number };
+type AVerifier = { missionId: string; missionTitre: string; currency: string; jalonId: string | null; titre: string; montant: number | null };
+
+type Summary = {
+  chantiers: Chantier[];
+  missions?: { missionId: string; missionTitre: string; missionStatus: string }[];
+  toVerify?: AVerifier[];
+  toVerifyCount?: number;
+  pendingCount: number;
+  lowFundsCount: number;
+};
 
 const UNIT_LABEL: Record<RateUnit, { one: string; many: string }> = {
   hour: { one: "heure", many: "heures" },
   day: { one: "jour", many: "jours" },
+  week: { one: "semaine", many: "semaines" },
   month: { one: "mois", many: "mois" },
 };
 
@@ -60,7 +73,7 @@ const FALLBACK_USER: DashboardUser = {
 };
 
 // Navigation propre au rôle — trois rubriques, pas sept.
-const SITE_MANAGER_NAV: NavItem[] = [
+export const SITE_MANAGER_NAV: NavItem[] = [
   { id: "dashboard", label: "Mes chantiers", Icon: HardHat, href: "/dashboard/responsable-chantier" },
   { id: "equipe", label: "Équipe", Icon: Users, href: "/dashboard/responsable-chantier/equipe" },
   { id: "messages", label: "Messages", Icon: Wallet, href: "/dashboard/responsable-chantier/messages" },
@@ -132,17 +145,18 @@ export default function SiteManagerDashboard({ initialNav = "dashboard" }: { ini
               Bonjour {identity?.name ?? "Responsable"} 👷
             </h1>
             <p className="text-[13px] text-zinc-500 mt-1">
-              Vous constatez la présence sur les chantiers où le client vous a désigné.
+              Vous vérifiez les relevés de présence et les jalons ou tâches des missions où le client vous a
+              désigné, puis vous les transmettez au client pour validation définitive.
             </p>
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 mb-6">
             <StatCard label="Chantiers" value={String(chantiers.length)} sub="sous votre responsabilité" />
             <StatCard
-              label="À constater"
-              value={String(summary?.pendingCount ?? 0)}
-              sub="relevés en attente"
-              alert={(summary?.pendingCount ?? 0) > 0}
+              label="À vérifier"
+              value={String((summary?.pendingCount ?? 0) + (summary?.toVerifyCount ?? 0))}
+              sub="relevés, jalons et tâches"
+              alert={(summary?.pendingCount ?? 0) + (summary?.toVerifyCount ?? 0) > 0}
             />
             <StatCard
               label="Financement bas"
@@ -152,12 +166,58 @@ export default function SiteManagerDashboard({ initialNav = "dashboard" }: { ini
             />
           </div>
 
-          {chantiers.length === 0 && (
+          {/* Jalons et tâches à vérifier — toutes missions confiées, au temps ou non. */}
+          {(summary?.toVerify?.length ?? 0) > 0 && (
+            <div className="bg-white rounded-[20px] border border-gray-100 overflow-hidden mb-4">
+              <div className="px-5 py-3 border-b border-gray-50 font-semibold text-[14px] text-[#0A1931]">
+                Jalons et tâches à vérifier
+              </div>
+              <ul className="divide-y divide-gray-50">
+                {summary!.toVerify!.map((v) => (
+                  <li key={`${v.missionId}:${v.jalonId ?? "mission"}`} className="px-5 py-3 flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="text-[13px] font-semibold text-[#0A1931] truncate">{v.titre}</div>
+                      <div className="text-[12px] text-zinc-500 truncate">
+                        {v.missionTitre}
+                        {v.montant != null && ` · ${v.montant.toLocaleString("fr-FR")} ${v.currency}`}
+                      </div>
+                    </div>
+                    <Link
+                      href={`/missions/${v.missionId}`}
+                      className="h-8 px-3 inline-flex items-center rounded-full bg-[#0A1931] text-white text-[12px] font-semibold hover:bg-black"
+                      style={{ textDecoration: "none" }}
+                    >
+                      Vérifier
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Missions confiées sans relevés (jalons/tâches) : accès direct à leur espace. */}
+          {(summary?.missions?.length ?? 0) > 0 && (
+            <div className="bg-white rounded-[20px] border border-gray-100 overflow-hidden mb-4">
+              <div className="px-5 py-3 border-b border-gray-50 font-semibold text-[14px] text-[#0A1931]">Missions suivies</div>
+              <ul className="divide-y divide-gray-50">
+                {summary!.missions!.map((m) => (
+                  <li key={m.missionId} className="px-5 py-3 flex items-center justify-between gap-3">
+                    <span className="text-[13px] text-[#0A1931] truncate">{m.missionTitre}</span>
+                    <Link href={`/missions/${m.missionId}`} className="text-[12.5px] text-zinc-500 hover:text-[#0A1931]" style={{ textDecoration: "none" }}>
+                      Ouvrir →
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {chantiers.length === 0 && (summary?.missions?.length ?? 0) === 0 && (
             <div className="bg-white rounded-[20px] border border-gray-100 p-10 text-center">
               <p className="text-[14px] text-zinc-500">Aucun chantier ne vous est confié pour l&apos;instant.</p>
               <p className="text-[12.5px] text-zinc-400 mt-1.5">
-                Un client doit vous désigner comme responsable sur un contrat au temps pour que vous
-                puissiez y constater les présences.
+                Un client doit vous désigner comme responsable chantier (vérification OPR) pour que vous
+                puissiez vérifier ses relevés, jalons ou tâches.
               </p>
             </div>
           )}
@@ -179,7 +239,7 @@ export default function SiteManagerDashboard({ initialNav = "dashboard" }: { ini
                     </div>
                     {c.pending.length > 0 && (
                       <span className="inline-flex mt-1 px-2 py-0.5 rounded-full bg-[#FFFBEB] text-[#92400E] text-[10.5px] font-bold">
-                        {c.pending.length} à constater
+                        {c.pending.length} à vérifier
                       </span>
                     )}
                   </div>
@@ -203,7 +263,7 @@ export default function SiteManagerDashboard({ initialNav = "dashboard" }: { ini
                     onClick={() => setOuvert(ouvert === c.missionId ? null : c.missionId)}
                     className="h-9 px-4 rounded-full bg-[#0A1931] text-white text-[12.5px] font-semibold hover:bg-black transition-colors"
                   >
-                    {ouvert === c.missionId ? "Masquer les relevés" : "Voir et constater les relevés"}
+                    {ouvert === c.missionId ? "Masquer les relevés" : "Voir et vérifier les relevés"}
                   </button>
                   <Link
                     href={`/missions/${c.missionId}`}

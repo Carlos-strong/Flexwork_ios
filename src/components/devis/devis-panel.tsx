@@ -9,6 +9,8 @@ import { canClientRequestRevision, canProviderReviseDevis } from "@/lib/devis";
 import { authorDisplayName, PROPOSAL_STATUS_LABEL, type DevisProposalPayload } from "./types";
 import { refreshBadges } from "@/lib/badge-sync";
 import { missionFlow } from "@/lib/mission-flow";
+import { getFinancingMode } from "@/lib/financing-modes";
+import { PaymentModelBadge } from "@/components/financing/payment-model-picker";
 
 // Panneau de négociation de devis : affiche l'état de la candidature, le devis courant,
 // l'historique des révisions et les actions du rôle (soumettre/réviser pour le prestataire,
@@ -166,8 +168,20 @@ export function DevisPanel({
 }
 
 export function DevisDetails({ devis, currency }: { devis: DevisData; currency: string }) {
+  // Le modèle de paiement fait partie du devis (2026-10-01) : le client l'accepte avec le
+  // prix, il doit donc le lire AVANT le tableau, pas le découvrir à la génération du contrat.
+  const paymentMode = devis.financingModeKey ? getFinancingMode(devis.financingModeKey) : null;
   return (
     <div>
+      {paymentMode && (
+        <div className="mb-3 rounded-lg border border-[#E2E8F0] bg-[#F8FAF9] p-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-[#64748B]">Modèle de paiement</span>
+            <PaymentModelBadge modeKey={paymentMode.key} />
+          </div>
+          <p className="text-[12px] text-[#475569] mt-1.5 leading-relaxed">{paymentMode.definition}</p>
+        </div>
+      )}
       <div className="overflow-x-auto rounded-lg border border-[#E2E8F0]">
         <table className="w-full text-[13px] border-collapse">
           <thead>

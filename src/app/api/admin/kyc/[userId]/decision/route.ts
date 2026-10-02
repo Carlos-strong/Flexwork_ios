@@ -6,7 +6,6 @@ import { runSelfieMatch } from "@/lib/selfieMatch";
 import { logAdminAction, isUnderKycRateLimit } from "@/lib/admin-audit";
 import { recordVerificationHistory } from "@/lib/verification-history";
 import { notifyUser } from "@/lib/notify";
-import { isChantierRole } from "@/lib/age-gate";
 
 const schema = z.object({
   status: z.enum(["verifie", "rejete"]),
@@ -51,22 +50,25 @@ export async function POST(
     return NextResponse.json({ error: "rejection_reason_required" }, { status: 400 });
   }
 
-  // A13 — la date de naissance (lue sur la pièce d'identité) est OBLIGATOIRE pour valider le
-  // KYC d'une filière chantier : sans elle, l'âge ne peut pas être établi et le compte, même
-  // « verifie », serait bloqué en candidature chantier (candidature-guard.ts →
-  // kyc_required_for_age) avec un message trompeur (« identité à vérifier »). Refus explicite
-  // dès la saisie plutôt que de créer un dossier verifie inapte à candidater. (2026-09-09)
+  // A13 — la date de naissance (lue sur la pièce d'identité) est OBLIGATOIRE pour valider un
+  // KYC, QUELLE QUE SOIT LA FILIÈRE (2026-09-24).
+  //
+  // L'exigence était réservée aux filières chantier. La barrière d'âge portant désormais sur la
+  // CATÉGORIE du métier choisi, n'importe quel compte peut la rencontrer : l'activation de
+  // l'espace prestataire est ouverte à tous, y compris à un client qui le demandera dans trois
+  // mois. Une identité vérifiée sans âge est donc un dossier incomplet, et ici seulement la
+  // pièce est sous les yeux de l'équipe — c'est le seul moment où cette donnée peut être
+  // relevée. Laisser passer ce moment, c'était fabriquer des comptes « verifie » incapables de
+  // choisir un métier, sans aucun endroit où réparer (le dossier sortait de la file d'attente).
   if (parsed.data.status === "verifie" && parsed.data.dateNaissance === undefined) {
-    const target = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
-    if (target && isChantierRole(target.role)) {
-      return NextResponse.json(
-        {
-          error: "date_naissance_required",
-          message: "La date de naissance (lue sur la pièce d'identité) est obligatoire pour valider le KYC d'une filière chantier (A13).",
-        },
-        { status: 400 }
-      );
-    }
+    return NextResponse.json(
+      {
+        error: "date_naissance_required",
+        message:
+          "La date de naissance (lue sur la pièce d'identité) est obligatoire pour valider le KYC : elle est la seule donnée d'âge faisant foi, et aucune autre route ne peut l'écrire.",
+      },
+      { status: 400 },
+    );
   }
 
   const match = await runSelfieMatch(userId, "kyc_review");

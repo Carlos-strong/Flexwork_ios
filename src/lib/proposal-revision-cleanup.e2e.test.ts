@@ -53,11 +53,19 @@ async function createMissionWithTwoProposals(budgetType: "QUOTE" | "FIXED") {
   return { mission, a, b };
 }
 
+const RUN = Date.now();
+
 beforeAll(async () => {
+  // Utilisateurs PROPRES au test (2026-10-01) : il empruntait « le premier client KYC vérifié »
+  // de la base — des comptes réels de la base de travail, sur lesquels il créait des missions.
+  const mk = (key: string, role: "client" | "expert_digital" | "expert_btp_autres", n: number) =>
+    prisma.user.create({
+      data: { email: `e2e-revclean-${key}-${RUN}@flexwork.test`, tel: `+229${RUN}5${n}`, role, kycStatus: "verifie", status: "active", country: "BJ" },
+    });
   const [client, providerA, providerB] = await Promise.all([
-    prisma.user.findFirstOrThrow({ where: { role: "client", kycStatus: "verifie" } }),
-    prisma.user.findFirstOrThrow({ where: { role: "expert_digital", kycStatus: "verifie" } }),
-    prisma.user.findFirstOrThrow({ where: { role: "expert_btp_autres", kycStatus: "verifie" } }),
+    mk("client", "client", 0),
+    mk("a", "expert_digital", 1),
+    mk("b", "expert_btp_autres", 2),
   ]);
   clientId = client.id;
   providerAId = providerA.id;
@@ -68,6 +76,8 @@ beforeAll(async () => {
 afterAll(async () => {
   // Cascade : propositions, notifications et révisions partent avec la mission.
   await prisma.mission.deleteMany({ where: { id: { in: missionIds } } });
+  await prisma.notification.deleteMany({ where: { userId: { in: [clientId, providerAId, providerBId] } } });
+  await prisma.user.deleteMany({ where: { id: { in: [clientId, providerAId, providerBId] } } });
 });
 
 describe("Sortie de négociation — la demande de révision ne survit pas au statut terminal", () => {

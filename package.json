@@ -14,7 +14,9 @@
     "db:generate": "prisma generate",
     "db:studio": "prisma studio",
     "db:seed": "tsx prisma/seed.ts",
-    "test": "vitest run"
+    "db:seed-catalog": "tsx prisma/seed-catalog.ts",
+    "test": "vitest run",
+    "test:db:prepare": "tsx scripts/prepare-test-db.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

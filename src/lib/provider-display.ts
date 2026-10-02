@@ -4,11 +4,11 @@
 // champs, et la règle « pas d'email en repli » doit valoir aux deux endroits — la route
 // publique /api/search/prestataires ne renvoie plus d'email du tout.
 
+import { PROVIDER_ROLE_LABELS } from "@/lib/provider-options";
+
 export const PROVIDER_ROLE_LABEL: Record<string, string> = {
-  expert_digital: "Expert Digital",
-  expert_btp_autres: "Expert BTP / Autres",
-  artisan: "Artisan",
-  manoeuvre: "Manœuvre",
+  // Filières : source unique (src/lib/provider-options.ts).
+  ...PROVIDER_ROLE_LABELS,
   responsable_chantier: "Responsable chantier",
 };
 

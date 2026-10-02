@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { fetchDedupe } from "@/lib/fetch-dedupe";
 import { ESCROW_CHANGED_EVENT, notifyEscrowChanged } from "@/lib/escrow-events";
-import { RATE_UNIT_LABEL, attendanceAmount, dayPeriod, monthPeriod, type RateUnit } from "@/lib/spot-time";
+import { ATTENDANCE_VALIDATION_LABEL, RATE_UNIT_LABEL, attendanceAmount, dayPeriod, weekPeriod, monthPeriod, type AttendanceValidation, type RateUnit } from "@/lib/spot-time";
 
 // Relevés de présence d'un contrat au temps (§20) — un seul composant pour les trois rôles.
 //
@@ -33,6 +33,10 @@ type Item = {
   status: string;
   rejectionReason: string | null;
   validatedAt: string | null;
+  // Mode OPR : constat du responsable de chantier, transmis au client.
+  verifiedQuantity?: number | null;
+  verifiedOvertimeQuantity?: number;
+  verifiedAt?: string | null;
   amount: number;
 };
 
@@ -43,12 +47,17 @@ type Terms = {
   maxAmount: number;
   overtimeAllowed: boolean;
   overtimeRate: number | null;
+  // Mode de pointage figé au contrat (2026-10-01).
+  attendanceValidation?: AttendanceValidation;
 };
 
 type Payload = {
   currency: string;
   role: "worker" | "client" | "site_manager";
   terms: Terms;
+  // Vérification / validation (2026-10-01) : en OPR, le responsable vérifie, le client valide.
+  validationMode?: "client" | "opr";
+  siteManagerDesignated?: boolean;
   closed: boolean;
   suspended: boolean;
   consumedQuantity: number;
@@ -58,12 +67,13 @@ type Payload = {
   items: Item[];
 };
 
-type DecisionKind = "approve" | "dispute" | "reject";
+type DecisionKind = "approve" | "dispute" | "reject" | "verify";
 type Decision = { id: string; kind: DecisionKind; quantity: string; overtime: string; reason: string };
 
 const STATUS_META: Record<string, { label: string; bg: string; fg: string }> = {
   open: { label: "Brouillon", bg: "bg-[#F1F5F9]", fg: "text-[#475569]" },
   submitted: { label: "À constater", bg: "bg-[#FFFBEB]", fg: "text-[#92400E]" },
+  verified: { label: "Vérifié — à valider", bg: "bg-[#EFF6FF]", fg: "text-[#1D4ED8]" },
   approved: { label: "Validé", bg: "bg-[#E6F4EE]", fg: "text-[#00623A]" },
   rejected: { label: "Refusé", bg: "bg-[#FEF2F2]", fg: "text-[#B91C1C]" },
   disputed: { label: "Contesté", bg: "bg-[#FEF2F2]", fg: "text-[#B91C1C]" },
@@ -79,6 +89,11 @@ const DECISION_ERRORS: Record<string, string> = {
   nothing_disputed: "Vous reconnaissez la totalité : utilisez « Constater ».",
   attendance_not_submitted: "Ce relevé a déjà été traité — la liste vient d'être mise à jour.",
   invalid_quantity: "Indiquez une quantité supérieure à zéro.",
+  verification_required: "Ce relevé doit d'abord être vérifié par le responsable de chantier.",
+  verification_only: "Le responsable de chantier vérifie et transmet ; la validation définitive revient au client.",
+  site_manager_only: "En mode OPR, c'est le responsable de chantier qui vérifie les relevés.",
+  partial_validation_not_allowed:
+    "Ce contrat impose la validation totale : constatez le relevé en entier, refusez-le avec un motif, ou contestez-en une partie.",
 };
 
 const CLOSE_ERRORS: Record<string, string> = {
@@ -107,6 +122,9 @@ function periodLabel(item: Item, unit: RateUnit): string {
   const end = new Date(item.periodEnd);
   const fmt = (d: Date, opts: Intl.DateTimeFormatOptions) => d.toLocaleDateString("fr-FR", { timeZone: "UTC", ...opts });
   if (unit === "month") return fmt(start, { month: "long", year: "numeric" });
+  // Une semaine ISO se lit par son lundi : « semaine du 6 janv. » est plus parlant que ses
+  // deux bornes, et c'est ainsi qu'elle a été saisie.
+  if (unit === "week") return `semaine du ${fmt(start, { day: "numeric", month: "short" })}`;
   const sameDay = dateISO(start) === dateISO(end);
   return sameDay ? fmt(start, {}) : `${fmt(start, { day: "numeric", month: "short" })} → ${fmt(end, { day: "numeric", month: "short" })}`;
 }
@@ -142,20 +160,11 @@ export function AttendancePanel({
   const [decision, setDecision] = useState<Decision | null>(null);
   const [confirmClose, setConfirmClose] = useState(false);
 
-  // Désignation du responsable de chantier (client seulement)
-  const [manager, setManager] = useState<{ id: string; name: string } | null>(null);
-  const [managerInput, setManagerInput] = useState("");
-
   const load = useCallback(() => {
     fetchDedupe(`/api/missions/${missionId}/attendance`)
       .then((r) => (r.ok ? r.json() : null))
       .then(setData)
       .catch(() => setData(null));
-    // Réservé au client : la route répond 404 aux autres, qui n'auront simplement pas le bloc.
-    fetchDedupe(`/api/missions/${missionId}/site-manager`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((b) => setManager(b?.siteManager ?? null))
-      .catch(() => setManager(null));
   }, [missionId]);
 
   useEffect(load, [load]);
@@ -198,10 +207,14 @@ export function AttendancePanel({
       periodStart = dayPeriod(new Date(`${from}T00:00:00.000Z`)).periodStart;
       periodEnd = dayPeriod(new Date(`${to}T00:00:00.000Z`)).periodEnd;
     } else {
-      ({ periodStart, periodEnd } = dayPeriod(new Date(`${from}T00:00:00.000Z`)));
+      // Le pointage hebdomadaire se déclare par n'importe quel jour de la semaine visée :
+      // `weekPeriod` en normalise les bornes au lundi/dimanche ISO.
+      ({ periodStart, periodEnd } = unit === "week"
+        ? weekPeriod(new Date(`${from}T00:00:00.000Z`))
+        : dayPeriod(new Date(`${from}T00:00:00.000Z`)));
     }
 
-    const declared = quantite ? Number(quantite) : unit === "day" ? joursDansPlage : unit === "month" ? 1 : NaN;
+    const declared = quantite ? Number(quantite) : unit === "day" ? joursDansPlage : unit === "month" || unit === "week" ? 1 : NaN;
     setBusy("submit");
     const res = await fetch(`/api/missions/${missionId}/attendance`, {
       method: "POST",
@@ -227,36 +240,13 @@ export function AttendancePanel({
     refreshAfterChange();
   }
 
-  async function designer(identifier: string | null) {
-    setError(null);
-    setBusy("manager");
-    const res = await fetch(`/api/missions/${missionId}/site-manager`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ identifier: identifier === null ? null : identifier.trim() }),
-    });
-    const body = await res.json().catch(() => ({}));
-    setBusy(null);
-    if (!res.ok) {
-      setError(
-        body.error === "user_not_found"
-          ? "Aucun compte actif ne correspond à cet identifiant."
-          : body.error === "not_a_site_manager"
-            ? "Ce compte n'est pas un compte « responsable chantier ». La personne doit s'inscrire avec ce profil."
-            : body.error === "invalid_site_manager"
-              ? "Le prestataire de la mission ne peut pas constater ses propres heures."
-              : "La désignation n'a pas pu être enregistrée."
-      );
-      return;
-    }
-    setManager(body.siteManager ?? null);
-    setManagerInput("");
-  }
-
   function ouvrirDecision(item: Item, kind: DecisionKind) {
     setError(null);
     setNotice(null);
-    setDecision({ id: item.id, kind, quantity: String(item.declaredQuantity), overtime: "", reason: "" });
+    // En OPR, le client décide sur la quantité VÉRIFIÉE par le responsable, pas sur la déclaration.
+    const base = data?.validationMode === "opr" && kind !== "verify" ? (item.verifiedQuantity ?? item.declaredQuantity) : item.declaredQuantity;
+    const overtime = data?.validationMode === "opr" && kind === "approve" ? String(item.verifiedOvertimeQuantity || "") : "";
+    setDecision({ id: item.id, kind, quantity: String(base), overtime, reason: "" });
   }
 
   async function confirmerDecision(item: Item) {
@@ -268,7 +258,9 @@ export function AttendancePanel({
         ? { action: "reject", reason: decision.reason.trim() }
         : decision.kind === "dispute"
           ? { action: "dispute", approvedQuantity: quantity, reason: decision.reason.trim() }
-          : { approvedQuantity: quantity, overtimeQuantity: Number(decision.overtime) || 0 };
+          : decision.kind === "verify"
+            ? { action: "verify", verifiedQuantity: quantity, overtimeQuantity: Number(decision.overtime) || 0 }
+            : { approvedQuantity: quantity, overtimeQuantity: Number(decision.overtime) || 0 };
 
     setBusy(item.id);
     const res = await fetch(`/api/missions/${missionId}/attendance/${item.id}`, {
@@ -304,7 +296,9 @@ export function AttendancePanel({
     setNotice(
       decision.kind === "reject"
         ? "Relevé refusé — le prestataire peut le corriger et le redéclarer."
-        : decision.kind === "dispute"
+        : decision.kind === "verify"
+          ? "Relevé vérifié et transmis au client pour validation définitive."
+          : decision.kind === "dispute"
           ? "Part reconnue libérée, part contestée gelée au séquestre en attendant l'arbitrage."
           : "Présence constatée — le versement est parti vers le prestataire."
     );
@@ -351,9 +345,21 @@ export function AttendancePanel({
   const { currency: d, terms, role } = data;
   const u = RATE_UNIT_LABEL[terms.rateUnit];
   const estTravailleur = role === "worker";
-  const peutValider = role === "client" || role === "site_manager";
-  const enAttente = data.items.filter((i) => i.status === "submitted" || i.status === "disputed");
+  const opr = data.validationMode === "opr";
+  // Décisions DÉFINITIVES (valider, contester, arbitrer) : le client seul. En OPR, sur un relevé
+  // vérifié ; sinon, sur un relevé soumis.
+  const peutValider = role === "client";
+  const statutDecidable = opr ? "verified" : "submitted";
+  // Vérification : le responsable désigné, en OPR seulement, sur un relevé soumis.
+  const peutVerifier = opr && role === "site_manager";
+  const enAttente = data.items.filter((i) =>
+    peutVerifier ? i.status === "submitted" : i.status === statutDecidable || i.status === "disputed"
+  );
   const actif = !data.closed && !data.suspended;
+  const regle: AttendanceValidation = terms.attendanceValidation ?? "partielle";
+  // En validation totale, « Constater » porte sur la quantité déclarée entière : le champ est
+  // figé. La contestation garde sa « part reconnue » modifiable — c'est sa raison d'être.
+  const quantiteFigee = regle === "totale";
 
   return (
     <div className={`bg-white border border-[#E2E8F0] rounded-xl p-4 lg:p-5 ${className}`}>
@@ -363,6 +369,11 @@ export function AttendancePanel({
           {terms.rate.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} {d} / {u.per}
         </span>
       </div>
+      {/* Mode de pointage du contrat — rappelé aux deux côtés : le prestataire sait comment ses
+          relevés seront traités, le validateur sait ce qu'il a le droit de faire. */}
+      <p className="mb-3 text-[11.5px] text-[#64748B]" title={ATTENDANCE_VALIDATION_LABEL[regle].definition}>
+        Mode de pointage : <strong className="text-[#0f172a]">{ATTENDANCE_VALIDATION_LABEL[regle].label}</strong>
+      </p>
 
       {data.closed ? (
         <div className="mb-3 rounded-xl border border-[#E2E8F0] bg-[#F8FAF9] p-3 text-[12.5px] text-[#475569] leading-relaxed">
@@ -416,51 +427,15 @@ export function AttendancePanel({
         </div>
       )}
 
-      {/* Délégation du constat — contrat par contrat, et révocable. */}
-      {role === "client" && actif && (
-        <div className="mt-3 rounded-xl border border-[#E2E8F0] p-3">
-          <div className="flex items-center justify-between gap-2 flex-wrap">
-            <span className="text-[12.5px] text-[#64748B]">
-              Responsable de chantier : <strong className="text-[#0f172a]">{manager ? manager.name : "vous-même"}</strong>
-            </span>
-            {manager && (
-              <button
-                onClick={() => designer(null)}
-                disabled={busy === "manager"}
-                className="h-8 px-3 rounded-lg border border-[#E2E8F0] bg-white text-[11.5px] font-medium hover:bg-[#F8FAF9] disabled:opacity-50"
-              >
-                Retirer
-              </button>
-            )}
-          </div>
-          {!manager && (
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                designer(managerInput);
-              }}
-              className="flex gap-2 mt-2"
-            >
-              <input
-                id="attendance-manager"
-                type="text"
-                value={managerInput}
-                onChange={(e) => setManagerInput(e.target.value)}
-                placeholder="E-mail ou téléphone du responsable"
-                className={`flex-1 ${inputCls}`}
-              />
-              <button
-                type="submit"
-                disabled={busy === "manager" || !managerInput.trim()}
-                className="h-9 px-3 rounded-lg border border-[#E2E8F0] bg-white text-[12.5px] font-medium hover:bg-[#F8FAF9] disabled:opacity-50"
-              >
-                Désigner
-              </button>
-            </form>
-          )}
+      {/* Responsable de chantier — seulement en mode OPR. Sa désignation se fait dans la carte
+          commune « Responsable chantier » (SiteManagerCard) ; ici, seulement l'alerte s'il manque :
+          en OPR strict, rien ne se valide sans sa vérification. */}
+      {role === "client" && actif && opr && !data.siteManagerDesignated && (
+        <div className="mt-3 rounded-xl border border-[#FDE68A] bg-[#FFFBEB] p-3 text-[12.5px] text-[#92400E] leading-relaxed">
+          <strong>Aucun responsable de chantier désigné.</strong> En vérification OPR, les relevés doivent être
+          vérifiés par lui avant que vous puissiez les valider. Désignez-le dans la carte « Responsable chantier ».
         </div>
       )}
-
       {estTravailleur && actif && (
         <form onSubmit={declarer} className="mt-3 grid grid-cols-2 sm:grid-cols-[1fr_1fr_1fr_auto] items-end gap-2">
           {terms.rateUnit === "month" ? (
@@ -530,9 +505,10 @@ export function AttendancePanel({
         </form>
       )}
 
-      {peutValider && enAttente.length > 0 && (
+      {(peutValider || peutVerifier) && enAttente.length > 0 && (
         <p className="mt-3 text-[12px] font-semibold text-[#92400E]">
-          {enAttente.length} relevé{enAttente.length > 1 ? "s" : ""} en attente de décision
+          {enAttente.length} relevé{enAttente.length > 1 ? "s" : ""}{" "}
+          {peutVerifier ? "à vérifier" : "en attente de votre décision"}
         </p>
       )}
 
@@ -547,8 +523,19 @@ export function AttendancePanel({
           const valide = item.status === "approved";
           const ouverte = decision?.id === item.id ? decision : null;
           const previewQty = ouverte ? Number(ouverte.quantity) || 0 : 0;
+          // Base de la décision : la quantité vérifiée en OPR (côté client), déclarée sinon.
+          const baseQuantite = opr && ouverte?.kind !== "verify" ? (item.verifiedQuantity ?? item.declaredQuantity) : item.declaredQuantity;
+          // Champ figé : validation définitive en OPR (quantité vérifiée), ou mode de pointage
+          // « totale » (quantité déclarée entière) pour qui constate ou vérifie.
+          const champFige =
+            !!ouverte &&
+            ((ouverte.kind === "approve" && (opr || quantiteFigee)) || (ouverte.kind === "verify" && quantiteFigee));
+          const motifFige =
+            ouverte?.kind === "approve" && opr
+              ? "Vous validez la quantité vérifiée par le responsable de chantier. Pour en reconnaître moins, contestez."
+              : ATTENDANCE_VALIDATION_LABEL.totale.definition;
           const preview = ouverte && ouverte.kind !== "reject"
-            ? attendanceAmount(terms, previewQty, Number(ouverte.overtime) || 0)
+            ? attendanceAmount(terms, champFige ? baseQuantite : previewQty, Number(ouverte.overtime) || 0)
             : 0;
           return (
             <div key={item.id} className="px-3.5 py-2.5">
@@ -560,8 +547,11 @@ export function AttendancePanel({
                   </div>
                   <div className="text-[11.5px] text-[#64748B] mt-0.5">
                     Déclaré : {unite(item.declaredQuantity, terms.rateUnit)}
-                    {(valide || item.status === "disputed") && item.approvedQuantity !== null && item.approvedQuantity !== item.declaredQuantity && (
-                      <> · constaté : {unite(item.approvedQuantity, terms.rateUnit)}</>
+                    {opr && item.verifiedQuantity != null && (
+                      <> · vérifié : {unite(item.verifiedQuantity, terms.rateUnit)}</>
+                    )}
+                    {(valide || item.status === "disputed") && item.approvedQuantity !== null && item.approvedQuantity !== (opr ? item.verifiedQuantity : item.declaredQuantity) && (
+                      <> · validé : {unite(item.approvedQuantity, terms.rateUnit)}</>
                     )}
                     {item.rejectionReason && <> · motif : {item.rejectionReason}</>}
                   </div>
@@ -575,13 +565,35 @@ export function AttendancePanel({
                 </div>
               </div>
 
-              {peutValider && item.status === "submitted" && !ouverte && (
+              {/* OPR : le client voit le relevé, mais attend la vérification du responsable. */}
+              {peutValider && opr && item.status === "submitted" && (
+                <p className="mt-1.5 text-[11.5px] text-[#64748B]">En attente de vérification par le responsable de chantier.</p>
+              )}
+
+              {peutVerifier && item.status === "submitted" && !ouverte && (
+                <div className="flex gap-2 mt-2">
+                  <button
+                    onClick={() => ouvrirDecision(item, "verify")}
+                    className="flex-1 h-9 rounded-lg bg-[#0f172a] text-white text-[12.5px] font-semibold hover:bg-black transition-colors"
+                  >
+                    Vérifier et transmettre
+                  </button>
+                  <button
+                    onClick={() => ouvrirDecision(item, "reject")}
+                    className="h-9 px-3.5 rounded-lg border border-[#E2E8F0] bg-white text-[12.5px] font-medium hover:bg-[#F8FAF9]"
+                  >
+                    Refuser
+                  </button>
+                </div>
+              )}
+
+              {peutValider && item.status === statutDecidable && !ouverte && (
                 <div className="flex gap-2 mt-2">
                   <button
                     onClick={() => ouvrirDecision(item, "approve")}
                     className="flex-1 h-9 rounded-lg bg-[#008751] text-white text-[12.5px] font-semibold hover:bg-[#007a49] transition-colors"
                   >
-                    Constater
+                    {opr ? "Valider définitivement" : "Constater"}
                   </button>
                   <button
                     onClick={() => ouvrirDecision(item, "dispute")}
@@ -611,21 +623,23 @@ export function AttendancePanel({
                     <div className="grid grid-cols-2 gap-2">
                       <label>
                         <span className="block text-[11px] text-[#64748B] mb-1">
-                          {ouverte.kind === "dispute" ? "Part reconnue" : "Quantité constatée"} ({u.many})
+                          {ouverte.kind === "dispute" ? "Part reconnue" : ouverte.kind === "verify" || opr ? "Quantité vérifiée" : "Quantité constatée"} ({u.many})
                         </span>
                         <input
                           id={`decision-qty-${item.id}`}
                           type="number"
                           step="0.25"
                           min="0"
-                          max={item.declaredQuantity}
-                          value={ouverte.quantity}
+                          max={baseQuantite}
+                          value={champFige ? String(baseQuantite) : ouverte.quantity}
                           onChange={(e) => setDecision({ ...ouverte, quantity: e.target.value })}
-                          className={inputCls}
+                          readOnly={champFige}
+                          title={champFige ? motifFige : undefined}
+                          className={`${inputCls} ${champFige ? "bg-[#F1F5F9] text-[#64748B]" : ""}`}
                           autoFocus
                         />
                       </label>
-                      {ouverte.kind === "approve" && terms.overtimeAllowed && (
+                      {(ouverte.kind === "verify" || (ouverte.kind === "approve" && !opr)) && terms.overtimeAllowed && (
                         <label>
                           <span className="block text-[11px] text-[#64748B] mb-1">Dont heures sup.</span>
                           <input
@@ -661,9 +675,11 @@ export function AttendancePanel({
                   <p className="text-[11.5px] text-[#475569] tabular-nums">
                     {ouverte.kind === "reject"
                       ? "Rien ne sera versé ; le prestataire pourra corriger et redéclarer cette période."
-                      : ouverte.kind === "dispute"
-                        ? `${preview.toLocaleString("fr-FR")} ${d} libérés, ${attendanceAmount(terms, Math.max(0, item.declaredQuantity - previewQty)).toLocaleString("fr-FR")} ${d} gelés en attendant l'arbitrage.`
-                        : `${preview.toLocaleString("fr-FR")} ${d} seront libérés au prestataire.`}
+                      : ouverte.kind === "verify"
+                        ? `Aucun versement : le relevé (${preview.toLocaleString("fr-FR")} ${d}) est transmis au client, qui le validera définitivement.`
+                        : ouverte.kind === "dispute"
+                          ? `${preview.toLocaleString("fr-FR")} ${d} libérés, ${attendanceAmount(terms, Math.max(0, baseQuantite - previewQty)).toLocaleString("fr-FR")} ${d} gelés en attendant l'arbitrage.`
+                          : `${preview.toLocaleString("fr-FR")} ${d} seront libérés au prestataire.`}
                   </p>
                   <div className="flex gap-2">
                     <button
@@ -679,7 +695,11 @@ export function AttendancePanel({
                           ? "Refuser le relevé"
                           : ouverte.kind === "dispute"
                             ? "Contester"
-                            : "Constater et libérer"}
+                            : ouverte.kind === "verify"
+                              ? "Transmettre au client"
+                              : opr
+                                ? "Valider définitivement et libérer"
+                                : "Constater et libérer"}
                     </button>
                     <button
                       type="button"
@@ -697,7 +717,7 @@ export function AttendancePanel({
                 <div className="mt-2 rounded-lg border border-[#FDE68A] bg-[#FFFBEB] p-2.5">
                   <p className="text-[12px] text-[#92400E] leading-relaxed">
                     <strong>Part contestée gelée au séquestre.</strong>{" "}
-                    {unite(item.declaredQuantity - (item.approvedQuantity ?? 0), terms.rateUnit)} en attente d&apos;arbitrage —
+                    {unite((opr ? (item.verifiedQuantity ?? 0) : item.declaredQuantity) - (item.approvedQuantity ?? 0), terms.rateUnit)} en attente d&apos;arbitrage —
                     ces fonds ne sont ni versés, ni rendus.
                   </p>
                   {peutValider && (

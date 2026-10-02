@@ -58,3 +58,52 @@ describe("montants engageants — entiers exigés", () => {
     ).toBe(false);
   });
 });
+
+// ── Bornes et devise de la mission (2026-09-23) ───────────────────────────────────────────
+// Trois règles vivaient sans se concerter : le `maxLength` du formulaire, les contrôles
+// JavaScript du wizard, et ce schéma. La borne HAUTE manquait complètement côté serveur — un
+// POST direct pouvait stocker un titre de taille arbitraire — et plusieurs bornes hautes
+// tombaient au-delà du plafond d'un INTEGER Postgres : l'insertion levait alors un 500 là où
+// un 400 était dû. Ces tests fixent ce que le schéma peut garantir seul. La barre de
+// PUBLICATION (10 et 50 caractères) est vérifiée par la route, car ce schéma valide aussi les
+// brouillons — voir src/lib/mission-limits.ts.
+describe("missionSchema — bornes de saisie", () => {
+  it("accepte les quatre devises du catalogue", () => {
+    for (const currency of ["XOF", "NGN", "EUR", "USD"]) {
+      expect(missionSchema.safeParse({ ...mission, currency }).success).toBe(true);
+    }
+  });
+
+  it("refuse une devise hors catalogue", () => {
+    // `Mission.currency` est une colonne `String`, sans contrainte pour rattraper l'erreur.
+    expect(missionSchema.safeParse({ ...mission, currency: "GBP" }).success).toBe(false);
+  });
+
+  it("refuse un titre plus long que le champ qui le saisit", () => {
+    expect(missionSchema.safeParse({ ...mission, titre: "a".repeat(100) }).success).toBe(true);
+    expect(missionSchema.safeParse({ ...mission, titre: "a".repeat(101) }).success).toBe(false);
+  });
+
+  it("refuse une description plus longue que le champ qui la saisit", () => {
+    expect(missionSchema.safeParse({ ...mission, description: "a".repeat(2000) }).success).toBe(true);
+    expect(missionSchema.safeParse({ ...mission, description: "a".repeat(2001) }).success).toBe(false);
+  });
+
+  it("refuse un délai au-delà du plafond d'un INTEGER Postgres", () => {
+    expect(missionSchema.safeParse({ ...mission, delaiJours: 5_000_000_000 }).success).toBe(false);
+    expect(missionSchema.safeParse({ ...mission, delaiJours: 3650 }).success).toBe(true);
+  });
+
+  it("refuse une fourchette de budget au-delà du plafond d'un INTEGER Postgres", () => {
+    expect(missionSchema.safeParse({ ...mission, budgetMin: 5_000_000_000 }).success).toBe(false);
+    expect(missionSchema.safeParse({ ...mission, budgetMax: 5_000_000_000 }).success).toBe(false);
+    expect(missionSchema.safeParse({ ...mission, budgetMin: 900_000, budgetMax: 950_000 }).success).toBe(true);
+  });
+
+  it("garde des minima de brouillon, pas la barre de publication", () => {
+    // Le pendant du durcissement : le schéma valide les BROUILLONS et ne doit donc PAS
+    // réclamer 10 et 50 caractères, sinon un client ne pourrait pas enregistrer « Plomberie »
+    // à la sortie de l'étape 1. La route applique cette barre à la seule publication.
+    expect(missionSchema.safeParse({ ...mission, titre: "abc", description: "Début de saisie." }).success).toBe(true);
+  });
+});

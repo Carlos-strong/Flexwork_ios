@@ -39,7 +39,7 @@ export async function POST(
   // On ne peut activer l'exigence de garant que pour une filière chantier.
   if (parsed.data.garantRequired && !isChantierRole(target.role)) {
     return NextResponse.json(
-      { error: "not_chantier_role", message: "L'exigence de garant ne concerne que les filières chantier (artisan, manœuvre, expert BTP)." },
+      { error: "not_chantier_role", message: "L'exigence de garant ne concerne que les filières chantier (artisan, manœuvre, entreprise)." },
       { status: 400 }
     );
   }

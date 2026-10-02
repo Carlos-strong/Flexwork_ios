@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { canVerify } from "@/lib/validation-mode";
 import { z } from "zod";
 import type { Prisma } from "@prisma/client";
 import { auth } from "@/auth";
@@ -33,8 +34,15 @@ export async function POST(
   const { id: missionId, jalonId, attachmentId } = await params;
 
   const contract = await prisma.prestationContract.findUnique({ where: { missionId }, include: { mission: true } });
-  if (!contract || contract.clientId !== userId) {
+  if (!contract) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+  // Apprécier une preuve est un geste de VÉRIFICATION (2026-10-01) : le client en « Moi-même »,
+  // le responsable de chantier désigné en mode OPR — et lui seul.
+  if (!canVerify(contract, userId)) {
+    return contract.clientId === userId
+      ? NextResponse.json({ error: "site_manager_only" }, { status: 409 })
+      : NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
   const jalon = await prisma.jalon.findUnique({ where: { id: jalonId } });

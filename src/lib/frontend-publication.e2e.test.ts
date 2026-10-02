@@ -14,27 +14,26 @@ vi.mock("@/auth", () => ({ auth: () => mockAuth() }));
 
 import { prisma } from "@/lib/db";
 import { GET as publicConfig } from "@/app/api/frontend/config/route";
-import { GET as publicTaxonomy } from "@/app/api/frontend/taxonomy/route";
 import { POST as publish, GET as listReleases } from "@/app/api/admin/frontend/releases/route";
 import { POST as rollback } from "@/app/api/admin/frontend/releases/[version]/route";
-import { POST as createNode } from "@/app/api/admin/frontend/taxonomy/route";
-import { PATCH as patchNode, DELETE as deleteNode } from "@/app/api/admin/frontend/taxonomy/[kind]/[id]/route";
 import { POST as createMenuItem } from "@/app/api/admin/frontend/menus/route";
+import { PATCH as patchMenuItem } from "@/app/api/admin/frontend/menus/[id]/route";
 import { frontendEtag } from "@/lib/frontend-config";
 
 const RUN = Date.now();
 const EDITOR_EMAIL = `e2e-frontend-editeur-${RUN}@flexwork.test`;
 const KYC_EMAIL = `e2e-frontend-kyc-${RUN}@flexwork.test`;
 const CLIENT_EMAIL = `e2e-frontend-client-${RUN}@flexwork.test`;
-const USED_DOMAIN = `E2E Domaine Occupé ${RUN}`;
-const FREE_DOMAIN = `E2E Domaine Libre ${RUN}`;
+// Sonde du brouillon : une entrée de menu. La taxonomie servait à cet usage jusqu'au
+// 2026-09-22 ; reprise de flexwork_job, elle s'édite désormais en direct et n'a plus de
+// brouillon (voir taxonomy-catalog.e2e.test.ts).
+const PROBE_MENU = "footer_apropos";
+const PROBE_LABEL = `E2E ${RUN} Sonde`;
 
 let editorId = "";
 let kycAdminId = "";
 let clientId = "";
-let missionId = "";
-let usedDomainId = "";
-let freeDomainId = "";
+let probeId = "";
 
 const as = (userId: string | null) => {
   mockAuth.mockResolvedValue(userId ? { user: { id: userId } } : null);
@@ -62,28 +61,11 @@ beforeAll(async () => {
   editorId = editor.id;
   kycAdminId = kycAdmin.id;
   clientId = client.id;
-
-  // Une mission réelle portant le libellé du domaine : c'est elle qui rendra la suppression
-  // destructrice, et donc refusée.
-  const mission = await prisma.mission.create({
-    data: {
-      clientId,
-      titre: `Mission e2e frontend ${RUN}`,
-      description: "Support du garde-fou de suppression de domaine.",
-      domaine: USED_DOMAIN,
-      budget: 100_000,
-      delaiJours: 7,
-      status: "publiee",
-    },
-  });
-  missionId = mission.id;
 });
 
 afterAll(async () => {
   await prisma.frontendRelease.deleteMany({ where: { publishedById: editorId } });
   await prisma.frontendMenuItem.deleteMany({ where: { label: { startsWith: `E2E ${RUN}` } } });
-  await prisma.taxonomyDomain.deleteMany({ where: { name: { in: [USED_DOMAIN, FREE_DOMAIN] } } });
-  await prisma.mission.deleteMany({ where: { id: missionId } });
   await prisma.adminAuditLog.deleteMany({ where: { adminId: { in: [editorId, kycAdminId] } } });
   await prisma.user.deleteMany({ where: { id: { in: [editorId, kycAdminId, clientId] } } });
 });
@@ -93,63 +75,69 @@ async function currentVersion(): Promise<number> {
   return release?.version ?? 0;
 }
 
-async function publicTaxonomyNames(): Promise<string[]> {
-  const res = await publicTaxonomy(new Request("http://localhost"));
+async function publicMenuLabels(): Promise<string[]> {
+  const res = await publicConfig(new Request("http://localhost"));
   const body = await res.json();
-  return (body.data as { name: string }[]).map((d) => d.name);
+  return ((body.menus?.[PROBE_MENU] ?? []) as { label: string }[]).map((m) => m.label);
 }
+
+const patchProbe = (body: unknown) =>
+  patchMenuItem(
+    new Request("http://localhost", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
+    { params: Promise.resolve({ id: probeId }) }
+  );
 
 describe("séparation des pouvoirs", () => {
   it("refuse l'édition à un administrateur d'un autre rôle", async () => {
     as(kycAdminId);
-    const res = await createNode(json({ kind: "domain", name: `E2E refus ${RUN}` }));
+    const res = await createMenuItem(json({ menu: PROBE_MENU, label: `E2E ${RUN} refus`, href: "/faq" }));
     expect(res.status).toBe(403);
   });
 
   it("refuse l'édition à un utilisateur non administrateur", async () => {
     as(clientId);
-    const res = await createNode(json({ kind: "domain", name: `E2E refus ${RUN}` }));
+    const res = await createMenuItem(json({ menu: PROBE_MENU, label: `E2E ${RUN} refus`, href: "/faq" }));
     expect(res.status).toBe(403);
   });
 
   it("refuse l'édition à un visiteur anonyme", async () => {
     as(null);
-    const res = await createNode(json({ kind: "domain", name: `E2E refus ${RUN}` }));
+    const res = await createMenuItem(json({ menu: PROBE_MENU, label: `E2E ${RUN} refus`, href: "/faq" }));
     expect(res.status).toBe(401);
   });
 });
 
 describe("le brouillon ne fuit pas", () => {
-  it("un domaine créé reste invisible du public jusqu'à la publication", async () => {
+  it("une entrée créée reste invisible du public jusqu'à la publication", async () => {
     as(editorId);
 
-    const created = await createNode(json({ kind: "domain", name: FREE_DOMAIN, icon: "🧪" }));
+    const created = await createMenuItem(json({ menu: PROBE_MENU, label: PROBE_LABEL, href: "/faq" }));
     expect(created.status).toBe(201);
-    freeDomainId = (await created.json()).id;
+    probeId = (await created.json()).id;
 
-    // Créé en brouillon : absent de l'API publique, même sans republier.
-    expect(await publicTaxonomyNames()).not.toContain(FREE_DOMAIN);
+    // Créée en brouillon : absente de l'API publique, même sans republier.
+    expect(await publicMenuLabels()).not.toContain(PROBE_LABEL);
 
-    // Passé en publié : TOUJOURS absent — le statut ne suffit pas, il faut publier une version.
+    // Passée en publié : TOUJOURS absente — le statut ne suffit pas, il faut publier une version.
     // C'est la distinction que la console matérialise par sa barre « brouillon en attente ».
-    await patchNode(json({ status: "publie" }), { params: Promise.resolve({ kind: "domain", id: freeDomainId }) });
-    expect(await publicTaxonomyNames()).not.toContain(FREE_DOMAIN);
+    await patchProbe({ status: "publie" });
+    expect(await publicMenuLabels()).not.toContain(PROBE_LABEL);
 
     const before = await currentVersion();
     const released = await publish(json({ note: `Publication e2e ${RUN}` }));
     expect(released.status).toBe(201);
     expect((await released.json()).version).toBe(before + 1);
 
-    expect(await publicTaxonomyNames()).toContain(FREE_DOMAIN);
+    expect(await publicMenuLabels()).toContain(PROBE_LABEL);
   });
 
-  it("dépublier un domaine le retire du public à la publication suivante", async () => {
+  it("dépublier une entrée la retire du public à la publication suivante", async () => {
     as(editorId);
-    await patchNode(json({ status: "desactive" }), { params: Promise.resolve({ kind: "domain", id: freeDomainId }) });
-    expect(await publicTaxonomyNames()).toContain(FREE_DOMAIN);
+    await patchProbe({ status: "desactive" });
+    expect(await publicMenuLabels()).toContain(PROBE_LABEL);
 
     await publish(json({ note: `Retrait e2e ${RUN}` }));
-    expect(await publicTaxonomyNames()).not.toContain(FREE_DOMAIN);
+    expect(await publicMenuLabels()).not.toContain(PROBE_LABEL);
   });
 });
 
@@ -177,7 +165,7 @@ describe("retour arrière", () => {
   it("republie un instantané ancien sous un nouveau numéro, sans effacer la version corrigée", async () => {
     as(editorId);
 
-    // La version où le domaine est visible : l'avant-dernière, avant son retrait.
+    // La version où l'entrée est visible : l'avant-dernière, avant son retrait.
     const target = await prisma.frontendRelease.findFirst({
       where: { note: `Publication e2e ${RUN}` },
       orderBy: { version: "desc" },
@@ -195,7 +183,7 @@ describe("retour arrière", () => {
     expect(body.rolledBackFromVersion).toBe(target!.version);
 
     // Le contenu repris est bien celui de la version choisie…
-    expect(await publicTaxonomyNames()).toContain(FREE_DOMAIN);
+    expect(await publicMenuLabels()).toContain(PROBE_LABEL);
 
     // …et la version corrigée reste consultable.
     as(editorId);
@@ -203,46 +191,6 @@ describe("retour arrière", () => {
     const versions = (await list.json()).releases.map((r: { version: number }) => r.version);
     expect(versions).toContain(before);
     expect(versions).toContain(target!.version);
-  });
-});
-
-describe("garde-fou de suppression d'un domaine", () => {
-  it("refuse la suppression d'un domaine auquel une mission se rattache, et propose l'archivage", async () => {
-    as(editorId);
-    const created = await createNode(json({ kind: "domain", name: USED_DOMAIN }));
-    expect(created.status).toBe(201);
-    usedDomainId = (await created.json()).id;
-
-    const res = await deleteNode(new Request("http://localhost", { method: "DELETE" }), {
-      params: Promise.resolve({ kind: "domain", id: usedDomainId }),
-    });
-    expect(res.status).toBe(409);
-
-    const body = await res.json();
-    expect(body.error).toBe("domain_in_use");
-    expect(body.usage.missions).toBeGreaterThanOrEqual(1);
-    expect(body.remedy).toBe("archive");
-
-    // Le domaine est toujours là : un refus ne doit pas supprimer à moitié.
-    expect(await prisma.taxonomyDomain.count({ where: { id: usedDomainId } })).toBe(1);
-  });
-
-  it("laisse archiver ce qu'il interdit de supprimer", async () => {
-    as(editorId);
-    const res = await patchNode(json({ status: "archive" }), {
-      params: Promise.resolve({ kind: "domain", id: usedDomainId }),
-    });
-    expect(res.status).toBe(200);
-    expect((await res.json()).status).toBe("archive");
-  });
-
-  it("autorise la suppression d'un domaine que rien ne référence", async () => {
-    as(editorId);
-    const res = await deleteNode(new Request("http://localhost", { method: "DELETE" }), {
-      params: Promise.resolve({ kind: "domain", id: freeDomainId }),
-    });
-    expect(res.status).toBe(200);
-    expect(await prisma.taxonomyDomain.count({ where: { id: freeDomainId } })).toBe(0);
   });
 });
 
@@ -278,7 +226,7 @@ describe("journal d'audit", () => {
   it("trace les gestes de l'éditeur", async () => {
     const entries = await prisma.adminAuditLog.findMany({ where: { adminId: editorId } });
     const actions = new Set(entries.map((e) => e.action));
-    expect(actions).toContain("frontend_taxonomy_create");
+    expect(actions).toContain("frontend_menu_create");
     expect(actions).toContain("frontend_publish");
     expect(actions).toContain("frontend_rollback");
     expect(entries.every((e) => e.justification.trim().length > 0)).toBe(true);

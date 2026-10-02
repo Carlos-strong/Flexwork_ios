@@ -17,10 +17,9 @@ type Overview = {
   } | null;
   releaseCount: number;
   counts: {
-    domains: Record<string, number>;
-    domainsTotal: number;
-    specialties: number;
-    competencies: number;
+    categories: number;
+    metiers: number;
+    services: number;
     sections: Record<string, number>;
     sectionsTotal: number;
     sectionItems: number;
@@ -30,8 +29,6 @@ type Overview = {
     pagesKnown: number;
     settings: number;
   };
-  unreferencedDomains: { value: string; count: number }[];
-  unreferencedTotal: number;
 };
 
 // Lien de l'écran de la console qui pilote chaque module actif. Vide = le module est piloté
@@ -79,9 +76,9 @@ export default function FrontendOverviewPage() {
 
   const metrics: { label: string; value: string; detail: string }[] = [
     {
-      label: "Domaines",
-      value: String(data.counts.domainsTotal),
-      detail: `${data.counts.domains.publie ?? 0} publiés · ${data.counts.specialties} spécialités · ${data.counts.competencies} compétences`,
+      label: "Catégories",
+      value: String(data.counts.categories),
+      detail: `${data.counts.metiers} métiers · ${data.counts.services} services`,
     },
     {
       label: "Sections d’accueil",
@@ -105,7 +102,7 @@ export default function FrontendOverviewPage() {
       <AdminPageHeader
         icon="🖼️"
         title="Contenu du site"
-        subtitle="Référentiel métier, sections d’accueil, menus, référencement. Toute modification reste en brouillon jusqu’à une publication, qui fige une version et devient ce que sert /api/frontend/config."
+        subtitle="Sections d’accueil, menus, référencement. Toute modification reste en brouillon jusqu’à une publication, qui fige une version et devient ce que sert /api/frontend/config. La taxonomie, elle, s’édite en direct."
         readOnly={readOnly}
       />
       <PublishBar revision={revision} onPublished={load} />
@@ -119,32 +116,6 @@ export default function FrontendOverviewPage() {
           </div>
         ))}
       </div>
-
-      {data.unreferencedTotal > 0 && (
-        <div className="bg-white border border-[#E2E0D9] rounded-xl p-4">
-          <div className="flex items-baseline justify-between gap-3 flex-wrap">
-            <p className="text-[13px] font-bold">
-              {data.unreferencedTotal} libellé{data.unreferencedTotal > 1 ? "s" : ""} de domaine hors
-              référentiel
-            </p>
-            <Link href="/backoffice/catalog" className="text-[12px] font-bold text-[#2D5BE3] hover:underline">
-              Compléter le référentiel →
-            </Link>
-          </div>
-          <p className="mt-1 text-[12px] text-[#5A5750] max-w-3xl">
-            Ces libellés ont été saisis par des utilisateurs sur des missions, des prestations ou des
-            profils, et aucune entrée du référentiel ne les décrit. C’est la mesure la plus fiable de
-            sa couverture : elle regarde les données plutôt que le nombre d’entrées créées.
-          </p>
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            {data.unreferencedDomains.map((d) => (
-              <span key={d.value} className="text-[11px] px-2 py-1 rounded-lg bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A]">
-                {d.value} <span className="opacity-70">· {d.count}</span>
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
 
       <section>
         <h2 className="text-[14px] font-bold mb-2">Modules actifs — {active.length}</h2>

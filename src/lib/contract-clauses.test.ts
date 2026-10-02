@@ -202,3 +202,32 @@ describe("Article 4 — retenue de garantie (mode J4)", () => {
     expect(paragraphs.some((p) => p.includes("Retenue de garantie"))).toBe(false);
   });
 });
+
+// ── Article 4 — vérification OPR et mode de pointage (2026-10-01) ─────────────────────────
+describe("Article 4 — vérification et pointage", () => {
+  const article4 = (snapshot: ContractSnapshot) =>
+    buildContractSections(snapshot).find((s) => s.title.startsWith("Article 4 "))!.paragraphs.join(" ");
+
+  it("V-P06 — en OPR, l'article 4 décrit le responsable qui vérifie et le client qui valide", () => {
+    const texte = article4({ ...base, validationMode: "opr" });
+    expect(texte).toContain("Vérification par un responsable de chantier (OPR)");
+    expect(texte).toContain("qui prononce seul la validation définitive déclenchant le paiement");
+  });
+
+  it("V-P06 — en « Moi-même », aucune mention d'un responsable", () => {
+    expect(article4({ ...base, validationMode: "client" })).not.toContain("responsable de chantier (OPR)");
+  });
+
+  const temps = { rateUnit: "day" as const, rate: 7_500, maxQuantity: 20, maxAmount: 150_000 };
+
+  it("T-V31 — pointage « totale » : validation en totalité, aucune validation partielle sans contestation", () => {
+    const texte = article4({ ...base, conditionsTemps: { ...temps, attendanceValidation: "totale" } });
+    expect(texte).toContain("le valide en totalité");
+    expect(texte).toContain("Aucune validation partielle sans contestation n'est admise");
+  });
+
+  it("T-V32 — pointage « partielle » (et contrats antérieurs sans le champ) : validation en tout ou partie", () => {
+    expect(article4({ ...base, conditionsTemps: { ...temps, attendanceValidation: "partielle" } })).toContain("le valide en tout ou partie");
+    expect(article4({ ...base, conditionsTemps: temps })).toContain("le valide en tout ou partie");
+  });
+});

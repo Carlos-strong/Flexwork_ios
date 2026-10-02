@@ -32,7 +32,10 @@ type Method = "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
 
 /** Rôles acceptés par la garde d'une méthode, lus dans le source. `"*"` = `requireAdmin()` seul. */
 function guardOf(route: string, method: Method): AdminRole[] | "*" | null {
-  const source = readFileSync(path.join(APP, "api/admin", route, "route.ts"), "utf8");
+  // Une route qui commence par « / » est relative à src/app/api (routes reprises de
+  // flexwork_job hors de /api/admin : /api/categories, /api/services).
+  const dir = route.startsWith("/") ? path.join(APP, "api", route) : path.join(APP, "api/admin", route);
+  const source = readFileSync(path.join(dir, "route.ts"), "utf8");
   const start = source.search(new RegExp(`export async function ${method}\\b`));
   if (start < 0) return null;
   const rest = source.slice(start + 1);
@@ -146,17 +149,31 @@ const CONTRACT: {
   { module: "finance", reads: [{ route: "finance", method: "GET" }] },
   {
     module: "localisation",
-    reads: [
-      { route: "domain-risk", method: "GET" },
-      { route: "country-age-requirements", method: "GET" },
-    ],
-    acts: [
-      { route: "domain-risk", method: "POST" },
-      { route: "country-age-requirements", method: "POST" },
-    ],
+    // Les paliers de risque ont quitté cette rubrique le 2026-09-24 : ils sont portés par le
+    // MÉTIER (`Metier.riskLevel`) et se règlent donc dans « Taxonomie », dont les écritures
+    // `/api/categories` sont déjà gardées et vérifiées ci-dessous. La route
+    // `/api/admin/domain-risk` n'existe plus — la laisser ici ne testerait plus rien.
+    reads: [{ route: "country-age-requirements", method: "GET" }],
+    acts: [{ route: "country-age-requirements", method: "POST" }],
   },
   { module: "parametres", sub: "parametres-filieres", reads: [{ route: "feature-flags", method: "GET" }], acts: [{ route: "feature-flags", method: "POST" }] },
-  { module: "taxonomie", reads: [{ route: "frontend/taxonomy", method: "GET" }], acts: [{ route: "frontend/taxonomy", method: "POST" }] },
+  // Lecture publique, comme dans flexwork_job (le catalogue sert aux formulaires publics) :
+  // seules les écritures sont gardées.
+  //
+  // `POST`/`PUT` /api/categories portent aussi le PALIER DE RISQUE du métier depuis le
+  // 2026-09-24 : c'est bien le rôle `frontend` qui le fixe, et la garde vérifiée ici est celle
+  // qui protège cette décision.
+  {
+    module: "taxonomie",
+    acts: [
+      { route: "/categories", method: "POST" },
+      { route: "/categories", method: "PUT" },
+      { route: "/categories", method: "DELETE" },
+      { route: "/services", method: "POST" },
+      { route: "/services", method: "PUT" },
+      { route: "/services", method: "DELETE" },
+    ],
+  },
   { module: "roles", reads: [{ route: "roles", method: "GET" }] },
   { module: "audit", reads: [{ route: "audit", method: "GET" }] },
   { module: "reporting", reads: [{ route: "reporting/[dataset]", method: "GET" }] },

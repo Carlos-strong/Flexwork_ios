@@ -47,7 +47,9 @@ export function FinancingModeNotice({
         ))}
       </ul>
       <p className="text-[11px] text-[#64748B] mt-2">
-        Choisi par le client à la publication — il sera figé dans le contrat, sans modification possible ensuite.
+        {mode.family === "temps"
+          ? "Fixé par la mission (tarif au temps) — il sera figé dans le contrat, sans modification possible ensuite."
+          : "Proposé dans le devis, accepté par le client avec lui — il sera figé dans le contrat, sans modification possible ensuite."}
       </p>
     </div>
   );

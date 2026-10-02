@@ -79,6 +79,10 @@ export function SignatureQRCode({
     <div className="flex flex-col items-center gap-2">
       {/* QR Code */}
       <div className="bg-white p-2 rounded-lg border border-gray-200 shadow-sm">
+        {/* `qrDataUrl` est une data URL générée dans le navigateur : il n'y a aucun fichier à
+            optimiser, et next/image ne sait pas charger un `data:` — le passer à l'optimiseur
+            produirait une erreur au lieu d'une image. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={qrDataUrl}
           alt="QR Code de signature"

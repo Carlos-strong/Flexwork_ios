@@ -3,73 +3,38 @@
 import { useEffect, useState } from "react";
 import { AdminPageHeader } from "@/components/admin/admin-ui";
 
-type RiskEntry = { id: string; domain: string; country: string; riskLevel: string; insuranceRequired: boolean; amountThreshold: number | null };
 type AgeEntry = { id: string; country: string; profileType: string; domain: string | null; minimumAge: number };
-
-const RISK_BADGE: Record<string, string> = {
-  low: "bg-[#DCFCE7] text-[#166534]",
-  medium: "bg-[#FEF3C7] text-[#D97706]",
-  high: "bg-[#FEE2E2] text-[#B91C1C]",
-};
 
 const inputClass = "w-full h-10 px-3 rounded-lg border border-[#E2E0D9] text-[13px] bg-white focus:outline-none focus:ring-2 focus:ring-[#2D5BE3]/20 focus:border-[#2D5BE3]";
 
-// Gestion des paliers de risque + seuils d'âge — aligné sur
-// formulaires-flexwork-tous-profils.html, onglet Administration.
-// Style harmonisé (2026-08-29) sur le même modèle Tailwind que missions/[id]/devis/
-// page.tsx (palette #1A1916/#E2E0D9/#2D5BE3) — logique et appels API strictement inchangés.
-export default function AdminRiskPage() {
-  const [risks, setRisks] = useState<RiskEntry[]>([]);
+// Seuils d'âge minimum par pays (A13).
+//
+// Cet écran gérait aussi les paliers de risque par domaine — il ne le fait plus (2026-09-24).
+// Le risque était indexé sur un libellé LIBRE et un pays, si bien que sur 220 métiers du
+// catalogue, 4 trouvaient une ligne et les 4 lignes « high » n'en désignaient aucun : le palier
+// élevé n'était jamais atteint, et l'obligation d'assurance qui en dépend ne se déclenchait
+// jamais. Il vit maintenant sur le métier lui-même (Metier.riskLevel), où il ne peut plus être
+// orphelin — saisie dans « Taxonomie », au moment où l'on décrit le métier.
+//
+// Le seuil d'âge, lui, varie réellement d'un pays à l'autre : il reste ici.
+export default function AdminAgeRequirementsPage() {
   const [ages, setAges] = useState<AgeEntry[]>([]);
-  const [riskLevel, setRiskLevel] = useState("low");
   const [feedback, setFeedback] = useState<string | null>(null);
 
-  async function loadRisks() {
-    const res = await fetch("/api/admin/domain-risk");
-    if (res.ok) setRisks((await res.json()).items);
-  }
   async function loadAges() {
     const res = await fetch("/api/admin/country-age-requirements");
     if (res.ok) setAges((await res.json()).items);
   }
 
   useEffect(() => {
-    loadRisks();
     loadAges();
   }, []);
-
-  async function submitRisk(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setFeedback(null);
-    // Capturé avant le await : React remet e.currentTarget à null une fois la phase
-    // synchrone de l'événement terminée — l'appeler après un await levait
-    // "null is not an object" (voir le même correctif sur src/app/profile/page.tsx).
-    const formEl = e.currentTarget;
-    const form = new FormData(formEl);
-    const res = await fetch("/api/admin/domain-risk", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        domain: form.get("domain"),
-        country: form.get("country"),
-        riskLevel: form.get("riskLevel"),
-        amountThreshold: form.get("amountThreshold") ? Number(form.get("amountThreshold")) : undefined,
-        justification: form.get("justification") || undefined,
-      }),
-    });
-    if (res.ok) {
-      setFeedback("Palier enregistré.");
-      loadRisks();
-      formEl.reset();
-    } else {
-      setFeedback("Échec de l'enregistrement.");
-    }
-  }
 
   async function submitAge(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setFeedback(null);
-    // Idem submitRisk ci-dessus : capturé avant le await.
+    // Capturé AVANT le await : React remet `e.currentTarget` à null une fois la phase synchrone
+    // de l'événement terminée — l'appeler après un await levait "null is not an object".
     const formEl = e.currentTarget;
     const form = new FormData(formEl);
     const res = await fetch("/api/admin/country-age-requirements", {
@@ -99,87 +64,20 @@ export default function AdminRiskPage() {
         <AdminPageHeader
           icon="🌍"
           title="Localisation"
-          subtitle="Réglages par pays : paliers de risque par domaine et âge minimum des filières chantier. Ce projet ne tient pas de référentiel de villes ni de régions — les deux tables ci-dessous sont les seuls réglages qui varient réellement d’un pays à l’autre."
+          subtitle="Réglages par pays : âge minimum des filières chantier. Ce projet ne tient pas de référentiel de villes ni de régions — le seuil d'âge est le seul réglage de cet écran qui varie réellement d'un pays à l'autre."
         />
 
         <div className="rounded-xl border border-[#E2E0D9] bg-white p-3.5 text-[12.5px] text-[#5A5750] leading-relaxed">
-          <strong className="text-[#1A1916]">Exception assumée du modèle.</strong> Sur le risque élevé, l&apos;assurance effective est bloquante
-          sans fenêtre de tolérance. <code className="px-1 py-0.5 rounded bg-[#F4F3EF] text-[12px]">insurance_required</code> est automatiquement <code className="px-1 py-0.5 rounded bg-[#F4F3EF] text-[12px]">true</code> pour
-          <code className="px-1 py-0.5 rounded bg-[#F4F3EF] text-[12px]"> risk_level = HIGH</code> — non configurable à <code className="px-1 py-0.5 rounded bg-[#F4F3EF] text-[12px]">false</code>.
+          <strong className="text-[#1A1916]">Les paliers de risque ne sont plus ici.</strong> Ils sont portés par le métier
+          lui-même et se règlent dans <a href="/backoffice/catalog" className="underline">Taxonomie</a>, au moment où l&apos;on décrit
+          le métier. Indexé sur un libellé libre, le risque ne correspondait qu&apos;à 4 métiers sur 220 — et jamais à un palier
+          « élevé », si bien que l&apos;assurance obligatoire ne se déclenchait jamais. Sur le métier, il ne peut plus être
+          orphelin. La règle reste la même :{" "}
+          <code className="px-1 py-0.5 rounded bg-[#F4F3EF] text-[12px]">riskLevel = high</code> entraîne{" "}
+          <code className="px-1 py-0.5 rounded bg-[#F4F3EF] text-[12px]">insurance_required = true</code>, sans dérogation possible.
         </div>
 
         {feedback && <div className="rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] p-3 text-[13px] text-[#1E40AF]">{feedback}</div>}
-
-        <div className="bg-white border border-[#E2E0D9] rounded-xl overflow-hidden">
-          <div className="p-4 lg:p-5 border-b border-[#E2E0D9]"><h3 className="text-[13px] font-semibold font-mono">domain_risk_levels</h3></div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-[13px]">
-              <thead>
-                <tr className="text-[11px] tracking-widest text-[#5A5750] uppercase bg-[#FAFAF8] border-b border-[#E2E0D9]">
-                  <th className="text-left py-2.5 px-4 lg:px-5 font-semibold">Domaine</th>
-                  <th className="text-left py-2.5 px-3 font-semibold">Pays</th>
-                  <th className="text-left py-2.5 px-3 font-semibold">Palier</th>
-                  <th className="text-left py-2.5 px-3 font-semibold">Assurance obligatoire</th>
-                  <th className="text-left py-2.5 px-4 lg:px-5 font-semibold">Seuil avertissement</th>
-                </tr>
-              </thead>
-              <tbody>
-                {risks.map((r) => (
-                  <tr key={r.id} className="border-b border-[#F4F3EF] last:border-0">
-                    <td className="py-2.5 px-4 lg:px-5 text-[#5A5750]">{r.domain}</td>
-                    <td className="py-2.5 px-3 text-[#5A5750]">{r.country}</td>
-                    <td className="py-2.5 px-3"><span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold ${RISK_BADGE[r.riskLevel]}`}>{r.riskLevel.toUpperCase()}</span></td>
-                    <td className="py-2.5 px-3 text-[#5A5750]">{r.insuranceRequired ? "✓ Oui (bloquant)" : "Non (déclaratif)"}</td>
-                    <td className="py-2.5 px-4 lg:px-5 text-[#5A5750]">{r.amountThreshold ? `${r.amountThreshold.toLocaleString("fr-FR")} XOF` : "—"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div className="bg-white border border-[#E2E0D9] rounded-xl p-4 lg:p-5">
-          <h3 className="text-[13px] font-semibold mb-3">Ajouter / Modifier un domaine</h3>
-          <form onSubmit={submitRisk} className="space-y-3">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-[12px] font-medium text-[#5A5750] mb-1">Domaine</label>
-                <input type="text" name="domain" required placeholder="Nom du domaine" className={inputClass} />
-              </div>
-              <div>
-                <label className="block text-[12px] font-medium text-[#5A5750] mb-1">Pays</label>
-                <select name="country" defaultValue="BJ" className={inputClass}>
-                  <option value="BJ">BJ</option><option value="CI">CI</option><option value="SN">SN</option><option value="TG">TG</option>
-                </select>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-[12px] font-medium text-[#5A5750] mb-1">Palier de risque</label>
-                <select name="riskLevel" value={riskLevel} onChange={(e) => setRiskLevel(e.target.value)} className={inputClass}>
-                  <option value="low">Faible</option>
-                  <option value="medium">Moyen</option>
-                  <option value="high">Élevé</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-[12px] font-medium text-[#5A5750] mb-1">Seuil avertissement (XOF) — Moyen uniquement</label>
-                <input type="number" name="amountThreshold" placeholder="100000" className={inputClass} />
-              </div>
-            </div>
-            <div>
-              <label className="block text-[12px] font-medium text-[#5A5750] mb-1">Justification</label>
-              <input type="text" name="justification" className={inputClass} />
-            </div>
-            {riskLevel === "high" && (
-              <div className="rounded-xl border border-[#FDE68A] bg-[#FFFBEB] p-3 text-[12.5px] text-[#92400E]">
-                Palier HIGH : <code className="px-1 py-0.5 rounded bg-white/60 text-[12px]">insurance_required</code> sera automatiquement fixé à <code className="px-1 py-0.5 rounded bg-white/60 text-[12px]">true</code> et
-                verrouillé. Aucune dérogation possible.
-              </div>
-            )}
-            <button type="submit" className="h-10 px-5 rounded-lg bg-[#2D5BE3] text-white text-[13px] font-semibold hover:bg-[#007a49] transition-colors">Enregistrer</button>
-          </form>
-        </div>
 
         <div id="age" className="bg-white border border-[#E2E0D9] rounded-xl overflow-hidden scroll-mt-6">
           <div className="p-4 lg:p-5 border-b border-[#E2E0D9]"><h3 className="text-[13px] font-semibold font-mono">country_age_requirements (A13)</h3></div>
@@ -222,7 +120,7 @@ export default function AdminRiskPage() {
                 <select name="profileType" defaultValue="manoeuvre" className={inputClass}>
                   <option value="manoeuvre">Manœuvre</option>
                   <option value="artisan">Artisan</option>
-                  <option value="expert_btp_autres">Expert BTP / Autres</option>
+                  <option value="expert_btp_autres">Entreprise</option>
                 </select>
               </div>
             </div>

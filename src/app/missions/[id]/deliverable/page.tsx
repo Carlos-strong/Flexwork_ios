@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
@@ -153,7 +153,7 @@ export default function DeliverablePage() {
   // Jalons séquentiels (règle 18.8/18.9) — sans effet si faux (comportement historique).
   const [jalonsSequential, setJalonsSequential] = useState(false);
   const [mission, setMission] = useState<MissionSummary | null>(null);
-  // Type professionnel de la mission — badge "Expert Digital" de l'en-tête carte (2026-09-04).
+  // Type professionnel de la mission — badge "Prestataire indépendant" de l'en-tête carte (2026-09-04).
   // Propriété de la MISSION (pas du jalon), chargée une fois indépendamment du cas jalon/sans
   // jalon (contrairement à `mission`, qui ne l'est que pour le cas sans jalon).
   const [professionalType, setProfessionalType] = useState<string | null>(null);
@@ -212,11 +212,66 @@ export default function DeliverablePage() {
   // au lieu de renvoyer une réponse. Sans ce garde, la promesse non gérée remontait en
   // « Unhandled Runtime Error / TypeError: Failed to fetch » (overlay Next) au lieu d'un
   // message lisible. Pendant de onNetworkError dans ValidationClientView.
-  function onNetworkError() {
+  const onNetworkError = useCallback(() => {
     setError("Connexion au serveur perdue — vérifiez votre réseau puis réessayez.");
-  }
+  }, []);
 
-  function reload() {
+  // ── Chargeurs mémoïsés ────────────────────────────────────────────────────────────────
+  // Déclarés AVANT `reload`, qui les appelle : une liste de dépendances est évaluée PENDANT le
+  // rendu, donc citer plus bas une `const` non initialisée lèverait « Cannot access
+  // 'loadCheckpoints' before initialization ». Tous ne dépendent que de `missionId` et de
+  // `onNetworkError` (elle-même stable) : leur identité ne bouge plus, et l'effet de montage
+  // cesse d'être relancé par des fonctions recréées à chaque rendu.
+  const loadCheckpoints = useCallback(async () => {
+    try {
+      const res = await fetchDedupe(`/api/missions/${missionId}/checkpoints`);
+      if (res.ok) {
+        const d = await res.json();
+        setCheckpoints(d.items ?? []);
+      }
+    } catch {
+      onNetworkError();
+    }
+  }, [missionId, onNetworkError]);
+
+  const loadRejections = useCallback(async () => {
+    try {
+      const res = await fetchDedupe(`/api/missions/${missionId}/rejections`);
+      if (res.ok) {
+        const d = await res.json();
+        setRejections(d.items ?? []);
+      }
+    } catch {
+      onNetworkError();
+    }
+  }, [missionId, onNetworkError]);
+
+  const loadAttachments = useCallback(async (jalonId: string) => {
+    try {
+      const res = await fetchDedupe(`/api/missions/${missionId}/jalons/${jalonId}/attachments`);
+      if (res.ok) {
+        const d = await res.json();
+        setAttachmentsByJalon((prev) => ({ ...prev, [jalonId]: d.items }));
+      }
+    } catch {
+      onNetworkError();
+    }
+  }, [missionId, onNetworkError]);
+
+  const loadMissionAttachments = useCallback(async () => {
+    try {
+      const res = await fetchDedupe(`/api/missions/${missionId}/deliverable`);
+      if (res.ok) {
+        const d = await res.json();
+        setMissionAttachments(d.items ?? []);
+        setMissionRejectionReason(d.lastRejectionReason ?? null);
+      }
+    } catch {
+      onNetworkError();
+    }
+  }, [missionId, onNetworkError]);
+
+  const reload = useCallback(() => {
     fetchDedupe(`/api/missions/${missionId}/jalons`)
       .then((r) => (r.ok ? r.json() : { items: [] }))
       .then((d) => {
@@ -244,66 +299,23 @@ export default function DeliverablePage() {
       .then((r) => (r.ok ? r.json() : null))
       .then((m) => m && setProfessionalType(m.professionalType ?? null))
       .catch(() => {});
-  }
+  }, [missionId, onNetworkError, loadAttachments, loadMissionAttachments, loadCheckpoints, loadRejections]);
 
-  async function loadCheckpoints() {
-    try {
-      const res = await fetchDedupe(`/api/missions/${missionId}/checkpoints`);
-      if (res.ok) {
-        const d = await res.json();
-        setCheckpoints(d.items ?? []);
-      }
-    } catch {
-      onNetworkError();
-    }
-  }
-
-  async function loadRejections() {
-    try {
-      const res = await fetchDedupe(`/api/missions/${missionId}/rejections`);
-      if (res.ok) {
-        const d = await res.json();
-        setRejections(d.items ?? []);
-      }
-    } catch {
-      onNetworkError();
-    }
-  }
-
-  async function loadAttachments(jalonId: string) {
-    try {
-      const res = await fetchDedupe(`/api/missions/${missionId}/jalons/${jalonId}/attachments`);
-      if (res.ok) {
-        const d = await res.json();
-        setAttachmentsByJalon((prev) => ({ ...prev, [jalonId]: d.items }));
-      }
-    } catch {
-      onNetworkError();
-    }
-  }
-
-  async function loadMissionAttachments() {
-    try {
-      const res = await fetchDedupe(`/api/missions/${missionId}/deliverable`);
-      if (res.ok) {
-        const d = await res.json();
-        setMissionAttachments(d.items ?? []);
-        setMissionRejectionReason(d.lastRejectionReason ?? null);
-      }
-    } catch {
-      onNetworkError();
-    }
-  }
-
-  useEffect(reload, [missionId]);
+  useEffect(() => {
+    reload();
+  }, [reload]);
   // Resynchronisation quand l'onglet reprend le focus : l'autre partie (client sur
   // /missions/[id]) agit dans SON onglet — les choix de progression, le statut et les preuves
   // de CETTE vue reflètent alors l'état réel (2026-09-05).
+  //
+  // `[reload]` et non `[missionId]` : l'effet se réabonne exactement quand la mission change
+  // (c'est la seule dépendance de `reload`), mais la liste dit maintenant ce que l'effet
+  // consomme vraiment — plus besoin de masquer l'avertissement.
   useEffect(() => {
     const onFocus = () => reload();
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
-  }, [missionId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [reload]);
 
   // Resynchronise les points d'étape avant d'ouvrir — le client a pu en confirmer un depuis
   // le dernier chargement de cette page (même logique que ValidationClientView.openVerification).

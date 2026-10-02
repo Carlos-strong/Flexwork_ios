@@ -6,6 +6,7 @@ import { checkCandidatureEligibility } from "@/lib/candidature-guard";
 import { notifyMissionParties } from "@/lib/mission-notify";
 import { assertNoSelfDealing } from "@/lib/invariants";
 import { devisSchema } from "@/lib/validation";
+import { checkDevisPaymentMode, isDevisPaymentModeKey } from "@/lib/financing-modes";
 import {
   ACTIVE_NEGOCIATION_STATUSES,
   EXCLUSIVITY_RELEASING_MISSION_STATUSES,
@@ -93,12 +94,29 @@ export async function POST(
     return NextResponse.json({ error: "active_negotiation_exists" }, { status: 409 });
   }
 
+  // Modèle de paiement (fixe ou par jalons, 2026-10-01) : c'est CE devis qui le fixe. Une
+  // révision qui ne le renvoie pas garde celui du round précédent ; à défaut, le mode publié
+  // sur une mission antérieure à cette règle. Sans aucun des trois, le devis ne dit pas comment
+  // il sera payé — le client accepterait un prix sans savoir quand il le décaisse.
+  const previousModeKey = (existing?.devisData as { financingModeKey?: string } | null)?.financingModeKey;
+  const paymentMode = checkDevisPaymentMode(
+    parsed.data.financingModeKey ?? previousModeKey ?? (isDevisPaymentModeKey(mission.financingModeKey) ? mission.financingModeKey : null),
+    { lineCount: parsed.data.lineItems.length, quoteMode: true }
+  );
+  if (!paymentMode.ok) {
+    return NextResponse.json(
+      { error: paymentMode.error === "payment_mode_invalid" ? "payment_mode_required" : paymentMode.error },
+      { status: 400 }
+    );
+  }
+
   const devis = computeDevisData(
     parsed.data.lineItems,
     parsed.data.delay,
     parsed.data.notes ?? "",
     parsed.data.tvaRate,
-    parsed.data.laborCost
+    parsed.data.laborCost,
+    paymentMode.mode.key
   );
   // Contre-proposition en jours : `delay` est un texte libre (« 30 jours », « 2 semaines »…).
   // On ne le reflète dans delaiPropose que s'il est un entier simple — sinon le contrat
@@ -145,16 +163,19 @@ export async function POST(
   });
 
   // Cloche + e-mail pour les deux parties — un devis soumis est une candidature en mode
-  // QUOTE, il notifie donc comme une candidature (2026-09-09).
+  // QUOTE, il notifie donc comme une candidature (2026-09-09). Le modèle de paiement y figure
+  // (2026-10-01) : le client l'accepte avec le prix, il doit le lire dès la notification.
+  const modele =
+    paymentMode.mode.family === "fixe" ? "prix fixe" : `par jalons (${paymentMode.mode.label})`;
   await notifyMissionParties({
     missionId,
     type: "devis_soumis",
     counterpart: {
       userId: mission.clientId,
-      message: `Devis reçu pour « ${mission.titre} » — ${Math.round(devis.totalTTC).toLocaleString("fr-FR")} ${mission.currency} TTC${newRound > 1 ? ` (révision ${newRound})` : ""}.`,
+      message: `Devis reçu pour « ${mission.titre} » — ${Math.round(devis.totalTTC).toLocaleString("fr-FR")} ${mission.currency} TTC, paiement ${modele}${newRound > 1 ? ` (révision ${newRound})` : ""}.`,
       email: {
         subject: `Devis reçu — ${mission.titre}`,
-        text: `Un prestataire vient de soumettre un devis de ${Math.round(devis.totalTTC).toLocaleString("fr-FR")} ${mission.currency} TTC pour votre mission « ${mission.titre} ». Connectez-vous pour le consulter, l'accepter ou demander une révision.`,
+        text: `Un prestataire vient de soumettre un devis de ${Math.round(devis.totalTTC).toLocaleString("fr-FR")} ${mission.currency} TTC (paiement ${modele}) pour votre mission « ${mission.titre} ». Connectez-vous pour le consulter, l'accepter ou demander une révision.`,
       },
     },
     actor: {

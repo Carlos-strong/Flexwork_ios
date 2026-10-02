@@ -16,6 +16,9 @@ export type DevisDraft = {
   notes: string;
   tvaRate: number;
   laborCost: number;
+  // Modèle de paiement choisi (fixe ou par jalons, 2026-10-01). Optionnel pour relire les
+  // brouillons enregistrés avant.
+  financingModeKey?: string;
   savedAt: string;
 };
 

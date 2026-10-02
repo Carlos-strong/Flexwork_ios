@@ -36,7 +36,7 @@
  * progressions à 0 (escrow/reject/route.ts) — nouveau cycle, même règle que Jalon.reject.
  */
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronUp, BadgeCheck } from "lucide-react";
 import { fetchDedupe } from "@/lib/fetch-dedupe";
@@ -68,6 +68,10 @@ type Mission = {
   contractPrice: number | null; declaredProgress: number; observedProgress: number;
   professionalType: string | null;
   reviewOpenedAt: string | null;
+  // Mode OPR (2026-10-01) : le responsable désigné ouvre aussi cette vue, et transmet ici.
+  isSiteManager?: boolean;
+  verifiedAt?: string | null;
+  verificationNote?: string | null;
 };
 type Jalon = {
   id: string;
@@ -80,6 +84,8 @@ type Jalon = {
   declaredProgress: number;
   observedProgress: number;
   reviewOpenedAt: string | null;
+  verifiedAt?: string | null;
+  verificationNote?: string | null;
 };
 // Forme minimale d'une preuve acceptée par les aperçus (ProofItem/ProofSummaryGrid) : les
 // deux sources la satisfont — le `Attachment` local de cette vue (porte `mimeType`) et le
@@ -136,6 +142,9 @@ type Row = {
   status: string;
   reviewOpenedAt: string | null;
   scope: { kind: "jalon"; jalonId: string } | { kind: "mission" };
+  // Transmission du responsable de chantier (mode OPR) pour le livrable courant.
+  verifiedAt: string | null;
+  verificationNote: string | null;
 };
 
 // Lit "lat,long" (POST .../deliverable, category "geolocation" — coordonnées réelles via
@@ -163,7 +172,19 @@ function sameBatchIds(a: HistoryAttachment[], b: HistoryAttachment[]): boolean {
 // pilotage : quelles preuves sont appréciables (lot courant), quels appels réseau les
 // enregistrent, et la validation finale sur l'en-tête de carte.
 
-export function ValidationClientView({ missionId, onMissionChange }: { missionId: string; onMissionChange?: (mission: Mission) => void }) {
+export function ValidationClientView({
+  missionId,
+  onMissionChange,
+  viewerRole = "client",
+}: {
+  missionId: string;
+  onMissionChange?: (mission: Mission) => void;
+  // Vérification / validation (2026-10-01) : la même vue sert au client et, en mode OPR, au
+  // responsable de chantier désigné — qui apprécie, constate et TRANSMET, sans jamais libérer.
+  viewerRole?: "client" | "site_manager";
+}) {
+  const estResponsable = viewerRole === "site_manager";
+  const [validationMode, setValidationMode] = useState<"client" | "opr">("client");
   const router = useRouter();
   // Identité réelle du client — chargée une fois au niveau racine (UserIdentityProvider).
   const identity = useUserIdentity();
@@ -233,6 +254,7 @@ export function ValidationClientView({ missionId, onMissionChange }: { missionId
         // réelle de 570 000. Le taux vient du contrat, jamais du catalogue de modes — c'est
         // celui sous lequel les deux parties ont signé.
         if (typeof c.retentionRate === "number") setRetentionRate(c.retentionRate);
+        if (c.validationMode === "opr" || c.validationMode === "client") setValidationMode(c.validationMode);
       })
       .catch(() => {});
   }, [missionId]);
@@ -241,55 +263,42 @@ export function ValidationClientView({ missionId, onMissionChange }: { missionId
   // au lieu de renvoyer une réponse. Sans ce garde, la promesse non gérée remontait en
   // « Unhandled Runtime Error / TypeError: Failed to fetch » (overlay Next) au lieu d'un
   // message lisible : un simple redémarrage du serveur cassait visuellement la page.
-  function onNetworkError() {
+  const onNetworkError = useCallback(() => {
     setError("Connexion au serveur perdue — vérifiez votre réseau puis réessayez.");
-  }
+  }, []);
 
-  function reload() {
-    fetchDedupe(`/api/missions/${missionId}`).then((r) => (r.ok ? r.json() : null)).then((m) => {
-      setMission(m);
-      if (m) onMissionChange?.(m);
-      // « Client ouvre la validation » (règle de synchronisation prestataire/client) : dès que
-      // ce tableau charge une mission sans jalon dont le livrable est soumis et pas encore
-      // consulté, on le marque ouvert — fait passer le Statut du tableau "Validation" de
-      // "En attente" à "En cours" côté client, sans rien changer côté "Soumission" prestataire.
-      if (m && m.status === "livrable_soumis" && !m.reviewOpenedAt) markMissionReviewOpened();
-    }).catch(onNetworkError);
-    fetchDedupe(`/api/missions/${missionId}/jalons`).then((r) => (r.ok ? r.json() : { items: [] })).then((d) => {
-      const items: Jalon[] = d.items ?? [];
-      setJalons(items);
-      if (items.length > 0) {
-        items.filter((j) => j.status === "livrable_soumis").forEach((j) => {
-          loadAttachments(j.id);
-          if (!j.reviewOpenedAt) markJalonReviewOpened(j.id);
-        });
-      } else {
-        loadMissionAttachments();
-      }
-    }).catch(onNetworkError);
-    loadCheckpoints();
-    loadRejections();
-  }
+  // `onMissionChange` vient d'un PARENT, qui le passe en flèche littérale
+  // (src/app/missions/[id]/escrow/page.tsx) : sa valeur change donc à chaque rendu du parent.
+  // L'appeler directement dans `reload` obligerait à le mettre en dépendance, donc à recréer
+  // `reload` à chaque rendu — et l'effet de montage qui appelle `reload` boucle alors à
+  // l'infini (`reload` → setState du parent → rendu → nouvelle flèche → nouvel effet → …).
+  // La ref fixe l'identité tout en gardant l'appel à jour.
+  const onMissionChangeRef = useRef(onMissionChange);
+  useEffect(() => { onMissionChangeRef.current = onMissionChange; }, [onMissionChange]);
 
-  // Marque le livrable soumis (mission sans jalon / jalon) comme consulté par le client — mise
-  // à jour optimiste locale plutôt qu'un `reload()` complet, pour ne pas relancer ce même appel
-  // en boucle. Idempotent côté serveur (voir POST .../review-open).
-  async function markMissionReviewOpened() {
+  // ── Chargeurs et marqueurs mémoïsés ────────────────────────────────────────────────────
+  // Déclarés AVANT `reload`, qui les appelle : une liste de dépendances est évaluée PENDANT le
+  // rendu, donc citer plus bas une `const` non initialisée lèverait « Cannot access
+  // 'loadCheckpoints' before initialization ». Tous ne dépendent que de `missionId` et de
+  // `onNetworkError` (stable) : leur identité ne bouge plus, et les effets cessent d'être
+  // relancés par des fonctions recréées à chaque rendu.
+  const markMissionReviewOpened = useCallback(async () => {
     const res = await fetch(`/api/missions/${missionId}/deliverable/review-open`, { method: "POST" });
     if (res.ok) {
       const d = await res.json();
       setMission((prev) => (prev ? { ...prev, reviewOpenedAt: d.reviewOpenedAt ?? prev.reviewOpenedAt } : prev));
     }
-  }
-  async function markJalonReviewOpened(jalonId: string) {
+  }, [missionId]);
+
+  const markJalonReviewOpened = useCallback(async (jalonId: string) => {
     const res = await fetch(`/api/missions/${missionId}/jalons/${jalonId}/review-open`, { method: "POST" });
     if (res.ok) {
       const d = await res.json();
       setJalons((prev) => (prev ? prev.map((j) => (j.id === jalonId ? { ...j, reviewOpenedAt: d.reviewOpenedAt ?? j.reviewOpenedAt } : j)) : prev));
     }
-  }
+  }, [missionId]);
 
-  async function loadCheckpoints() {
+  const loadCheckpoints = useCallback(async () => {
     try {
       const res = await fetchDedupe(`/api/missions/${missionId}/checkpoints`);
       if (res.ok) {
@@ -299,9 +308,9 @@ export function ValidationClientView({ missionId, onMissionChange }: { missionId
     } catch {
       onNetworkError();
     }
-  }
+  }, [missionId, onNetworkError]);
 
-  async function loadRejections() {
+  const loadRejections = useCallback(async () => {
     try {
       const res = await fetchDedupe(`/api/missions/${missionId}/rejections`);
       if (res.ok) {
@@ -311,9 +320,9 @@ export function ValidationClientView({ missionId, onMissionChange }: { missionId
     } catch {
       onNetworkError();
     }
-  }
+  }, [missionId, onNetworkError]);
 
-  async function loadAttachments(jalonId: string) {
+  const loadAttachments = useCallback(async (jalonId: string) => {
     try {
       const res = await fetchDedupe(`/api/missions/${missionId}/jalons/${jalonId}/attachments`);
       if (res.ok) {
@@ -323,9 +332,9 @@ export function ValidationClientView({ missionId, onMissionChange }: { missionId
     } catch {
       onNetworkError();
     }
-  }
+  }, [missionId, onNetworkError]);
 
-  async function loadMissionAttachments() {
+  const loadMissionAttachments = useCallback(async () => {
     try {
       const res = await fetchDedupe(`/api/missions/${missionId}/deliverable`);
       if (res.ok) {
@@ -335,17 +344,50 @@ export function ValidationClientView({ missionId, onMissionChange }: { missionId
     } catch {
       onNetworkError();
     }
-  }
+  }, [missionId, onNetworkError]);
 
-  useEffect(reload, [missionId]);
+  const reload = useCallback(() => {
+    fetchDedupe(`/api/missions/${missionId}`).then((r) => (r.ok ? r.json() : null)).then((m) => {
+      setMission(m);
+      if (m) onMissionChangeRef.current?.(m);
+      // « Client ouvre la validation » (règle de synchronisation prestataire/client) : dès que
+      // ce tableau charge une mission sans jalon dont le livrable est soumis et pas encore
+      // consulté, on le marque ouvert — fait passer le Statut du tableau "Validation" de
+      // "En attente" à "En cours" côté client, sans rien changer côté "Soumission" prestataire.
+      // Marqueur du CLIENT : l'ouverture par le responsable de chantier n'en est pas une.
+      if (m && m.status === "livrable_soumis" && !m.reviewOpenedAt && !estResponsable) markMissionReviewOpened();
+    }).catch(onNetworkError);
+    fetchDedupe(`/api/missions/${missionId}/jalons`).then((r) => (r.ok ? r.json() : { items: [] })).then((d) => {
+      const items: Jalon[] = d.items ?? [];
+      setJalons(items);
+      if (items.length > 0) {
+        items.filter((j) => j.status === "livrable_soumis").forEach((j) => {
+          loadAttachments(j.id);
+          if (!j.reviewOpenedAt && !estResponsable) markJalonReviewOpened(j.id);
+        });
+      } else {
+        loadMissionAttachments();
+      }
+    }).catch(onNetworkError);
+    loadCheckpoints();
+    loadRejections();
+  }, [missionId, onNetworkError, loadAttachments, loadMissionAttachments, loadCheckpoints, loadRejections, markMissionReviewOpened, markJalonReviewOpened, estResponsable]);
+
+  useEffect(() => {
+    reload();
+  }, [reload]);
   // Resynchronisation quand l'onglet reprend le focus : l'autre partie (prestataire sur
   // /deliverable) agit dans SON onglet — les choix de progression, le statut et les preuves
   // de CETTE vue reflètent alors l'état réel (2026-09-05).
+  //
+  // `[reload]` et non `[missionId]` : `reload` ne change que si la mission change, donc
+  // l'abonnement est réinstallé exactement aussi souvent qu'avant — mais la liste dit
+  // maintenant ce que l'effet consomme, sans masquer l'avertissement.
   useEffect(() => {
     const onFocus = () => reload();
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
-  }, [missionId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [reload]);
 
   // Déplie la fiche du jalon en resynchronisant d'abord jalons/mission — la progression
   // déclarée par le prestataire (declaredProgress) a pu changer depuis le chargement de la
@@ -545,6 +587,61 @@ export function ValidationClientView({ missionId, onMissionChange }: { missionId
     refreshBadges();
   }
 
+  // Mode OPR — geste du RESPONSABLE : enregistre l'avancement constaté (observe-progress, sans
+  // effet financier) puis, à 100 %, TRANSMET le livrable au client pour validation définitive.
+  // Ses observations de terrain accompagnent la transmission.
+  async function saveVerification(row: Row, progress: number) {
+    const jalonId = row.scope.kind === "jalon" ? row.scope.jalonId : null;
+    const key = jalonId ?? "mission";
+    const note = (constatText[key] ?? "").trim();
+    const base = jalonId ? `/api/missions/${missionId}/jalons/${jalonId}` : `/api/missions/${missionId}`;
+    setError(null);
+    setSubmitting(jalonId ? `${jalonId}:step` : "mission:step");
+    try {
+      if (progress > row.observedProgress) {
+        const res = await fetch(`${base}/observe-progress`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ progress }),
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          setSubmitting(null);
+          setError(data.error === "progress_regression" ? "Le taux constaté ne peut pas redescendre." : "Échec de l'enregistrement du constat.");
+          return;
+        }
+      }
+      if (progress >= 100) {
+        const res = await fetch(jalonId ? `${base}/verification` : `${base}/deliverable/verification`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ note: note || undefined }),
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          setSubmitting(null);
+          setError(
+            data.error === "proofs_not_validated" || data.error === "proofs_pending"
+              ? "Appréciez d'abord chaque preuve du lot courant."
+              : "Échec de la transmission au client."
+          );
+          return;
+        }
+      }
+    } catch {
+      setSubmitting(null);
+      onNetworkError();
+      return;
+    }
+    setSubmitting(null);
+    showToast(progress >= 100 ? "Vérification transmise au client pour validation définitive" : `Avancement constaté à ${progress}% — client notifié`);
+    setConstatText((prev) => ({ ...prev, [key]: "" }));
+    setAttested((prev) => ({ ...prev, [key]: false }));
+    closeDecision();
+    reload();
+    refreshBadges();
+  }
+
   async function rejectProof(row: Row, attachmentId: string, payload: ProofRejectPayload) {
     const jalonId = row.scope.kind === "jalon" ? row.scope.jalonId : null;
     const url = jalonId
@@ -601,7 +698,9 @@ export function ValidationClientView({ missionId, onMissionChange }: { missionId
       setError(
         data.error === "progress_incomplete"
           ? "La progression constatée doit atteindre 100% avant de valider."
-          : "Échec de la libération des fonds — vérifiez qu'un livrable a été soumis."
+          : data.error === "verification_required"
+            ? "Le responsable de chantier doit d'abord vérifier et vous transmettre ce livrable."
+            : "Échec de la libération des fonds — vérifiez qu'un livrable a été soumis."
       );
       return;
     }
@@ -628,7 +727,9 @@ export function ValidationClientView({ missionId, onMissionChange }: { missionId
       setError(
         data.error === "progress_incomplete"
           ? "La progression constatée doit atteindre 100% avant de valider."
-          : "Échec de la validation — vérifiez qu'un livrable a été soumis pour ce jalon."
+          : data.error === "verification_required"
+            ? "Le responsable de chantier doit d'abord vérifier et vous transmettre ce jalon."
+            : "Échec de la validation — vérifiez qu'un livrable a été soumis pour ce jalon."
       );
       return;
     }
@@ -664,6 +765,8 @@ export function ValidationClientView({ missionId, onMissionChange }: { missionId
         status: j.status,
         reviewOpenedAt: j.reviewOpenedAt,
         scope: { kind: "jalon", jalonId: j.id },
+        verifiedAt: j.verifiedAt ?? null,
+        verificationNote: j.verificationNote ?? null,
       }))
     : [{
         key: "mission",
@@ -679,6 +782,8 @@ export function ValidationClientView({ missionId, onMissionChange }: { missionId
         status: mission.status,
         reviewOpenedAt: mission.reviewOpenedAt,
         scope: { kind: "mission" as const },
+        verifiedAt: mission.verifiedAt ?? null,
+        verificationNote: mission.verificationNote ?? null,
       }];
   const rowsToDecide = rows.filter((r) => r.canDecide);
   const totalMontant = rows.reduce((s, r) => s + r.montant, 0) || 1;
@@ -697,15 +802,24 @@ export function ValidationClientView({ missionId, onMissionChange }: { missionId
 
   // Le message "Seul le client peut déclencher les mouvements d'escrow" reste porté par la
   // page hôte (déjà affiché une fois pour toute la section escrow) — pas de doublon ici.
-  if (!mission.isOwner) return null;
+  if (estResponsable ? !mission.isSiteManager : !mission.isOwner) return null;
+  const opr = validationMode === "opr";
+  // Client en OPR : il CONSULTE ce que le responsable a vérifié, puis valide définitivement.
+  const clientOpr = opr && !estResponsable;
 
   return (
     <div>
       <div className="bg-white border border-[#E2E8F0] rounded-xl overflow-hidden">
         <div className="px-4 lg:px-5 py-3 border-b border-[#F1F5F9] flex items-center justify-between gap-3">
           <div>
-            <h2 className="text-[13px] font-semibold">Validation Client</h2>
-            <p className="text-[12px] text-[#64748B] mt-0.5">Mode client — vérification des preuves</p>
+            <h2 className="text-[13px] font-semibold">{estResponsable ? "Vérification OPR" : "Validation Client"}</h2>
+            <p className="text-[12px] text-[#64748B] mt-0.5">
+              {estResponsable
+                ? "Responsable chantier — appréciez les preuves, constatez l'avancement, puis transmettez au client"
+                : opr
+                  ? "Vérification par le responsable chantier — vous prononcez la validation définitive"
+                  : "Mode client — vérification des preuves"}
+            </p>
           </div>
           {/* Raccourci vers la 1ʳᵉ ligne "à valider" — ouvre la modale de lecture + décision.
               Absent tant qu'aucune ligne n'a de décision en attente. */}
@@ -714,7 +828,7 @@ export function ValidationClientView({ missionId, onMissionChange }: { missionId
               onClick={() => openVerification(rowsToDecide[0].key)}
               className="px-4 py-2 rounded-full bg-[#FEF3C7] border border-[#FCD34D] text-[13px] text-[#92400E] font-medium shrink-0 hover:brightness-95"
             >
-              Apprécier • À valider{rowsToDecide.length > 1 ? ` (${rowsToDecide.length})` : ""}
+              {estResponsable ? "Vérifier" : "Apprécier"} • À traiter{rowsToDecide.length > 1 ? ` (${rowsToDecide.length})` : ""}
             </button>
           )}
         </div>
@@ -770,7 +884,10 @@ export function ValidationClientView({ missionId, onMissionChange }: { missionId
             // La valeur affichée ne peut jamais partir sous le plancher — y compris quand la
             // progression déclarée par le prestataire (valeur de départ suggérée) est plus
             // basse que ce qui est déjà acquis.
-            const draftValue = Math.max(observedDraft[draftKey] ?? (row.observedProgress || row.declaredProgress), progressFloor);
+            // Client en OPR : le taux est celui CONSTATÉ par le responsable, non modifiable.
+            const draftValue = clientOpr
+              ? Math.max(row.observedProgress, progressFloor)
+              : Math.max(observedDraft[draftKey] ?? (row.observedProgress || row.declaredProgress), progressFloor);
             const savingStep = submitting === (jalonId ? `${jalonId}:step` : "mission:step");
             const savingDecision = submitting === (jalonId ? `${jalonId}:submit` : "mission:submit");
             const canValidate = row.observedProgress >= 100;
@@ -815,7 +932,9 @@ export function ValidationClientView({ missionId, onMissionChange }: { missionId
             // prestataire (même position dans l'en-tête, juste avant le chevron) : "Voir" une
             // fois qu'il n'y a plus rien de neuf à décider, "Apprécier" tant qu'une décision
             // reste possible (row.canDecide) — pas de bouton du tout au-delà (statut déjà réglé).
-            const verifyLabel = hasNothingNewToDecide ? "Voir" : "Apprécier";
+            const verifyLabel = hasNothingNewToDecide || clientOpr ? "Voir" : estResponsable ? "Vérifier" : "Apprécier";
+            // Mode OPR : transmission du responsable pour CE livrable.
+            const transmis = !!row.verifiedAt;
 
             return (
               <div key={row.key} className="rounded-xl border border-[#E2E8F0] bg-white overflow-hidden">
@@ -839,7 +958,15 @@ export function ValidationClientView({ missionId, onMissionChange }: { missionId
                           2026-09-04). Distincte pastille (bleue, pas ambre) tant que la
                           décision finale reste en attente ; au-delà (canDecide=false), le
                           vrai statut reprend le dessus normalement. */}
-                      {row.canDecide && rowCheckpoints.length > 0 ? (
+                      {opr && row.canDecide ? (
+                        <span
+                          className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11.5px] font-medium whitespace-nowrap ${
+                            transmis ? "bg-[#DBEAFE] border border-[#BFDBFE] text-[#1E40AF]" : "bg-[#FEF3C7] border border-[#FCD34D] text-[#92400E]"
+                          }`}
+                        >
+                          {transmis ? "Vérifié — validation définitive attendue" : "En vérification (responsable chantier)"}
+                        </span>
+                      ) : row.canDecide && rowCheckpoints.length > 0 ? (
                         <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11.5px] font-medium whitespace-nowrap bg-[#DBEAFE] border border-[#BFDBFE] text-[#1E40AF]">
                           Partiellement validé
                         </span>
@@ -869,7 +996,8 @@ export function ValidationClientView({ missionId, onMissionChange }: { missionId
                           libère l'argent vit donc sur l'en-tête de carte. N'apparaît qu'une
                           fois les deux conditions réunies : 100% constatés et toutes les
                           preuves du lot courant validées. */}
-                      {row.canDecide && canValidate && proofsReady && (
+                      {/* Validation définitive : le client seul ; en OPR, après transmission. */}
+                      {!estResponsable && row.canDecide && canValidate && proofsReady && (!opr || transmis) && (
                         <span className="inline-flex flex-col items-start gap-0.5">
                           <button
                             disabled={savingDecision}
@@ -910,6 +1038,14 @@ export function ValidationClientView({ missionId, onMissionChange }: { missionId
                   </div>
 
                   <h3 className="mt-2.5 text-[14.5px] font-semibold text-[#0f172a]">{row.titre}</h3>
+                  {/* Observations transmises par le responsable de chantier (mode OPR). */}
+                  {opr && row.canDecide && transmis && (
+                    <p className="mt-1.5 text-[12px] text-[#1E40AF] bg-[#EFF6FF] border border-[#BFDBFE] rounded-lg px-2.5 py-1.5">
+                      Vérifié par le responsable chantier le {new Date(row.verifiedAt!).toLocaleDateString("fr-FR")}
+                      {row.verificationNote ? ` — « ${row.verificationNote} »` : ""}
+                      {estResponsable ? " · transmis au client." : ""}
+                    </p>
+                  )}
 
                   <AmountProgressBar
                     montant={row.montant}
@@ -962,7 +1098,7 @@ export function ValidationClientView({ missionId, onMissionChange }: { missionId
                     providerName={providerDisplayName}
                     providerInitials={providerInitials}
                     proofs={proofsShown}
-                    appreciableIds={row.canDecide ? appreciableIds : new Set<string>()}
+                    appreciableIds={row.canDecide && !clientOpr && !(estResponsable && transmis) ? appreciableIds : new Set<string>()}
                     busyProofId={appreciating}
                     error={error}
                     observedProgress={draftValue}
@@ -981,14 +1117,35 @@ export function ValidationClientView({ missionId, onMissionChange }: { missionId
                     onValidateProof={(id) => validateProof(row, id)}
                     onRejectProof={(id, payload) => rejectProof(row, id, payload)}
                     onCancelReject={(id) => validateProof(row, id)}
-                    onSave={() => saveAppreciationAndConstat(row, draftValue)}
+                    onSave={() => (estResponsable ? saveVerification(row, draftValue) : saveAppreciationAndConstat(row, draftValue))}
                     saving={savingStep}
+                    saveLabel={
+                      estResponsable
+                        ? draftValue >= 100
+                          ? "Enregistrer et transmettre au client"
+                          : "Enregistrer le constat"
+                        : clientOpr
+                          ? "Confirmer le point d'étape vérifié"
+                          : undefined
+                    }
+                    progressReadOnly={clientOpr}
+                    progressNotice={
+                      clientOpr
+                        ? `Taux constaté par le responsable chantier : ${row.observedProgress}%. Vous le confirmez sans le modifier.`
+                        : null
+                    }
                     saveDisabledReason={
                       !row.canDecide
                         ? "Ce périmètre n'est plus en attente de décision."
                         : !proofsReady
-                          ? "Validez d'abord chaque preuve du lot courant."
-                          : null
+                          ? estResponsable || !opr
+                            ? "Validez d'abord chaque preuve du lot courant."
+                            : "Le responsable chantier doit d'abord apprécier chaque preuve."
+                          : estResponsable && transmis
+                            ? "Déjà transmis au client — en attente de sa validation définitive."
+                            : clientOpr && row.observedProgress <= totalPercent
+                              ? "Aucun nouvel avancement vérifié par le responsable depuis le dernier point d'étape."
+                              : null
                     }
                   />
                 )}

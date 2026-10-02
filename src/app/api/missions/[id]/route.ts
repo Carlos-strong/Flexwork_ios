@@ -32,6 +32,8 @@ export async function GET(
         select: {
           termsSnapshot: true,
           escrowOperations: { select: { instructionType: true, status: true, pspReference: true } },
+          validationMode: true,
+          siteManagerId: true,
         },
       },
     },
@@ -83,6 +85,11 @@ export async function GET(
     escrowHoldStatus,
     escrowHoldReference,
     isOwner: mission.clientId === userId,
+    // Mode OPR (2026-10-01) : le responsable de chantier désigné sur le CONTRAT ouvre la mission
+    // dans sa vue de vérification. L'identifiant du responsable n'est pas exposé à tous.
+    isSiteManager:
+      !!contract && contract.validationMode === "opr" && !!contract.siteManagerId && contract.siteManagerId === userId,
+    siteManagerId: mission.clientId === userId ? mission.siteManagerId : undefined,
     clientStats,
   });
 }

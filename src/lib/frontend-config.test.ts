@@ -118,13 +118,6 @@ describe("validateur d'ETag", () => {
     expect(frontendEtag(24)).toBe('W/"frontend-24"');
     expect(frontendEtag(25)).not.toBe(frontendEtag(24));
   });
-
-  // Les deux points d'entrée publics servent des documents différents tirés de la même
-  // version. Sans portée distincte, un client qui met les deux en cache présenterait le
-  // validateur de l'un pour obtenir l'autre et recevrait un 304 pour un document qu'il n'a pas.
-  it("distingue la portée taxonomie de la configuration complète", () => {
-    expect(frontendEtag(24, "taxonomy")).not.toBe(frontendEtag(24));
-  });
 });
 
 describe("écart entre le brouillon et ce qui est en ligne", () => {
@@ -134,7 +127,6 @@ describe("écart entre le brouillon et ce qui est en ligne", () => {
       hero: { key: "hero", label: "Héros", title: "A", subtitle: "B", visible: true, items: [] },
     },
     menus: { header_explore: [{ label: "FAQ", href: "/faq" }] },
-    taxonomy: [],
     pages: [],
   };
 

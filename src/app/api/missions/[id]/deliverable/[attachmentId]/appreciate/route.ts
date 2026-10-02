@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { canVerify } from "@/lib/validation-mode";
 import { z } from "zod";
 import type { Prisma } from "@prisma/client";
 import { auth } from "@/auth";
@@ -37,12 +38,19 @@ export async function POST(
   const userId = (session.user as typeof session.user & { id: string }).id;
   const { id: missionId, attachmentId } = await params;
 
-  const contract = await prisma.prestationContract.findFirst({
-    where: { missionId, clientId: userId },
+  const contract = await prisma.prestationContract.findUnique({
+    where: { missionId },
     include: { mission: true, jalons: { select: { id: true } } },
   });
   if (!contract) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+  // Apprécier une preuve est un geste de VÉRIFICATION (2026-10-01) : le client en « Moi-même »,
+  // le responsable de chantier désigné en mode OPR — et lui seul.
+  if (!canVerify(contract, userId)) {
+    return contract.clientId === userId
+      ? NextResponse.json({ error: "site_manager_only" }, { status: 409 })
+      : NextResponse.json({ error: "not_found" }, { status: 404 });
   }
   // Paiement fractionné : l'appréciation se fait jalon par jalon via la route scopée.
   if (contract.jalons.length > 0) {

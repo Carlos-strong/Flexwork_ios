@@ -111,8 +111,8 @@ function SearchProvidersInner() {
               className="w-[200px] h-10 px-3 rounded-lg border border-[#E2E8F0] text-[13px] bg-white focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751]"
             >
               <option value="">Tous les profils</option>
-              <option value="expert_digital">Expert Digital</option>
-              <option value="expert_btp_autres">Expert BTP / Autres</option>
+              <option value="expert_digital">Prestataire indépendant</option>
+              <option value="expert_btp_autres">Entreprise</option>
               <option value="artisan">Artisan</option>
               <option value="manoeuvre">Manœuvre</option>
             </select>

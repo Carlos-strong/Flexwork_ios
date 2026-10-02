@@ -6,6 +6,7 @@ import { totalRetentionAmount } from "@/lib/jalons";
 import { isFeatureEnabledForZone } from "@/lib/feature-flags";
 import { canStartMission, coversAmount } from "@/lib/mission-risk-gate";
 import { isMissionFundingClosed } from "@/lib/mission-status";
+import { siteManagerMissingForFunding } from "@/lib/validation-mode";
 import {
   autoConfirmPending,
   isVirtualPspEnabled,
@@ -104,6 +105,10 @@ export async function requestContractHold(
   // c'est même le seul chemin de financement de ces contrats.
   if (contract.jalons.length > 0 && contract.fundingGranularity !== "upfront") {
     return { ok: false, error: "use_jalon_hold", status: 409 };
+  }
+  // Vérification OPR : pas de financement tant qu'aucun responsable n'est désigné.
+  if (siteManagerMissingForFunding(contract)) {
+    return { ok: false, error: "site_manager_required", status: 409 };
   }
 
   const precondition = await assertFundingPreconditions(contract);

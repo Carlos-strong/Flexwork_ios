@@ -25,14 +25,15 @@ export async function POST(
   const { id: missionId } = await params;
 
   const contract = await prisma.prestationContract.findFirst({
-    where: { missionId, OR: [{ clientId: userId }, { providerId: userId }] },
+    where: { missionId, OR: [{ clientId: userId }, { providerId: userId }, { siteManagerId: userId, validationMode: "opr" }] },
     include: { jalons: { select: { id: true } } },
   });
   if (!contract) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
-  if (contract.clientId !== userId) {
-    // Partie au contrat mais pas le client : le constat est une observation du client.
+  if (contract.providerId === userId) {
+    // Le constat est une observation de terrain du côté qui VÉRIFIE : le client, ou en mode OPR
+    // le responsable de chantier désigné (2026-10-01). Jamais le prestataire sur son propre travail.
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 
@@ -97,7 +98,7 @@ export async function GET(
   const { id: missionId } = await params;
 
   const contract = await prisma.prestationContract.findFirst({
-    where: { missionId, OR: [{ clientId: userId }, { providerId: userId }] },
+    where: { missionId, OR: [{ clientId: userId }, { providerId: userId }, { siteManagerId: userId, validationMode: "opr" }] },
   });
   if (!contract) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });

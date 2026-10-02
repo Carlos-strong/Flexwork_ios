@@ -7,6 +7,7 @@ import { fetchDedupe } from "@/lib/fetch-dedupe";
 import { ValidationClientView } from "@/components/validation-client/ValidationClientView";
 import { EscrowAccountPanel } from "@/components/escrow/escrow-account-panel";
 import { AttendancePanel } from "@/components/spot-time/attendance-panel";
+import { SiteManagerCard } from "@/components/validation-client/SiteManagerCard";
 import { releasableBeforeRetention, retentionAmount, totalRetentionAmount } from "@/lib/jalons";
 
 type Mission = { id: string; titre: string; budget: number; currency: string; status: string; isOwner: boolean; contractPrice: number | null; escrowHoldStatus: string | null; escrowHoldReference: string | null };
@@ -62,7 +63,9 @@ export default function EscrowPage({ params }: { params: { id: string } }) {
           ? "Le montage PSP n'est pas encore activé pour cette zone (prérequis juridique en cours de validation)."
           : data.error === "effective_insurance_required"
             ? "Une assurance effective est requise avant de démarrer cette mission à risque élevé."
-            : "Échec de la mise sous séquestre."
+            : data.error === "site_manager_required"
+              ? "Désignez d'abord le responsable chantier (vérification OPR) : le séquestre ne peut pas être financé sans lui."
+              : "Échec de la mise sous séquestre."
       );
       return;
     }
@@ -94,7 +97,9 @@ export default function EscrowPage({ params }: { params: { id: string } }) {
           ? "Le montage PSP n'est pas encore activé pour cette zone."
           : data.error === "effective_insurance_required"
             ? "Une assurance effective est requise avant de démarrer cette mission à risque élevé."
-            : "Échec de la mise sous séquestre de ce jalon."
+            : data.error === "site_manager_required"
+              ? "Désignez d'abord le responsable chantier (vérification OPR) : le séquestre ne peut pas être financé sans lui."
+              : "Échec de la mise sous séquestre de ce jalon."
       );
       return;
     }
@@ -158,6 +163,10 @@ export default function EscrowPage({ params }: { params: { id: string } }) {
           <span>›</span>
           <span className="text-[#0f172a] font-medium">Séquestre</span>
         </div>
+
+        {/* Vérification OPR : le responsable doit être désigné AVANT de financer — la carte est
+            donc placée au-dessus des gestes de financement. Rien en mode « Moi-même ». */}
+        <SiteManagerCard missionId={missionId} />
 
         <div className="bg-white border border-[#E2E8F0] rounded-xl p-4 lg:p-5 space-y-4">
           <div className="flex items-center justify-between">

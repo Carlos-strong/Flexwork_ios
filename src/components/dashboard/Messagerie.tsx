@@ -170,6 +170,12 @@ export default function Messagerie({ currentUserId }: { currentUserId: string })
 
   const callPeer = conversations.find((c) => c.peerId === peerId);
   const callName = callPeer?.name ?? conv?.name ?? "Interlocuteur";
+  // L'effet ci-dessous n'a besoin que de l'IDENTIFIANT du correspondant : le déclarer comme
+  // primitive évite de dépendre de l'objet `callPeer`, dont l'identité change à chaque
+  // rechargement de la liste des conversations alors que la valeur utile, elle, ne change pas.
+  // (Une dépendance sur objet aurait relancé l'effet — et donc fermé puis rouvert la vue
+  // d'appel — au moindre rafraîchissement de la liste.)
+  const callPeerId = callPeer?.id;
 
   const handleCall = (video: boolean) => {
     if (!conv) return;
@@ -181,13 +187,13 @@ export default function Messagerie({ currentUserId }: { currentUserId: string })
   useEffect(() => {
     if (callState === "ringing") {
       setShowCall(true);
-      if (callPeer) setActiveId(callPeer.id);
+      if (callPeerId) setActiveId(callPeerId);
     }
     if (callState === "ended") {
       const t = setTimeout(() => setShowCall(false), 1200);
       return () => clearTimeout(t);
     }
-  }, [callState, callPeer?.id]);
+  }, [callState, callPeerId]);
 
   // Chargement des conversations réelles
   useEffect(() => {
@@ -534,6 +540,11 @@ export default function Messagerie({ currentUserId }: { currentUserId: string })
                         <div className={`max-w-[75%] sm:max-w-[60%] rounded-[16px] p-3 ${sent ? "bg-gradient-to-br from-[#FF6B35] to-[#FF3E6C] text-white rounded-br-[6px] shadow-[0_2px_10px_rgba(255,107,53,0.2)]" : "bg-white border border-gray-100 text-[#0A1931] rounded-bl-[6px] shadow-sm"}`}>
                           {isImage && m.file.url ? (
                             <a href={m.file.url} target="_blank" rel="noreferrer" className="block mb-2">
+                              {/* Pièce jointe d'un message, servie par une route API applicative
+                                  (jeton signé) et non par un asset statique : l'optimiseur de
+                                  next/image irait la chercher côté serveur, sans les en-têtes du
+                                  navigateur, et n'obtiendrait pas le fichier. */}
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
                               <img src={m.file.url} alt={m.file.name} className="w-full max-h-44 object-cover rounded-[10px]" />
                             </a>
                           ) : (

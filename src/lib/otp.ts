@@ -5,7 +5,18 @@ import type { OtpChannel, OtpPurpose } from "@prisma/client";
 
 // Prérequis production (reverse-proxy qui écrase x-forwarded-for, limites) : voir DEPLOYMENT-PRODUCTION.md
 
-const OTP_TTL_MS = 10 * 60 * 1000; // 10 minutes
+// 5 minutes (2026-09-23). La durée de vie d'un code à 6 chiffres est sa principale
+// protection : 900 000 combinaisons, 5 tentatives (MAX_ATTEMPTS), soit environ une chance
+// sur 180 000 par code émis. Dix minutes offraient trois fois plus de temps à une attaque
+// distribuée sur le même code, sans bénéfice réel — la saisie prend quelques dizaines de
+// secondes et le renvoi est à un clic sur /verify-otp.
+const OTP_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+// Dérivé du TTL, JAMAIS recopié. Le texte de l'email annonçait encore « 10 minutes » alors
+// que l'expiration était passée à 5 : l'utilisateur lisait une durée fausse, et rien ne le
+// signalait — ni le typecheck, ni les tests. Constaté en parcours réel (2026-09-23).
+// C'est le cas d'école de la valeur écrite deux fois : elle se désynchronise en silence.
+const OTP_TTL_MINUTES = Math.round(OTP_TTL_MS / 60_000);
 const MAX_ATTEMPTS = 5;
 const REQUEST_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 const MAX_REQUESTS_PER_WINDOW = 5;
@@ -107,7 +118,7 @@ function generateSixDigitCode(): string {
 
 // bcrypt est délibérément lent (anti brute-force sur un secret longue durée à forte valeur,
 // ex. mot de passe compte). Un OTP à 6 chiffres est le cas inverse : faible entropie (900k
-// possibilités), courte durée de vie (10 min), déjà limité à 5 tentatives (MAX_ATTEMPTS
+// possibilités), courte durée de vie (5 min), déjà limité à 5 tentatives (MAX_ATTEMPTS
 // ci-dessus) — bcrypt n'y ajoute aucune sécurité réelle, seulement de la latence perçue à
 // chaque envoi/vérification. SHA-256 + comparaison à temps constant suffit largement ici.
 function hashCode(code: string): string {
@@ -153,8 +164,8 @@ async function deliverOtp(params: { identifier: string; channel: OtpChannel; cod
     await sendMail({
       to: params.identifier,
       subject: `Votre code de vérification Flexwork : ${params.code}`,
-      text: `Votre code de vérification est ${params.code}. Il expire dans 10 minutes.`,
-      html: `<p>Votre code de vérification est <strong>${params.code}</strong>.</p><p>Il expire dans 10 minutes.</p>`,
+      text: `Votre code de vérification est ${params.code}. Il expire dans ${OTP_TTL_MINUTES} minutes.`,
+      html: `<p>Votre code de vérification est <strong>${params.code}</strong>.</p><p>Il expire dans ${OTP_TTL_MINUTES} minutes.</p>`,
     });
     return;
   }

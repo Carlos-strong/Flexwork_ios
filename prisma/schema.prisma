@@ -89,7 +89,23 @@ model User {
   isAdmin              Boolean    @default(false)
   adminRole            AdminRole?
   kycStatus            KycStatus  @default(en_attente)
+  // ── Espace prestataire (2026-09-23) : décision « Option C » ────────────────────────────
+  // Tout compte s'ouvre en CLIENT. Devenir prestataire est une ACTION explicite, jamais un
+  // état déduit : sans ce drapeau, l'écran de choix du rôle n'aurait rien à enregistrer, et
+  // « répondre aux missions » s'ouvrirait à un compte qui n'a rien demandé.
+  //
+  // Il est distinct de `role` à dessein. `role` dit QUELLE filière (artisan, manœuvre,
+  // expert digital…) et pilote l'affichage et le domaine des missions proposées ; `isProvider`
+  // dit que l'espace prestataire est ouvert. Un client promu artisan a besoin des deux, et
+  // un artisan redevenu client garde sa filière sans candidater.
+  isProvider           Boolean    @default(false)
+  providerActivatedAt  DateTime?
   deviceFingerprint    String? // US-1308 (héritée) : anti-doublon de comptes
+  // Consentement CGU + politique de confidentialité, horodaté à la création du compte
+  // (2026-09-23). La case était cochée à l'inscription mais n'était enregistrée nulle part :
+  // rien ne permettait de prouver qu'un compte donné avait accepté quoi que ce soit.
+  // Nullable pour les comptes créés avant cette date, dont le consentement n'a pas été gardé.
+  cgvAcceptedAt        DateTime?
   // A13 — extraite de la pièce d'identité et saisie par l'Admin KYC au moment de la
   // décision (jamais déclarée par l'utilisateur lui-même). Seule donnée d'âge faisant foi
   // pour le contrôle des filières chantier (etat-consolide-Flexwork.md §2, A13).
@@ -111,12 +127,22 @@ model User {
 
   otpCodes        OtpCode[]
   attendances     Attendance[]     @relation("AttendanceWorker")
-  managedSites    SpotTimeTerms[]  @relation("SiteManagedContracts")
+  // Contrats et missions sur lesquels un client a désigné ce compte responsable de chantier
+  // (mode de vérification OPR, 2026-10-01). La désignation vit sur le contrat (et, avant lui, sur
+  // la mission) — jamais sur le rôle : elle doit rester révocable.
+  managedContracts PrestationContract[] @relation("SiteManagedContracts")
+  managedMissions  Mission[]            @relation("MissionSiteManager")
   kycDocuments    KycDocument[]
   kycReviewsDone  KycDocument[]    @relation("KycReviewer")
   livenessChecks  LivenessCheck[]
   selfieMatchLogs SelfieMatchLog[]
+  // KYC financier Mobile Money (2026-09-23) — un seul compte de versement par personne,
+  // d'où l'unicité plutôt qu'une collection.
+  payoutAccount   PayoutAccount?
+  payoutReviewsDone PayoutAccount[] @relation("PayoutReviewer")
   profiles        Profile[] // Multi-profils 2026-08-06 : remplace l'ancien profile Profile?
+  clientProfile   ClientProfile? // Côté client — indépendant de `profiles` (côté prestataire)
+  missionDraftAttachments MissionDraftAttachment[] // Pièces jointes déposées avant création
 
   missionsClient       Mission[]             @relation("MissionClient")
   proposalsSoumises    MissionProposal[]     @relation("ProposalProvider")
@@ -144,6 +170,10 @@ model User {
   adminAuditLogs AdminAuditLog[]
   notifications  Notification[]
 
+  // Consentement CGU — voir TermsAcceptance. Le champ `cgvAcceptedAt` ci-dessus reste la
+  // date d'acceptation d'origine ; ce sont les acceptations VERSIONNÉES qui vivent ici.
+  termsAcceptances TermsAcceptance[]
+
   devisRevisions   DevisRevision[] @relation("DevisRevisionAuthor")
   offersAsClient   Offer[]         @relation("OfferClient")
   offersAsProvider Offer[]         @relation("OfferProvider")
@@ -157,6 +187,40 @@ model User {
 
   @@index([kycStatus])
   @@index([role])
+}
+
+// Acceptation des CGU, VERSIONNÉE et chaînée par hash (2026-09-23).
+//
+// `User.cgvAcceptedAt` ne dit qu'UNE chose : « ce compte a coché la case, à cet instant ».
+// C'est insuffisant dès que les CGU changent : impossible de savoir QUELLE version du texte
+// a été acceptée, ni d'en produire l'empreinte si elle était contestée. Or une acceptation
+// qu'on ne peut pas rattacher au texte accepté ne prouve rien.
+//
+// Chaque acceptation enregistre donc la version, la date d'entrée en vigueur, l'empreinte du
+// texte et un instantané, puis se chaîne à l'acceptation précédente du MÊME utilisateur via
+// `computeChainedHash` — le mécanisme déjà utilisé par les déclarations professionnelles et
+// les contrats (src/lib/hash-chain.ts), jamais réimplémenté. Une acceptation ne peut donc
+// pas être retirée ni réordonnée sans rompre la chaîne, ce que `verifyChainIntegrity` détecte.
+//
+// Table append-only : aucune route ne met à jour ni ne supprime une ligne ici.
+model TermsAcceptance {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Version du texte accepté, ex. "3.2" — jamais un booléen.
+  termsVersion  String
+  // Date d'entrée en vigueur de CETTE version, telle qu'annoncée à l'utilisateur.
+  effectiveAt   DateTime
+  // SHA-256 du contenu accepté (version + date + URLs), pour comparaison ultérieure.
+  digest        String
+  // Instantané complet : tout ce qui a été montré et accepté, en clair, sans jointure.
+  snapshot      Json
+  previousHash  String?
+  chainedHash   String
+  acceptedAt    DateTime @default(now())
+
+  @@index([userId, acceptedAt])
+  @@index([termsVersion])
 }
 
 // ---------------------------------------------------------------------------
@@ -224,6 +288,11 @@ enum KycDocType {
   piece_identite_verso
   selfie
   selfie_avec_piece
+  // Justificatif de domicile (2026-09-23) — appartient au dossier FINANCIER, pas au dossier
+  // d'identité. Les quatre types ci-dessus sont les seuls que `deriveKycStatus` regarde pour
+  // trancher `User.kycStatus` : sans cette séparation, un justificatif encore en attente
+  // ferait retomber un compte déjà « vérifié » à « en attente » sur le dossier d'identité.
+  justificatif_domicile
 }
 
 enum KycDocStatus {
@@ -281,6 +350,68 @@ model Notification {
   @@index([userId, missionId, readAt])
 }
 
+// ── KYC financier (2026-09-23) ──────────────────────────────────────────────────────────
+//
+// Le schéma ne prévoyait AUCUN moyen d'être payé : ni IBAN, ni Mobile Money, alors que
+// l'arbitrage est explicite (« Pas d'IBAN — les paiements passent par PSP Mobile Money »).
+// Sans compte de versement, un prestataire pouvait signer, exécuter et voir le séquestre
+// validé — et la plateforme n'avait nulle part où envoyer l'argent.
+//
+// Ce parcours est DISTINCT du KYC d'identité et a son propre statut :
+//   - l'identité répond à « qui êtes-vous » (User.kycStatus, 4 documents) ;
+//   - le compte de versement répond à « où va l'argent » (PayoutAccount.status).
+//
+// Les fusionner aurait eu un coût : un justificatif de domicile refusé aurait fait retomber
+// un compte pourtant vérifié à « en attente ». Deux dossiers, deux files, deux décisions.
+//
+// La pièce d'identité n'est PAS redemandée ici : elle a déjà été téléversée au KYC. Ce qui
+// est propre au dossier financier, c'est le compte de versement et le justificatif de
+// domicile.
+enum MobileMoneyOperator {
+  mtn
+  moov
+  celtiis
+}
+
+enum PayoutStatus {
+  non_renseigne
+  en_attente
+  verifie
+  rejete
+}
+
+model PayoutAccount {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  operator MobileMoneyOperator
+  // Numéro au format international (+229…). Jamais normalisé en base : c'est le numéro que
+  // l'opérateur reconnaîtra, et le reformater risquerait de casser un préfixe local.
+  number   String
+  // Le titulaire est saisi et non déduit du compte : un prestataire peut être payé sur le
+  // compte d'un tiers (conjoint, entreprise), et cette différence doit être visible par
+  // l'Admin KYC au moment d'instruire — un nom qui ne correspond pas à la pièce d'identité
+  // est un signal, pas une erreur de saisie.
+  holder   String
+
+  // Justificatif de domicile, dans le bucket privé (KycDocument de type
+  // `justificatif_domicile`). Référence et non chemin : le fichier est servi par URL signée,
+  // comme les autres pièces, et l'Admin le valide dans le même écran.
+  addressProofDocId String?
+
+  status          PayoutStatus @default(en_attente)
+  submittedAt     DateTime     @default(now())
+  reviewedById    String?
+  reviewedBy      User?        @relation("PayoutReviewer", fields: [reviewedById], references: [id])
+  reviewedAt      DateTime?
+  refusalReason   String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([status, submittedAt])
+}
+
 model LivenessCheck {
   id        String   @id @default(cuid())
   userId    String
@@ -336,6 +467,34 @@ enum ProfessionalLevel {
   expert
 }
 
+// Forme juridique déclarée du prestataire (onglet 1). Déclaratif, sans effet sur les droits :
+// un compte « entreprise » n'a pas plus de pouvoir qu'un indépendant, il se présente
+// simplement autrement. Le distinguer de `UserRole` est nécessaire : une entreprise de
+// plomberie reste un `artisan` au sens de la filière, et la filière décide des missions
+// proposées, pas la forme juridique.
+enum ProviderKind {
+  independant
+  entreprise
+  artisan
+  manoeuvre
+}
+
+// Modes de travail acceptés par le prestataire (onglet 4). Alignés sur `Mission.mode`
+// (distance | presentiel | hybride) pour que le filtre « ce prestataire peut-il prendre cette
+// mission » se lise sans table de correspondance.
+enum WorkMode {
+  presentiel
+  distance
+  hybride
+}
+
+enum Availability {
+  temps_plein
+  temps_partiel
+  ponctuel
+  indisponible
+}
+
 // Profil générique unique (remplace ArtisanProfile/ExpertProfile/ManoeuvreProfile/
 // DigitalProfile) — la plateforme ne vérifie plus rien ici, tout est auto-déclaré (A4).
 model Profile {
@@ -345,7 +504,20 @@ model Profile {
   label                   String             @default("Principal") // Nom du profil (ex: "Maçon local", "Conseil BTP distance")
   isDefault               Boolean            @default(false)
   mainDomain              String
+  // Inutilisée depuis le 2026-09-23 : la « Spécialité » était un texte libre qui redisait le
+  // métier en concurrence avec les compétences, que le catalogue décrit précisément. Aucun
+  // écran ni barème ne la lit plus. Colonne conservée, comme `users.passwordHash`, pour ne
+  // détruire aucune donnée existante — et non par oubli.
   subSpecialty            String?
+  // ── Lien vers la taxonomie (2026-09-23) ──────────────────────────────────────────────────
+  // `mainDomain` porte le LIBELLÉ du métier — c'est lui qui sert au rapprochement, exactement
+  // comme `Mission.domaine`. Mais un libellé ne dit pas de quelle CATÉGORIE il vient : à la
+  // réédition, la cascade se rouvrait vide et le profil ne pouvait plus être reclassé
+  // proprement. La clé étrangère répare ça, sur le même principe que les missions : la FK fait
+  // foi, le texte reste sa projection. Nullable — les profils antérieurs n'ont que le libellé,
+  // et aucun backfill ne peut inventer le métier d'où il venait.
+  metierId                String?
+  metier                  Metier?            @relation(fields: [metierId], references: [id])
   secondaryDomain         String?
   sector                  String?
   indicativeRate          Float?
@@ -362,6 +534,61 @@ model Profile {
   zoneVille               String? // Ville principale
   zoneRayonKm             Int? // Rayon de déplacement en km (null = sans limite)
 
+  // ── Profil professionnel progressif (2026-09-23) ────────────────────────────────────────
+  // Champs des onglets 1, 4 et 5 du formulaire prestataire. Ils ne créent AUCUNE table
+  // `provider_*` : le schéma avait déjà de quoi porter chaque onglet (voir le mapping dans
+  // src/lib/provider-profile-completion.ts), et dupliquer `Profile` en `ProviderProfile`
+  // aurait ouvert deux sources de vérité pour le même métier.
+
+  // Onglet 1 — Présentation. `title` est le titre affiché sur les cartes (« Électricien
+  // certifié »), distinct de `mainDomain` qui porte le MÉTIER du catalogue : le premier est
+  // une accroche libre, le second une clé de rapprochement. Les confondre rendrait le
+  // rapprochement dépendant de la façon dont chacun se présente.
+  title        String?       @db.VarChar(120)
+  providerKind ProviderKind?
+
+  // Onglet 2 — Compétences proposées : tout passe par `tags`, la seule liste de compétences du
+  // profil, qu'elles viennent du catalogue du métier ou qu'elles aient été ajoutées à la main.
+  //
+  // `offeredServices` portait une SECONDE liste, sous le nom de « services proposés » : deux
+  // façons de déclarer la même chose, donc deux façons de diverger, et deux barèmes à tenir.
+  // Elle n'est plus alimentée depuis le 2026-09-23. Colonne conservée, comme
+  // `users.passwordHash`, pour ne détruire aucune donnée existante — et non par oubli.
+  offeredServices String[]
+
+  // Onglet 4 — Localisation. Modes de travail et zones couvertes s'ajoutent au trio
+  // zonePays/zoneVille/zoneRayonKm déjà présent ; `availability` est la disponibilité
+  // déclarée, jamais un engagement (le profil ne bloque rien, §9).
+  workModes      WorkMode[]
+  coverageZones  String[]
+  availability   Availability?
+  // ── Champs alignés sur le formulaire prestataire du modèle (2026-09-23) ───────────────
+  // `overview` est le SECOND texte long, distinct de `description` : le modèle demande une
+  // bio courte (≥ 100 caractères) pour les cartes ET un développement (≥ 500) pour le profil
+  // abouti. Un seul champ ne peut pas servir les deux — court partout, il ne dit rien sur la
+  // page ; long partout, il noie les cartes où on le tronque.
+  overview       String?
+  // Complément de `zoneVille` : le quartier précise la zone à l'échelle où les interventions
+  // se situent réellement — on ne traverse pas une ville pour un dépannage.
+  quartier       String?
+  // Moyens de déplacement déclarés (moto / voiture / à pied). Même convention que
+  // `workModes` et `coverageZones` : une liste de valeurs DÉCLARATIVES, jamais un droit.
+  deplacement    String[]
+  // Canal de contact préféré. Valeurs dans src/lib/provider-options.ts, comme `tarifUnite`.
+  modeContact    String?
+
+  // Onglet 5 — Configuration. Devise de facturation, pendant prestataire de
+  // `ClientProfile.currency`. Défaut XOF : la zone couverte par la plateforme.
+  currency String @default("XOF")
+
+  // Badge « Vérifié » (2026-09-23) : demandé par le prestataire, instruit par l'Admin KYC.
+  // Porté par le PROFIL et non par le compte : un prestataire multi-profils peut être vérifié
+  // sur son métier principal sans l'être sur un second qu'il vient d'ouvrir.
+  badgeStatus       BadgeStatus @default(non_demande)
+  badgeRequestedAt  DateTime?
+  badgeDecidedAt    DateTime?
+  badgeRefusalReason String?
+
   garants      Garant[]
   declarations ProfessionalDeclaration[]
 
@@ -370,9 +597,160 @@ model Profile {
   @@index([mainDomain])
 }
 
+// Pièce jointe déposée AVANT que la mission existe (2026-09-23) — cahier des charges, plans,
+// photos, joints dès la première étape du tunnel de création.
+//
+// Table distincte de `MissionAttachment` plutôt que d'y rendre `missionId` nullable : ce
+// champ non nul est ce qui garantit qu'aucune pièce jointe ne flotte sans mission, et
+// l'affaiblir pour un cas transitoire coûterait cette garantie partout ailleurs.
+//
+// `POST /api/missions/[id]/attachments` ne pouvait pas servir ici : il exige une mission déjà
+// acceptée (`canAttachLivrable`), règle anti-travail-test gratuit US-1302.
+//
+// `draftId` est produit par le navigateur et n'identifie personne : l'appartenance est
+// tranchée par `uploaderId`, jamais par lui. Les lignes sont converties en
+// `MissionAttachment` à la création de la mission, puis supprimées.
+model MissionDraftAttachment {
+  id         String   @id @default(cuid())
+  draftId    String
+  uploaderId String
+  uploader   User     @relation(fields: [uploaderId], references: [id], onDelete: Cascade)
+  filePath   String
+  fileName   String
+  mimeType   String
+  size       Int
+  createdAt  DateTime @default(now())
+
+  @@index([uploaderId, draftId])
+}
+
+// Qui fournit le matériel d'une mission (2026-09-23) — déclaratif, sans effet sur le contrat
+// ni sur le séquestre : c'est une attente annoncée au prestataire avant qu'il chiffre.
+enum MaterielFourniture {
+  client
+  prestataire
+  mixte
+}
+
+enum ClientType {
+  particulier
+  entreprise
+  association
+  administration
+}
+
+// Profil client (2026-09-23) — symétrique de Profile, qu'il ne remplace pas. Les deux
+// coexistent : un compte qui change de rôle garde le profil de l'autre côté intact, et
+// `Profile.mainDomain` garde sa contrainte (un profil prestataire a toujours un domaine).
+//
+// Ce qui n'est PAS ici : la photo et l'adresse. Elles vivent déjà sur User (avatarPath,
+// address, city, country, locality) et servent aux deux rôles ; les dupliquer ouvrirait
+// deux sources de vérité pour la même information.
+//
+// Comme le profil prestataire, tout est déclaratif : la plateforme ne vérifie rien ici et
+// ne conditionne aucun droit à sa complétion (modele-skillafrica-v3-Flexwork.md §9 — le
+// profil ne bloque jamais, seul le KYC garde des actions précises).
+model ClientProfile {
+  id         String      @id @default(cuid())
+  userId     String      @unique
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  profession String?
+  clientType ClientType?
+  company    String? // Renseigné pour entreprise/association/administration
+  sector     String? // Secteur de l'organisation — PAS la taxonomie métier, qui décrit le
+  // travail demandé, pas l'activité du donneur d'ordre.
+  languages  String[] // Langues de travail déclarées
+  currency   String      @default("XOF")
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+}
+
 enum DeclarationType {
   insurance
   qualification
+  // Ajouté le 2026-09-23. Le formulaire /declarations postait déjà `declarationType:
+  // "experience"` — l'enum ne le connaissait pas, zod refusait, et CHAQUE envoi d'expérience
+  // repartait en 400 sous un message « Échec de l'enregistrement » que rien n'expliquait.
+  experience
+}
+
+// Statut de la demande de badge « Vérifié » (2026-09-23).
+//
+// Le bouton existait et appelait POST /api/declarations/badge — une route qui n'existait pas.
+// Chaque clic repartait en 404 et affichait « Échec — complétez toutes les sections », un
+// message qui accusait le prestataire d'un tort qui n'était pas le sien.
+enum BadgeStatus {
+  non_demande
+  en_attente
+  accorde
+  refuse
+}
+
+// Diplôme déclaré, rattaché à la déclaration qui le porte (2026-09-23).
+//
+// Adossé à ProfessionalDeclaration et non au profil : la déclaration est append-only et
+// chaînée par hash, c'est elle qui date et scelle ce qui a été affirmé. Un diplôme corrigé
+// donne une nouvelle déclaration, l'ancienne reste consultable — même règle que le reste.
+//
+// Ces champs étaient saisis par /declarations puis SILENCIEUSEMENT jetés : `declarationSchema`
+// ne les déclarait pas, zod les supprimait, et l'écran annonçait malgré tout « Qualifications
+// enregistrées et horodatées ». Le schéma dit pourtant que « le diplôme d'État est le pivot
+// du badge » — ce pivot n'était stocké nulle part.
+model DeclaredDiploma {
+  id                String                  @id @default(cuid())
+  declarationId     String
+  declaration       ProfessionalDeclaration @relation(fields: [declarationId], references: [id], onDelete: Cascade)
+  qualificationName String
+  year              Int?
+  location          String?
+  institution       String?
+  specialty         String?
+  // Pivot du badge : un diplôme d'État vaut vérification, un diplôme déclaratif ne vaut que
+  // ce que son auteur en dit.
+  isStateIssued     Boolean                 @default(false)
+  createdAt         DateTime                @default(now())
+
+  @@index([declarationId])
+}
+
+// Expérience professionnelle déclarée (2026-09-23), même logique d'adossement.
+// Les dates sont des chaînes « AAAA-MM » : le formulaire utilise <input type="month">, et
+// convertir en date complète inventerait un jour qui n'a pas été saisi.
+model DeclaredExperience {
+  id            String                  @id @default(cuid())
+  declarationId String
+  declaration   ProfessionalDeclaration @relation(fields: [declarationId], references: [id], onDelete: Cascade)
+  clientType    String // INDIVIDUAL | COMPANY
+  clientName    String?
+  role          String
+  domain        String?
+  description   String?
+  startDate     String?
+  endDate       String?
+  technologies  String?
+  projectUrl    String?
+  livrables     String?
+  createdAt     DateTime                @default(now())
+  references    DeclaredReference[]
+
+  @@index([declarationId])
+}
+
+// Personne ressource attestant d'une expérience — rattachée à l'expérience qu'elle atteste,
+// jamais à la déclaration en vrac : sans ce lien, « qui confirme quoi » serait perdu.
+model DeclaredReference {
+  id           String             @id @default(cuid())
+  experienceId String
+  experience   DeclaredExperience @relation(fields: [experienceId], references: [id], onDelete: Cascade)
+  kind         String // primary | secondary | cross
+  nom          String
+  prenom       String?
+  tel          String?
+  email        String?
+  lien         String?
+  createdAt    DateTime           @default(now())
+
+  @@index([experienceId])
 }
 
 // Append-only, chaîné par hash (modele-skillafrica-v3-Flexwork.md §4.2) — jamais de
@@ -389,6 +767,8 @@ model ProfessionalDeclaration {
   coverageCeiling         Float?
   validUntil              DateTime?
   declaredAt              DateTime        @default(now())
+  diplomas                DeclaredDiploma[]
+  experiences             DeclaredExperience[]
   declarationTextSnapshot String
   ipAddress               String?
   userAgent               String?
@@ -445,6 +825,13 @@ enum MissionMode {
   hybride
 }
 
+// Secteur de la marketplace (2026-09-28) — voir `Categorie.secteur`.
+enum Secteur {
+  digital
+  btp
+  services
+}
+
 enum RiskLevel {
   low
   medium
@@ -453,6 +840,13 @@ enum RiskLevel {
 
 // modele-skillafrica-v3-Flexwork.md §7.2 — insuranceRequired = true uniquement pour high,
 // jamais configurable à false pour ce palier (garde-fou métier, voir US-701/702).
+//
+// RETIRÉE DE L'USAGE le 2026-09-23 : le palier de risque vit maintenant sur `Metier.riskLevel`,
+// saisi par l'administrateur dans la taxonomie. Cette table indexait le risque sur un libellé
+// LIBRE (`domain`) + un pays, et ses 4 lignes « high » ne correspondaient à aucun métier du
+// catalogue — le risque déclaré y était donc, en pratique, inexistant (4 métiers sur 220, aucun
+// palier atteignable au-delà de `medium`). Table conservée, comme `users.passwordHash`, pour ne
+// détruire aucune donnée : plus rien ne la lit ni ne l'écrit.
 model DomainRiskLevel {
   id                String    @id @default(cuid())
   domain            String
@@ -494,8 +888,43 @@ model Mission {
   client            User          @relation("MissionClient", fields: [clientId], references: [id], onDelete: Cascade)
   titre             String
   description       String
+  // Libellé du domaine, conservé (2026-09-23) alors même que `metier` le porte désormais en
+  // clé étrangère. Ce n'est PAS une redondance oubliée : `src/lib/domain-match.ts` rapproche
+  // les missions des prestataires en comparant ce texte à `Profile.mainDomain`, lui aussi
+  // libre. Tant que le profil prestataire n'est pas lui-même rattaché à la taxonomie, couper
+  // ce champ couperait le rapprochement. Il est donc SYNCHRONISÉ depuis le métier choisi
+  // (voir POST /api/missions) : la FK fait foi, le texte suit.
   domaine           String
+  // ── Taxonomie (2026-09-23) : Catégorie → Métier → Compétences ─────────────────────────
+  // Nullable : les missions publiées avant cette date n'ont que `domaine`. Les compétences
+  // ne sont pas une troisième FK mais les `tags` ci-dessous, remplis depuis les libellés de
+  // `Service` — `Profile.tags` les compare déjà par `hasSome`, ce qui rend le rapprochement
+  // par compétence opérant dès que les deux côtés puisent dans le même catalogue.
+  categorieId       String?
+  categorie         Categorie?    @relation(fields: [categorieId], references: [id])
+  metierId          String?
+  metier            Metier?       @relation(fields: [metierId], references: [id])
   mode              MissionMode   @default(presentiel)
+  // ── Cadrage (2026-09-23) ──────────────────────────────────────────────────────────────
+  // Le formulaire saisissait déjà une date de début, mais ne gardait que `delaiJours` qui en
+  // dérive : la date elle-même était jetée après le calcul.
+  dateDebut         DateTime?
+  pays              String? // Code ISO 2 lettres, comme User.country
+  ville             String?
+  quartier          String?
+  urgent            Boolean       @default(false)
+  materiel          MaterielFourniture?
+  // Complément libre à la description : plans, contraintes, attendus détaillés. Les FICHIERS
+  // du cahier des charges attendent leur propre endpoint (celui des pièces jointes existantes
+  // exige une mission acceptée — règle anti-travail-test gratuit US-1302).
+  cahierDesCharges  String?
+  // Fourchette indicative, réservée au mode devis (budgetType = "QUOTE") où aucun montant
+  // ferme n'est fixé. Distincte de `budget`, qui reste le prix du contrat quand aucun devis
+  // ne le remplace — une fourchette ne peut pas jouer ce rôle.
+  budgetMin         Int?
+  budgetMax         Int?
+  // Plafond de candidatures. `null` = illimité.
+  maxCandidatures   Int?
   budget            Float
   currency          String        @default("XOF")
   delaiJours        Int
@@ -519,6 +948,11 @@ model Mission {
   //
   // Nullable : les missions publiées avant cette date n'en ont pas — la génération de contrat
   // retombe alors sur les jalons saisis à la main, comportement historique inchangé.
+  //
+  // RÈGLE ACTUELLE (2026-10-01) : fixe ou par jalons, c'est le DEVIS qui le fixe
+  // (MissionProposal.devisData.financingModeKey, choisi par le prestataire, accepté par le
+  // client). Cette colonne ne porte plus qu'un mode au TEMPS (S2*) ; une valeur fixe/jalons n'y
+  // subsiste que sur les missions antérieures, comme repli (effectiveFinancingModeKey).
   financingModeKey  String?
   // Conditions d'un contrat au TEMPS (modes S2, 2026-09-15), posées par le client à la
   // publication : un tarif indicatif par unité et une quantité maximale (20 jours, 200 heures…).
@@ -528,6 +962,25 @@ model Mission {
   // exigent des conditions tarifaires que rien, avant ce correctif, ne savait produire.
   timeRate          Float?
   timeMaxQuantity   Float?
+  // Mode de pointage (2026-10-01) : règle de validation des relevés de présence, posée par le
+  // CLIENT à la publication d'une mission au temps, comme le tarif et le plafond. « totale » :
+  // un relevé se valide en entier ou se refuse/conteste ; « partielle » : le validateur peut
+  // n'en reconnaître qu'une partie. Null hors S2. Recopié et FIGÉ dans SpotTimeTerms au contrat.
+  // Ne touche pas l'outil de pointage horodaté (CheckInEvent, règle A12) : il reste facultatif
+  // et soumis au consentement des deux parties.
+  attendanceValidation AttendanceValidation?
+  // Vérification / validation (2026-10-01), choisie par le CLIENT à la publication, pour tout
+  // type de mission :
+  //   - "client" (« Moi-même ») : le client constate les relevés et valide jalons/tâches seul.
+  //   - "opr" (« OPR / responsable chantier ») : un responsable de chantier désigné constate les
+  //     relevés et vérifie jalons/tâches (preuves, avancement), puis TRANSMET au client, qui seul
+  //     prononce la validation définitive — et donc la libération des fonds.
+  // Figé au contrat (PrestationContract.validationMode).
+  validationMode       ValidationMode @default(client)
+  // Responsable désigné dès la publication (facultatif — il peut l'être plus tard, sur le
+  // contrat). Recopié au contrat à sa génération.
+  siteManagerId        String?
+  siteManager          User?          @relation("MissionSiteManager", fields: [siteManagerId], references: [id], onDelete: SetNull)
   tags              String[] // Compétences requises (ex: "Soudure", "Placo", "Électricité BT")
   status            MissionStatus @default(brouillon)
 
@@ -546,6 +999,14 @@ model Mission {
   // Pendant, au niveau MISSION ENTIÈRE (contrat sans jalon), de Jalon.submittedAt — voir ce
   // champ pour le rationale complet. Point de départ du délai d'acceptation tacite.
   submittedAt      DateTime?
+  // Pendant, au niveau MISSION ENTIÈRE (contrat sans jalon), de Jalon.verifiedAt : transmission
+  // du responsable de chantier au client en mode OPR. Remis à null à chaque nouvelle soumission.
+  verifiedAt       DateTime?
+  verifiedById     String?
+  verificationNote String?
+  // Pendant de Jalon.clientValidatedById/At pour un contrat sans jalon.
+  clientValidatedById String?
+  clientValidatedAt   DateTime?
 
   // ── Mode devis BTP (négociation multi-round) ──────────────────────────
   maxRevisionRounds Int       @default(3) // rounds de négociation autorisés
@@ -871,6 +1332,13 @@ model PrestationContract {
   //
   // Figé à la génération du contrat comme les trois options ci-dessus : on ne change pas la
   // façon dont un contrat signé est financé.
+  // Vérification / validation figée depuis Mission.validationMode (2026-10-01). Les contrats
+  // qui avaient déjà un responsable désigné passent en "opr" à la migration.
+  validationMode     ValidationMode     @default(client)
+  // Responsable de chantier désigné sur CE contrat — remonté depuis SpotTimeTerms (2026-10-01)
+  // pour couvrir aussi les jalons et tâches, plus seulement les relevés au temps. Révocable.
+  siteManagerId      String?
+  siteManager        User?              @relation("SiteManagedContracts", fields: [siteManagerId], references: [id], onDelete: SetNull)
   financingMode      FinancingMode      @default(lump_sum)
   jalonsSequential   Boolean            @default(false)
   retentionRate      Float              @default(0)
@@ -887,6 +1355,13 @@ model PrestationContract {
   auditEntries     ContractAuditEntry[]
 
   @@index([missionId])
+  @@index([siteManagerId])
+}
+
+// Vérification / validation d'une mission (2026-10-01) — voir Mission.validationMode.
+enum ValidationMode {
+  client // « Moi-même » : le client constate et valide seul
+  opr // « OPR / responsable chantier » : le responsable vérifie et transmet, le client valide
 }
 
 // ---------------------------------------------------------------------------
@@ -949,6 +1424,19 @@ model Jalon {
   // clause « à défaut de contestation dans ce délai » que le contrat fait signer aux deux
   // parties n'avait aucune date à laquelle s'accrocher, et n'était appliquée nulle part.
   submittedAt      DateTime?
+  // Mode OPR (2026-10-01) : le responsable de chantier a vérifié ce jalon (preuves appréciées,
+  // avancement constaté à 100 %) et l'a TRANSMIS au client pour validation définitive. Sans
+  // cette transmission, le client ne peut pas valider. Remis à null à chaque nouvelle soumission
+  // du prestataire et à chaque rejet — une vérification vaut pour UN livrable.
+  verifiedAt       DateTime?
+  verifiedById     String?
+  verificationNote String?
+  // Validation DÉFINITIVE du client (2026-10-01) — qui a validé, et quand. Distincte de la
+  // vérification ci-dessus (responsable, en OPR) et de la libération confirmée par le PSP : les
+  // trois gestes se tracent séparément. Nulle sur une libération par acceptation tacite, qui
+  // n'est le geste de personne.
+  clientValidatedById String?
+  clientValidatedAt   DateTime?
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
 
@@ -1046,9 +1534,10 @@ model CheckInEvent {
 
 // ── Contrat au TEMPS (S2, §9 à §13 du cahier des charges — 2026-09-14) ─────────────────────
 enum RateUnit {
-  hour // S2-H — tarif horaire
-  day // S2-J — tarif journalier
-  month // S2-M — tarif mensuel
+  hour // S2H — tarif horaire
+  day // S2J — tarif journalier
+  week // S2W — tarif hebdomadaire (semaine ISO, lundi→dimanche — voir weekPeriod)
+  month // S2M — tarif mensuel
 }
 
 // Statuts d'un relevé de présence. Le cycle du §20 : saisi → soumis → validé (ou refusé, ou
@@ -1057,6 +1546,7 @@ enum RateUnit {
 enum AttendanceStatus {
   open
   submitted
+  verified // mode OPR : constaté par le responsable de chantier, en attente du client
   approved
   rejected
   disputed
@@ -1070,6 +1560,12 @@ enum AttendanceStatus {
 // Le PLAFOND est la clé de voûte du §10 : c'est lui que le client finance d'avance
 // (20 jours × 7 500 = 150 000), et c'est lui que les pointages consomment. Il est figé au
 // contrat comme le reste des conditions financières.
+// Mode de pointage d'une mission au temps (2026-10-01) — voir Mission.attendanceValidation.
+enum AttendanceValidation {
+  totale // un relevé se valide en entier, ou se refuse / se conteste
+  partielle // le validateur peut ne reconnaître qu'une partie du relevé
+}
+
 model SpotTimeTerms {
   id         String             @id @default(cuid())
   contractId String             @unique
@@ -1090,18 +1586,15 @@ model SpotTimeTerms {
   overtimeAllowed Boolean @default(false)
   overtimeRate    Float?
 
-  // Responsable de validation sur le terrain (§7 du prompt maître : « responsable de
-  // validation »). Optionnel : sans lui, le client valide lui-même, comme pour tout autre mode.
-  //
-  // Désigné CONTRAT PAR CONTRAT, et non par un rôle global : sur un chantier, la personne qui
-  // constate la présence n'est pas la même d'un site à l'autre, et un pouvoir de validation qui
-  // suivrait le compte plutôt que la mission serait impossible à retirer.
-  siteManagerId String?
-  siteManager   User?   @relation("SiteManagedContracts", fields: [siteManagerId], references: [id], onDelete: SetNull)
+  // Règle de validation des relevés (mode de pointage), figée depuis Mission.attendanceValidation
+  // à la génération du contrat. Défaut « partielle » : comportement historique des contrats
+  // générés avant son introduction.
+  attendanceValidation AttendanceValidation @default(partielle)
+
+  // Le responsable de chantier vit désormais sur le CONTRAT (PrestationContract.siteManagerId,
+  // 2026-10-01) : il vérifie aussi les jalons et tâches, plus seulement les relevés.
 
   createdAt DateTime @default(now())
-
-  @@index([siteManagerId])
 }
 
 // Relevé de présence — le module de pointage du §20.
@@ -1140,6 +1633,13 @@ model Attendance {
   rejectionReason String?
   validatedById   String?
   validatedAt     DateTime?
+
+  // Mode OPR (2026-10-01) : constat du responsable de chantier, transmis au client. La
+  // quantité vérifiée borne ce que le client peut valider définitivement.
+  verifiedQuantity         Float?
+  verifiedOvertimeQuantity Float     @default(0)
+  verifiedById             String?
+  verifiedAt               DateTime?
 
   // Créance produite par la validation. Nulle tant que le relevé n'est pas validé : c'est la
   // matérialisation de « le pointage n'a aucun pouvoir financier direct » (§20).
@@ -1749,72 +2249,97 @@ enum FrontendStatus {
   archive
 }
 
-// ── Taxonomie : domaine → spécialité → compétence ──────────────────────────────────────────
+// ── Taxonomie : Catégorie → Métier → Service ────────────────────────────────────────────────
 //
-// Le lien avec l'existant se fait par le NOM, pas par une clé étrangère, et c'est délibéré :
-// `Mission.domaine`, `Profile.mainDomain`, `Gig.domaine` et `DomainRiskLevel.domain` sont
-// aujourd'hui du texte libre, saisi à la main, déjà présent en base sur des missions réelles.
-// Migrer ces quatre colonnes vers `domainId` casserait les missions dont le domaine ne
-// correspond à aucune entrée du référentiel — et il y en a, puisque rien ne l'a jamais
-// contraint. Le référentiel commence donc par DÉCRIRE ce qui existe ; la contrainte d'intégrité
-// viendra quand la couverture sera mesurée (l'écran d'administration l'affiche, domaine par
-// domaine, sous « missions rattachées »).
-model TaxonomyDomain {
-  id        String         @id @default(cuid())
-  slug      String         @unique
-  name      String         @unique
-  icon      String?
-  sortOrder Int            @default(0)
-  status    FrontendStatus @default(brouillon)
-
-  specialties TaxonomySpecialty[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([status, sortOrder])
-}
-
-model TaxonomySpecialty {
-  id          String         @id @default(cuid())
-  domainId    String
-  domain      TaxonomyDomain @relation(fields: [domainId], references: [id], onDelete: Cascade)
-  slug        String
-  name        String
+// Architecture reprise telle quelle de `flexwork_job` (prisma/schema.prisma, modèles Categorie,
+// Metier, Service) : mêmes niveaux, mêmes champs, mêmes contraintes d'unicité, mêmes tables.
+// Seules manquent les relations vers les modèles que ce dépôt n'a pas (Demande,
+// PrestataireMetier, PrestataireService).
+model Categorie {
+  id          String    @id @default(cuid())
+  libelle     String    @unique
   description String?
-  sortOrder   Int            @default(0)
-  status      FrontendStatus @default(brouillon)
+  icon        String? // Icône ou emoji
+  ordre       Int       @default(0) // Ordre d'affichage
+  // ── Barrière d'âge portée par la CATÉGORIE (2026-09-24) ───────────────────────────────
+  // Le contrôle d'âge (A13) s'évaluait sur la FILIÈRE du compte (artisan, manœuvre,
+  // expert_btp_autres). Or la filière dit COMMENT on exerce, pas QUEL travail on fait — et
+  // depuis que « Prestataire indépendant » a remplacé « Expert digital », elle ne délimite
+  // plus rien : un électricien pouvait s'y déclarer et échapper au contrôle d'âge.
+  //
+  // La barrière se dresse désormais au moment où le prestataire choisit son MÉTIER, donc sa
+  // catégorie — l'axe qui dit réellement de quel travail il s'agit. Marquée par
+  // l'administrateur dans la taxonomie, comme le palier de risque du métier.
+  //
+  // Conséquence voulue : plus aucune catégorie n'est marquée à l'installation, donc la
+  // barrière ne se déclenche nulle part tant qu'un administrateur ne l'a pas posée. C'est un
+  // choix de classification, pas un oubli — ne pas pré-remplir à sa place.
+  requiresAgeCheck Boolean @default(false)
+  // ── Secteur de la marketplace (2026-09-28) ─────────────────────────────────────────────
+  // Regroupe les catégories en trois grands pôles — DIGITAL, BTP, SERVICES — pour l'entrée de
+  // la marketplace. Classement posé par l'administrateur dans la taxonomie, jamais déduit du
+  // libellé : `null` = « non classée », visible comme telle dans le backoffice.
+  //
+  // Le secteur décrit le TRAVAIL (comme la catégorie qu'il regroupe), pas la façon d'exercer :
+  // il ne se confond pas avec la filière du compte (`User.role`).
+  secteur     Secteur?
+  // ── Vérification tierce autorisée (2026-10-01) ─────────────────────────────────────────
+  // Le mode de vérification « OPR / responsable chantier » n'est PROPOSÉ à la publication que
+  // pour les catégories où un contrôle sur site par un tiers a un sens (maçonnerie, électricité,
+  // plomberie…) — pas pour un logo ou une traduction. Le réglage AUTORISE le mode ; c'est la
+  // mission qui le choisit (Mission.validationMode).
+  //
+  // Même règle que `requiresAgeCheck` : aucune catégorie n'est marquée à l'installation, c'est
+  // l'administrateur qui classe — ne pas pré-remplir à sa place, ni le déduire du secteur.
+  allowsOprVerification Boolean @default(false)
+  metiers     Metier[]
+  missions    Mission[]
 
-  competencies TaxonomyCompetency[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([domainId, slug])
-  @@index([domainId, sortOrder])
+  @@map("categories")
 }
 
-model TaxonomyCompetency {
-  id          String            @id @default(cuid())
-  specialtyId String
-  specialty   TaxonomySpecialty @relation(fields: [specialtyId], references: [id], onDelete: Cascade)
-  slug        String
-  name        String
-  sortOrder   Int               @default(0)
-  status      FrontendStatus    @default(brouillon)
+model Metier {
+  id          String    @id @default(cuid())
+  categorieId String
+  categorie   Categorie @relation(fields: [categorieId], references: [id])
+  libelle     String // "Plombier", "Électricien", "Maçon", etc.
+  description String?
+  // ── Palier de risque DU MÉTIER (2026-09-23) ────────────────────────────────────────────
+  // Il appartenait à `DomainRiskLevel`, une table indexée sur un libellé libre qui ne
+  // correspondait à aucun métier du catalogue : 4 lignes sur 220, et les 4 lignes « high »
+  // (Électricité, Travail en hauteur, Gros œuvre, Engins) ne tombaient sur RIEN. L'obligation
+  // d'assurance qui en dépendait ne pouvait donc jamais se déclencher — ni à la candidature,
+  // ni au séquestre.
+  //
+  // Le risque est désormais porté par le métier lui-même, saisi par l'administrateur au moment
+  // où il crée ou modifie ce métier. Deux conséquences voulues : le risque ne peut plus être
+  // orphelin (il voyage avec la ligne à laquelle il s'applique), et il est connu du formulaire
+  // dès la SÉLECTION du métier, sans requête supplémentaire.
+  //
+  // `insuranceRequired` n'est PAS une colonne : la règle du modèle est « obligatoire si et
+  // seulement si le palier est `high` » (modele-skillafrica-v3 §7.2), et un booléen séparé
+  // serait une seconde vérité à tenir d'accord avec la première.
+  riskLevel   RiskLevel @default(low)
+  services    Service[]
+  missions    Mission[]
+  profiles    Profile[]
 
-  // Correspond au badge « VERIF » de la maquette. La compétence reste DÉCLARÉE par le
-  // prestataire (arbitrage A11, §6 de etat-consolide-Flexwork.md : la plateforme ne vérifie
-  // ni qualification ni compétence). Ce drapeau signale au client qu'une pièce justificative
-  // est attendue sur cette compétence — il ne transforme pas la déclaration en vérification,
-  // et aucun code ne doit lui faire produire un badge de confiance.
-  verificationExpected Boolean @default(false)
+  @@unique([categorieId, libelle])
+  @@index([categorieId])
+  @@map("metiers")
+}
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model Service {
+  id           String  @id @default(cuid())
+  metierId     String
+  metier       Metier  @relation(fields: [metierId], references: [id])
+  libelle      String // "Réparation de fuite", "Installation robinet", etc.
+  description  String?
+  dureeEstimee Int? // Durée estimée en minutes
 
-  @@unique([specialtyId, slug])
-  @@index([specialtyId, sortOrder])
+  @@unique([metierId, libelle])
+  @@index([metierId])
+  @@map("services")
 }
 
 // ── Sections d'accueil ─────────────────────────────────────────────────────────────────────

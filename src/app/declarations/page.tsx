@@ -108,14 +108,27 @@ export default function DeclarationsPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ declarationType: "experience", experiences, references: refs }),
     });
-    setXpMsg(res.ok ? "Expériences enregistrées et horodatées." : "Échec de l'enregistrement.");
+    if (res.ok) {
+      setXpMsg("Expériences enregistrées et horodatées.");
+      return;
+    }
+    const data = await res.json().catch(() => ({}));
+    setXpMsg(data.message ?? "Échec de l'enregistrement — vérifiez que chaque expérience porte un poste.");
   }
 
   async function submitBadge(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setBadgeMsg(null);
     const res = await fetch("/api/declarations/badge", { method: "POST" });
-    setBadgeMsg(res.ok ? "Demande de vérification du badge envoyée." : "Échec — complétez toutes les sections.");
+    if (res.ok) {
+      setBadgeMsg("Demande de vérification envoyée — elle sera instruite par un administrateur.");
+      return;
+    }
+    // Le serveur dit ce qui manque (diplôme d'État absent, demande déjà en cours...) : on
+    // affiche SON motif. L'ancien message « Échec — complétez toutes les sections » accusait
+    // le prestataire alors que la route appelée n'existait même pas.
+    const data = await res.json().catch(() => ({}));
+    setBadgeMsg(data.message ?? "La demande n'a pas pu être envoyée.");
   }
 
   async function submitQualifications(e: React.FormEvent<HTMLFormElement>) {
@@ -138,8 +151,8 @@ export default function DeclarationsPage() {
     });
     setQualifMsg(
       res.ok
-        ? "Qualifications enregistrées et horodatées."
-        : "Échec de l'enregistrement."
+        ? `${diplomes.length} qualification(s) enregistrée(s) et horodatée(s).`
+        : "Échec de l'enregistrement — chaque diplôme doit porter un intitulé."
     );
   }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { signIn, getSession } from "next-auth/react";
 import Link from "next/link";
@@ -62,7 +62,17 @@ function VerifyOtpForm() {
     }
 
     if (purpose === "signup") {
-      router.push("/kyc");
+      // Écran P4 — et non plus l'assistant KYC (2026-09-23, décision « Option C »).
+      //
+      // Le compte vient de s'ouvrir en CLIENT : P4 est exactement l'écran qui le dit
+      // (« Vous êtes actuellement CLIENT par défaut ») et qui offre la seule action
+      // explicite possible — ouvrir l'espace prestataire, ou continuer en client.
+      //
+      // L'ancien envoi direct vers /kyc faisait de la vérification d'identité une porte
+      // d'entrée obligatoire, ce que le modèle refuse (§9 : le KYC ne conditionne QUE des
+      // actions précises — publier, candidater). Il transformait aussi un écran de
+      // déclaration en péage : l'utilisateur n'avait rien choisi qu'il puisse comprendre.
+      router.push("/bienvenue");
       return;
     }
 
@@ -90,12 +100,51 @@ function VerifyOtpForm() {
     void submitCode(code);
   }
 
-  // Auto-submit : dès que 6 chiffres sont saisis, la vérification part immédiatement —
-  // l'utilisateur n'a pas à cliquer « Valider ». Les non-chiffres sont ignorés.
-  function handleCodeChange(value: string) {
-    const digits = value.replace(/\D/g, "").slice(0, 6);
-    setCode(digits);
-    if (digits.length === 6 && !submitting) void submitCode(digits);
+  // Saisie en SIX cases (2026-09-23), une par chiffre. La case unique précédente affichait
+  // « 123456 » en `tracking-[0.5em]` : il fallait relire mentalement ce qu'on venait de taper,
+  // et se tromper d'un chiffre ne se voyait qu'au rejet du code. Six cases se relisent d'un
+  // coup d'œil, et la progression est automatique — plus besoin de viser la case suivante.
+  const inputsRef = useRef<Array<HTMLInputElement | null>>([]);
+
+  // Point d'entrée unique de la saisie : normalise, borne à 6, avance le focus, et déclenche
+  // la vérification dès que les six chiffres sont là. Utilisé par la frappe, le collage et
+  // l'effacement, pour qu'aucun chemin ne puisse produire un état incohérent.
+  function commitDigits(next: string) {
+    setCode(next);
+    if (next.length === 6 && !submitting) {
+      void submitCode(next);
+      return;
+    }
+    inputsRef.current[Math.min(next.length, 5)]?.focus();
+  }
+
+  function handleDigitChange(index: number, raw: string) {
+    const typed = raw.replace(/\D/g, "");
+    if (typed.length === 0) {
+      // Effacement : on retire le chiffre de cette case, sans toucher aux suivants.
+      setCode((c) => c.slice(0, index) + c.slice(index + 1));
+      return;
+    }
+    commitDigits((code.slice(0, index) + typed + code.slice(index + typed.length)).slice(0, 6));
+  }
+
+  function handleDigitKeyDown(index: number, e: React.KeyboardEvent<HTMLInputElement>) {
+    // Retour arrière sur une case vide : reculer d'une case, comportement attendu d'un code.
+    if (e.key === "Backspace" && !code[index] && index > 0) {
+      e.preventDefault();
+      inputsRef.current[index - 1]?.focus();
+    }
+    if (e.key === "ArrowLeft" && index > 0) inputsRef.current[index - 1]?.focus();
+    if (e.key === "ArrowRight" && index < 5) inputsRef.current[index + 1]?.focus();
+  }
+
+  // Collage d'un code reçu par email : les six chiffres arrivent d'un bloc, on ne force pas
+  // l'utilisateur à les retaper case par case.
+  function handlePaste(e: React.ClipboardEvent<HTMLInputElement>) {
+    const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
+    if (!pasted) return;
+    e.preventDefault();
+    commitDigits(pasted);
   }
 
   async function handleResend() {
@@ -105,7 +154,9 @@ function VerifyOtpForm() {
     const res = await fetch("/api/auth/login/request-otp", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ identifier }),
+      // `purpose` transmis (2026-09-23) : sans lui, un renvoi en inscription créait un code
+      // `login` que la vérification (`purpose=signup`, src/auth.ts) ne trouvait jamais.
+      body: JSON.stringify({ identifier, purpose }),
     });
     setResending(false);
     setResendMsg(
@@ -193,7 +244,7 @@ function VerifyOtpForm() {
           {/* Info hint */}
           <div className="mb-6 px-4 py-3 rounded-xl bg-[#eefaf4] border border-[#008751]/15 text-[12.5px] text-zinc-700 flex items-start gap-2.5">
             <Info className="w-4 h-4 text-[#008751] shrink-0 mt-0.5" />
-            <span>Le code expire dans 10 minutes. Saisis-le ci-dessous pour valider.</span>
+            <span>Le code expire dans 5 minutes. Saisis-le ci-dessous pour valider, ou demandes-en un nouveau.</span>
           </div>
 
           {/* Error */}
@@ -210,24 +261,32 @@ function VerifyOtpForm() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Code input */}
+            {/* Code input — six cases, voir commitDigits */}
             <div>
               <label className="block text-[13px] font-semibold text-zinc-700 mb-2">Code reçu</label>
-              <div className="p-1.5 rounded-2xl border-2 border-gray-100 bg-white focus-within:border-[#FF7A00] focus-within:shadow-[0_0_0_4px_rgba(255,122,0,0.08)] transition-all">
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={6}
-                  required
-                  placeholder="123456"
-                  value={code}
-                  onChange={(e) => handleCodeChange(e.target.value)}
-                  autoComplete="one-time-code"
-                  autoFocus
-                  className="w-full h-12 bg-transparent text-center text-[22px] font-bold tracking-[0.5em] text-[#0A1931] placeholder:text-zinc-300 focus:outline-none"
-                />
+              <div className="flex justify-center gap-2">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <input
+                    key={i}
+                    ref={(el) => {
+                      inputsRef.current[i] = el;
+                    }}
+                    value={code[i] ?? ""}
+                    onChange={(e) => handleDigitChange(i, e.target.value)}
+                    onKeyDown={(e) => handleDigitKeyDown(i, e)}
+                    onPaste={i === 0 ? handlePaste : undefined}
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete={i === 0 ? "one-time-code" : "off"}
+                    maxLength={1}
+                    required
+                    autoFocus={i === 0}
+                    aria-label={`Chiffre ${i + 1} sur 6`}
+                    className="w-12 h-12 rounded-xl border border-[#E2E8F0] bg-white text-center text-[20px] font-bold text-[#0A1931] focus:outline-none focus:border-[#008751] focus:ring-2 focus:ring-[#008751]/20 transition"
+                  />
+                ))}
               </div>
-              <p className="flex items-center gap-1 mt-2 text-[11px] text-zinc-400">
+              <p className="flex items-center justify-center gap-1 mt-2 text-[11px] text-zinc-400">
                 <span className="text-[#008751]">✓</span> Code à usage unique • Jamais redemandé
               </p>
             </div>
@@ -248,32 +307,25 @@ function VerifyOtpForm() {
               )}
             </button>
 
-            {/* Resend / help — le renvoi se fait ICI (connexion), plus besoin de passer
-                par une page « mot de passe oublié » : la connexion est 100% par code. */}
+            {/* Renvoi — le canal est l'email, pour l'inscription comme pour la connexion.
+                Jusqu'ici l'inscription renvoyait vers « Contacter le support » alors que le
+                serveur savait déjà émettre un nouveau code : elle laissait l'utilisateur
+                sans recours pour une simple non-réception. */}
             <div className="text-center pt-1 space-y-1.5">
-              {purpose === "signup" ? (
-                <p className="text-[12.5px] text-zinc-500">
-                  Code non reçu ?{" "}
-                  <Link href="/contact" className="text-[#008751] font-semibold hover:underline">Contacter le support</Link>
-                </p>
-              ) : (
-                <>
-                  {resendMsg && <p className="text-[12.5px] text-[#008751] font-medium">{resendMsg}</p>}
-                  <button
-                    type="button"
-                    onClick={handleResend}
-                    disabled={resending || resendIn > 0}
-                    className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-[#008751] hover:underline disabled:text-zinc-400 disabled:no-underline disabled:cursor-not-allowed"
-                  >
-                    <RefreshCw className={`w-3.5 h-3.5 ${resending ? "animate-spin" : ""}`} />
-                    {resending
-                      ? "Envoi..."
-                      : resendIn > 0
-                        ? `Renvoyer le code (${resendIn}s)`
-                        : "Renvoyer un code"}
-                  </button>
-                </>
-              )}
+              {resendMsg && <p className="text-[12.5px] text-[#008751] font-medium">{resendMsg}</p>}
+              <button
+                type="button"
+                onClick={handleResend}
+                disabled={resending || resendIn > 0}
+                className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-[#008751] hover:underline disabled:text-zinc-400 disabled:no-underline disabled:cursor-not-allowed"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${resending ? "animate-spin" : ""}`} />
+                {resending
+                  ? "Envoi..."
+                  : resendIn > 0
+                    ? `Renvoyer par email (${resendIn}s)`
+                    : "Renvoyer par email"}
+              </button>
             </div>
           </form>
 

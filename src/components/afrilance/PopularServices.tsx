@@ -31,6 +31,12 @@ export default async function PopularServices() {
             >
               <div className={`absolute inset-0 bg-gradient-to-br ${s.color ?? 'from-[#0A1931] to-[#8B2E86]'} opacity-90`}></div>
               {s.imageUrl && (
+                // `imageUrl` vient du contenu ÉDITORIAL (backoffice, champ libre ≤ 240 car.) :
+                // l'hôte n'est pas connu à la compilation, et next/image exigerait de l'inscrire
+                // dans `images.remotePatterns` — une liste blanche qui casserait la page le jour
+                // où un éditeur colle l'URL d'un autre domaine. Le fond est décoratif et atténué
+                // (mix-blend-overlay opacity-50) : le gain d'optimisation ne vaut pas ce risque.
+                // eslint-disable-next-line @next/next/no-img-element
                 <img src={s.imageUrl} className="absolute inset-0 w-full h-full object-cover mix-blend-overlay opacity-50 group-hover:scale-110 transition duration-700" alt="" />
               )}
               <div className="relative p-4 lg:p-5 h-full flex flex-col justify-between text-white">

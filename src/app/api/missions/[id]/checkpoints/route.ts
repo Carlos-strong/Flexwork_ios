@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { contractRole } from "@/lib/validation-mode";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 
@@ -18,7 +19,7 @@ export async function GET(
   const { id: missionId } = await params;
 
   const contract = await prisma.prestationContract.findUnique({ where: { missionId } });
-  if (!contract || (contract.clientId !== userId && contract.providerId !== userId)) {
+  if (!contract || !contractRole(contract, userId)) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 

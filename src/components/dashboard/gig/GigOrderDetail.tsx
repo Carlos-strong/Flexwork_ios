@@ -9,7 +9,7 @@
 // Flux de signature INVERSÉ du modèle Mission : le CLIENT signe en premier (les fonds
 // passent sous séquestre), le PRESTATAIRE accepte ensuite sous 24h, sinon remboursement
 // automatique au client (src/lib/gig-expiry.ts).
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { ArrowLeft } from "lucide-react";
 import { Avatar } from "@/components/avatar";
@@ -148,11 +148,11 @@ export default function GigOrderDetail({ orderId, onBack }: { orderId: string; o
   const [validating, setValidating] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
 
-  async function load() {
+  const load = useCallback(async () => {
     const res = await fetchDedupe(`/api/gigs/orders/${orderId}`);
     if (!res.ok) return setNotFound(true);
     setOrder(await res.json());
-  }
+  }, [orderId]);
 
   async function validerLivraison() {
     setValidationError(null);
@@ -175,8 +175,7 @@ export default function GigOrderDetail({ orderId, onBack }: { orderId: string; o
 
   useEffect(() => {
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orderId]);
+  }, [load]);
 
   const back = (
     <button onClick={onBack} className="inline-flex items-center gap-1.5 text-[12.5px] text-zinc-500 hover:text-[#0A1931]">

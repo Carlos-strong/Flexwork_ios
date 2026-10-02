@@ -57,10 +57,10 @@ export const FRONTEND_MODULES: FrontendModule[] = [
     label: "Taxonomie",
     icon: "◐",
     state: "actif",
-    summary: "Domaines, spécialités et compétences ; couverture face aux saisies réelles.",
+    summary: "Catégorie → Métier → Service, hiérarchie reprise de flexwork_job ; édition en direct.",
     drives: [
-      "src/lib/taxonomy.ts",
-      "src/app/api/frontend/taxonomy/route.ts",
+      "src/app/api/categories/route.ts",
+      "src/app/api/services/route.ts",
       "src/app/backoffice/catalog/page.tsx",
     ],
   },

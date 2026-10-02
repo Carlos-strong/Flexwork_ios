@@ -1,6 +1,6 @@
 # Flexwork — État consolidé des décisions
 
-**Date d'arbitrage** : 3 août 2026 · **Dernière mise à jour** : 16 septembre 2026 (A13, A14, corrections de références)
+**Date d'arbitrage** : 3 août 2026 · **Dernière mise à jour** : 28 septembre 2026 (A16 : secteurs DIGITAL / BTP / SERVICES)
 **Objet** : document de référence unique. Recense l'état des décisions arrêtées, les arbitrages successifs et leurs motifs, les prérequis bloquants, et le statut de chaque document produit.
 **Statut du modèle** : **arbitré** — option A (intermédiaire neutre) retenue le 3 août 2026, voir §6. Reste conditionné aux prérequis juridiques du §5.
 
@@ -18,12 +18,12 @@ Flexwork est une plateforme de mise en relation entre clients et prestataires (5
 
 | Élément | État |
 |---|---|
-| Vérification effective par la plateforme | **Identité (KYC)** et **âge minimum légal sur les filières chantier** (A13) — rien d'autre |
+| Vérification effective par la plateforme | **Identité (KYC)** et **âge minimum légal sur les catégories de métier à risque** (A13, A15) — rien d'autre |
 | Qualifications, assurance, expérience | **Déclarées** par le prestataire, affichées comme non vérifiées |
 | Contrat de prestation | Entre client et prestataire — **plateforme non signataire** |
 | Détention des fonds | **Par un PSP agréé** — jamais par la plateforme |
 | Litige | **Médiation facultative** — la plateforme ne tranche pas |
-| Exceptions au principe d'intermédiaire pur | **Deux** : domaines à risque physique élevé (assurance effective bloquante, A9) et âge minimum légal sur filières chantier (A13, sans dérogation) |
+| Exceptions au principe d'intermédiaire pur | **Deux** : domaines à risque physique élevé (assurance effective bloquante, A9) et âge minimum légal sur les catégories de métier à risque (A13/A15, sans dérogation) |
 
 ### 1.3 Ce qui n'a jamais changé sur toute la session
 
@@ -196,7 +196,13 @@ Elle est encore moins négociable que la première : elle protège des personnes
 ### A14 — Le contrôle d'âge porte sur la filière prestataire, jamais sur le compte
 **Décision** : la barrière A13 s'applique à la **filière prestataire** (ce que la personne offre : artisan, manœuvre, expert BTP/Autres), jamais au compte. Un compte à double face (client **et** manœuvre, à venir avec le dual-role) est donc : **jamais soumis** au seuil côté client (hors sujet) et **toujours soumis** côté prestataire (pas d'esquive). En mono-rôle actuel, la filière prestataire == `user.role` — la règle est déjà implémentée telle quelle ; l'arbitrage lève l'ambiguïté pour la bascule dual-role.
 **Motif** : `user.role` est une filière métier, pas une face du marché. Si le contrôle était porté par le compte, un compte à double face échapperait au seuil légal (ou le subirait sans objet côté client) — soit l'inverse exact de l'intention d'A13.
-**Implémentation** : module partagé `src/lib/chantier-age.ts` (`isChantierPrestataireAgeOk`) réutilisé par (1) l'activation du profil (`POST /api/profile` → `profile_below_minimum_age`) et (2) la candidature (`src/lib/candidature-guard.ts` → `age_under_minimum` / `kyc_required_for_age`) — défense en profondeur, un mineur ne peut ni activer son profil chantier ni candidater, même en contournant l'une des deux portes. Réévaluation en direct à chaque appel (jamais un statut figé) : un profil refusé à 17 ans s'active à 18 sans repasser le KYC.
+**Implémentation** : module partagé `src/lib/chantier-age.ts` (`isChantierPrestataireAgeOk`) réutilisé par (1) l'activation du profil (`POST /api/profile` → `profile_below_minimum_age`) et (2) la candidature (`src/lib/candidature-guard.ts` → `age_under_minimum` / `kyc_required_for_age`) — défense en profondeur, un mineur ne peut ni activer son profil chantier ni candidater, même en contournant l'une des deux portes. Réévaluation en direct à chaque appel (jamais un statut figé) : un profil refusé à 17 ans s'active à 18 sans repasser le KYC. *(Déclencheur remplacé par A15 — le principe « jamais sur le compte » demeure.)*
+
+### A15 — Le contrôle d'âge est porté par la catégorie du métier, plus par la filière (2026-09-24)
+**Décision** : la barrière A13 se dresse quand le métier choisi appartient à une **catégorie marquée** par l'administrateur (`Categorie.requiresAgeCheck`, case « barrière d'âge » dans `/backoffice/catalog`). La filière du compte (`User.role`) ne sert plus qu'à choisir le **seuil** dans `country_age_requirements` ; une filière sans règle configurée retombe sur le plancher de 18 ans, jamais sur « pas de contrôle ».
+**Motif** : la filière dit *comment* on exerce, pas *quel travail* on fait. Depuis que « Prestataire indépendant » a remplacé « Expert digital », elle ne délimite plus rien : un électricien pouvait s'y déclarer sans rencontrer le contrôle. La catégorie est aussi l'axe que le client choisit en publiant une mission — les deux côtés se répondent.
+**Installation** : le marqueur est à `false` sur toutes les catégories (migration `20260924120000_categorie_barriere_age`). Désigner les catégories dangereuses est un choix de classification qui revient à l'administrateur ; **tant qu'aucune n'est cochée, la barrière ne se dresse nulle part** — c'est une action de mise en production à ne pas oublier.
+**Implémentation** : module unique `src/lib/age-categorie.ts` (`isCategorieAgeOk`), appelé (1) à l'enregistrement du métier dans le profil (`POST /api/profile` → `profile_below_minimum_age` / `kyc_required_for_age` / `birth_date_missing`) et (2) à la candidature, sur la catégorie de la **mission** visée (`src/lib/candidature-guard.ts` → `age_under_minimum` / `kyc_required_for_age`). Chaque changement du marqueur est journalisé avec justification (`/api/categories`).
 
 ---
 
@@ -227,6 +233,29 @@ Elle est encore moins négociable que la première : elle protège des personnes
 └──────────────────────────────────────────────────────┘
 ```
 
+
+### A16 — La marketplace est regroupée en trois secteurs : DIGITAL, BTP, SERVICES (2026-09-28)
+**Décision** : chaque catégorie de la taxonomie est rattachée par l'administrateur à un secteur (`Categorie.secteur`, choisi dans `/backoffice/catalog`). La hiérarchie devient **Secteur → Catégorie → Métier → Service**.
+**Ce que le secteur n'est pas** : ce n'est pas la filière. Il décrit le *travail* (il regroupe des catégories) ; la filière (`User.role` : indépendant, entreprise, artisan, manœuvre) décrit la *façon d'exercer*. Un artisan électricien et une entreprise d'électricité relèvent du même secteur. Le secteur ne conditionne aujourd'hui aucune règle (âge, assurance, garant) : c'est un classement d'affichage et de navigation.
+**Installation** : aucune catégorie n'est classée (colonne nullable, migration `20260928120000_categorie_secteur`) — pas de rattachement deviné par libellé. Le backoffice affiche le nombre de catégories encore « non classées » ; tant qu'elles le restent, elles n'apparaissent sous aucun pôle.
+**Implémentation** : `src/lib/secteur.ts` (valeurs, libellés, lecture de la saisie) ; écriture via `/api/categories` (valeur inconnue refusée, changement journalisé) ; lecture publique via `/api/taxonomy`. Classement dans `/backoffice/catalog` par le rôle `frontend` : trois colonnes DIGITAL / BTP / SERVICES, « Ajouter » range ou déplace une catégorie, « ✕ » la retire (elle redevient non classée, rien n'est supprimé). Le superviseur lit sans classer.
+
+**Règle fondamentale — deux dimensions à ne jamais confondre** :
+
+| Dimension | Question | Axe |
+|---|---|---|
+| Taxonomie du travail | *Quel est le besoin du client ?* | Secteur → Catégorie → Métier → Service |
+| Filière professionnelle | *Qui réalise le travail ?* | Prestataire indépendant · Entreprise · Artisan · Manœuvre |
+
+> Le secteur classe la nature du travail. La catégorie, le métier et le service décrivent progressivement la prestation. La filière décrit le type de professionnel qui la réalise. **Le secteur ne détermine à lui seul aucune règle d'éligibilité** — ni garant, ni assurance, ni âge, ni pointage.
+
+Conséquences :
+- La relation secteur ↔ filière est **N × N** : une installation électrique (BTP → Énergie et Électricité → Électricien) peut être réalisée par un artisan comme par une entreprise ; un prestataire indépendant peut relever du Digital comme des Services. Aucune règle « Artisan ⇒ BTP » ni « Digital ⇒ indépendant ».
+- Le secteur d'une mission ou d'un profil n'est **jamais saisi** : il se lit à travers la catégorie (`Mission.categorie.secteur`, `Profile.metier.categorie.secteur`). Une seule source, pas de désaccord possible.
+- `Mission.professionalType` reste une **préférence du client** (le professionnel recherché), pas une barrière : il peut orienter le classement des candidats, pas en exclure.
+- **Cohérence secteur ⇄ professionnel ciblé (2026-09-28)** : une mission du secteur **Digital** ne peut cibler qu'un prestataire indépendant ou une entreprise — pas un artisan ni un manœuvre. BTP et Services admettent les quatre filières ; une catégorie non classée ne restreint rien. Seule exception au principe « le secteur ne porte aucune règle », et elle porte sur la **description de la mission**, pas sur les prestataires : aucun artisan ni manœuvre n'est empêché de candidater à une mission Digital. Table unique dans `src/lib/secteur.ts` (`allowedProfessionalTypes`), appliquée par le formulaire (options filtrées, choix incohérent remis à « Indifférent ») et par `POST /api/missions` (`professional_type_incompatible`).
+- Les règles restent sur leur support propre : risque et assurance sur le **métier**, barrière d'âge sur la **catégorie** (A15), garant sur la **filière** et le compte, mode de contrat (prix fixe / temps) sur la **mission**.
+- Rôle du secteur : navigation (« Que cherchez-vous ? DIGITAL / BTP / SERVICES »), cascade de publication d'une mission, recherche, compteurs de la marketplace, statistiques d'activité.
 ### Répartition des clauses
 
 | Clause | CGU | Contrat de prestation |
@@ -328,19 +357,19 @@ Risque physique élevé   →  assurance effective exigée, bloquante
 
 Ce n'est pas une incohérence mais une exception délimitée et assumée, justifiée par la gravité : un accident grave laisserait un client sans recours effectif face à un prestataire insolvable, et la réputation de la plateforme en serait atteinte quelle que soit la qualité de ses CGU.
 
-#### 2. Âge minimum légal sur les filières chantier (A13)
+#### 2. Âge minimum légal sur les catégories de métier à risque (A13, A15)
 
 ```text
-Filières chantier (Manœuvre, Artisan, Expert BTP/Autres)
+Catégories marquées « barrière d'âge » par l'administrateur
         →  âge vérifié sur la pièce d'identité du KYC
-        →  blocage de l'ACTIVATION du profil, aucune dérogation admin
+        →  blocage de la déclaration du métier ET de la candidature, aucune dérogation admin
         →  plancher 18 ans, jamais administrable en dessous
 ```
 
 Cette seconde exception est **moins négociable que la première** : elle protège des personnes qui
 ne peuvent pas consentir valablement au risque, et faciliter un travail illégal n'est couvert par
-aucun argument de neutralité. Elle est portée par la filière prestataire et jamais par le compte
-(A14), afin qu'un compte à double face ne puisse pas l'esquiver.
+aucun argument de neutralité. Elle est portée par la catégorie du travail et jamais par le compte
+(A14, A15), afin qu'aucun compte — double face ou filière mal choisie — ne puisse l'esquiver.
 
 ### Ce qui reste comme différenciation
 
@@ -448,10 +477,10 @@ Neuf questions à passer avant toute évolution future. **Toute réponse diverge
 6. La plateforme **tranche-t-elle** un litige de manière opposable ? *(si oui → refuser)*
 7. Un domaine à risque physique élevé peut-il être exercé **sans couverture effective** ? *(si oui → refuser)*
 8. Les données de l'outil de pointage sont-elles utilisées **par la plateforme** pour scorer, classer, sanctionner ou décider ? *(si oui → refuser — voir A12)*
-9. Un profil de filière chantier peut-il être activé **en dessous de l'âge minimum légal** du pays, ou une dérogation est-elle possible ? *(si oui → refuser — voir A13)*
+9. Un métier d'une catégorie à risque peut-il être déclaré, ou une mission de cette catégorie obtenue, **en dessous de l'âge minimum légal** du pays, ou une dérogation est-elle possible ? *(si oui → refuser — voir A13, A15)*
 
 **Règle additionnelle permanente (A7)** : aucune commission sur une certification que la plateforme rend obligatoire.
 
 **Règle additionnelle permanente (A12)** : la plateforme reste aveugle aux données de pointage — elles transitent, elles ne l'informent pas.
 
-**Règle additionnelle permanente (A13)** : le seuil d'âge des filières chantier est administrable par pays mais **jamais en dessous de 18 ans**, sans dérogation possible.
+**Règle additionnelle permanente (A13)** : le seuil d'âge des catégories à risque est administrable par pays mais **jamais en dessous de 18 ans**, sans dérogation possible.

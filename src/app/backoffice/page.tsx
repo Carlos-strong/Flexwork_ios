@@ -10,8 +10,7 @@ type Supervision = { users: number; missions: number; activeMissions: number; ba
 type MediationTotals = { held: number; funded: number; released: number };
 type ContentOverview = {
   release: { version: number; publishedAt: string } | null;
-  counts: { domainsTotal: number; sectionsTotal: number; menuItems: number };
-  unreferencedTotal: number;
+  counts: { categories: number; metiers: number; services: number; sectionsTotal: number; menuItems: number };
 };
 
 /**
@@ -57,7 +56,7 @@ export default function BackOfficeDashboard() {
   }
   if (content) {
     kpis.push(
-      { icon: "🗂️", label: "Domaines", value: content.counts.domainsTotal, hint: `${content.unreferencedTotal} saisie(s) hors référentiel`, tone: content.unreferencedTotal > 0 ? "amber" : "neutral" },
+      { icon: "🗂️", label: "Catégories", value: content.counts.categories, hint: `${content.counts.metiers} métiers · ${content.counts.services} services` },
       {
         icon: "🖼️",
         label: "Contenu publié",

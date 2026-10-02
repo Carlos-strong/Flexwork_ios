@@ -7,7 +7,9 @@ import {
   checkCaps,
   periodsOverlap,
   type SpotTimeTerms as Terms,
+  checkValidationRule,
 } from "@/lib/spot-time";
+import { canVerify, type ValidationMode } from "@/lib/validation-mode";
 
 // Cycle de vie d'un relevé de présence (§20 du cahier des charges) — le seul endroit où le
 // pointage rencontre l'argent.
@@ -42,33 +44,42 @@ function toTerms(t: NonNullable<ContractWithTerms["spotTimeTerms"]>): Terms {
     maxAmount: t.maxAmount,
     overtimeAllowed: t.overtimeAllowed,
     overtimeRate: t.overtimeRate,
+    attendanceValidation: t.attendanceValidation,
   };
 }
 
 /**
- * Qui peut valider un relevé de présence ?
+ * Qui prononce la décision DÉFINITIVE sur un relevé (validation, contestation, arbitrage) ?
  *
- * Le CLIENT, toujours — c'est lui qui paie. Et le RESPONSABLE DE CHANTIER, s'il a été désigné
- * sur ce contrat précis : c'est lui qui est sur place et constate la présence.
- *
- * La désignation est portée par le contrat, jamais par le rôle : un compte `responsable_chantier`
- * n'a par lui-même aucun pouvoir, seulement celui que le client lui a confié mission par mission.
- * Un pouvoir attaché au rôle serait impossible à retirer sans supprimer le compte.
+ * Le CLIENT, et lui seul — c'est lui qui paie. Depuis le mode de vérification (2026-10-01), le
+ * responsable de chantier ne valide plus : en mode OPR il VÉRIFIE (`verifyAttendance`) et
+ * transmet ; la libération reste un geste du client.
  *
  * Le PRESTATAIRE n'y figure pas, et c'est la garde essentielle : valider ses propres heures,
  * c'est se payer soi-même.
  */
-export function canValidateAttendance(
-  contract: { clientId: string; spotTimeTerms?: { siteManagerId: string | null } | null },
-  userId: string
-): boolean {
-  if (contract.clientId === userId) return true;
-  return !!contract.spotTimeTerms?.siteManagerId && contract.spotTimeTerms.siteManagerId === userId;
+export function canDecideAttendance(contract: { clientId: string }, userId: string): boolean {
+  return contract.clientId === userId;
 }
+
+/** Statut qu'un relevé doit avoir pour que le client décide : vérifié en OPR, soumis sinon. */
+function decidableStatus(mode: ValidationMode): "verified" | "submitted" {
+  return mode === "opr" ? "verified" : "submitted";
+}
+
+const CONTRACT_ACTORS_SELECT = {
+  id: true,
+  missionId: true,
+  clientId: true,
+  validationMode: true,
+  siteManagerId: true,
+  mission: { select: { currency: true, titre: true } },
+  spotTimeTerms: true,
+} as const;
 
 export type SubmitResult =
   | { ok: true; attendanceId: string }
-  | { ok: false; error: "not_found" | "not_a_time_contract" | "period_overlap" | "duplicate_period" | "invalid_quantity" | "contract_closed" };
+  | { ok: false; error: "not_found" | "not_a_time_contract" | "period_overlap" | "duplicate_period" | "invalid_quantity" | "contract_closed" | "invalid_period" };
 
 // Statuts de mission où plus aucune présence ne se déclare : le chantier est clos, ou un litige
 // suspend le contrat. Un relevé déclaré après la clôture n'aurait plus de séquestre pour le payer —
@@ -99,6 +110,8 @@ export async function submitAttendance(args: {
   if (!Number.isFinite(args.declaredQuantity) || args.declaredQuantity <= 0) {
     return { ok: false, error: "invalid_quantity" };
   }
+  // Plage inversée : défense en profondeur, la route la refuse déjà en 400.
+  if (args.periodEnd < args.periodStart) return { ok: false, error: "invalid_period" };
 
   const contract = await prisma.prestationContract.findUnique({
     where: { id: args.contractId },
@@ -160,44 +173,60 @@ export type ApproveResult =
  *
  * `approvedQuantity` est la quantité que le CLIENT reconnaît, qui peut être inférieure à la
  * quantité déclarée (§21 : 6 jours déclarés, 4 validés). Seule la part validée devient payable ;
- * le reste demeure au séquestre, ni versé ni perdu.
+ * le reste demeure au séquestre, ni versé ni perdu — SAUF si le mode de pointage du contrat est
+ * « totale » : la validation doit alors porter sur la quantité déclarée entière
+ * (`partial_validation_not_allowed`).
  */
 export async function approveAttendance(args: {
   attendanceId: string;
   validatorId: string;
   approvedQuantity: number;
   overtimeQuantity?: number;
+  // Interne : la part RECONNUE d'une contestation (disputeAttendance). Une contestation est une
+  // validation partielle motivée et arbitrée — elle reste permise en mode « totale », seule la
+  // réduction unilatérale silencieuse ne l'est pas. Jamais exposé par une route.
+  partOfDispute?: boolean;
 }): Promise<ApproveResult> {
   const attendance = await prisma.attendance.findUnique({
     where: { id: args.attendanceId },
-    include: {
-      contract: {
-        select: {
-          id: true,
-          missionId: true,
-          clientId: true,
-          mission: { select: { currency: true } },
-          spotTimeTerms: true,
-        },
-      },
-    },
+    include: { contract: { select: CONTRACT_ACTORS_SELECT } },
   });
   if (!attendance) return { ok: false, error: "not_found" };
-  if (!canValidateAttendance(attendance.contract, args.validatorId)) {
-    return { ok: false, error: "not_found" };
+  // Le responsable de chantier ne valide plus : il vérifie (verifyAttendance). Lui répondre
+  // `verification_only` plutôt que `not_found` : il voit le relevé, il doit savoir pourquoi le
+  // geste ne lui appartient pas.
+  if (!canDecideAttendance(attendance.contract, args.validatorId)) {
+    return { ok: false, error: canVerify(attendance.contract, args.validatorId) ? "verification_only" : "not_found" };
   }
-  if (attendance.status !== "submitted") return { ok: false, error: "attendance_not_submitted" };
+  const mode = attendance.contract.validationMode;
+  if (attendance.status !== decidableStatus(mode)) {
+    // En OPR, un relevé encore `submitted` attend le responsable : le client ne le court-circuite
+    // pas (choix « strict »). Il peut en revanche désigner un autre responsable.
+    return { ok: false, error: mode === "opr" && attendance.status === "submitted" ? "verification_required" : "attendance_not_submitted" };
+  }
 
   const rawTerms = attendance.contract.spotTimeTerms;
   if (!rawTerms) return { ok: false, error: "not_a_time_contract" };
   const terms = toTerms(rawTerms);
 
-  const approved = args.approvedQuantity;
+  // En OPR, la validation définitive porte sur la quantité VÉRIFIÉE par le responsable : le
+  // client la confirme, il ne la ressaisit pas. Seule une contestation (partOfDispute) en
+  // reconnaît moins.
+  const plafondQuantite = mode === "opr" ? (attendance.verifiedQuantity ?? 0) : attendance.declaredQuantity;
+  const approved = mode === "opr" && !args.partOfDispute ? plafondQuantite : args.approvedQuantity;
+  const overtime = mode === "opr" && !args.partOfDispute ? attendance.verifiedOvertimeQuantity : (args.overtimeQuantity ?? 0);
   if (!Number.isFinite(approved) || approved <= 0) return { ok: false, error: "invalid_quantity" };
-  if (approved > attendance.declaredQuantity) {
-    // Valider PLUS que déclaré n'a pas de sens : le client reconnaîtrait un travail que le
-    // prestataire n'a pas revendiqué.
+  if (approved > plafondQuantite) {
+    // Valider PLUS que déclaré (ou que vérifié) n'a pas de sens : le client reconnaîtrait un
+    // travail que personne n'a revendiqué ni constaté.
     return { ok: false, error: "approved_above_declared" };
+  }
+  // Mode de pointage « totale » : pas de réduction unilatérale. Le validateur refuse le relevé
+  // (le prestataire le corrige) ou en conteste une part — deux voies motivées et traçables.
+  // En OPR, le mode de pointage a déjà été appliqué à la vérification.
+  if (!args.partOfDispute && mode === "client") {
+    const rule = checkValidationRule(terms.attendanceValidation ?? "partielle", approved, attendance.declaredQuantity);
+    if (!rule.ok) return { ok: false, error: rule.error };
   }
 
   // Cumuls déjà reconnus sur ce contrat — la base des deux plafonds contractuels.
@@ -211,7 +240,7 @@ export async function approveAttendance(args: {
     0
   );
 
-  const cap = checkCaps(terms, approved, args.overtimeQuantity ?? 0, cumulQuantite, cumulMontant);
+  const cap = checkCaps(terms, approved, overtime, cumulQuantite, cumulMontant);
   if (!cap.ok) return { ok: false, error: cap.reason, allowed: cap.allowed };
 
   // Cible CUMULÉE : le total reconnu dû sur ce contrat à ce stade. `emitScopedRelease` raisonne
@@ -242,7 +271,7 @@ export async function approveAttendance(args: {
         data: {
           status: "approved",
           approvedQuantity: approved,
-          overtimeQuantity: args.overtimeQuantity ?? 0,
+          overtimeQuantity: overtime,
           validatedById: args.validatorId,
           validatedAt: new Date(),
           payableId: released.payable.id,
@@ -263,7 +292,7 @@ export async function approveAttendance(args: {
     data: {
       status: "approved",
       approvedQuantity: approved,
-      overtimeQuantity: args.overtimeQuantity ?? 0,
+      overtimeQuantity: overtime,
       validatedById: args.validatorId,
       validatedAt: new Date(),
       payableId: released.payable.id,
@@ -279,8 +308,90 @@ export async function approveAttendance(args: {
 }
 
 /**
- * Le client refuse un relevé : rien n'est dû, rien n'est versé, et la période se libère pour une
+ * Mode OPR — le responsable de chantier CONSTATE un relevé soumis et le transmet au client.
+ *
+ * Aucun effet financier : ni créance, ni libération. C'est la validation définitive du client
+ * (approveAttendance, sur un relevé `verified`) qui paie. La quantité vérifiée respecte le mode
+ * de pointage du contrat (« totale » : la quantité déclarée entière) et borne ce que le client
+ * pourra valider.
+ */
+export async function verifyAttendance(args: {
+  attendanceId: string;
+  verifierId: string;
+  verifiedQuantity: number;
+  overtimeQuantity?: number;
+}): Promise<{ ok: true } | { ok: false; error: string; allowed?: number }> {
+  const attendance = await prisma.attendance.findUnique({
+    where: { id: args.attendanceId },
+    include: { contract: { select: CONTRACT_ACTORS_SELECT } },
+  });
+  if (!attendance) return { ok: false, error: "not_found" };
+  const { contract } = attendance;
+  if (contract.validationMode !== "opr") {
+    // En « Moi-même », il n'y a pas d'étape de vérification : le client valide directement.
+    return { ok: false, error: contract.clientId === args.verifierId ? "verification_not_applicable" : "not_found" };
+  }
+  if (!canVerify(contract, args.verifierId)) {
+    return { ok: false, error: contract.clientId === args.verifierId ? "site_manager_only" : "not_found" };
+  }
+  if (attendance.status !== "submitted") return { ok: false, error: "attendance_not_submitted" };
+
+  const rawTerms = contract.spotTimeTerms;
+  if (!rawTerms) return { ok: false, error: "not_a_time_contract" };
+  const terms = toTerms(rawTerms);
+
+  const quantite = args.verifiedQuantity;
+  if (!Number.isFinite(quantite) || quantite <= 0) return { ok: false, error: "invalid_quantity" };
+  if (quantite > attendance.declaredQuantity) return { ok: false, error: "approved_above_declared" };
+  const rule = checkValidationRule(terms.attendanceValidation ?? "partielle", quantite, attendance.declaredQuantity);
+  if (!rule.ok) return { ok: false, error: rule.error };
+
+  // Plafond de quantité vérifié dès ce stade : transmettre au client un relevé qu'il ne pourra pas
+  // valider ne ferait que reporter le refus. Les relevés déjà vérifiés mais pas encore validés
+  // comptent : ils engagent la même quantité.
+  const engages = await prisma.attendance.findMany({
+    where: { contractId: attendance.contractId, status: { in: ["approved", "verified"] } },
+    select: { status: true, approvedQuantity: true, verifiedQuantity: true },
+  });
+  const cumul = engages.reduce((s, a) => s + ((a.status === "approved" ? a.approvedQuantity : a.verifiedQuantity) ?? 0), 0);
+  const restant = terms.maxQuantity - cumul;
+  if (quantite > restant + 1e-9) return { ok: false, error: "quantity_cap_exceeded", allowed: Math.max(0, restant) };
+
+  const overtime = Math.min(Math.max(0, args.overtimeQuantity ?? 0), quantite);
+  await prisma.attendance.update({
+    where: { id: attendance.id },
+    data: {
+      status: "verified",
+      verifiedQuantity: quantite,
+      verifiedOvertimeQuantity: overtime,
+      verifiedById: args.verifierId,
+      verifiedAt: new Date(),
+    },
+  });
+
+  await notifyMissionParties({
+    missionId: contract.missionId,
+    type: "pointage_verifie",
+    counterpart: {
+      userId: contract.clientId,
+      message: `Relevé de présence vérifié par le responsable de chantier sur « ${contract.mission.titre} » — à valider définitivement.`,
+    },
+    actor: {
+      userId: args.verifierId,
+      message: `Relevé transmis au client pour validation définitive (« ${contract.mission.titre} »).`,
+    },
+  });
+  return { ok: true };
+}
+
+/**
+ * Un relevé est refusé : rien n'est dû, rien n'est versé, et la période se libère pour une
  * nouvelle déclaration corrigée.
+ *
+ * Qui refuse, et à quel moment :
+ *   - mode « Moi-même » : le client, sur un relevé soumis ;
+ *   - mode OPR : le responsable, sur un relevé soumis (constat non conforme) ; le client, sur un
+ *     relevé vérifié (il garde le droit de refuser ce qui lui est transmis).
  */
 export async function rejectAttendance(args: {
   attendanceId: string;
@@ -289,14 +400,17 @@ export async function rejectAttendance(args: {
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   const attendance = await prisma.attendance.findUnique({
     where: { id: args.attendanceId },
-    include: {
-      contract: { select: { clientId: true, spotTimeTerms: { select: { siteManagerId: true } } } },
-    },
+    include: { contract: { select: { clientId: true, validationMode: true, siteManagerId: true } } },
   });
-  if (!attendance || !canValidateAttendance(attendance.contract, args.validatorId)) {
-    return { ok: false, error: "not_found" };
+  if (!attendance) return { ok: false, error: "not_found" };
+  const { contract } = attendance;
+  const estClient = contract.clientId === args.validatorId;
+  const estVerificateur = contract.validationMode === "opr" && canVerify(contract, args.validatorId);
+  if (!estClient && !estVerificateur) return { ok: false, error: "not_found" };
+  const statutAttendu = estVerificateur ? "submitted" : decidableStatus(contract.validationMode);
+  if (attendance.status !== statutAttendu) {
+    return { ok: false, error: estClient && attendance.status === "submitted" ? "verification_required" : "attendance_not_submitted" };
   }
-  if (attendance.status !== "submitted") return { ok: false, error: "attendance_not_submitted" };
   if (!args.reason.trim()) return { ok: false, error: "rejection_reason_required" };
 
   await prisma.attendance.update({
@@ -341,20 +455,16 @@ export async function disputeAttendance(args: {
 }): Promise<DisputeResult> {
   const attendance = await prisma.attendance.findUnique({
     where: { id: args.attendanceId },
-    include: {
-      contract: {
-        select: {
-          id: true,
-          clientId: true,
-          mission: { select: { currency: true } },
-          spotTimeTerms: true,
-        },
-      },
-    },
+    include: { contract: { select: CONTRACT_ACTORS_SELECT } },
   });
   if (!attendance) return { ok: false, error: "not_found" };
-  if (!canValidateAttendance(attendance.contract, args.validatorId)) {
-    return { ok: false, error: "not_found" };
+  // Contester engage des fonds (gel) : geste du client seul, comme la validation.
+  if (!canDecideAttendance(attendance.contract, args.validatorId)) {
+    return { ok: false, error: canVerify(attendance.contract, args.validatorId) ? "verification_only" : "not_found" };
+  }
+  const mode = attendance.contract.validationMode;
+  if (attendance.status !== decidableStatus(mode)) {
+    return { ok: false, error: mode === "opr" && attendance.status === "submitted" ? "verification_required" : "attendance_not_submitted" };
   }
   if (!args.reason.trim()) return { ok: false, error: "dispute_reason_required" };
 
@@ -362,7 +472,9 @@ export async function disputeAttendance(args: {
   if (!rawTerms) return { ok: false, error: "not_a_time_contract" };
   const terms = toTerms(rawTerms);
 
-  const conteste = attendance.declaredQuantity - args.approvedQuantity;
+  // En OPR, la base est ce que le responsable a vérifié, pas ce que le prestataire a déclaré.
+  const base = mode === "opr" ? (attendance.verifiedQuantity ?? 0) : attendance.declaredQuantity;
+  const conteste = base - args.approvedQuantity;
   // Contester zéro n'est pas une contestation : c'est une validation. Refuser ici évite un
   // relevé marqué `disputed` sans qu'aucun désaccord n'existe.
   if (conteste <= 0) return { ok: false, error: "nothing_disputed" };
@@ -375,6 +487,7 @@ export async function disputeAttendance(args: {
           attendanceId: args.attendanceId,
           validatorId: args.validatorId,
           approvedQuantity: args.approvedQuantity,
+          partOfDispute: true,
         })
       : null;
   if (approbation && !approbation.ok) return approbation;
@@ -416,19 +529,11 @@ export async function resolveAttendanceDispute(args: {
 }): Promise<{ ok: true; paid: number } | { ok: false; error: string }> {
   const attendance = await prisma.attendance.findUnique({
     where: { id: args.attendanceId },
-    include: {
-      contract: {
-        select: {
-          id: true,
-          clientId: true,
-          mission: { select: { currency: true } },
-          spotTimeTerms: true,
-        },
-      },
-    },
+    include: { contract: { select: CONTRACT_ACTORS_SELECT } },
   });
   if (!attendance) return { ok: false, error: "not_found" };
-  if (!canValidateAttendance(attendance.contract, args.validatorId)) {
+  // Arbitrer libère ou rend des fonds : geste du client seul.
+  if (!canDecideAttendance(attendance.contract, args.validatorId)) {
     return { ok: false, error: "not_found" };
   }
   if (attendance.status !== "disputed") return { ok: false, error: "attendance_not_disputed" };
@@ -437,7 +542,8 @@ export async function resolveAttendanceDispute(args: {
   if (!rawTerms) return { ok: false, error: "not_a_time_contract" };
   const terms = toTerms(rawTerms);
 
-  const conteste = attendance.declaredQuantity - (attendance.approvedQuantity ?? 0);
+  const base = attendance.contract.validationMode === "opr" ? (attendance.verifiedQuantity ?? 0) : attendance.declaredQuantity;
+  const conteste = base - (attendance.approvedQuantity ?? 0);
   const montantConteste = attendanceAmount(terms, conteste);
 
   // Le dégel VIENT EN PREMIER, et c'est nécessaire : tant que la somme est gelée, elle n'est pas
@@ -531,7 +637,7 @@ export async function closeTimeContract(args: { missionId: string; clientId: str
       const alreadyClosed = mission.status === "cloturee" || mission.status === "remboursee";
 
       const enAttente = await tx.attendance.count({
-        where: { contractId: contract.id, status: { in: ["submitted", "disputed"] } },
+        where: { contractId: contract.id, status: { in: ["submitted", "verified", "disputed"] } },
       });
       if (enAttente > 0) return { ok: false, error: "attendance_pending", count: enAttente };
 

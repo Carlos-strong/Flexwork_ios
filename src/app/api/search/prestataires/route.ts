@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import type { UserRole } from "@prisma/client";
-
-const PROVIDER_ROLES: UserRole[] = ["expert_digital", "expert_btp_autres", "artisan", "manoeuvre"];
+// Filières prestataire : source partagée (src/lib/provider-options.ts) — la liste était
+// recopiée à l'identique dans six fichiers.
+import { PROVIDER_ROLES } from "@/lib/provider-options";
 
 // Recherche de prestataires par domaine, rôle, tags et zone. Modèle v3 : aucune
 // vérification de qualification ne conditionne l'apparition dans les résultats — seul le

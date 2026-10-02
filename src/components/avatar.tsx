@@ -31,8 +31,15 @@ export function Avatar({
 
   if (src && !failed) {
     return (
-      // eslint-disable-next-line @next/next/no-img-element -- source dynamique authentifiée
-      // (/api/users/[id]/avatar), pas un asset statique optimisable par next/image.
+      // Source DYNAMIQUE authentifiée (/api/users/[id]/avatar) : next/image ferait récupérer
+      // l'image par l'optimiseur côté serveur, sans les cookies du navigateur — la route
+      // répondrait 401 (et le chemin de stockage, UUID compris, ne doit pas être exposé à un
+      // tiers qui optimise). `next/image` vise les assets statiques, ce n'en est pas un.
+      //
+      // ⚠️ La directive doit être la ligne IMMÉDIATEMENT au-dessus du <img> : placée avant un
+      // commentaire, elle ne désactive rien (elle visait la ligne du commentaire) et
+      // l'avertissement revenait sans que rien ne l'explique.
+      // eslint-disable-next-line @next/next/no-img-element
       <img
         src={src}
         alt={initials}

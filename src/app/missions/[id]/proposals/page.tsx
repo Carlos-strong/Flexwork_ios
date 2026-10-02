@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
@@ -12,6 +12,7 @@ import { isRevisionPending, REVISION_REQUESTED_BADGE, REVISION_REQUESTED_LABEL }
 import { canClientRequestRevision } from "@/lib/devis";
 import { candidaturesHrefForRole } from "@/lib/role-dashboard";
 import { fetchDedupe } from "@/lib/fetch-dedupe";
+import { PaymentModelBadge } from "@/components/financing/payment-model-picker";
 
 type MissionMeta = { budgetType: string | null; maxRevisionRounds: number; status: string; currency: string; titre: string };
 
@@ -117,7 +118,11 @@ export default function ProposalsPage() {
 
   const isQuote = missionMeta?.budgetType === "QUOTE";
 
-  async function load() {
+  // Mémoïsée sur `missionId` : sa liste de dépendances ne contient que des valeurs stables
+  // (le fetch et les setters d'état), donc son identité ne change QUE si la mission change —
+  // l'effet ci-dessous se relance exactement aussi souvent qu'avant, mais sans mentir sur ce
+  // qu'il utilise.
+  const load = useCallback(async () => {
     const res = await fetchDedupe(`/api/missions/${missionId}/proposals`);
     if (res.ok) {
       const d = await res.json();
@@ -125,11 +130,11 @@ export default function ProposalsPage() {
       setMissionMeta(d.mission ?? null);
     }
     setLoading(false);
-  }
+  }, [missionId]);
 
   useEffect(() => {
     load();
-  }, [missionId]);
+  }, [load]);
 
   if (loading) return <div className="min-h-screen bg-[#F8FAF9] flex items-center justify-center text-[13px] text-[#64748B]">Chargement...</div>;
 
@@ -238,7 +243,7 @@ export default function ProposalsPage() {
                         <th className="text-left py-3 px-3 font-semibold">Soumission</th>
                         <th className="text-right py-3 px-3 font-semibold">Montant TTC</th>
                         <th className="text-left py-3 px-3 font-semibold">Délai</th>
-                        <th className="text-center py-3 px-3 font-semibold">Jalons</th>
+                        <th className="text-center py-3 px-3 font-semibold">Paiement</th>
                         <th className="text-left py-3 px-3 font-semibold">Statut</th>
                         <th className="text-right py-3 px-4 font-semibold">Actions</th>
                       </tr>
@@ -264,7 +269,12 @@ export default function ProposalsPage() {
                             <td className="py-3 px-3 text-xs text-[#64748B]">{new Date(p.createdAt).toLocaleDateString("fr-FR")}</td>
                             <td className="py-3 px-3 text-right font-semibold text-[13px]">{p.devisData ? `${p.devisData.totalTTC.toLocaleString("fr-FR")} ${currency}` : "—"}</td>
                             <td className="py-3 px-3 text-xs">{p.devisData?.delay ?? "—"}</td>
-                            <td className="py-3 px-3 text-center"><span className="px-2 py-0.5 rounded-full bg-[#F1F5F9] border border-[#E2E8F0] text-[11px]">{p.devisData?.lineItems.length ?? 0} jalon{(p.devisData?.lineItems.length ?? 0) > 1 ? "s" : ""}</span></td>
+                            <td className="py-3 px-3 text-center">
+                              <div className="flex flex-col items-center gap-1">
+                                <PaymentModelBadge modeKey={p.devisData?.financingModeKey} />
+                                <span className="px-2 py-0.5 rounded-full bg-[#F1F5F9] border border-[#E2E8F0] text-[11px]">{p.devisData?.lineItems.length ?? 0} ligne{(p.devisData?.lineItems.length ?? 0) > 1 ? "s" : ""}</span>
+                              </div>
+                            </td>
                             <td className="py-3 px-3"><span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold ${statusBadgeFor(p)}`}>{statusLabelFor(p)}</span></td>
                             <td className="py-3 px-4 text-right">
                               <button onClick={() => setOpenId(p.id)} className="h-8 px-3 rounded-lg bg-[#0f172a] text-white text-xs font-medium opacity-0 group-hover:opacity-100 transition">👁 Voir</button>
@@ -296,7 +306,8 @@ export default function ProposalsPage() {
                         <div className="flex items-center justify-between mt-3">
                           <div className="text-sm">
                             <span className="font-bold">{p.devisData ? `${p.devisData.totalTTC.toLocaleString("fr-FR")} ${currency}` : "—"}</span>
-                            <span className="text-xs text-[#64748B] ml-2">{p.devisData?.lineItems.length ?? 0} jalons</span>
+                            <span className="text-xs text-[#64748B] ml-2">{p.devisData?.lineItems.length ?? 0} ligne{(p.devisData?.lineItems.length ?? 0) > 1 ? "s" : ""}</span>
+                            <PaymentModelBadge modeKey={p.devisData?.financingModeKey} className="ml-2" />
                           </div>
                           <button onClick={() => setOpenId(p.id)} className="h-9 px-4 rounded-lg bg-[#008751] text-white text-sm font-medium">Voir le devis</button>
                         </div>
@@ -534,7 +545,10 @@ export default function ProposalsPage() {
                             </div>
                           </td>
                           <td className="py-3 px-3 text-xs text-[#64748B]">{new Date(p.createdAt).toLocaleDateString("fr-FR")}</td>
-                          <td className="py-3 px-3 text-right font-semibold text-[13px]">{p.montant.toLocaleString("fr-FR")} {currency}</td>
+                          <td className="py-3 px-3 text-right font-semibold text-[13px]">
+                            {p.montant.toLocaleString("fr-FR")} {currency}
+                            <div className="mt-1"><PaymentModelBadge modeKey={p.devisData?.financingModeKey} /></div>
+                          </td>
                           <td className="py-3 px-3 text-xs text-[#64748B] max-w-[220px] truncate">{p.message || "—"}</td>
                           <td className="py-3 px-3"><span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold ${statusBadgeFor(p)}`}>{statusLabelFor(p)}</span></td>
                           <td className="py-3 px-4 text-right">
@@ -565,7 +579,10 @@ export default function ProposalsPage() {
                         <span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold ${statusBadgeFor(p)}`}>{statusLabelFor(p)}</span>
                       </div>
                       <div className="flex items-center justify-between mt-3">
-                        <span className="font-bold text-sm">{p.montant.toLocaleString("fr-FR")} {currency}</span>
+                        <span className="font-bold text-sm">
+                          {p.montant.toLocaleString("fr-FR")} {currency}
+                          <PaymentModelBadge modeKey={p.devisData?.financingModeKey} className="ml-2" />
+                        </span>
                         <button onClick={() => setOpenId(p.id)} className="h-9 px-4 rounded-lg bg-[#008751] text-white text-sm font-medium">Voir la candidature</button>
                       </div>
                     </div>
@@ -635,6 +652,7 @@ export default function ProposalsPage() {
                     <span className="text-[11px] text-[#64748B]">Round {openProposal.roundActuel} • max {missionMeta?.maxRevisionRounds ?? 3} rounds</span>
                   </div>
                   <div className="text-[22px] font-bold text-[#008751]">{openProposal.montant.toLocaleString("fr-FR")} {currency}</div>
+                  <PaymentModelBadge modeKey={openProposal.devisData?.financingModeKey} className="mt-2" />
                 </div>
 
                 {openProposal.revisionRequestedAt && (

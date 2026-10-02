@@ -1,3 +1,7 @@
+// ⚠ Depuis 2026-10-01, fixe ou par jalons est choisi par le PRESTATAIRE dans son devis, plus
+// par le client à la publication — voir « Le modèle de paiement est fixé par le DEVIS » plus
+// bas. L'historique ci-dessous reste vrai pour les modes au temps.
+//
 // Modes de financement d'une mission (2026-09-10) — catalogue unique des façons dont le prix
 // d'une mission peut être séquestré puis libéré, choisi par le CLIENT à la PUBLICATION de la
 // mission (POST /api/missions, champ `financingModeKey`) plutôt qu'au moment de générer le
@@ -37,6 +41,7 @@ export type FinancingModeKey =
   | "S1"
   | "S2H"
   | "S2J"
+  | "S2W"
   | "S2M";
 
 export type FinancingModeFamily = "fixe" | "jalon" | "temps";
@@ -102,7 +107,7 @@ export type FinancingModeDescriptor = {
    * mode et non saisie : choisir S2-J, c'est déjà dire « au jour ». La recopier dans un champ de
    * formulaire ouvrirait la seule incohérence possible — un mode journalier facturé à l'heure.
    */
-  rateUnit?: "hour" | "day" | "month";
+  rateUnit?: "hour" | "day" | "week" | "month";
 };
 
 export const FINANCING_MODES: Record<FinancingModeKey, FinancingModeDescriptor> = {
@@ -316,6 +321,25 @@ export const FINANCING_MODES: Record<FinancingModeKey, FinancingModeDescriptor> 
     jalonStrategy: "none",
     rateUnit: "day",
   },
+  S2W: {
+    key: "S2W",
+    family: "temps",
+    label: "Au temps — tarif hebdomadaire",
+    badge: "Semaines pointées",
+    definition:
+      "Un tarif hebdomadaire et un plafond de semaines. Le client séquestre le plafond avant le démarrage ; chaque semaine validée libère sa part. La semaine court du lundi au dimanche (ISO), indépendamment de la date de début : la première et la dernière peuvent donc être partielles.",
+    recommendation: "Chantiers et missions suivies à la semaine, sans pointage quotidien.",
+    available: true,
+    primitives: {
+      useJalons: false,
+      financingMode: "lump_sum",
+      jalonsSequential: false,
+      retentionRate: 0,
+      fundingGranularity: "per_jalon",
+    },
+    jalonStrategy: "none",
+    rateUnit: "week",
+  },
   S2M: {
     key: "S2M",
     family: "temps",
@@ -371,6 +395,61 @@ export function listFinancingModes(): FinancingModeDescriptor[] {
 
 export function listAvailableFinancingModes(): FinancingModeDescriptor[] {
   return listFinancingModes().filter((m) => m.available);
+}
+
+// ── Le modèle de paiement est fixé par le DEVIS (2026-10-01) ───────────────────────────────
+// Fixe ou par jalons : c'est le prestataire qui le propose en soumettant son devis, et le
+// client qui l'accepte en acceptant ce devis. Le client ne l'impose plus à la publication —
+// c'est celui qui chiffre qui sait si son travail se découpe en livrables payables un à un.
+//
+// Seuls les contrats au TEMPS gardent un mode posé à la publication : leur unité tarifaire
+// (heure, jour…) est une condition de la mission elle-même, pas une façon de chiffrer.
+
+/** Modes qu'un prestataire peut proposer dans son devis : disponibles, hors famille `temps`. */
+export function listDevisPaymentModes(): FinancingModeDescriptor[] {
+  return listAvailableFinancingModes().filter((m) => m.family !== "temps");
+}
+
+/** Mode fixe proposé au prestataire — un seul séquestre, une seule libération. */
+export const DEVIS_FIXED_MODE_KEY: FinancingModeKey = "F2";
+
+export function isDevisPaymentModeKey(value: unknown): value is FinancingModeKey {
+  return listDevisPaymentModes().some((m) => m.key === value);
+}
+
+/**
+ * Vérifie le mode proposé par un devis contre son découpage. La retenue de garantie (J4)
+ * n'a rien à garantir sur un poste unique — le contrat le refuserait plus tard ; autant le
+ * dire au prestataire au moment où il peut encore ajouter un poste.
+ */
+export function checkDevisPaymentMode(
+  key: unknown,
+  { lineCount, quoteMode }: { lineCount: number; quoteMode: boolean }
+): { ok: true; mode: FinancingModeDescriptor } | { ok: false; error: string } {
+  if (!isDevisPaymentModeKey(key)) return { ok: false, error: "payment_mode_invalid" };
+  const mode = FINANCING_MODES[key];
+  if (quoteMode && mode.primitives.useJalons && mode.primitives.retentionRate > 0 && lineCount < 2) {
+    return { ok: false, error: "retention_requires_two_lines" };
+  }
+  return { ok: true, mode };
+}
+
+/**
+ * Mode qui gouverne réellement le contrat d'une proposition.
+ *
+ * 1. Mission au temps : le mode de la mission (unité tarifaire publiée), toujours.
+ * 2. Sinon, le mode porté par le devis du prestataire — la règle.
+ * 3. À défaut (devis antérieurs au 2026-10-01), le mode publié sur la mission : comportement
+ *    historique inchangé.
+ */
+export function effectiveFinancingModeKey(input: {
+  missionModeKey: string | null | undefined;
+  devisModeKey: string | null | undefined;
+}): FinancingModeKey | null {
+  const missionMode = input.missionModeKey ? getFinancingMode(input.missionModeKey) : null;
+  if (missionMode?.family === "temps") return missionMode.key;
+  if (isFinancingModeKey(input.devisModeKey)) return input.devisModeKey;
+  return missionMode?.key ?? null;
 }
 
 // ── Répartition exacte d'un total entre des parts pondérées ────────────────────────────────

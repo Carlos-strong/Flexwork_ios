@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { siteManagerMissingForFunding } from "@/lib/validation-mode";
 import { randomUUID } from "crypto";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
@@ -49,6 +50,11 @@ export async function POST(
   // séquestre que ce modèle interdit — et ferait payer le client deux fois pour le même poste.
   if (contract.fundingGranularity === "upfront") {
     return NextResponse.json({ error: "use_contract_hold" }, { status: 409 });
+  }
+  // Vérification OPR : pas de financement tant qu'aucun responsable n'est désigné (voir
+  // siteManagerMissingForFunding, src/lib/validation-mode.ts).
+  if (siteManagerMissingForFunding(contract)) {
+    return NextResponse.json({ error: "site_manager_required" }, { status: 409 });
   }
 
   // UNE seule lecture des jalons du contrat : la règle séquentielle a de toute façon besoin de

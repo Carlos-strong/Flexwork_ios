@@ -83,6 +83,8 @@ async function expectOk(res: Response, label: string, codes = [200, 201]) {
   return res;
 }
 
+const devisModes = new Map<string, string>();
+
 async function publish(body: Record<string, unknown>) {
   authAs(ids.client);
   const res = await expectOk(
@@ -103,12 +105,20 @@ async function publish(body: Record<string, unknown>) {
   );
   const { id } = (await res.json()) as { id: string };
   missionIds.push(id);
+  // Fixe ou par jalons n'est plus posé à la publication (2026-10-01) : c'est le prestataire qui
+  // le propose avec son prix. Le mode demandé ici est donc retenu pour la candidature.
+  if (typeof body.financingModeKey === "string" && !body.financingModeKey.startsWith("S2")) {
+    devisModes.set(id, body.financingModeKey);
+  }
   return prisma.mission.findUniqueOrThrow({ where: { id } });
 }
 
 async function applyAndAccept(missionId: string, providerId: string, montant: number) {
   authAs(providerId);
-  const p = await expectOk(await proposalPost(postReq({ montant }), at(missionId)), "candidature");
+  const p = await expectOk(
+    await proposalPost(postReq({ montant, financingModeKey: devisModes.get(missionId) }), at(missionId)),
+    "candidature"
+  );
   const proposalId = (await p.json()).id as string;
   authAs(ids.client);
   await expectOk(await acceptPost(postReq({}), { params: Promise.resolve({ id: missionId, proposalId }) }), "acceptation");
@@ -322,6 +332,7 @@ describe("X3 — devis-expirations : la date d'expiration de la mission ferme la
             delay: "10 jours",
             tvaRate: 0,
             laborCost: 0,
+            financingModeKey: devisModes.get(mission.id),
           }),
           at(mission.id)
         ),

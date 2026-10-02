@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { requireProposalParty } from "@/lib/resource-guard";
 import { buildDevisDocument, type DevisDocument } from "@/lib/devis-document";
+import { PROVIDER_ROLE_LABELS } from "@/lib/provider-options";
 import type { DevisData } from "@/lib/devis";
 import { PDFDocument, StandardFonts } from "pdf-lib";
 import {
@@ -32,10 +33,8 @@ const VALIDITE_JOURS = 30;
 
 const ROLE_LABELS: Record<string, string> = {
   client: "Client",
-  expert_digital: "Expert digital — travailleur indépendant",
-  expert_btp_autres: "Expert BTP — travailleur indépendant",
-  artisan: "Artisan indépendant",
-  manoeuvre: "Manœuvre indépendant",
+  // Source unique pour les filières : src/lib/provider-options.ts.
+  ...PROVIDER_ROLE_LABELS,
 };
 
 function roleLabel(role: string | undefined, fallback: string): string {

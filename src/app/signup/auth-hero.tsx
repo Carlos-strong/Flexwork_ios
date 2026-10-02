@@ -52,13 +52,16 @@ export function AuthHero() {
         </div>
       </div>
 
-      {/* Parcours réel — pas de témoignage ni de chiffre inventé ici */}
+      {/* Parcours réel — pas de témoignage ni de chiffre inventé ici.
+          Remis à jour le 2026-09-23 (« Option C ») : l'inscription ne demande plus de choisir
+          une filière, et le KYC n'est plus présenté comme une étape d'entrée mais comme la
+          condition de la mise en relation — ce qu'il est réellement (§9). */}
       <div className="relative z-10 mt-8 p-4 rounded-2xl bg-white/[0.04] border border-white/[0.06]">
         <p className="text-[12px] font-semibold text-white/80 mb-2">Comment ça se passe</p>
         <ol className="space-y-1.5 text-[12px] text-white/70">
-          <li>1. Crée ton profil et choisis ta filière</li>
-          <li>2. Vérifie ton identité (KYC) — obligatoire</li>
-          <li>3. Reçois des missions et paie sous séquestre en FCFA</li>
+          <li>1. Crée ton compte — sans choisir de rôle</li>
+          <li>2. Publie une mission, ou propose tes services quand tu veux</li>
+          <li>3. Vérifie ton identité (KYC) avant la mise en relation</li>
         </ol>
       </div>
 

@@ -162,6 +162,8 @@ export async function POST(req: Request) {
         ? `Le paiement sous séquestre (${Math.round(holdOutcome.amount).toLocaleString("fr-FR")} ${holdOutcome.currency}) a été déclenché automatiquement.`
         : holdOutcome.error === "use_jalon_hold"
           ? "Le paiement est fractionné en jalons : le client finance chaque jalon depuis la page séquestre de la mission — aucun séquestre global n'est déclenché."
+          : holdOutcome.error === "site_manager_required"
+            ? "Le séquestre n'a pas été déclenché : la mission est en vérification OPR et aucun responsable chantier n'est encore désigné. Le client doit le désigner, puis financer depuis la page séquestre."
           : "Le séquestre n'a PAS pu être déclenché automatiquement — le client doit le lancer depuis la page séquestre de la mission.";
 
       // 2/2 — la mission est engagée : les DEUX parties sont prévenues (avant 2026-09-09,

@@ -49,7 +49,16 @@ export type ContractSnapshot = {
   // présent, les Articles 2 et 4 décrivent une rémunération au temps constaté, et non des
   // jalons — un contrat au temps qui promettrait « le paiement de chaque jalon » et une
   // acceptation tacite par jalon engagerait la plateforme sur des règles qu'elle n'applique pas.
-  conditionsTemps?: { rateUnit: "hour" | "day" | "month"; rate: number; maxQuantity: number; maxAmount: number } | null;
+  // Vérification / validation (2026-10-01). Absent des snapshots antérieurs : « client ».
+  validationMode?: "client" | "opr";
+  conditionsTemps?: {
+    rateUnit: "hour" | "day" | "week" | "month";
+    rate: number;
+    maxQuantity: number;
+    maxAmount: number;
+    // Mode de pointage (2026-10-01). Absent des snapshots antérieurs : « partielle ».
+    attendanceValidation?: "totale" | "partielle";
+  } | null;
   devis?: unknown;
   // Régime affiché sous le tableau de l'Article 2 (« Prix fixe », « Taux », « Sur devis »).
   regimeRemuneration?: string | null;
@@ -77,9 +86,10 @@ export type ContractTable = {
 
 export type ContractSection = { title: string; paragraphs: string[]; table?: ContractTable };
 
-const UNITE_TEMPS: Record<"hour" | "day" | "month", { one: string; many: string }> = {
+const UNITE_TEMPS: Record<"hour" | "day" | "week" | "month", { one: string; many: string }> = {
   hour: { one: "heure", many: "heures" },
   day: { one: "jour", many: "jours" },
+  week: { one: "semaine", many: "semaines" },
   month: { one: "mois", many: "mois" },
 };
 
@@ -102,11 +112,16 @@ export function contractReference(contractId: string): string {
 // Statut du prestataire affiché dans le bloc Parties. Le modèle de référence affiche
 // « Travailleur indépendant (micro-entreprise) » ; ici la filière métier est une donnée
 // réelle du compte (UserRole), on l'affiche donc plutôt qu'un statut fiscal non collecté.
+//
+// Renommée le 2026-09-24 : « Prestataire indépendant » remplace « Expert digital » et
+// « Entreprise » remplace « Expert BTP / Autres ». Le suffixe « travailleur indépendant »
+// n'est conservé que là où il apporte une information — il serait redondant après
+// « Prestataire indépendant », et faux pour une entreprise.
 const ROLE_STATUT: Record<string, string> = {
   artisan: "Artisan — travailleur indépendant",
   manoeuvre: "Manœuvre — travailleur indépendant",
-  expert_btp_autres: "Expert BTP / Autres — travailleur indépendant",
-  expert_digital: "Expert digital — travailleur indépendant",
+  expert_btp_autres: "Entreprise",
+  expert_digital: "Prestataire indépendant",
 };
 
 function addressOf(city?: string | null, country?: string | null): string {
@@ -234,7 +249,9 @@ export function buildContractSections(t: ContractSnapshot): ContractSection[] {
         `Le Client place sous séquestre, avant le démarrage de la mission, le plafond du contrat, soit ${money(total)}. Seul le temps constaté est dû : le plafond n'est pas un prix acquis.`,
         "Le paiement est déclenché selon les modalités suivantes :",
         `1. Le Prestataire déclare chaque période travaillée (relevé de présence, en ${unite.many}) via l'espace de travail du projet ;`,
-        "2. Le Client, ou le responsable de chantier qu'il a désigné, constate le relevé : il le valide, le refuse en le motivant, ou en conteste une partie ;",
+        temps.attendanceValidation === "totale"
+          ? "2. Le Client, ou le responsable de chantier qu'il a désigné, constate le relevé : il le valide en totalité, le refuse en le motivant (le Prestataire le corrige), ou en conteste une partie. Aucune validation partielle sans contestation n'est admise ;"
+          : "2. Le Client, ou le responsable de chantier qu'il a désigné, constate le relevé : il le valide en tout ou partie, le refuse en le motivant, ou en conteste une partie ;",
         "3. La part constatée est libérée au Prestataire dans la limite des fonds séquestrés ; une part contestée demeure sous séquestre jusqu'à son arbitrage. Un relevé non constaté ne donne lieu à aucun paiement ;",
         "4. À la clôture de la mission par le Client, le solde du plafond non consommé lui est restitué.",
         "Les fonds sont placés sous séquestre auprès d'un prestataire de paiement agréé : la plateforme instruit la libération, elle ne détient jamais les fonds.",
@@ -261,6 +278,16 @@ export function buildContractSections(t: ContractSnapshot): ContractSection[] {
         : []),
     ],
   });
+
+  // ---- Vérification / validation (2026-10-01) ----
+  // En mode OPR, la constatation est confiée à un tiers désigné par le Client : le Prestataire
+  // signe en sachant qui vérifie son travail, et que le paiement reste une décision du Client.
+  if (t.validationMode === "opr") {
+    const a4 = sections.find((sec) => sec.title.startsWith("Article 4 "));
+    a4?.paragraphs.push(
+      "Vérification par un responsable de chantier (OPR) : le Client désigne un responsable de chantier qui constate les relevés de présence et vérifie les jalons ou tâches (preuves, avancement). Le responsable transmet ses vérifications au Client, qui prononce seul la validation définitive déclenchant le paiement. Le Client peut remplacer le responsable à tout moment ; le délai d'acceptation tacite court dès la soumission du livrable."
+    );
+  }
 
   // ---- Articles 5 à 10 : identiques au modèle de référence ----
   sections.push({ title: "Article 5 — Statut du prestataire", paragraphs: [t.clauseStatutIndependant ?? ""] });

@@ -95,7 +95,11 @@ body {
 .btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .form-group { margin-bottom: 16px; }
 label { display: block; font-weight: 500; margin-bottom: 6px; font-size: 0.85rem; color: var(--text); }
-input, select, textarea {
+/* Cases à cocher et boutons radio exclus (2026-09-28) : étirés à 100 % avec un padding de
+   champ texte, ils devenaient des disques de la moitié de la largeur de leur ligne (liste des
+   modes de financement, barrière d'âge du catalogue). `:where()` garde la spécificité d'un
+   simple `input`, pour que les classes utilitaires (w-16…) continuent de l'emporter. */
+input:where(:not([type="radio"], [type="checkbox"])), select, textarea {
   width: 100%; padding: 10px 14px; border: 1px solid var(--border);
   border-radius: var(--radius-md); font-size: 0.9rem; transition: border-color 0.15s;
   font-family: inherit; background: #fff; color: var(--text);

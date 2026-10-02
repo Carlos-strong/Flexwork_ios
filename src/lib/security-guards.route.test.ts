@@ -29,7 +29,9 @@ import { GET as mediationGet } from "@/app/api/missions/[id]/mediation/route";
 import { POST as attachmentsPost } from "@/app/api/missions/[id]/attachments/route";
 import { POST as signatureSignPost } from "@/app/api/signature/sign/route";
 import { POST as kycSignUrlPost } from "@/app/api/kyc/documents/[id]/sign-url/route";
+import { GET as kycFileGet } from "@/app/api/kyc/file/[token]/route";
 import { prisma } from "@/lib/db";
+import { signKycDocToken } from "@/lib/storage";
 
 const RUN = Date.now();
 let clientId: string;
@@ -38,6 +40,8 @@ let tierceId: string;
 let missionId: string;
 let contractId: string;
 let kycDocId: string;
+let kycAdminId: string;
+let moderationAdminId: string;
 
 function authAs(userId: string, role = "client") {
   mockAuth.mockResolvedValue({
@@ -87,6 +91,17 @@ beforeAll(async () => {
   providerId = provider.id;
   tierceId = tierce.id;
 
+  const [kycAdmin, moderationAdmin] = await Promise.all([
+    prisma.user.create({
+      data: { email: `sg-admin-kyc-${RUN}@flexwork.test`, tel: `+2299${RUN}4`, role: "client", status: "active", isAdmin: true, adminRole: "kyc" },
+    }),
+    prisma.user.create({
+      data: { email: `sg-admin-mod-${RUN}@flexwork.test`, tel: `+2299${RUN}5`, role: "client", status: "active", isAdmin: true, adminRole: "moderation" },
+    }),
+  ]);
+  kycAdminId = kycAdmin.id;
+  moderationAdminId = moderationAdmin.id;
+
   // Mission en mode distance (pas de garant/assurance requis), FIXED (candidature prix),
   // publiée et ouverte.
   const mission = await prisma.mission.create({
@@ -134,7 +149,7 @@ afterAll(async () => {
   await prisma.kycDocument.deleteMany({ where: { id: kycDocId } });
   await prisma.missionProposal.deleteMany({ where: { missionId } });
   await prisma.mission.deleteMany({ where: { id: missionId } });
-  await prisma.user.deleteMany({ where: { id: { in: [clientId, providerId, tierceId] } } });
+  await prisma.user.deleteMany({ where: { id: { in: [clientId, providerId, tierceId, kycAdminId, moderationAdminId] } } });
 });
 
 describe("Invariant — auto-attribution (self-dealing)", () => {
@@ -277,5 +292,19 @@ describe("Vague 2 — fuites IDOR fermées : partie → OK, tiers → 404", () =
 
     authAs(tierceId);
     expect((await kycSignUrlPost(new Request("http://localhost/api"), { params: Promise.resolve({ id: kycDocId }) })).status).toBe(404);
+  });
+
+  it("kyc sign-url : admin KYC → 200, admin d'un autre rôle → 404 (séparation des pouvoirs)", async () => {
+    authAs(kycAdminId);
+    expect((await kycSignUrlPost(new Request("http://localhost/api"), { params: Promise.resolve({ id: kycDocId }) })).status).toBe(200);
+
+    authAs(moderationAdminId);
+    expect((await kycSignUrlPost(new Request("http://localhost/api"), { params: Promise.resolve({ id: kycDocId }) })).status).toBe(404);
+  });
+
+  it("kyc file : un jeton valide ne sert le document qu'au propriétaire ou à l'admin KYC", async () => {
+    const token = signKycDocToken(kycDocId);
+    authAs(moderationAdminId);
+    expect((await kycFileGet(new Request("http://localhost/api"), { params: Promise.resolve({ token }) })).status).toBe(404);
   });
 });

@@ -10,6 +10,7 @@ import { describe, expect, it } from "vitest";
 import {
   attendanceAmount,
   checkCaps,
+  checkValidationRule,
   dayPeriod,
   expectedMaxAmount,
   fundingAlert,
@@ -196,7 +197,16 @@ describe("resolveTimeTerms — les conditions qu'un contrat au temps fige", () =
     const res = resolveTimeTerms({ rateUnit: "day", maxQuantity: 20, unitRate: 7_500, contractPrice: 150_000 });
     expect(res).toEqual({
       ok: true,
-      terms: { rateUnit: "day", rate: 7_500, maxQuantity: 20, maxAmount: 150_000, overtimeAllowed: false, overtimeRate: null },
+      terms: {
+        rateUnit: "day",
+        rate: 7_500,
+        maxQuantity: 20,
+        maxAmount: 150_000,
+        overtimeAllowed: false,
+        overtimeRate: null,
+        // Mode de pointage non publié → « partielle », comportement historique.
+        attendanceValidation: "partielle",
+      },
     });
   });
 
@@ -235,5 +245,27 @@ describe("checkCaps — le dernier relevé solde le plafond", () => {
 
   it("une journée qui n'épuise PAS la quantité est payée au tarif, sans absorption", () => {
     expect(checkCaps(ARRONDI, 1, 0, 10, 10 * 7_500)).toEqual({ ok: true, amount: 7_500 });
+  });
+});
+
+// ── Mode de pointage (2026-10-01) ──────────────────────────────────────────────────────────
+describe("mode de pointage — règle de validation des relevés", () => {
+  it("validation partielle : toute quantité jusqu'au déclaré est admise", () => {
+    expect(checkValidationRule("partielle", 4, 6)).toEqual({ ok: true });
+    expect(checkValidationRule("partielle", 6, 6)).toEqual({ ok: true });
+  });
+
+  it("validation totale : seule la quantité déclarée entière est admise", () => {
+    expect(checkValidationRule("totale", 6, 6)).toEqual({ ok: true });
+    expect(checkValidationRule("totale", 4, 6)).toEqual({ ok: false, error: "partial_validation_not_allowed" });
+    expect(checkValidationRule("totale", 7.5, 7.5)).toEqual({ ok: true });
+  });
+
+  it("les conditions du contrat portent le mode publié, « partielle » à défaut", () => {
+    const base = { rateUnit: "day" as const, maxQuantity: 20, unitRate: 7_500, contractPrice: 150_000 };
+    const totale = resolveTimeTerms({ ...base, attendanceValidation: "totale" });
+    const defaut = resolveTimeTerms({ ...base, attendanceValidation: null });
+    expect(totale.ok && totale.terms.attendanceValidation).toBe("totale");
+    expect(defaut.ok && defaut.terms.attendanceValidation).toBe("partielle");
   });
 });

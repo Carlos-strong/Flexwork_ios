@@ -3,7 +3,8 @@ import { prisma } from "@/lib/db";
 import { requireAnyAdminRole } from "@/lib/adminGuard";
 import { CHANTIER_ROLES } from "@/lib/age-gate";
 
-// Comptes de filière chantier (artisan, manœuvre, expert BTP) — TOUS statuts KYC confondus —
+// Comptes de filière chantier (artisan, manoeuvre, expert_btp_autres — soit
+// « Artisan », « Manœuvre » et « Entreprise » à l'écran) — TOUS statuts KYC confondus —
 // pour piloter « garant requis » compte par compte (User.garantRequired, défaut OFF).
 //
 // Pourquoi une route distincte de /api/admin/kyc/queue : la file KYC ne liste que les

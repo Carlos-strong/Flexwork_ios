@@ -133,6 +133,9 @@ export default function ClientProofValidationModal({
   onSave,
   saving,
   saveDisabledReason,
+  saveLabel = "Enregistrer appréciation + constats",
+  progressReadOnly = false,
+  progressNotice = null,
 }: {
   open: boolean;
   onClose: () => void;
@@ -173,6 +176,11 @@ export default function ClientProofValidationModal({
   onSave: () => void;
   saving: boolean;
   saveDisabledReason?: string | null;
+  // Mode de vérification OPR (2026-10-01) : le responsable « Enregistre et transmet » ; le client
+  // confirme le taux constaté par le responsable, sans pouvoir le modifier.
+  saveLabel?: string;
+  progressReadOnly?: boolean;
+  progressNotice?: string | null;
 }) {
   const [rejecting, setRejecting] = useState<ReviewProof | null>(null);
   const [rejectForm, setRejectForm] = useState<RejectPayload>({ reason: "", motif: "", requestNewProof: false });
@@ -433,6 +441,9 @@ export default function ClientProofValidationModal({
                   <label className="text-[13px] font-medium text-gray-700 flex items-center gap-1">
                     Taux d&apos;exécution constaté sur site <span className="text-[#dc2626]">*</span>
                   </label>
+                  {progressNotice && (
+                    <p className="mt-1 text-[12px] text-[#1D4ED8] bg-[#EFF6FF] border border-[#BFDBFE] rounded-lg px-2.5 py-1.5">{progressNotice}</p>
+                  )}
                   <div className="mt-3 flex items-center gap-3">
                     <div className="flex-1 relative">
                       <input
@@ -440,6 +451,7 @@ export default function ClientProofValidationModal({
                         min={minProgress}
                         max={100}
                         value={observedProgress}
+                        disabled={progressReadOnly}
                         onChange={(e) => onObservedProgressChange(Math.max(minProgress, Number(e.target.value)))}
                         className="w-full h-2 appearance-none bg-[#e5e7eb] rounded-full accent-[#008751] flexwork-constat-range"
                         /* La portion déjà acquise reste peinte en vert foncé : elle n'est plus
@@ -454,6 +466,7 @@ export default function ClientProofValidationModal({
                         min={minProgress}
                         max={100}
                         value={observedProgress}
+                        disabled={progressReadOnly}
                         onChange={(e) => onObservedProgressChange(Math.min(100, Math.max(minProgress, Number(e.target.value) || 0)))}
                         className="w-[55px] h-8 border border-gray-200 rounded-lg text-[13px] text-center"
                       />
@@ -463,7 +476,7 @@ export default function ClientProofValidationModal({
                     {[0, 25, 50, 75, 100].map((value) => {
                       // Une pastille sous le plancher désignerait une régression : elle reste
                       // visible (le client voit d'où il part) mais devient inatteignable.
-                      const belowFloor = value < minProgress;
+                      const belowFloor = value < minProgress || progressReadOnly;
                       return (
                         <button
                           key={value}
@@ -588,7 +601,7 @@ export default function ClientProofValidationModal({
                 onClick={() => { showToast(`Taux ${observedProgress}% et constat enregistrés - prestataire notifié`); onSave(); }}
                 className={`h-9 px-5 rounded-xl text-[13px] font-medium transition ${canSave ? "bg-[#008751] text-white hover:bg-[#007a49]" : "bg-gray-200 text-gray-400 cursor-not-allowed"}`}
               >
-                {saving ? "Envoi..." : "Enregistrer appréciation + constats"}
+                {saving ? "Envoi..." : saveLabel}
               </button>
             </div>
           </div>

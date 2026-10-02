@@ -5,6 +5,7 @@ import {
   disputeAttendance,
   rejectAttendance,
   resolveAttendanceDispute,
+  verifyAttendance,
 } from "@/lib/spot-time-actions";
 
 // Décision sur UN relevé de présence : validation ou refus.
@@ -13,9 +14,10 @@ import {
 // même décision, et les séparer en deux endpoints aurait dupliqué l'autorisation, le chargement
 // et la gestion d'erreur pour une différence d'un champ.
 //
-// L'autorisation elle-même vit dans `canValidateAttendance` (src/lib/spot-time-actions.ts) :
-// le client, ou le responsable de chantier DÉSIGNÉ sur ce contrat. Jamais le prestataire —
-// valider ses propres heures, c'est se payer soi-même.
+// L'autorisation vit dans src/lib/spot-time-actions.ts : le client prononce les décisions
+// définitives (validation, contestation, arbitrage) ; en mode OPR, le responsable de chantier
+// désigné VÉRIFIE et transmet (`action: "verify"`). Jamais le prestataire — valider ses propres
+// heures, c'est se payer soi-même.
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string; attendanceId: string }> }
@@ -26,6 +28,20 @@ export async function POST(
   const { attendanceId } = await params;
 
   const body = await req.json().catch(() => null);
+
+  // Mode OPR : constat du responsable de chantier, transmis au client. Aucun effet financier.
+  if (body?.action === "verify") {
+    const res = await verifyAttendance({
+      attendanceId,
+      verifierId: userId,
+      verifiedQuantity: typeof body.verifiedQuantity === "number" ? body.verifiedQuantity : NaN,
+      overtimeQuantity: typeof body.overtimeQuantity === "number" ? body.overtimeQuantity : 0,
+    });
+    if (!res.ok) {
+      return NextResponse.json({ error: res.error, allowed: res.allowed }, { status: res.error === "not_found" ? 404 : 409 });
+    }
+    return NextResponse.json({ status: "verified" });
+  }
 
   if (body?.action === "reject") {
     const res = await rejectAttendance({

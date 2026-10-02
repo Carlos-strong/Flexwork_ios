@@ -87,7 +87,7 @@ const STEPS: ChronoStep[] = [
       "Page Mission publiée — ouverte aux candidatures. Formulaire réel de création : titre, description, domaine (risque MEDIUM auto), budget, délai, mode (FIXED / TAUX / QUOTE), tags, date d'expiration. Publication soumise au KYC vérifié.",
     links: [{ label: "/missions/new", href: "/missions/new", note: "Publier une mission" }],
     detail:
-      "src/app/missions/new/page.tsx → POST /api/missions. Le domaine détermine le palier de risque (resolveMissionRisk) et l'éventuelle assurance effective. Un brouillon est enregistrable sans KYC ; la publication (status = publiee) l'exige.",
+      "src/app/missions/new/page.tsx → POST /api/missions. Le MÉTIER choisi dans la taxonomie détermine le palier de risque (Metier.riskLevel) et l'éventuelle assurance effective. Un brouillon est enregistrable sans KYC ; la publication (status = publiee) l'exige.",
   },
   {
     id: "02",
@@ -117,7 +117,7 @@ const STEPS: ChronoStep[] = [
     status: "KYC Validé",
     statusTone: "green",
     description:
-      "Création de profil prestataire (Expert Digital / Expert BTP / Artisan / Manœuvre), portfolio, CV, tarif FCFA. Extrait public : badge unique « Identité vérifiée », blocs « Déclaré » (jamais vérifié pour compétences/assurance — A8/A11).",
+      "Création de profil prestataire (Prestataire indépendant / Entreprise / Artisan / Manœuvre), portfolio, CV, tarif FCFA. Extrait public : badge unique « Identité vérifiée », blocs « Déclaré » (jamais vérifié pour compétences/assurance — A8/A11).",
     links: [
       { label: "/profile", href: "/profile", note: "Formulaire prestataire" },
       { label: "/profil/[id]", href: "/profil/[id]", note: "Extrait public" },

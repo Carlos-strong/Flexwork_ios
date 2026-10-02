@@ -129,10 +129,21 @@ describe("génération — un contrat S2 naît avec ses conditions tarifaires", 
   it("le contrat signé énonce les mêmes conditions, sans promettre de jalons", async () => {
     const contract = await prisma.prestationContract.findUniqueOrThrow({ where: { id: contractId } });
     const snapshot = contract.termsSnapshot as Parameters<typeof buildContractSections>[0];
-    expect(snapshot.conditionsTemps).toEqual({ rateUnit: "day", rate: TARIF, maxQuantity: MAX_JOURS, maxAmount: PLAFOND });
+    expect(snapshot.conditionsTemps).toEqual({
+      rateUnit: "day",
+      rate: TARIF,
+      maxQuantity: MAX_JOURS,
+      maxAmount: PLAFOND,
+      // Aucun mode de pointage publié → « partielle », figé au contrat (2026-10-01).
+      attendanceValidation: "partielle",
+    });
 
-    const a2 = buildContractSections(snapshot).find((s) => s.title.startsWith("Article 2 "))!;
+    const sections = buildContractSections(snapshot);
+    const a2 = sections.find((s) => s.title.startsWith("Article 2 "))!;
     expect(a2.title).toBe("Article 2 — Rémunération au temps");
+    // L'Article 4 énonce la règle de validation sous laquelle les parties signent.
+    const a4 = sections.find((s) => s.title.startsWith("Article 4 "))!;
+    expect(a4.paragraphs.join(" ")).toContain("le valide en tout ou partie");
   });
 });
 

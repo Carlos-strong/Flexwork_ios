@@ -9,13 +9,14 @@ import MissionsSection from "@/components/dashboard/provider/MissionsSection";
 import CandidaturesSection from "@/components/dashboard/provider/CandidaturesSection";
 import OffresSection from "@/components/dashboard/provider/OffresSection";
 import WalletSection from "@/components/dashboard/provider/WalletSection";
+import { ProviderProfileCompletionCard } from "@/components/dashboard/ProviderProfileCompletionCard";
 import DevisContratsSection from "@/components/dashboard/DevisContratsSection";
 import { useSidebarBadges } from "@/components/dashboard/useSidebarBadges";
 import { useUserIdentity } from "@/components/user-identity";
 import { providerUrl } from "@/lib/provider-urls";
 import type { Session } from "next-auth";
 
-const FALLBACK_USER: DashboardUser = { initials: "EB", name: "Expert BTP", role: "Expert BTP", avatarGradient: "from-[#FCD116] to-[#E8112D]" };
+const FALLBACK_USER: DashboardUser = { initials: "EN", name: "Entreprise", role: "Entreprise", avatarGradient: "from-[#FCD116] to-[#E8112D]" };
 
 export default function ExpertBtpDashboard({ initialNav = "dashboard" }: { initialNav?: string } = {}) {
   const { data: session, status } = useSession() as { data: Session | null; status: string };
@@ -52,9 +53,11 @@ export default function ExpertBtpDashboard({ initialNav = "dashboard" }: { initi
       ) : (
       <>
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
-        <div><h1 className="text-[22px] md:text-[26px] font-bold text-[#0A1931] tracking-tight">Bonjour {identity?.name ?? "Expert BTP"} 👋</h1><p className="text-[13px] text-zinc-500 mt-1"><span className="text-[#FF7A00]">✦</span> <span className="font-semibold text-[#FF7A00]">6 chantiers</span> en cours • 2 nouveaux devis</p></div>
+        <div><h1 className="text-[22px] md:text-[26px] font-bold text-[#0A1931] tracking-tight">Bonjour {identity?.name ?? "Entreprise"} 👋</h1><p className="text-[13px] text-zinc-500 mt-1"><span className="text-[#FF7A00]">✦</span> <span className="font-semibold text-[#FF7A00]">6 chantiers</span> en cours • 2 nouveaux devis</p></div>
         <div className="flex items-center gap-2"><button className="h-9 px-4 rounded-full bg-white border border-gray-200 text-[13px] font-medium text-zinc-600">Filtres</button><button className="h-9 px-4 rounded-full bg-white border border-gray-200 text-[13px] font-medium text-zinc-600">Calendrier</button></div>
       </div>
+      {/* Carte de complétion (P5) — le pourcentage vient du serveur, elle se replie d'elle-même. */}
+      <ProviderProfileCompletionCard />
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6">
         {[{ label: "Chantiers actifs", value: "6", sub: "+2 cette semaine", color: "from-[#22C55E] to-[#22C55E]" },{ label: "Revenus", value: "1.2M", sub: "FCFA ce mois", color: "from-[#3B82F6] to-[#3B82F6]" },{ label: "Devis envoyés", value: "14", sub: "en attente", color: "from-[#8B5CF6] to-[#8B5CF6]" },{ label: "Taux conversion", value: "78%", sub: "devis acceptés", color: "from-[#FF7A00] to-[#FF7A00]" }].map(s => (
           <div key={s.label} className="bg-white rounded-[16px] border border-gray-100 p-4 md:p-5 hover:shadow-md transition-shadow relative overflow-hidden"><div className={`absolute top-0 left-0 w-full h-1 bg-gradient-to-r ${s.color}`} /><div className="text-[11px] uppercase tracking-widest text-zinc-400 font-semibold mb-1">{s.label}</div><div className="text-[28px] md:text-[32px] font-bold tracking-tight text-[#0A1931]">{s.value}</div><div className="text-[12px] text-zinc-400 mt-0.5">{s.sub}</div></div>

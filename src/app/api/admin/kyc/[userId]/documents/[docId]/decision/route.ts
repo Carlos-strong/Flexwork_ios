@@ -6,7 +6,6 @@ import { logAdminAction, isUnderKycRateLimit } from "@/lib/admin-audit";
 import { recordVerificationHistory } from "@/lib/verification-history";
 import { notifyUser } from "@/lib/notify";
 import { deriveKycStatus } from "@/lib/kyc-status";
-import { isChantierRole } from "@/lib/age-gate";
 
 const schema = z.object({
   status: z.enum(["verifie", "rejete"]),
@@ -63,17 +62,17 @@ export async function POST(
   // Synchronisation de l'état global du compte depuis l'état réel de ses documents.
   const allDocs = await prisma.kycDocument.findMany({ where: { userId } });
   const derivedRaw = deriveKycStatus(allDocs);
-  // A13 — une filière chantier ne peut PAS devenir « verifie » sans date de naissance (jamais
-  // déclarée par l'utilisateur, saisie admin sur la pièce) : la validation PAR DOCUMENT ne
-  // doit pas court-circuiter cette exigence via deriveKycStatus. Le document est validé, mais
-  // le compte reste « en_attente » tant que la validation finale du dossier
-  // (POST .../decision) n'apporte pas la date — sinon le compte serait « verifie » et pourtant
-  // bloqué en candidature chantier (kyc_required_for_age, message trompeur). (2026-09-09)
-  const target = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
-  const derived =
-    derivedRaw === "verifie" && target && isChantierRole(target.role) && !parsed.data.dateNaissance
-      ? "en_attente"
-      : derivedRaw;
+  // A13 — on ne devient PAS « verifie » sans date de naissance, quelle que soit la filière
+  // (2026-09-24). La validation PAR DOCUMENT ne doit pas court-circuiter cette exigence via
+  // deriveKycStatus : le document est validé, mais le compte reste « en_attente » — donc dans la
+  // file — tant que la validation finale n'apporte pas la date.
+  //
+  // La condition portait auparavant sur les filières chantier, ce qui était circulaire : la
+  // filière n'est écrite qu'à l'activation de l'espace prestataire, alors que la date doit être
+  // relevée bien avant. Un compte validé document par document pouvait donc devenir « verifie »
+  // sans âge, sortir de la file d'attente, et n'avoir plus aucun chemin vers une date.
+  const dateManquantePourVerifier = derivedRaw === "verifie" && !parsed.data.dateNaissance;
+  const derived = dateManquantePourVerifier ? "en_attente" : derivedRaw;
   const user = await prisma.user.update({
     where: { id: userId },
     data: {
@@ -140,5 +139,12 @@ export async function POST(
     message: `Document ${updated.type} de ${user.email} marqué « ${updated.status} ». Statut KYC du compte : ${user.kycStatus}.`,
   }).catch(() => {});
 
-  return NextResponse.json({ document: updated, kycStatus: user.kycStatus });
+  return NextResponse.json({
+    document: updated,
+    kycStatus: user.kycStatus,
+    // Dit à l'admin POURQUOI le compte n'est pas passé à « verifie » : sans ce drapeau, il
+    // validerait la dernière pièce, verrait le dossier rester en attente, et n'aurait aucun
+    // moyen de savoir que c'est la date de naissance qui le retient.
+    dateNaissanceRequise: dateManquantePourVerifier,
+  });
 }

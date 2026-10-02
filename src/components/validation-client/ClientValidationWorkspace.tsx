@@ -20,6 +20,9 @@ import { ValidationClientView } from "@/components/validation-client/ValidationC
 import MissionTracker from "@/components/mission-tracker";
 import { MessageBubble } from "@/components/chat/MessageBubble";
 import { fetchDedupe } from "@/lib/fetch-dedupe";
+import { SITE_MANAGER_NAV } from "@/components/dashboard/SiteManagerDashboard";
+import { AttendancePanel } from "@/components/spot-time/attendance-panel";
+import { SiteManagerCard } from "@/components/validation-client/SiteManagerCard";
 
 const FALLBACK_USER: DashboardUser = {
   initials: "CL",
@@ -30,7 +33,16 @@ const FALLBACK_USER: DashboardUser = {
 
 type Interlocutor = { id: string; name: string; avatarPath: string | null };
 
-export default function ClientValidationWorkspace({ missionId }: { missionId: string }) {
+// `role` (2026-10-01) : en mode de vérification OPR, le responsable de chantier désigné ouvre la
+// mission dans ce même espace, avec sa propre navigation et la vue en mode « vérification ».
+export default function ClientValidationWorkspace({
+  missionId,
+  role = "client",
+}: {
+  missionId: string;
+  role?: "client" | "site_manager";
+}) {
+  const estResponsable = role === "site_manager";
   // Badges du sidebar pilotés par les événements réels (messages, propositions, paiements,
   // missions à action) — même hook que les autres pages client.
   const badgeCounts = useSidebarBadges("client");
@@ -52,26 +64,32 @@ export default function ClientValidationWorkspace({ missionId }: { missionId: st
     fetchDedupe(`/api/missions/${missionId}/contract`)
       .then((r) => (r.ok ? r.json() : null))
       .then((c) => {
-        if (!c?.provider) return;
+        // Messagerie client ↔ prestataire : le responsable de chantier n'y prend pas part.
+        if (!c?.provider || estResponsable) return;
         const name = [c.provider.firstname, c.provider.lastname].filter(Boolean).join(" ") || "Prestataire";
         setInterlocutor({ id: c.provider.id, name, avatarPath: c.provider.avatarPath ?? null });
       })
       .catch(() => {});
-  }, [missionId]);
+  }, [missionId, estResponsable]);
 
   return (
     <DashboardLayout
       mode="client"
       user={user}
-      navItems={CLIENT_NAV}
-      activeNav="missions"
+      navItems={estResponsable ? SITE_MANAGER_NAV : CLIENT_NAV}
+      activeNav={estResponsable ? "dashboard" : "missions"}
       onNavChange={() => {}}
-      badgeCounts={badgeCounts}
-      title="Validation Client"
+      badgeCounts={estResponsable ? {} : badgeCounts}
+      title={estResponsable ? "Vérification OPR" : "Validation Client"}
     >
       <div className="max-w-[1000px] mx-auto space-y-4">
         <MissionTracker missionId={missionId} />
-        <ValidationClientView missionId={missionId} />
+        {/* Client en OPR : désigner, remplacer ou retirer le responsable, là où il valide. */}
+        {!estResponsable && <SiteManagerCard missionId={missionId} />}
+        <ValidationClientView missionId={missionId} viewerRole={role} />
+        {/* Contrat au temps : le responsable vérifie aussi les relevés de présence ici (le
+            panneau ne s'affiche pas hors contrat au temps). */}
+        {estResponsable && <AttendancePanel missionId={missionId} />}
       </div>
       {interlocutor && identity?.id && (
         <MessageBubble

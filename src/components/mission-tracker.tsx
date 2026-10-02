@@ -193,11 +193,18 @@ export default function MissionTracker({ missionId }: { missionId: string }) {
   const [mission, setMission] = useState<Mission | null>(null);
   const [contract, setContract] = useState<Contract | null | undefined>(undefined);
 
+  // Le contrat n'est demandé QUE si la mission peut en avoir un (2026-09-23).
+  //
+  // Les deux requêtes partaient EN PARALLÈLE, contrat compris, même sur une mission brouillon
+  // ou publiée — où aucun contrat n'existe. L'API répondait alors 404 : un code correct côté
+  // serveur (le contrat n'existe pas), mais qui remplissait la console d'une erreur rouge à
+  // chaque ouverture de page, noyant les vraies. Coût du séquencement : un aller-retour au
+  // lieu d'un parallèle, sur une bannière qui apparaît une fraction de seconde plus tard.
   useEffect(() => {
     fetchDedupe(`/api/missions/${missionId}`)
       .then((r) => (r.ok ? r.json() : null))
-      .then((m) =>
-        m &&
+      .then((m) => {
+        if (!m) return;
         setMission({
           id: m.id,
           titre: m.titre,
@@ -206,11 +213,17 @@ export default function MissionTracker({ missionId }: { missionId: string }) {
           budget: m.budget,
           contractPrice: m.contractPrice ?? null,
           isOwner: !!m.isOwner,
-        })
-      );
-    fetchDedupe(`/api/missions/${missionId}/contract`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((c) => setContract(c ? { id: c.id, clientSignedAt: c.clientSignedAt ?? null, providerSignedAt: c.providerSignedAt ?? null } : null));
+        });
+        if (m.status === "brouillon" || m.status === "publiee") {
+          setContract(null);
+          return;
+        }
+        return fetchDedupe(`/api/missions/${missionId}/contract`)
+          .then((r) => (r.ok ? r.json() : null))
+          .then((c) =>
+            setContract(c ? { id: c.id, clientSignedAt: c.clientSignedAt ?? null, providerSignedAt: c.providerSignedAt ?? null } : null)
+          );
+      });
   }, [missionId]);
 
   if (!mission || contract === undefined) return null;

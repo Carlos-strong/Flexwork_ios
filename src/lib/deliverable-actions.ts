@@ -20,9 +20,19 @@ import {
   observedProgressUpdate,
   proofScope,
   resolveClientDeliverableScope,
+  verificationUpdate,
+  clientValidationUpdate,
   type DeliverableScope,
+  type ScopeActor,
 } from "@/lib/deliverable-scope";
+import { canClientFinalize } from "@/lib/validation-mode";
 
+// Mode de vérification (2026-10-01) : en « Moi-même », le client fait tout. En OPR, le
+// responsable de chantier désigné VÉRIFIE (appréciation des preuves — routes appreciate —,
+// constat d'avancement, transmission) et le client prononce la validation DÉFINITIVE (point
+// d'étape, validation/libération). Le refus reste ouvert aux deux. Chaque handler déclare qui
+// peut l'appeler (`actor`) ; la résolution de portée applique la règle.
+//
 // Gestes de validation du client, écrits UNE fois pour les deux portées (un jalon, ou la
 // mission entière sans jalon). Voir src/lib/deliverable-scope.ts pour le pourquoi : ces
 // handlers vivaient en double, une copie par portée, et divergeaient.
@@ -48,12 +58,12 @@ async function authenticate(): Promise<{ userId: string } | { response: NextResp
 /** Résolution commune : authentification, portée, et garde « un livrable est-il soumis ? ». */
 async function prepare(
   args: ActionArgs,
-  { requireDeliverable = true }: { requireDeliverable?: boolean } = {}
+  { requireDeliverable = true, actor = "client" }: { requireDeliverable?: boolean; actor?: ScopeActor } = {}
 ): Promise<{ userId: string; scope: DeliverableScope } | { response: NextResponse }> {
   const auth = await authenticate();
   if ("response" in auth) return auth;
 
-  const resolved = await resolveClientDeliverableScope({ ...args, userId: auth.userId });
+  const resolved = await resolveClientDeliverableScope({ ...args, userId: auth.userId, actor });
   if (!resolved.ok) {
     return { response: NextResponse.json({ error: resolved.error }, { status: resolved.status }) };
   }
@@ -79,7 +89,8 @@ function readNote(body: unknown): string | null {
 // Le client enregistre la progression qu'il CONSTATE (par opposition à declaredProgress, ce que
 // le prestataire affirme) — seul observedProgress gate la libération des fonds.
 export async function handleObserveProgress(req: Request, args: ActionArgs): Promise<NextResponse> {
-  const prepared = await prepare(args);
+  // Constater l'avancement est un geste de VÉRIFICATION : le responsable en OPR, le client sinon.
+  const prepared = await prepare(args, { actor: "verifier" });
   if ("response" in prepared) return prepared.response;
   const { scope } = prepared;
 
@@ -132,6 +143,11 @@ export async function handleCheckpoint(req: Request, args: ActionArgs): Promise<
   // le contrôle laissait alors passer une confirmation qui faisait redescendre le cumul.
   if (progress < scope.observedProgress) {
     return NextResponse.json({ error: "progress_regression" }, { status: 409 });
+  }
+  // Mode OPR : le client confirme ce que le responsable a constaté, il ne va pas au-delà. Avec la
+  // garde anti-régression ci-dessus, seul le niveau constaté par le responsable passe.
+  if (scope.validationMode === "opr" && progress > scope.observedProgress) {
+    return NextResponse.json({ error: "progress_not_verified" }, { status: 409 });
   }
 
   const [, checkpoint] = await prisma.$transaction([
@@ -226,7 +242,9 @@ const rejectSchema = z.object({ rejectionReason: z.string().min(1) });
 // remis à 0 : c'est le cumul des points d'étape déjà VALIDÉS par le client, et un rejet ne
 // défait jamais une validation précédente — il renvoie seulement CETTE soumission en révision.
 export async function handleRejectDeliverable(req: Request, args: ActionArgs): Promise<NextResponse> {
-  const prepared = await prepare(args);
+  // Refuser renvoie au prestataire sans mouvement de fonds : le responsable (vérification non
+  // conforme) comme le client (même après transmission) le peuvent.
+  const prepared = await prepare(args, { actor: "client_or_verifier" });
   if ("response" in prepared) return prepared.response;
   const { scope, userId } = prepared;
 
@@ -248,7 +266,18 @@ export async function handleRejectDeliverable(req: Request, args: ActionArgs): P
     const [updated] = await prisma.$transaction([
       prisma.jalon.update({
         where: { id: scope.jalonId },
-        data: { status: "rejete", rejectionReason, revisionCount: { increment: 1 }, declaredProgress: 0 },
+        // Une vérification vaut pour UN livrable : le rejet l'efface.
+        data: {
+          status: "rejete",
+          rejectionReason,
+          revisionCount: { increment: 1 },
+          declaredProgress: 0,
+          verifiedAt: null,
+          verifiedById: null,
+          verificationNote: null,
+          clientValidatedById: null,
+          clientValidatedAt: null,
+        },
       }),
       rejection,
     ]);
@@ -258,7 +287,7 @@ export async function handleRejectDeliverable(req: Request, args: ActionArgs): P
     const [updated] = await prisma.$transaction([
       prisma.mission.update({
         where: { id: scope.missionId },
-        data: { status: "fonds_sous_sequestre", declaredProgress: 0 },
+        data: { status: "fonds_sous_sequestre", declaredProgress: 0, verifiedAt: null, verifiedById: null, verificationNote: null },
       }),
       rejection,
     ]);
@@ -266,6 +295,7 @@ export async function handleRejectDeliverable(req: Request, args: ActionArgs): P
   }
 
   const cible = deliverableLabel(scope);
+  const auteur = scope.actorRole === "site_manager" ? "Le responsable de chantier" : "Le client";
   await notifyMissionParties({
     missionId: scope.missionId,
     type: "deliverable_rejected",
@@ -274,7 +304,7 @@ export async function handleRejectDeliverable(req: Request, args: ActionArgs): P
       message: `Livrable refusé pour ${cible} — mission « ${scope.missionTitre} ». Motif : ${rejectionReason}`,
       email: {
         subject: `Livrable rejeté — ${scope.jalonTitre ?? scope.missionTitre}`,
-        text: `Le client a rejeté ${cible}. Motif : ${rejectionReason}. Vous pouvez resoumettre des preuves corrigées.`,
+        text: `${auteur} a rejeté ${cible}. Motif : ${rejectionReason}. Vous pouvez resoumettre des preuves corrigées.`,
       },
     },
     actor: {
@@ -326,6 +356,12 @@ export async function handleValidateDeliverable(args: ActionArgs): Promise<NextR
   if (!canDecideDeliverable(scope.status)) {
     return NextResponse.json({ error: "no_deliverable_submitted" }, { status: 409 });
   }
+  // Mode OPR strict : la validation définitive suit la transmission du responsable. Sans elle, le
+  // client ne libère pas — il peut en revanche désigner un autre responsable. (L'acceptation
+  // tacite, elle, ne passe pas par ici : son délai court depuis la soumission.)
+  if (!canClientFinalize(scope.validationMode, scope.verifiedAt)) {
+    return NextResponse.json({ error: "verification_required" }, { status: 409 });
+  }
   // La libération n'est possible que si le client a lui-même constaté 100 % — jamais sur la
   // base de declaredProgress, purement déclaratif côté prestataire.
   if (scope.observedProgress < 100) {
@@ -335,6 +371,11 @@ export async function handleValidateDeliverable(args: ActionArgs): Promise<NextR
   if (proofCheck) {
     return NextResponse.json({ error: proofCheck.error }, { status: proofCheck.status });
   }
+
+  // Toutes les gardes sont passées : la validation définitive du client est ACQUISE, quelle que
+  // soit l'issue financière qui suit (libération, séquestre insuffisant, course perdue). On trace
+  // qui l'a prononcée et quand — distinct de la vérification du responsable et du PSP.
+  await clientValidationUpdate(scope, userId);
 
   // Retenue de garantie (règle 18.10) : le plafond libérable est le montant moins la part
   // retenue, versée plus tard en une instruction unique. Sans retenue, c'est le montant plein.
@@ -434,6 +475,57 @@ export async function handleValidateDeliverable(args: ActionArgs): Promise<NextR
 
   await notifyValidated(scope, userId, { alreadyReleased: false, releaseAmount: operation.amount, retenue });
   return NextResponse.json({ id: operation.id, status: refreshed?.status ?? operation.status });
+}
+
+// ── POST .../verification (jalon) et POST .../deliverable/verification (mission) ──────────
+// Mode OPR : le responsable de chantier TRANSMET au client un livrable qu'il a vérifié — preuves
+// toutes appréciées et validées, avancement constaté à 100 %. Aucun effet financier : c'est la
+// validation définitive du client qui libère. Une note facultative accompagne la transmission.
+export async function handleTransmitVerification(req: Request, args: ActionArgs): Promise<NextResponse> {
+  const prepared = await prepare(args, { actor: "verifier" });
+  if ("response" in prepared) return prepared.response;
+  const { scope, userId } = prepared;
+
+  if (scope.validationMode !== "opr") {
+    // En « Moi-même », il n'y a rien à transmettre : le client vérifie et valide lui-même.
+    return NextResponse.json({ error: "verification_not_applicable" }, { status: 409 });
+  }
+  if (scope.verifiedAt) {
+    return NextResponse.json({ verifiedAt: scope.verifiedAt, alreadyTransmitted: true });
+  }
+  if (scope.observedProgress < 100) {
+    return NextResponse.json({ error: "progress_incomplete" }, { status: 409 });
+  }
+  const proofCheck = await assertProofsValidated(proofScope(scope));
+  if (proofCheck) {
+    return NextResponse.json({ error: proofCheck.error }, { status: proofCheck.status });
+  }
+
+  const note = readNote(await req.json().catch(() => null));
+  const verifiedAt = new Date();
+  await verificationUpdate(scope, { verifiedAt, verifiedById: userId, verificationNote: note });
+
+  const cible = deliverableLabel(scope);
+  await notifyMissionParties({
+    missionId: scope.missionId,
+    type: "verification_transmise",
+    counterpart: {
+      userId: scope.clientId,
+      message:
+        `Le responsable de chantier a vérifié ${cible} — mission « ${scope.missionTitre} ». À vous de prononcer la validation définitive.` +
+        (note ? ` Observations : ${note}` : ""),
+      email: {
+        subject: `Vérification transmise — ${scope.jalonTitre ?? scope.missionTitre}`,
+        text: `Le responsable de chantier a vérifié ${cible} et vous le transmet pour validation définitive.${note ? ` Observations : ${note}` : ""}`,
+      },
+    },
+    actor: {
+      userId,
+      message: `Vous avez transmis ${cible} au client pour validation définitive — mission « ${scope.missionTitre} ».`,
+    },
+  });
+
+  return NextResponse.json({ verifiedAt });
 }
 
 /** Notification « livrable validé », commune aux deux portées et aux deux issues. */

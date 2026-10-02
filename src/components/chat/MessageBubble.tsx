@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Phone, Video } from "lucide-react";
 import { Avatar } from "@/components/avatar";
 import CallPanel from "@/components/chat/CallPanel";
@@ -72,7 +72,7 @@ export function MessageBubble({ missionId, currentUserId, interlocutorId, interl
     toggleVideo,
   } = useWebRTC(currentUserId);
 
-  function loadThread() {
+  const loadThread = useCallback(() => {
     setLoadingThread(true);
     fetch(`/api/messages?missionId=${missionId}`)
       .then((r) => (r.ok ? r.json() : null))
@@ -84,13 +84,13 @@ export function MessageBubble({ missionId, currentUserId, interlocutorId, interl
       })
       .catch(() => {})
       .finally(() => setLoadingThread(false));
-  }
+  }, [missionId]);
 
   // Vérifie les messages non lus même bulle fermée (badge sur le bouton flottant).
-  useEffect(() => { loadThread(); }, [missionId]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { loadThread(); }, [loadThread]);
 
   // Recharge le fil à l'ouverture — capte les messages reçus pendant que la bulle était fermée.
-  useEffect(() => { if (open) loadThread(); }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (open) loadThread(); }, [open, loadThread]);
 
   useEffect(() => {
     threadEndRef.current?.scrollIntoView({ block: "end" });

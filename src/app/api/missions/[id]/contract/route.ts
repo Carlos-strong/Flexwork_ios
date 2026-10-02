@@ -5,7 +5,7 @@ import { computeChainedHash } from "@/lib/hash-chain";
 import { computeAge, isChantierRole } from "@/lib/age-gate";
 import { assertNoSelfDealing } from "@/lib/invariants";
 import { validateJalonsSum, type JalonInput } from "@/lib/jalons";
-import { getFinancingMode, resolveFinancing } from "@/lib/financing-modes";
+import { getFinancingMode, resolveFinancing, effectiveFinancingModeKey } from "@/lib/financing-modes";
 import type { DevisData } from "@/lib/devis";
 import { isCounterSignExpired, cancelExpiredContract } from "@/lib/contract-expiry";
 import { notifyMissionParties } from "@/lib/mission-notify";
@@ -81,7 +81,15 @@ export async function POST(
   // la stratégie de ce mode (src/lib/financing-modes.ts) au lieu d'être resaisis. Les montants
   // sont proratisés au prix du contrat, main d'œuvre et TVA comprises — les lignes du devis
   // somment au HT hors main d'œuvre, jamais au TTC facturé.
-  const mode = mission.financingModeKey ? getFinancingMode(mission.financingModeKey) : null;
+  //
+  // Depuis 2026-10-01, le mode est celui du DEVIS accepté (fixe ou par jalons, choisi par le
+  // prestataire, accepté par le client) ; le mode de la mission ne vaut plus que pour un
+  // contrat au temps, ou pour un devis antérieur à cette règle (effectiveFinancingModeKey).
+  const modeKey = effectiveFinancingModeKey({
+    missionModeKey: mission.financingModeKey,
+    devisModeKey: (proposal.devisData as { financingModeKey?: string } | null)?.financingModeKey,
+  });
+  const mode = modeKey ? getFinancingMode(modeKey) : null;
 
   let jalons: JalonInput[] | null = null;
   let financingMode: "lump_sum" | "progressive" = fallbackFinancingMode;
@@ -154,6 +162,8 @@ export async function POST(
       maxQuantity: mission.timeMaxQuantity,
       unitRate: proposal.unitRate,
       contractPrice: proposal.montant,
+      // Mode de pointage publié par le client, figé ici pour la vie du contrat.
+      attendanceValidation: mission.attendanceValidation,
     });
     if (!resolved.ok) {
       return NextResponse.json({ error: resolved.error }, { status: 409 });
@@ -219,7 +229,7 @@ export async function POST(
     // findFirst, pas findUnique : Prisma refuse `null` dans la valeur d'une clé composée
     // (voir le même correctif détaillé dans src/app/api/profile/route.ts) — ça levait une
     // PrismaClientValidationError non interceptée = 500 systématique à CHAQUE génération de
-    // contrat pour un prestataire en filière chantier (artisan, manœuvre, expert BTP/autres).
+    // contrat pour un prestataire en filière chantier (artisan, manœuvre, entreprise).
     const requirement = await prisma.countryAgeRequirement.findFirst({
       where: {
         country: proposal.provider.country ?? "",
@@ -327,6 +337,8 @@ export async function POST(
     // le contrat doit garder trace du régime sous lequel il a été signé, même si le libellé
     // ou la disponibilité du mode changent plus tard côté plateforme.
     financingModeKey: appliedModeKey,
+    // Vérification / validation (2026-10-01) — énoncée à l'Article 4 (contract-clauses.ts).
+    validationMode: mission.validationMode,
     // Conditions au temps figées (S2) — lues par les Articles 2 et 4 (contract-clauses.ts).
     conditionsTemps: conditionsTemps
       ? {
@@ -334,6 +346,7 @@ export async function POST(
           rate: conditionsTemps.rate,
           maxQuantity: conditionsTemps.maxQuantity,
           maxAmount: conditionsTemps.maxAmount,
+          attendanceValidation: conditionsTemps.attendanceValidation ?? "partielle",
         }
       : null,
   };
@@ -352,6 +365,10 @@ export async function POST(
         jalonsSequential,
         retentionRate: effectiveRetentionRate,
         fundingGranularity: effectiveFundingGranularity,
+        // Vérification / validation figée depuis la publication (2026-10-01), avec le
+        // responsable déjà désigné le cas échéant (sinon désigné plus tard, sur le contrat).
+        validationMode: mission.validationMode,
+        siteManagerId: mission.validationMode === "opr" ? mission.siteManagerId : null,
       },
     });
     if (conditionsTemps) {
@@ -410,7 +427,7 @@ export async function GET(
   // que par ses deux parties. La condition de propriété est DANS le where (R01) — un tiers
   // reçoit 404, indistinguable d'un contrat inexistant.
   const contract = await prisma.prestationContract.findFirst({
-    where: { missionId, OR: [{ clientId: userId }, { providerId: userId }] },
+    where: { missionId, OR: [{ clientId: userId }, { providerId: userId }, { siteManagerId: userId, validationMode: "opr" }] },
     include: {
       client: { select: { id: true, firstname: true, lastname: true, avatarPath: true } },
       provider: { select: { id: true, firstname: true, lastname: true, avatarPath: true } },

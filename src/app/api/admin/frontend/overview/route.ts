@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireFrontendReader } from "@/lib/frontend-admin-guard";
 import { FRONTEND_MODULES } from "@/lib/frontend-modules";
-import { getUnreferencedDomains } from "@/lib/taxonomy";
 import { DEFAULT_MENUS, PUBLIC_ROUTES } from "@/lib/frontend-defaults";
 
 export const dynamic = "force-dynamic";
@@ -19,9 +18,9 @@ export async function GET() {
   if ("error" in guard) return NextResponse.json({ error: guard.error }, { status: guard.status });
 
   const [
-    domains,
-    specialties,
-    competencies,
+    categories,
+    metiers,
+    services,
     sections,
     sectionItems,
     menuItems,
@@ -29,11 +28,10 @@ export async function GET() {
     settings,
     lastRelease,
     releaseCount,
-    unreferenced,
   ] = await Promise.all([
-    prisma.taxonomyDomain.groupBy({ by: ["status"], _count: { _all: true } }),
-    prisma.taxonomySpecialty.count({ where: { status: { not: "archive" } } }),
-    prisma.taxonomyCompetency.count({ where: { status: { not: "archive" } } }),
+    prisma.categorie.count(),
+    prisma.metier.count(),
+    prisma.service.count(),
     prisma.frontendSection.groupBy({ by: ["status"], _count: { _all: true } }),
     prisma.frontendSectionItem.count({ where: { status: { not: "archive" } } }),
     prisma.frontendMenuItem.count({ where: { status: { not: "archive" } } }),
@@ -49,7 +47,6 @@ export async function GET() {
       },
     }),
     prisma.frontendRelease.count(),
-    getUnreferencedDomains(),
   ]);
 
   const countByStatus = (rows: { status: string; _count: { _all: number } }[]) =>
@@ -60,10 +57,9 @@ export async function GET() {
     release: lastRelease,
     releaseCount,
     counts: {
-      domains: countByStatus(domains),
-      domainsTotal: domains.reduce((n, r) => n + r._count._all, 0),
-      specialties,
-      competencies,
+      categories,
+      metiers,
+      services,
       sections: countByStatus(sections),
       sectionsTotal: sections.reduce((n, r) => n + r._count._all, 0),
       sectionItems,
@@ -73,10 +69,5 @@ export async function GET() {
       pagesKnown: PUBLIC_ROUTES.length,
       settings,
     },
-    // Libellés de domaine saisis en base que le référentiel ne décrit pas encore : la mesure
-    // la plus honnête de sa couverture, puisqu'elle regarde les données plutôt que le
-    // nombre d'entrées créées.
-    unreferencedDomains: unreferenced.slice(0, 12),
-    unreferencedTotal: unreferenced.length,
   });
 }

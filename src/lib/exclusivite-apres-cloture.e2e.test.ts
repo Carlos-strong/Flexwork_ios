@@ -44,7 +44,7 @@ function devisReq(): Request {
   return new Request("http://localhost/api", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ lineItems: LINE_ITEMS, delay: "10 jours", tvaRate: 0, laborCost: 0 }),
+    body: JSON.stringify({ lineItems: LINE_ITEMS, delay: "10 jours", tvaRate: 0, laborCost: 0, financingModeKey: "J1" }),
   });
 }
 

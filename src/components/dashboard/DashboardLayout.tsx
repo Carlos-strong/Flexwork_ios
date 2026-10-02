@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
-import { Search, LogOut, Menu, LayoutDashboard, Briefcase, MessageSquare, Heart, FileText, Wallet, Star, Handshake } from "lucide-react";
+import { Search, LogOut, Menu, LayoutDashboard, Briefcase, MessageSquare, Heart, FileText, Wallet, Star, Handshake, Sparkles, UserRound } from "lucide-react";
 import DashboardSidebar, { type NavItem, type SidebarUser, type DocumentsBlock } from "./DashboardSidebar";
 import { NotificationsBell } from "@/components/notifications-bell";
 import { Avatar } from "@/components/avatar";
@@ -133,6 +133,16 @@ export const CLIENT_NAV: NavItem[] = [
   { id: "offres", label: "Offres", Icon: Handshake, href: "/client/offres" },
   { id: "paiements", label: "Paiements", Icon: Wallet, href: "/client/paiements" },
   { id: "favoris", label: "Favoris", Icon: Heart, href: "/recherche" },
+  // `profil` est ABSENT à dessein : le client a /profile/client, atteint par la carte de
+  // complétion et par le menu utilisateur. L'entrée ci-dessous (« Option C ») est une ACTION
+  // de compte — elle a sa place dans la navigation.
+  //
+  // Le libellé est « Espace prestataire » et non « Devenir prestataire » : la navigation est
+  // statique et sert aussi un compte DÉJÀ prestataire qui navigue côté client (un prestataire
+  // achète aussi des missions). « Devenir » afficherait une promesse fausse à celui qui l'est
+  // déjà ; « Espace » reste exact dans les deux cas — la page, elle, s'adapte (activation ou
+  // redirection vers /profile).
+  { id: "devenir-prestataire", label: "Espace prestataire", Icon: Sparkles, href: "/devenir-prestataire" },
 ];
 
 // Navigation prestataire, pilotée par URL : chaque rubrique a une URL réelle dérivée du
@@ -145,5 +155,9 @@ export const providerNav = (role: string): NavItem[] => [
   { id: "candidatures", label: "Mes candidatures", Icon: FileText, href: providerUrl(role, "candidatures") },
   { id: "offres", label: "Offres", Icon: Handshake, href: providerUrl(role, "offres") },
   { id: "wallet", label: "Wallet", Icon: Wallet, href: providerUrl(role, "wallet") },
+  // « Mon profil » était la rubrique MANQUANTE du sidebar prestataire (2026-09-23) : le
+  // formulaire existait, mais aucun lien n'y menait — il fallait connaître l'URL. Le badge et
+  // le compte de versement, eux, s'atteignent depuis la carte de complétion du tableau de bord.
+  { id: "profil", label: "Mon profil", Icon: UserRound, href: "/profile" },
   { id: "favoris", label: "Favoris", Icon: Star, href: providerUrl(role, "favoris") },
 ];

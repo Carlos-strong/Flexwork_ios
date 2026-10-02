@@ -1,11 +1,12 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import type { Mission } from "@prisma/client";
 
-const { userFindUnique, garantFindMany, declarationCount, requirementFindFirst } = vi.hoisted(() => ({
+const { userFindUnique, garantFindMany, declarationCount, requirementFindFirst, categorieFindUnique } = vi.hoisted(() => ({
   userFindUnique: vi.fn(),
   garantFindMany: vi.fn(),
   declarationCount: vi.fn(),
   requirementFindFirst: vi.fn(),
+  categorieFindUnique: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -13,7 +14,9 @@ vi.mock("@/lib/db", () => ({
     user: { findUnique: userFindUnique },
     garant: { findMany: garantFindMany },
     professionalDeclaration: { count: declarationCount },
-    // Lu indirectement par isChantierPrestataireAgeOk (src/lib/chantier-age.ts).
+    // Lus indirectement par isCategorieAgeOk (src/lib/age-categorie.ts) : le marqueur de la
+    // catégorie de la mission, puis le seuil du pays pour la filière du candidat.
+    categorie: { findUnique: categorieFindUnique },
     countryAgeRequirement: { findFirst: requirementFindFirst },
   },
 }));
@@ -39,7 +42,9 @@ beforeEach(() => {
   garantFindMany.mockReset();
   declarationCount.mockReset();
   requirementFindFirst.mockReset();
+  categorieFindUnique.mockReset();
   requirementFindFirst.mockResolvedValue(null); // aucun seuil pays -> plancher légal 18 ans
+  categorieFindUnique.mockResolvedValue({ requiresAgeCheck: true }); // catégorie marquée par défaut dans ces tests
   declarationCount.mockResolvedValue(1); // assurance déclarée par défaut
   garantFindMany.mockResolvedValue([]);
 });
@@ -117,11 +122,20 @@ describe("checkCandidatureEligibility — exigence de garant activable par l'Adm
     expect(garantFindMany).not.toHaveBeenCalled();
   });
 
-  it("un mineur de filière chantier est bloqué sur l'âge, avant la question du garant", async () => {
+  it("un mineur est bloqué sur l'âge dès que la CATÉGORIE de la mission est marquée, quelle que soit sa filière", async () => {
     userFindUnique.mockResolvedValue({ role: "manoeuvre", dateNaissance: new Date("2015-01-01"), country: "BJ", garantRequired: false });
 
-    const result = await checkCandidatureEligibility(mission(), "u1");
+    const result = await checkCandidatureEligibility(mission({ categorieId: "cat-btp" }), "u1");
 
     expect(result).toMatchObject({ ok: false, status: 403, error: "age_under_minimum" });
+  });
+
+  it("la même personne candidate librement à une mission d'une catégorie non marquée", async () => {
+    categorieFindUnique.mockResolvedValue({ requiresAgeCheck: false });
+    userFindUnique.mockResolvedValue({ role: "manoeuvre", dateNaissance: new Date("2015-01-01"), country: "BJ", garantRequired: false });
+
+    const result = await checkCandidatureEligibility(mission({ categorieId: "cat-design" }), "u1");
+
+    expect(result).toEqual({ ok: true });
   });
 });

@@ -12,7 +12,46 @@
 //
 // C'est ce découpage qui rend le §9 vérifiable : rien ici ne PEUT payer.
 
-export type RateUnit = "hour" | "day" | "month";
+export type RateUnit = "hour" | "day" | "week" | "month";
+
+/**
+ * Mode de pointage (2026-10-01) — règle de validation des relevés, posée par le client à la
+ * publication et figée au contrat.
+ *
+ * - "partielle" : le validateur peut ne reconnaître qu'une partie d'un relevé (6 jours déclarés,
+ *   4 validés) ; le reste demeure au séquestre. Comportement historique.
+ * - "totale"    : un relevé se valide EN ENTIER. S'il est inexact, le validateur le refuse
+ *   (motif obligatoire, le prestataire redéclare) ou en conteste une part (gel + arbitrage) —
+ *   jamais de réduction unilatérale silencieuse.
+ */
+export type AttendanceValidation = "totale" | "partielle";
+
+export const ATTENDANCE_VALIDATION_LABEL: Record<AttendanceValidation, { label: string; definition: string }> = {
+  totale: {
+    label: "Validation totale",
+    definition:
+      "Chaque relevé se valide en entier. S'il est inexact, il est refusé avec un motif (le prestataire le corrige) ou une partie en est contestée.",
+  },
+  partielle: {
+    label: "Validation partielle autorisée",
+    definition:
+      "Le validateur peut ne reconnaître qu'une partie d'un relevé : seule la part validée est payée, le reste demeure au séquestre.",
+  },
+};
+
+export const DEFAULT_ATTENDANCE_VALIDATION: AttendanceValidation = "partielle";
+
+/** La quantité validée respecte-t-elle le mode de pointage du contrat ? */
+export function checkValidationRule(
+  rule: AttendanceValidation,
+  approvedQuantity: number,
+  declaredQuantity: number
+): { ok: true } | { ok: false; error: "partial_validation_not_allowed" } {
+  if (rule === "totale" && Math.abs(approvedQuantity - declaredQuantity) > 1e-9) {
+    return { ok: false, error: "partial_validation_not_allowed" };
+  }
+  return { ok: true };
+}
 
 export type SpotTimeTerms = {
   rateUnit: RateUnit;
@@ -23,6 +62,8 @@ export type SpotTimeTerms = {
   maxAmount: number;
   overtimeAllowed: boolean;
   overtimeRate: number | null;
+  /** Mode de pointage figé au contrat. Absent = « partielle » (contrats antérieurs). */
+  attendanceValidation?: AttendanceValidation;
 };
 
 // Arrondi à l'unité, comme partout ailleurs dans la chaîne monétaire : le XOF n'a pas de
@@ -41,6 +82,7 @@ export function expectedMaxAmount(terms: Pick<SpotTimeTerms, "rate" | "maxQuanti
 export const RATE_UNIT_LABEL: Record<RateUnit, { one: string; many: string; per: string }> = {
   hour: { one: "heure", many: "heures", per: "heure" },
   day: { one: "jour", many: "jours", per: "jour" },
+  week: { one: "semaine", many: "semaines", per: "semaine" },
   month: { one: "mois", many: "mois", per: "mois" },
 };
 
@@ -62,6 +104,7 @@ export function resolveTimeTerms(args: {
   maxQuantity: number | null | undefined;
   unitRate: number | null | undefined;
   contractPrice: number;
+  attendanceValidation?: AttendanceValidation | null;
 }): TimeTermsResolution {
   const maxQuantity = args.maxQuantity ?? 0;
   if (!(maxQuantity > 0)) return { ok: false, error: "time_terms_missing" };
@@ -77,6 +120,7 @@ export function resolveTimeTerms(args: {
       maxAmount: args.contractPrice,
       overtimeAllowed: false,
       overtimeRate: null,
+      attendanceValidation: args.attendanceValidation ?? DEFAULT_ATTENDANCE_VALIDATION,
     },
   };
 }
@@ -198,6 +242,25 @@ export function fundingAlert(terms: SpotTimeTerms, availableEscrow: number): Fun
 export function dayPeriod(date: Date): { periodStart: Date; periodEnd: Date } {
   const start = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
   const end = new Date(start.getTime() + 24 * 60 * 60 * 1000 - 1);
+  return { periodStart: start, periodEnd: end };
+}
+
+/**
+ * Semaine ISO 8601 : du LUNDI 00:00:00 au DIMANCHE 23:59:59.999, en UTC.
+ *
+ * Bornes fixes, indépendantes de la date de début du contrat — arbitré ainsi (2026-09-23)
+ * parce qu'un relevé doit être identifiable sans connaître le contrat : deux prestataires du
+ * même chantier pointent les mêmes semaines, et « la semaine du 6 juillet » désigne toujours
+ * le même intervalle. Le prix à payer est assumé : la première et la dernière semaine d'une
+ * mission sont partielles, et se pointent donc pour la fraction réellement travaillée.
+ */
+export function weekPeriod(date: Date): { periodStart: Date; periodEnd: Date } {
+  const day = date.getUTCDay(); // 0 = dimanche, 1 = lundi…
+  // Le dimanche (0) appartient à la semaine qui a commencé SIX jours plus tôt, pas à celle
+  // qui commence le lendemain : c'est la règle ISO, et l'oublier décalerait tout d'un jour.
+  const sinceMonday = (day + 6) % 7;
+  const start = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() - sinceMonday));
+  const end = new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000 - 1);
   return { periodStart: start, periodEnd: end };
 }
 

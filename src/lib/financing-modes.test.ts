@@ -10,6 +10,9 @@ import {
   providerBrief,
   resolveFinancing,
   RETENTION_RATE_J4,
+  listDevisPaymentModes,
+  checkDevisPaymentMode,
+  effectiveFinancingModeKey,
 } from "@/lib/financing-modes";
 import { computeDevisData } from "@/lib/devis";
 import { validateJalonsSum } from "@/lib/jalons";
@@ -294,7 +297,7 @@ describe("providerBrief — consigne de chiffrage côté prestataire", () => {
 });
 
 describe("offre effective — quatre modes proposés, retenue de garantie incluse", () => {
-  it("le catalogue proposé est exactement F2, J1, J3, J4, S1, S2H, S2J, S2M", () => {
+  it("le catalogue proposé est exactement F2, J1, J3, J4, S1, S2H, S2J, S2W, S2M", () => {
     // Volontairement une égalité stricte et non un `toContain` : l'intérêt de ce test est
     // d'échouer si un mode redevient disponible sans décision explicite. Rouvrir F3 ou J2 est
     // une ligne à changer ici en même temps que le drapeau — pas un effet de bord silencieux.
@@ -302,6 +305,9 @@ describe("offre effective — quatre modes proposés, retenue de garantie inclus
     // par les sous-tâches) — décision explicite, d'où cette ligne modifiée avec le drapeau.
     // Les trois modes S2 ont été ouverts le 2026-09-14 (§9 à §13, rémunération au temps) —
     // décision explicite, d'où cette ligne modifiée avec les drapeaux.
+    // S2W (tarif hebdomadaire) a été ouvert le 2026-09-23 : la semaine est ISO, du lundi au
+    // dimanche et indépendante de la date de début du contrat (voir weekPeriod) — décision
+    // explicite, d'où cette ligne modifiée avec le drapeau.
     expect(listAvailableFinancingModes().map((m) => m.key).sort()).toEqual([
       "F2",
       "J1",
@@ -311,6 +317,7 @@ describe("offre effective — quatre modes proposés, retenue de garantie inclus
       "S2H",
       "S2J",
       "S2M",
+      "S2W",
     ]);
   });
 
@@ -419,5 +426,44 @@ describe("offre effective — quatre modes proposés, retenue de garantie inclus
       const autre = providerBrief(FINANCING_MODES[key], { quoteMode: true });
       expect(autre.points.some((p) => p.includes("Retenue de garantie")), key).toBe(false);
     }
+  });
+});
+
+// ── Modèle de paiement fixé par le DEVIS (2026-10-01) ──────────────────────────────────────
+describe("modèle de paiement choisi dans le devis", () => {
+  it("propose au prestataire le fixe et les jalons disponibles, jamais le temps", () => {
+    const keys = listDevisPaymentModes().map((m) => m.key);
+    expect(keys).toContain("F2");
+    expect(keys).toContain("J1");
+    expect(keys.some((k) => k.startsWith("S2"))).toBe(false);
+    expect(keys).not.toContain("F3"); // indisponible au catalogue
+  });
+
+  it("refuse un mode inconnu, indisponible ou au temps", () => {
+    for (const key of [undefined, "ZZ", "F3", "S2J"]) {
+      expect(checkDevisPaymentMode(key, { lineCount: 3, quoteMode: true }).ok).toBe(false);
+    }
+  });
+
+  it("refuse la retenue de garantie sur un devis à un seul poste", () => {
+    expect(checkDevisPaymentMode("J4", { lineCount: 1, quoteMode: true })).toEqual({
+      ok: false,
+      error: "retention_requires_two_lines",
+    });
+    expect(checkDevisPaymentMode("J4", { lineCount: 2, quoteMode: true }).ok).toBe(true);
+  });
+
+  it("le mode du devis l'emporte sur celui de la mission", () => {
+    expect(effectiveFinancingModeKey({ missionModeKey: "J1", devisModeKey: "F2" })).toBe("F2");
+    expect(effectiveFinancingModeKey({ missionModeKey: null, devisModeKey: "J3" })).toBe("J3");
+  });
+
+  it("un devis antérieur sans mode retombe sur celui de la mission", () => {
+    expect(effectiveFinancingModeKey({ missionModeKey: "J4", devisModeKey: undefined })).toBe("J4");
+    expect(effectiveFinancingModeKey({ missionModeKey: null, devisModeKey: null })).toBeNull();
+  });
+
+  it("une mission au temps garde son mode, quel que soit le devis", () => {
+    expect(effectiveFinancingModeKey({ missionModeKey: "S2J", devisModeKey: "J1" })).toBe("S2J");
   });
 });

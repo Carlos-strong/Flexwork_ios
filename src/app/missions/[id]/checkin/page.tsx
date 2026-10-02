@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 
 type CheckInEvent = { id: string; type: "arrivee" | "depart"; occurredAt: string; gpsLat: number | null; gpsLng: number | null };
@@ -16,7 +16,7 @@ export default function CheckinPage({ params }: { params: { id: string } }) {
   const [events, setEvents] = useState<CheckInEvent[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  async function loadEvents() {
+  const loadEvents = useCallback(async () => {
     const contractRes = await fetch(`/api/missions/${missionId}/contract`);
     if (!contractRes.ok) return;
     const contract = await contractRes.json();
@@ -28,12 +28,11 @@ export default function CheckinPage({ params }: { params: { id: string } }) {
       const res = await fetch(`/api/missions/${missionId}/contract/checkin/events`);
       if (res.ok) setEvents((await res.json()).items);
     }
-  }
+  }, [missionId]);
 
   useEffect(() => {
     loadEvents();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [missionId]);
+  }, [loadEvents]);
 
   async function handleOptIn() {
     setError(null);

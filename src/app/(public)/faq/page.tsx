@@ -28,7 +28,7 @@ const FAQ = [
   },
   {
     q: "Y a-t-il un âge minimum ?",
-    a: "Oui, 18 ans minimum pour les filières chantier (artisan, manœuvre, expert BTP), contrôlé par la plateforme à partir de la pièce d'identité — pas d'une simple déclaration.",
+    a: "Oui, 18 ans minimum pour les filières chantier (artisan, manœuvre, entreprise), contrôlé par la plateforme à partir de la pièce d'identité — pas d'une simple déclaration.",
   },
   {
     q: "Quels moyens de paiement sont acceptés ?",

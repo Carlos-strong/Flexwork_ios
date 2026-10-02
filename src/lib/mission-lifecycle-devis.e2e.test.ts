@@ -170,7 +170,7 @@ describe("Cycle de vie complet d'une mission EN MODE DEVIS (QUOTE → clôture)"
 
   it("D2 — le prestataire soumet un devis à 2 lignes → en_negociation", async () => {
     authAs(providerId);
-    const res = await devisPost(postReq({ lineItems: LINE_ITEMS, delay: "10 jours", tvaRate: 0, laborCost: 0 }), {
+    const res = await devisPost(postReq({ lineItems: LINE_ITEMS, delay: "10 jours", tvaRate: 0, laborCost: 0, financingModeKey: "J1" }), {
       params: Promise.resolve({ id: missionId }),
     });
     expect(res.status).toBe(200);

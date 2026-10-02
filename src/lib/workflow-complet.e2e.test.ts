@@ -75,6 +75,8 @@ const ids = {
   providerCert: "",
 };
 const missionIds: string[] = [];
+// Catégorie autorisant la vérification OPR (réglage administrateur, 2026-10-01) — P4 en dépend.
+let categorieOprId = "";
 const contracts: Record<"F2" | "J4" | "S1" | "S2J" | "MED", { missionId: string; contractId: string }> = {
   F2: { missionId: "", contractId: "" },
   J4: { missionId: "", contractId: "" },
@@ -154,6 +156,8 @@ async function goldenRules(contractId: string): Promise<EscrowBalance> {
   return b;
 }
 
+const devisModes = new Map<string, string>();
+
 async function publish(body: Record<string, unknown>) {
   authAs(ids.client);
   const res = await expectOk(
@@ -174,13 +178,21 @@ async function publish(body: Record<string, unknown>) {
   );
   const { id } = (await res.json()) as { id: string };
   missionIds.push(id);
+  // Fixe ou par jalons n'est plus posé à la publication (2026-10-01) : c'est le prestataire qui
+  // le propose avec son prix. Le mode demandé ici est donc retenu pour la candidature.
+  if (typeof body.financingModeKey === "string" && !body.financingModeKey.startsWith("S2")) {
+    devisModes.set(id, body.financingModeKey);
+  }
   // Relue en base : la route ne renvoie pas tous les champs, et c'est l'état persisté qui compte.
   return prisma.mission.findUniqueOrThrow({ where: { id } });
 }
 
 async function applyAndAccept(missionId: string, proposal: Record<string, unknown>) {
   authAs(ids.provider);
-  const p = await expectOk(await proposalPost(postReq(proposal), at(missionId)), "candidature");
+  const p = await expectOk(
+    await proposalPost(postReq({ financingModeKey: devisModes.get(missionId), ...proposal }), at(missionId)),
+    "candidature"
+  );
   const proposalId = (await p.json()).id as string;
   authAs(ids.client);
   await expectOk(await acceptPost(postReq({}), { params: Promise.resolve({ id: missionId, proposalId }) }), "acceptation");
@@ -273,6 +285,10 @@ beforeAll(async () => {
   ids.mediator = (await mk("mediation", { isAdmin: true, adminRole: "mediation" })).id;
   ids.supervisor = (await mk("superviseur", { isAdmin: true, adminRole: "superviseur" })).id;
 
+  categorieOprId = (
+    await prisma.categorie.create({ data: { libelle: `WF Maçonnerie OPR ${RUN}`, allowsOprVerification: true } })
+  ).id;
+
   await prisma.featureFlag.upsert({
     where: { key_zone: { key: "psp_montage_valide", zone: "BJ" } },
     update: { enabled: true },
@@ -313,6 +329,7 @@ afterAll(async () => {
   // La suppression des missions emporte, en cascade, contrats, jalons, opérations, créances,
   // relevés, médiations, pièces jointes et candidatures.
   await prisma.mission.deleteMany({ where: { id: { in: missionIds } } });
+  await prisma.categorie.deleteMany({ where: { id: categorieOprId } });
   await prisma.digitalCertificate.deleteMany({ where: { userId: { in: users } } });
   await prisma.user.deleteMany({ where: { id: { in: users } } });
 }, LONG);
@@ -436,16 +453,21 @@ describe("P3 — S1 : forfait à sous-tâches, un seul financement", () => {
 
 describe("P4 — S2J : chantier au temps, de la publication à la clôture", () => {
   it("tarif, plafond, responsable de chantier, pointage, contestation, arbitrage, clôture, reliquat", async () => {
-    // Publication : le client annonce 7 500 / jour × 20 jours → budget publié = plafond.
+    // Publication : le client annonce 7 500 / jour × 20 jours → budget publié = plafond. Il choisit
+    // la vérification « OPR / responsable chantier » et désigne le responsable DÈS la publication.
     const mission = await publish({
       titre: `WF S2J ${RUN}`,
       budgetType: "RATE",
       financingModeKey: "S2J",
       timeRate: 7_500,
       timeMaxQuantity: 20,
+      categorieId: categorieOprId,
+      validationMode: "opr",
+      siteManagerIdentifier: `wf-chantier-${RUN}@flexwork.test`,
     });
     contracts.S2J.missionId = mission.id;
     expect(mission.budget).toBe(150_000);
+    expect(mission).toMatchObject({ validationMode: "opr", siteManagerId: ids.siteManager });
 
     // Candidature : le prestataire propose 7 000 / jour → plafond du contrat 140 000.
     await applyAndAccept(mission.id, { montant: 0, unitRate: 7_000 });
@@ -456,12 +478,20 @@ describe("P4 — S2J : chantier au temps, de la publication à la clôture", () 
       rate: 7_000,
       maxQuantity: 20,
       maxAmount: 140_000,
+      // Aucun mode de pointage publié → « partielle », le comportement historique.
+      attendanceValidation: "partielle",
+    });
+
+    // La désignation faite à la publication est recopiée au contrat.
+    expect(await prisma.prestationContract.findUniqueOrThrow({ where: { id: contractId } })).toMatchObject({
+      validationMode: "opr",
+      siteManagerId: ids.siteManager,
     });
 
     await fundWholeContract(mission.id, contractId);
     expect(await goldenRules(contractId)).toMatchObject({ funded: 140_000, available: 140_000 });
 
-    // Le client délègue le constat à un responsable de chantier.
+    // Le client peut remplacer (ici : reconfirmer) le responsable sur le contrat.
     authAs(ids.client);
     await expectOk(await siteManagerPatch(patchReq({ identifier: `wf-chantier-${RUN}@flexwork.test` }), at(mission.id)), "désignation du responsable");
 
@@ -483,10 +513,24 @@ describe("P4 — S2J : chantier au temps, de la publication à la clôture", () 
     });
     expect(autoValidation.status).toBe(404);
 
+    // OPR : le responsable VÉRIFIE (aucun fonds ne bouge), puis le client valide définitivement.
     authAs(ids.siteManager);
+    const directParLeResponsable = await attendanceDecisionPost(postReq({ approvedQuantity: 4 }), {
+      params: Promise.resolve({ id: mission.id, attendanceId: releve1 }),
+    });
+    expect((await directParLeResponsable.json()).error).toBe("verification_only");
+    await expectOk(
+      await attendanceDecisionPost(postReq({ action: "verify", verifiedQuantity: 4 }), {
+        params: Promise.resolve({ id: mission.id, attendanceId: releve1 }),
+      }),
+      "vérification semaine 1"
+    );
+    expect(await pspConfirmsPending(contractId)).toEqual([]);
+
+    authAs(ids.client);
     await expectOk(
       await attendanceDecisionPost(postReq({ approvedQuantity: 4 }), { params: Promise.resolve({ id: mission.id, attendanceId: releve1 }) }),
-      "constat semaine 1"
+      "validation définitive semaine 1"
     );
     expect(await pspConfirmsPending(contractId)).toEqual(["release"]);
     expect(await goldenRules(contractId)).toMatchObject({ released: 28_000, held: 112_000 });
@@ -502,6 +546,15 @@ describe("P4 — S2J : chantier au temps, de la publication à la clôture", () 
       [201]
     );
     const releve2 = (await r2.json()).id as string;
+
+    // Le responsable vérifie les 2 jours déclarés ; le client, à réception, en conteste un.
+    authAs(ids.siteManager);
+    await expectOk(
+      await attendanceDecisionPost(postReq({ action: "verify", verifiedQuantity: 2 }), {
+        params: Promise.resolve({ id: mission.id, attendanceId: releve2 }),
+      }),
+      "vérification semaine 2"
+    );
 
     authAs(ids.client);
     await expectOk(

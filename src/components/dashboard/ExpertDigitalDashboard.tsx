@@ -9,6 +9,7 @@ import MissionsSection from "@/components/dashboard/provider/MissionsSection";
 import CandidaturesSection from "@/components/dashboard/provider/CandidaturesSection";
 import OffresSection from "@/components/dashboard/provider/OffresSection";
 import WalletSection from "@/components/dashboard/provider/WalletSection";
+import { ProviderProfileCompletionCard } from "@/components/dashboard/ProviderProfileCompletionCard";
 import DevisContratsSection from "@/components/dashboard/DevisContratsSection";
 import { useSidebarBadges } from "@/components/dashboard/useSidebarBadges";
 import { fetchDedupe } from "@/lib/fetch-dedupe";
@@ -74,8 +75,8 @@ function ProviderDashboard({ nav, setNav, currentUserId, badgeCounts, summary }:
   // à chaque clic de rubrique. Photo via /api/users/me (avatarUrl null si absente → initiales).
   const identity = useUserIdentity();
   const user: DashboardUser = identity
-    ? { initials: identity.initials, name: identity.name, role: "Expert Digital", avatarGradient: "from-[#008751] to-[#FCD116]", avatarUrl: identity.avatarUrl ?? null, id: identity.id }
-    : { initials: "ED", name: "…", role: "Expert Digital", avatarGradient: "from-[#008751] to-[#FCD116]", avatarUrl: null, id: currentUserId };
+    ? { initials: identity.initials, name: identity.name, role: "Prestataire indépendant", avatarGradient: "from-[#008751] to-[#FCD116]", avatarUrl: identity.avatarUrl ?? null, id: identity.id }
+    : { initials: "PI", name: "…", role: "Prestataire indépendant", avatarGradient: "from-[#008751] to-[#FCD116]", avatarUrl: null, id: currentUserId };
 
   const stats = summary?.stats;
   const statCards = [
@@ -119,6 +120,11 @@ function ProviderDashboard({ nav, setNav, currentUserId, badgeCounts, summary }:
           <button className="h-9 px-4 rounded-full bg-white border border-gray-200 text-[13px] font-medium text-zinc-600 hover:bg-gray-50 transition-colors">Calendrier</button>
         </div>
       </div>
+
+      {/* Carte de complétion (P5) — le pourcentage vient du serveur, elle se replie d'elle-même.
+          Montée AVANT les cartes statistiques : tant que le profil est incomplet, c'est l'action
+          utile, pas un chiffre de plus. */}
+      <ProviderProfileCompletionCard />
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6">

@@ -9,7 +9,7 @@ import { notifyMissionParties } from "@/lib/mission-notify";
 import { assertNoSelfDealing } from "@/lib/invariants";
 import { requireMissionParty } from "@/lib/resource-guard";
 import { CLOSED_PROPOSAL_STATUSES, canProviderReviseDevis, computeDevisData } from "@/lib/devis";
-import { getFinancingMode } from "@/lib/financing-modes";
+import { getFinancingMode, checkDevisPaymentMode, isDevisPaymentModeKey, DEVIS_FIXED_MODE_KEY } from "@/lib/financing-modes";
 import { RATE_UNIT_LABEL, expectedMaxAmount } from "@/lib/spot-time";
 
 // Phase 4 : un prestataire propose un prix sur une mission à prix fixe/taux (budgetType !==
@@ -116,6 +116,26 @@ export async function POST(
     }
   }
 
+  // Modèle de paiement (fixe ou par jalons, 2026-10-01) — proposé par le prestataire avec son
+  // prix, accepté par le client avec lui. Hors mission au temps uniquement : là, c'est l'unité
+  // tarifaire publiée qui fixe le régime. Même chaîne de repli que POST .../devis : une
+  // révision sans mode garde celui du round précédent, puis celui d'une mission publiée avant
+  // cette règle. En dernier recours, un montant unique proposé sans autre précision EST un prix
+  // fixe — contrairement au devis détaillé, où l'absence de choix est refusée.
+  let paymentModeKey: string | undefined;
+  if (timeMode?.family !== "temps") {
+    const previousModeKey = (existing?.devisData as { financingModeKey?: string } | null)?.financingModeKey;
+    const legacyMissionKey = isDevisPaymentModeKey(mission.financingModeKey) ? mission.financingModeKey : null;
+    const paymentMode = checkDevisPaymentMode(
+      parsed.data.financingModeKey ?? previousModeKey ?? legacyMissionKey ?? DEVIS_FIXED_MODE_KEY,
+      { lineCount: 1, quoteMode: false }
+    );
+    if (!paymentMode.ok) {
+      return NextResponse.json({ error: "payment_mode_invalid" }, { status: 400 });
+    }
+    paymentModeKey = paymentMode.mode.key;
+  }
+
   // Ligne synthétique unique — un prix fixe/taux n'a pas de jalons, seulement un montant.
   // tvaRate/laborCost à 0 : totalTTC === montant exactement, aucun calcul caché. Au temps, la ligne
   // énonce le tarif et la quantité, pour que la négociation se lise dans les termes du contrat.
@@ -133,7 +153,8 @@ export async function POST(
     "",
     "",
     0,
-    0
+    0,
+    paymentModeKey
   );
   const newRound = (existing?.roundActuel ?? 0) + 1;
 

@@ -6,8 +6,9 @@ import { attendanceAmount, fundingAlert } from "@/lib/spot-time";
 
 // Tableau de bord du RESPONSABLE DE CHANTIER (2026-09-14).
 //
-// Vue transversale de ce dont il a réellement la charge : les contrats au temps sur lesquels le
-// client l'a DÉSIGNÉ, et les relevés qui attendent son constat. Rien d'autre — pas de missions
+// Vue transversale de ce dont il a réellement la charge : les contrats en mode de vérification
+// OPR sur lesquels le client l'a DÉSIGNÉ (2026-10-01 : tout contrat, plus seulement au temps), les
+// relevés qui attendent son constat et les jalons ou tâches qui attendent sa vérification. Rien d'autre — pas de missions
 // disponibles, pas de candidatures, pas de wallet : il ne candidate pas et n'est pas payé par la
 // plateforme. Lui servir un dashboard de prestataire lui aurait donné des rubriques sans objet.
 //
@@ -18,19 +19,19 @@ export async function GET() {
   if (!session?.user) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
   const userId = (session.user as typeof session.user & { id: string }).id;
 
-  const terms = await prisma.spotTimeTerms.findMany({
-    where: { siteManagerId: userId },
-    include: {
-      contract: {
-        select: {
-          id: true,
-          missionId: true,
-          mission: { select: { titre: true, currency: true, status: true } },
-          provider: { select: { id: true, firstname: true, lastname: true, avatarPath: true } },
-        },
-      },
+  const contrats = await prisma.prestationContract.findMany({
+    where: { siteManagerId: userId, validationMode: "opr" },
+    select: {
+      id: true,
+      missionId: true,
+      spotTimeTerms: true,
+      mission: { select: { titre: true, currency: true, status: true, verifiedAt: true } },
+      provider: { select: { id: true, firstname: true, lastname: true, avatarPath: true } },
+      jalons: { orderBy: { ordre: "asc" }, select: { id: true, ordre: true, titre: true, montant: true, status: true, verifiedAt: true } },
     },
   });
+  // Les relevés et soldes ne concernent que les contrats au temps.
+  const terms = contrats.flatMap((c) => (c.spotTimeTerms ? [{ ...c.spotTimeTerms, contract: c }] : []));
 
   // Trois requêtes au total, quel que soit le nombre de chantiers (2026-09-14). Chaque chantier
   // demandait auparavant sa propre liste de relevés ET son propre solde — lequel en coûte trois à
@@ -74,6 +75,7 @@ export async function GET() {
       const balance = soldes.get(t.contractId);
       const available = balance?.available ?? 0;
 
+      // En OPR, « à constater » = soumis par le prestataire, pas encore vérifiés.
       const enAttente = releves.filter((r) => r.status === "submitted");
       const valides = releves.filter((r) => r.status === "approved");
       const consomme = valides.reduce((s, r) => s + (r.approvedQuantity ?? 0), 0);
@@ -114,8 +116,31 @@ export async function GET() {
       };
     });
 
+  // Jalons et tâches à vérifier (tout contrat) : livrable soumis, pas encore transmis au client.
+  // Un contrat sans jalon se vérifie au niveau de la mission entière.
+  type AVerifier = { missionId: string; missionTitre: string; currency: string; jalonId: string | null; titre: string; montant: number | null };
+  const aVerifier = contrats.flatMap((c): AVerifier[] => {
+    const base = { missionId: c.missionId, missionTitre: c.mission.titre, currency: c.mission.currency };
+    if (c.jalons.length > 0) {
+      return c.jalons
+        .filter((j) => j.status === "livrable_soumis" && !j.verifiedAt)
+        .map((j) => ({ ...base, jalonId: j.id, titre: `Jalon ${j.ordre} — ${j.titre}`, montant: j.montant }));
+    }
+    if (c.spotTimeTerms) return [];
+    return c.mission.status === "livrable_soumis" && !c.mission.verifiedAt
+      ? [{ ...base, jalonId: null, titre: "Livrable de la mission", montant: null }]
+      : [];
+  });
+  // Missions suivies sans relevés (jalons/tâches) : listées pour que le responsable y accède.
+  const missionsSansReleves = contrats
+    .filter((c) => !c.spotTimeTerms)
+    .map((c) => ({ missionId: c.missionId, missionTitre: c.mission.titre, missionStatus: c.mission.status }));
+
   return NextResponse.json({
     chantiers,
+    missions: missionsSansReleves,
+    toVerify: aVerifier,
+    toVerifyCount: aVerifier.length,
     pendingCount: chantiers.reduce((s, c) => s + c.pending.length, 0),
     // Chantiers dont le séquestre ne couvre plus grand-chose : ce qu'il faut remonter au client
     // avant l'arrêt, pas après.

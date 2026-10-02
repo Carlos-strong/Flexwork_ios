@@ -4,21 +4,19 @@ import { prisma } from "@/lib/db";
 import { escrowBalance } from "@/lib/escrow";
 import { attendanceAmount, fundingAlert } from "@/lib/spot-time";
 import { submitAttendance } from "@/lib/spot-time-actions";
+import { contractRole } from "@/lib/validation-mode";
 
-// Relevés de présence d'un contrat au temps (§20). Lisibles par les TROIS parties concernées —
-// le prestataire qui pointe, le client qui paie, le responsable de chantier qui constate — et
-// par elles seules. Un tiers reçoit 404, indistinguable d'une mission inexistante (règle R02).
+// Relevés de présence d'un contrat au temps (§20). Lisibles par les parties concernées — le
+// prestataire qui pointe, le client qui paie et, en mode OPR, le responsable de chantier désigné
+// qui vérifie — et par elles seules. Un tiers reçoit 404, indistinguable d'une mission
+// inexistante (règle R02).
 async function loadContract(missionId: string, userId: string) {
   const contract = await prisma.prestationContract.findUnique({
     where: { missionId },
     include: { mission: { select: { currency: true, status: true } }, spotTimeTerms: true },
   });
   if (!contract) return null;
-  const autorise =
-    contract.clientId === userId ||
-    contract.providerId === userId ||
-    contract.spotTimeTerms?.siteManagerId === userId;
-  return autorise ? contract : null;
+  return contractRole(contract, userId) ? contract : null;
 }
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -46,6 +44,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
         status: true,
         rejectionReason: true,
         validatedAt: true,
+        verifiedQuantity: true,
+        verifiedOvertimeQuantity: true,
+        verifiedAt: true,
       },
     }),
     escrowBalance(contract.id),
@@ -58,6 +59,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     maxAmount: terms.maxAmount,
     overtimeAllowed: terms.overtimeAllowed,
     overtimeRate: terms.overtimeRate,
+    attendanceValidation: terms.attendanceValidation,
   };
   const cumulQuantite = releves
     .filter((r) => r.status === "approved")
@@ -73,6 +75,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
           ? "client"
           : "site_manager",
     terms: pures,
+    // Mode de vérification (2026-10-01) : en OPR, le responsable vérifie puis le client valide.
+    validationMode: contract.validationMode,
+    siteManagerDesignated: !!contract.siteManagerId,
     // Chantier clos (ou suspendu par une médiation) : plus aucune déclaration ni clôture à
     // proposer. L'interface le lit ici plutôt que de redéduire l'état depuis le statut.
     closed: ["cloturee", "remboursee"].includes(contract.mission.status),
@@ -88,7 +93,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       amount:
         r.status === "approved"
           ? attendanceAmount(pures, r.approvedQuantity ?? 0, r.overtimeQuantity)
-          : attendanceAmount(pures, r.declaredQuantity),
+          : r.status === "verified"
+            ? attendanceAmount(pures, r.verifiedQuantity ?? 0, r.verifiedOvertimeQuantity)
+            : attendanceAmount(pures, r.declaredQuantity),
     })),
   });
 }
@@ -113,7 +120,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const periodStart = body?.periodStart ? new Date(body.periodStart) : null;
   const periodEnd = body?.periodEnd ? new Date(body.periodEnd) : null;
   const declaredQuantity = typeof body?.declaredQuantity === "number" ? body.declaredQuantity : NaN;
-  if (!periodStart || !periodEnd || Number.isNaN(periodStart.getTime()) || Number.isNaN(periodEnd.getTime())) {
+  // Fin avant début refusée aussi (2026-10-01, test T-R06) : seule la présence des dates était
+  // contrôlée, et une plage inversée passait — invisible aux contrôles de chevauchement.
+  if (
+    !periodStart ||
+    !periodEnd ||
+    Number.isNaN(periodStart.getTime()) ||
+    Number.isNaN(periodEnd.getTime()) ||
+    periodEnd < periodStart
+  ) {
     return NextResponse.json({ error: "invalid_period" }, { status: 400 });
   }
 

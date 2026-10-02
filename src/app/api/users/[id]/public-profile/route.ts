@@ -2,8 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import type { UserRole } from "@prisma/client";
-
-const PROVIDER_ROLES: UserRole[] = ["expert_digital", "expert_btp_autres", "artisan", "manoeuvre"];
+import { PROVIDER_ROLES } from "@/lib/provider-options";
 
 // US-304 (Phase 3) : profil affiché en trois blocs strictement séparés — « Vérifié par
 // Flexwork » (identité uniquement), « Déclaré par le prestataire (non vérifié) »,

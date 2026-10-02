@@ -31,6 +31,11 @@ export type DevisData = {
   tvaRate: number;
   delay: string;
   notes: string;
+  // Modèle de paiement proposé par le prestataire (2026-10-01) — clé du catalogue
+  // src/lib/financing-modes.ts : F2 (fixe) ou un mode à jalons (J1, J3, J4, S1). C'est le
+  // devis qui le fixe, et le client qui l'accepte avec lui. Absent sur les devis antérieurs :
+  // le contrat retombe alors sur Mission.financingModeKey (voir effectiveFinancingModeKey).
+  financingModeKey?: string;
 };
 
 // Une proposition dans l'un de ces statuts empêche toute nouvelle négociation de devis
@@ -126,7 +131,8 @@ export function computeDevisData(
   delay: string,
   notes: string,
   tvaRate: number,
-  laborCost = 0
+  laborCost = 0,
+  financingModeKey?: string
 ): DevisData {
   const items: DevisLineItem[] = lineItems.map((item) => ({
     ...item,
@@ -136,5 +142,15 @@ export function computeDevisData(
   const totalHT = roundAmount(itemsSubtotal + laborCost);
   const tva = roundAmount(totalHT * (tvaRate / 100));
   const totalTTC = roundAmount(totalHT + tva);
-  return { lineItems: items, laborCost: roundAmount(laborCost), totalHT, tva, totalTTC, tvaRate, delay, notes };
+  return {
+    lineItems: items,
+    laborCost: roundAmount(laborCost),
+    totalHT,
+    tva,
+    totalTTC,
+    tvaRate,
+    delay,
+    notes,
+    ...(financingModeKey ? { financingModeKey } : {}),
+  };
 }

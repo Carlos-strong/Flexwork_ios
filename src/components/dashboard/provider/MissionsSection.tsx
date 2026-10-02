@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { fetchDedupe } from "@/lib/fetch-dedupe";
+import { PROVIDER_ROLE_LABELS } from "@/lib/provider-options";
 import Link from "next/link";
 import { Briefcase, Search, MessageCircle, Rocket } from "lucide-react";
 import { Avatar } from "@/components/avatar";
@@ -104,19 +105,21 @@ function deadlineOf(m: RawMission): string {
 // vraiment à CE compte (2026-09-09).
 const PROVIDER_ROLE_META: Record<string, { label: string; subtitle: string }> = {
   "expert-digital": {
-    label: "Expert Digital",
+    // Libellés de la source unique (src/lib/provider-options.ts) — les clés restent les slugs
+    // d'URL, qui n'ont pas changé.
+    label: PROVIDER_ROLE_LABELS.expert_digital,
     subtitle: "Missions à distance — pas de garant ni d'assurance requis, sauf domaine exceptionnellement classé à risque.",
   },
   "expert-btp": {
-    label: "Expert BTP / Autres",
+    label: PROVIDER_ROLE_LABELS.expert_btp_autres,
     subtitle: "Filière chantier : assurance effective requise sur les missions à risque élevé.",
   },
   artisan: {
-    label: "Artisan",
+    label: PROVIDER_ROLE_LABELS.artisan,
     subtitle: "Filière chantier : assurance effective requise sur les missions à risque élevé.",
   },
   manoeuvre: {
-    label: "Manœuvre",
+    label: PROVIDER_ROLE_LABELS.manoeuvre,
     subtitle: "Filière chantier : assurance effective requise sur les missions à risque élevé.",
   },
 };

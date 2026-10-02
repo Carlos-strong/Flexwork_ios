@@ -1,7 +1,6 @@
 import { prisma } from "@/lib/db";
 import type { Prisma, UserRole } from "@prisma/client";
-
-const PROVIDER_ROLES: UserRole[] = ["expert_digital", "expert_btp_autres", "artisan", "manoeuvre"];
+import { PROVIDER_ROLES } from "@/lib/provider-options";
 
 // Même critère d'éligibilité que getFeaturedProviders et /api/search/prestataires : identité
 // vérifiée ET au moins un profil. Le KYC seul ne suffit pas — un compte vérifié sans profil
