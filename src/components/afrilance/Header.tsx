@@ -6,6 +6,10 @@ import { useSession, signOut } from 'next-auth/react'
 import { ROLE_DASHBOARD, type Role } from '@/lib/role-dashboard'
 import { NotificationsBell } from '@/components/notifications-bell'
 import { DEFAULT_MENUS } from '@/lib/frontend-defaults'
+import { Menu, X } from 'lucide-react'
+
+// Lien du menu mobile : 44 px de hauteur tactile au minimum.
+const MOBILE_LINK = 'block py-3 px-1 text-base font-medium hover:text-[#FF6B35] transition'
 
 // Entrées du menu « Explorer ». Éditables depuis /backoffice/content (menu `header_explore`),
 // et reçues en PROP plutôt que lues ici : ce composant est client (il lit la session), il ne
@@ -61,16 +65,18 @@ export default function Header({ exploreLinks }: { exploreLinks?: ExploreLink[] 
   }
 
   return (
-    <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-orange-100">
-      <div className="page-shell h-16 lg:h-18 flex items-center justify-between gap-4">
+    <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md shadow-[inset_0_-1px_0_rgb(229,231,235)]">
+      {/* Gabarit Upwork : barre pleine largeur, intérieur 1600 px max, 56 px de haut sur mobile
+          et 64 px sur ordinateur ; sur mobile, le bouton menu est à GAUCHE du logo. */}
+      <div className="nav-shell h-14 lg:h-16 flex items-center justify-start lg:justify-between gap-1 lg:gap-4">
         {/* Logo */}
-        <div className="flex items-center gap-6 lg:gap-8">
+        <div className="flex items-center gap-5 xl:gap-6">
           <Link href="/" className="flex items-center gap-1">
-            <span className="text-3xl font-extrabold tracking-tight">Flex</span>
-            <span className="text-3xl font-extrabold tracking-tight text-[#FF6B35]">Work</span>
-            <span className="text-3xl font-extrabold text-[#FF6B35]">.</span>
+            <span className="text-2xl font-extrabold tracking-tight">Flex</span>
+            <span className="text-2xl font-extrabold tracking-tight text-[#FF6B35]">Work</span>
+            <span className="text-2xl font-extrabold text-[#FF6B35]">.</span>
           </Link>
-          <form onSubmit={submitSearch} role="search" className="hidden lg:flex items-center gap-1 bg-gray-50 rounded-full px-4 py-2 w-[380px] focus-within:ring-2 focus-within:ring-[#FF6B35]/30">
+          <form onSubmit={submitSearch} role="search" className="hidden xl:flex items-center gap-1 bg-gray-50 rounded-full px-4 py-2 w-[240px] 2xl:w-[280px] focus-within:ring-2 focus-within:ring-[#FF6B35]/30">
             <button type="submit" aria-label="Rechercher" className="text-gray-400 hover:text-[#FF6B35] transition">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
             </button>
@@ -85,7 +91,7 @@ export default function Header({ exploreLinks }: { exploreLinks?: ExploreLink[] 
         </div>
 
         {/* Nav */}
-        <nav className="hidden md:flex items-center gap-6 lg:gap-8 text-sm lg:text-base font-medium">
+        <nav className="hidden lg:flex items-center gap-5 text-[15px] font-medium whitespace-nowrap">
           <Link href="/comment-ca-marche" className="hover:text-[#FF6B35] transition">Comment ça marche</Link>
 
           <div className="relative" ref={exploreRef}>
@@ -119,7 +125,7 @@ export default function Header({ exploreLinks }: { exploreLinks?: ExploreLink[] 
             <>
               <NotificationsBell />
               <Link href={dashboardHref}
-                className="bg-gradient-to-r from-[#FF6B35] to-[#FF3E6C] text-white px-5 py-2.5 rounded-full font-bold hover:shadow-lg hover:shadow-orange-200 transition">
+                className="bg-[#FF6B35] hover:bg-[#E85A24] text-white px-4 py-2 rounded-lg font-semibold transition">
                 Dashboard
               </Link>
               {user?.id && (
@@ -136,7 +142,7 @@ export default function Header({ exploreLinks }: { exploreLinks?: ExploreLink[] 
               <Link href="/signup" className="hover:text-[#FF6B35] transition">Devenir prestataire</Link>
               <Link href="/signin" className="hover:text-[#FF6B35] transition">Connexion</Link>
               <Link href="/signup"
-                className="bg-gradient-to-r from-[#FF6B35] to-[#FF3E6C] text-white px-5 py-2.5 rounded-full font-bold hover:shadow-lg hover:shadow-orange-200 transition">
+                className="bg-[#FF6B35] hover:bg-[#E85A24] text-white px-4 py-2 rounded-lg font-semibold transition">
                 Rejoindre
               </Link>
             </>
@@ -144,35 +150,42 @@ export default function Header({ exploreLinks }: { exploreLinks?: ExploreLink[] 
         </nav>
 
         {/* Mobile */}
-        <button onClick={()=>setMobileOpen(!mobileOpen)} aria-expanded={mobileOpen} aria-label="Menu" className="md:hidden p-2">☰</button>
+        <button
+          onClick={() => setMobileOpen(!mobileOpen)}
+          aria-expanded={mobileOpen}
+          aria-label={mobileOpen ? "Fermer le menu" : "Ouvrir le menu"}
+          className="order-first lg:hidden w-11 h-11 -ml-2 flex items-center justify-center rounded-full hover:bg-orange-50 transition"
+        >
+          {mobileOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+        </button>
       </div>
 
       {mobileOpen && (
-        <div className="md:hidden bg-white border-t p-4 flex flex-col gap-3">
-          <form onSubmit={submitSearch} role="search" className="flex items-center gap-2 bg-gray-50 rounded-full px-4">
+        <div className="lg:hidden bg-white border-t p-4 flex flex-col gap-1">
+          <form onSubmit={submitSearch} role="search" className="mb-2 flex items-center gap-2 bg-gray-50 rounded-full px-4">
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Rechercher un prestataire..."
               aria-label="Rechercher un prestataire"
-              className="bg-transparent py-3 outline-none flex-1"
+              className="bg-transparent py-3 outline-none flex-1 text-base"
             />
             <button type="submit" className="text-[#FF6B35] font-bold text-sm">OK</button>
           </form>
-          <Link href="/comment-ca-marche" onClick={() => setMobileOpen(false)}>Comment ça marche</Link>
+          <Link href="/comment-ca-marche" className={MOBILE_LINK} onClick={() => setMobileOpen(false)}>Comment ça marche</Link>
           {EXPLORE_LINKS.map((l) => (
-            <Link key={l.href} href={l.href} onClick={() => setMobileOpen(false)}>{l.label}</Link>
+            <Link key={l.href} href={l.href} className={MOBILE_LINK} onClick={() => setMobileOpen(false)}>{l.label}</Link>
           ))}
           {status === "authenticated" ? (
             <>
-              <Link href={dashboardHref} onClick={() => setMobileOpen(false)}>Dashboard</Link>
-              {user?.id && <Link href={`/profil/${user.id}`} onClick={() => setMobileOpen(false)}>Mon profil</Link>}
-              <button className="text-left text-red-600" onClick={() => { signOut({ callbackUrl: "/" }); setMobileOpen(false); }}>Déconnexion</button>
+              <Link href={dashboardHref} className={MOBILE_LINK} onClick={() => setMobileOpen(false)}>Dashboard</Link>
+              {user?.id && <Link href={`/profil/${user.id}`} className={MOBILE_LINK} onClick={() => setMobileOpen(false)}>Mon profil</Link>}
+              <button className="block py-3 px-1 text-left text-base text-red-600" onClick={() => { signOut({ callbackUrl: "/" }); setMobileOpen(false); }}>Déconnexion</button>
             </>
           ) : (
             <>
-              <Link href="/signup" onClick={() => setMobileOpen(false)}>Devenir prestataire</Link>
-              <Link href="/signin" onClick={() => setMobileOpen(false)}>Connexion</Link>
+              <Link href="/signup" className={MOBILE_LINK} onClick={() => setMobileOpen(false)}>Devenir prestataire</Link>
+              <Link href="/signin" className={MOBILE_LINK} onClick={() => setMobileOpen(false)}>Connexion</Link>
             </>
           )}
         </div>

@@ -49,7 +49,7 @@ export default function FaqPage() {
         subtitle="Les réponses claires aux questions que tout le monde se pose — sans jargon."
       />
 
-      <section className="max-w-3xl mx-auto px-4 sm:px-6 py-12 lg:py-16 space-y-4">
+      <section className="page-shell [&>*]:max-w-3xl py-12 lg:py-16 space-y-4">
         {FAQ.map((item) => (
           <details key={item.q} className="group bg-white border border-[#E2E8F0] rounded-2xl open:ring-1 open:ring-[#008751]/20">
             <summary className="cursor-pointer list-none flex items-center justify-between gap-4 p-5 font-semibold text-[#0f172a]">

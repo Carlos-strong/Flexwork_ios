@@ -7,12 +7,8 @@ import { isFeatureEnabledForZone } from "@/lib/feature-flags";
 import { canStartMission, coversAmount } from "@/lib/mission-risk-gate";
 import { isMissionFundingClosed } from "@/lib/mission-status";
 import { siteManagerMissingForFunding } from "@/lib/validation-mode";
-import {
-  autoConfirmPending,
-  isVirtualPspEnabled,
-  shouldAutoConfirmStub,
-  virtualPspName,
-} from "@/lib/psp-virtual";
+import { isVirtualPspEnabled, shouldAutoConfirmStub, virtualPspName } from "@/lib/psp-virtual";
+import { afterInstructionCommitted } from "@/lib/psp/dispatch";
 
 // Le montant séquestré doit être le PRIX DU CONTRAT (termsSnapshot.prix = montant de la
 // proposition acceptée), pas le budget initialement publié de la mission : une contre-
@@ -142,15 +138,13 @@ export async function requestContractHold(
   // aboutit de bout en bout sans écran intermédiaire. Sinon l'opération reste `pending` et
   // le client est redirigé vers la page de paiement simulée (décision côté route).
   let status = operation.status;
+  await afterInstructionCommitted(operation);
   if (isVirtualPspEnabled() && shouldAutoConfirmStub()) {
-    const confirmed = await autoConfirmPending(operation.pspReference!);
-    if (confirmed.ok) {
-      const refreshed = await prisma.pspEscrowOperation.findUnique({
-        where: { id: operation.id },
-        select: { status: true },
-      });
-      if (refreshed) status = refreshed.status;
-    }
+    const refreshed = await prisma.pspEscrowOperation.findUnique({
+      where: { id: operation.id },
+      select: { status: true },
+    });
+    if (refreshed) status = refreshed.status;
   }
 
   return { ok: true, operation: { ...operation, status } };
@@ -436,11 +430,9 @@ export async function emitScopedRelease(args: {
 
   if (!outcome.ok) return outcome;
 
-  // Confirmation HORS transaction : `autoConfirmPending` rejoue le chemin webhook, qui écrit en
+  // Transmission HORS transaction : en autoconfirm elle rejoue le chemin webhook, qui écrit en
   // base — l'appeler dedans ferait attendre le verrou détenu par cette même transaction.
-  if (isVirtualPspEnabled() && shouldAutoConfirmStub()) {
-    await autoConfirmPending(outcome.operation.pspReference!);
-  }
+  await afterInstructionCommitted(outcome.operation);
   return outcome;
 }
 
@@ -473,9 +465,7 @@ export async function emitMediationRelease(args: {
     });
   }, LOCKED_TX_OPTIONS);
   if (!operation) return null;
-  if (isVirtualPspEnabled() && shouldAutoConfirmStub()) {
-    await autoConfirmPending(operation.pspReference!);
-  }
+  await afterInstructionCommitted(operation);
   return operation;
 }
 // ── Remboursement du reliquat séquestré au CLIENT (2026-09-14) ─────────────────────────────
@@ -532,11 +522,9 @@ export async function emitContractRefund(args: {
   }, LOCKED_TX_OPTIONS);
   if (!operation) return null;
 
-  // Confirmation HORS transaction, même raison que `emitScopedRelease` : `autoConfirmPending`
+  // Transmission HORS transaction, même raison que `emitScopedRelease` : en autoconfirm elle
   // rejoue le chemin webhook, qui écrit en base.
-  if (isVirtualPspEnabled() && shouldAutoConfirmStub()) {
-    await autoConfirmPending(operation.pspReference!);
-  }
+  await afterInstructionCommitted(operation);
   return operation;
 }
 
@@ -776,9 +764,7 @@ export async function emitUnfreeze(args: {
   }, LOCKED_TX_OPTIONS);
   if (!operation) return null;
 
-  if (isVirtualPspEnabled() && shouldAutoConfirmStub()) {
-    await autoConfirmPending(operation.pspReference!);
-  }
+  await afterInstructionCommitted(operation);
   return operation;
 }
 
@@ -818,9 +804,7 @@ export async function emitDisputeFreeze(args: {
   }, LOCKED_TX_OPTIONS);
   if (!operation) return null;
 
-  if (isVirtualPspEnabled() && shouldAutoConfirmStub()) {
-    await autoConfirmPending(operation.pspReference!);
-  }
+  await afterInstructionCommitted(operation);
   return operation;
 }
 
@@ -994,9 +978,7 @@ export async function instructOwedPayable(payableId: string): Promise<OwedInstru
     return { ok: true, operation, payable: linked };
   }, LOCKED_TX_OPTIONS);
 
-  if (outcome.ok && isVirtualPspEnabled() && shouldAutoConfirmStub()) {
-    await autoConfirmPending(outcome.operation.pspReference!);
-  }
+  if (outcome.ok) await afterInstructionCommitted(outcome.operation);
   return outcome;
 }
 

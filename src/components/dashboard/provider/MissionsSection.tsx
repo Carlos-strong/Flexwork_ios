@@ -131,6 +131,12 @@ export default function MissionsSection({ role }: { role: string }) {
   const [cards, setCards] = useState<Card[] | null>(null);
   const [stats, setStats] = useState<Stats>({ total: 0, ouvertes: 0, enCours: 0, enRevision: 0, livre: 0 });
   const [search, setSearch] = useState("");
+  // Recherche lancée depuis l'en-tête du tableau de bord (?q=). Lue après le montage : la lire
+  // pendant le rendu ferait diverger le HTML serveur (sans URL) du rendu client.
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get("q");
+    if (q) setSearch(q);
+  }, []);
   const [activeFilter, setActiveFilter] = useState("Toutes");
   const [view, setView] = useState<"grid" | "list">("grid");
   // Identité partagée (chargée une fois au niveau racine) — porte aussi garantRequired.
@@ -231,7 +237,7 @@ export default function MissionsSection({ role }: { role: string }) {
   ];
 
   return (
-    <div className="max-w-[1400px] w-full mx-auto space-y-6">
+    <div className="page-width space-y-6">
       {/* Titre + action */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>

@@ -23,26 +23,28 @@ export default function TarifsPage() {
         subtitle="Ce que coûte réellement l'utilisation de FlexWork. Aucun frais caché, aucune commission sur ce que nous rendons obligatoire."
       />
 
-      <section className="max-w-3xl mx-auto px-4 sm:px-6 py-12 lg:py-16 space-y-8">
+      <section className="page-shell [&>*]:max-w-3xl py-12 lg:py-16 space-y-8">
         <div className="bg-white border border-[#E2E8F0] rounded-2xl overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-[#0f172a] text-white text-left">
-                <th className="px-5 py-3 font-semibold">Élément</th>
-                <th className="px-5 py-3 font-semibold hidden sm:table-cell">Détail</th>
-                <th className="px-5 py-3 font-semibold text-right">Prix</th>
-              </tr>
-            </thead>
-            <tbody>
-              {LIGNES.map((l, i) => (
-                <tr key={l.item} className={i % 2 ? "bg-[#F8FAF9]" : "bg-white"}>
-                  <td className="px-5 py-3 font-medium text-[#0f172a]">{l.item}</td>
-                  <td className="px-5 py-3 text-[#64748B] hidden sm:table-cell">{l.detail}</td>
-                  <td className="px-5 py-3 text-right font-semibold text-[#008751]">{l.prix}</td>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-[#0f172a] text-white text-left">
+                  <th className="px-5 py-3 font-semibold">Élément</th>
+                  <th className="px-5 py-3 font-semibold hidden sm:table-cell">Détail</th>
+                  <th className="px-5 py-3 font-semibold text-right">Prix</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {LIGNES.map((l, i) => (
+                  <tr key={l.item} className={i % 2 ? "bg-[#F8FAF9]" : "bg-white"}>
+                    <td className="px-5 py-3 font-medium text-[#0f172a]">{l.item}</td>
+                    <td className="px-5 py-3 text-[#64748B] hidden sm:table-cell">{l.detail}</td>
+                    <td className="px-5 py-3 text-right font-semibold text-[#008751]">{l.prix}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         <div className="bg-[#008751]/5 border border-[#008751]/20 rounded-2xl p-6">

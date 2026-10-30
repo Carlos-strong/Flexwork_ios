@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { isAllowed, storeFromEnv } from "@/lib/rate-limit";
 
 // Prérequis production complets (proxy, multi-instance, limites) : voir DEPLOYMENT-PRODUCTION.md
 
@@ -7,9 +8,9 @@ import { NextResponse, type NextRequest } from "next/server";
 // fichier) — sans elle, une faille d'autorisation (F-01/F-02) cesse d'être ponctuelle et
 // devient une extraction massive par simple énumération d'identifiants.
 //
-// ⚠️ Compteur EN MÉMOIRE : ne survit ni au redémarrage ni à la mise à l'échelle horizontale.
-// Suffisant en développement et sur une instance unique ; en production multi-instance,
-// remplacer par un magasin partagé (Redis / Upstash) avant d'en dépendre.
+// Compteur PARTAGÉ entre instances quand RATE_LIMIT_REDIS_REST_URL est configuré (Redis via son
+// API REST, compatible runtime Edge — voir src/lib/rate-limit.ts) ; en mémoire sinon, ce qui ne
+// vaut que pour une instance unique.
 //
 // ⚠️ L'IP est DÉCLARÉE (x-forwarded-for) tant qu'un reverse-proxy de confiance n'écrase pas
 // ce header en amont — même mise en garde que src/lib/otp.ts::getClientIp. Un appelant
@@ -22,7 +23,6 @@ export const config = {
   matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };
 
-const WINDOW_MS = 60_000; // fenêtre glissante d'une minute
 // 60 était trop bas : une session active (chargement de page + polling 30s de la cloche et
 // du sidebar) dépassait 60 req/min et bloquait l'utilisateur avec un "Too Many Requests"
 // arbitraire. 240/min laisse une marge confortable pour un usage réel tout en bornant un
@@ -32,30 +32,16 @@ const GLOBAL_LIMIT = 240; // plafond global par IP (requêtes API + pages)
 // plus bas). 60/min (≈1/s) borne toujours fermement l'énumération tout en évitant les faux
 // positifs sur un usage normal des routes sensibles.
 const SENSITIVE_LIMIT = 60; // plafond bas sur les routes sensibles à l'énumération
-const MAX_BUCKETS = 10_000; // garde-fou mémoire : purge des buckets si la table explose
 
-type Bucket = { count: number; resetAt: number };
-const buckets = new Map<string, Bucket>();
+// Magasin créé une fois par instance (isolat Edge) : le compteur local de secours doit survivre
+// d'une requête à l'autre.
+// Variables lues une à une, explicitement : c'est la forme que le runtime Edge garantit.
+const store = storeFromEnv({
+  RATE_LIMIT_REDIS_REST_URL: process.env.RATE_LIMIT_REDIS_REST_URL,
+  RATE_LIMIT_REDIS_REST_TOKEN: process.env.RATE_LIMIT_REDIS_REST_TOKEN,
+});
 
-function isAllowed(key: string, limit: number): boolean {
-  const now = Date.now();
-  const bucket = buckets.get(key);
-  if (!bucket || bucket.resetAt <= now) {
-    // Nouveau bucket (ou fenêtre expirée) : on réinitialise.
-    if (buckets.size > MAX_BUCKETS) {
-      // Purge paresseuse des fenêtres expirées pour borner la mémoire.
-      for (const [k, b] of buckets) {
-        if (b.resetAt <= now) buckets.delete(k);
-      }
-    }
-    buckets.set(key, { count: 1, resetAt: now + WINDOW_MS });
-    return true;
-  }
-  bucket.count += 1;
-  return bucket.count <= limit;
-}
-
-export function middleware(req: NextRequest) {
+export async function middleware(req: NextRequest) {
   const ip =
     req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
     req.headers.get("x-real-ip") ||
@@ -87,7 +73,7 @@ export function middleware(req: NextRequest) {
     (pathname.startsWith("/api/missions/") && pathname.includes("/proposals"));
   // Seul le chemin API compte comme sensible — pas la PAGE /missions/[id]/proposals.
   const key = isSensitive ? `ip:${ip}:sensitive` : `ip:${ip}:global`;
-  if (!isAllowed(key, isSensitive ? SENSITIVE_LIMIT : GLOBAL_LIMIT)) {
+  if (!(await isAllowed(store, key, isSensitive ? SENSITIVE_LIMIT : GLOBAL_LIMIT))) {
     return new NextResponse("Too Many Requests", { status: 429 });
   }
 

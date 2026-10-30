@@ -23,7 +23,7 @@ export default function ClientOffresPanel() {
   ];
 
   return (
-    <div className="max-w-[1400px] w-full mx-auto space-y-6">
+    <div className="page-width space-y-6">
       <div>
         <h1 className="text-[28px] font-extrabold leading-none tracking-tight text-[#0A1931]">Offres</h1>
         <p className="text-[13px] text-gray-500 mt-2">

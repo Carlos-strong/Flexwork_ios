@@ -22,21 +22,26 @@ function getTransporter() {
   return transporter;
 }
 
-export async function sendMail(params: { to: string; subject: string; text: string; html?: string }) {
-  const client = getTransporter();
-  if (!client) {
-    console.log(`[MAIL STUB — MAILTRAP_USER/PASS absents] to=${params.to} subject="${params.subject}"`);
-    return { delivered: false as const };
-  }
+export type MailParams = { to: string; subject: string; text: string; html?: string };
 
+/**
+ * Remet l'e-mail au serveur SMTP, et LÈVE en cas d'échec — c'est ce que la boîte d'envoi
+ * (src/lib/mail-queue.ts) attend pour programmer une reprise. Les appelants directs passent par
+ * `sendMail`, qui absorbe l'erreur.
+ */
+export async function deliverMail(params: MailParams): Promise<void> {
+  await getTransporter().sendMail({
+    from: process.env.MAIL_FROM ?? "Flexwork <no-reply@flexwork.app>",
+    to: params.to,
+    subject: params.subject,
+    text: params.text,
+    html: params.html,
+  });
+}
+
+export async function sendMail(params: MailParams) {
   try {
-    await client.sendMail({
-      from: process.env.MAIL_FROM ?? "Flexwork <no-reply@flexwork.app>",
-      to: params.to,
-      subject: params.subject,
-      text: params.text,
-      html: params.html,
-    });
+    await deliverMail(params);
     return { delivered: true as const };
   } catch (err: any) {
     console.error(`[MAIL ERROR] ${err.message || err}`);

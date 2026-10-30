@@ -347,7 +347,7 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-zinc-50 py-10 px-4">
-      <div className="mx-auto max-w-[700px] space-y-5">
+      <div className="mx-auto fluid-form [--fw:700px] space-y-5">
         {returnTo && (
           autoReturning ? (
             <div className="rounded-2xl border border-emerald-300 bg-emerald-50 p-4 text-[13px] text-emerald-900">

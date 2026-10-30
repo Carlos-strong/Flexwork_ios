@@ -37,8 +37,11 @@ export async function GET() {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
+  // Brouillons exclus (2026-10-06) : ni dans « Mes missions récentes », ni dans les compteurs.
+  // Une mission non publiée n'entre pas dans la gestion des missions ; elle a sa carte dédiée
+  // en tête du tableau de bord (PendingPublicationsCard).
   const missions = await prisma.mission.findMany({
-    where: { clientId: userId },
+    where: { clientId: userId, status: { not: "brouillon" } },
     orderBy: { createdAt: "desc" },
     include: {
       _count: { select: { proposals: true } },

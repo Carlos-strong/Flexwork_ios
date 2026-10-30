@@ -8,6 +8,7 @@ import { Bell } from "lucide-react";
 // mission, messagerie), plus seulement les deux valeurs KYC d'origine (2026-09-09).
 import { notificationLabel } from "@/lib/notification-labels";
 import { useSession } from "next-auth/react";
+import { realtimeConnected, useRealtime } from "@/lib/realtime/client";
 
 type NotificationItem = { id: string; type: string; message: string; missionId: string | null; readAt: string | null; createdAt: string };
 
@@ -21,6 +22,9 @@ export function NotificationsBell() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  // Flux temps réel (SSE) : la cloche est montée sur toutes les pages authentifiées, c'est donc
+  // elle qui l'ouvre pour tout l'onglet — badges du sidebar compris.
+  useRealtime(userId);
 
   const load = useCallback(async () => {
     try {
@@ -42,7 +46,14 @@ export function NotificationsBell() {
     setUnreadCount(0);
     if (!userId) return;
     load();
-    const interval = setInterval(load, 30000);
+    // Sondage de secours, espacé tant que le flux temps réel est ouvert.
+    // Toutes les 5 min malgré tout : certains changements de compteur ne passent par aucune
+    // notification, donc par aucun signal.
+    let ticks = 0;
+    const interval = setInterval(() => {
+      ticks++;
+      if (!realtimeConnected() || ticks % 10 === 0) load();
+    }, 30000);
     // Resynchronisation immédiate quand une action ailleurs sur la page signale un changement
     // (voir src/lib/badge-sync.ts) — au lieu d'attendre jusqu'à 30s.
     const unsubscribe = onBadgesShouldRefresh(load);

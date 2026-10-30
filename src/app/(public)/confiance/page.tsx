@@ -41,7 +41,7 @@ export default function ConfiancePage() {
         subtitle="La confiance ne se décrète pas : elle se construit sur des mécanismes concrets. Voici exactement ce que FlexWork fait, et ce qu'elle ne fait pas."
       />
 
-      <section className="max-w-4xl mx-auto px-4 sm:px-6 py-12 lg:py-16">
+      <section className="page-shell py-12 lg:py-16">
         <div className="grid sm:grid-cols-2 gap-4">
           {PILIERS.map((p) => (
             <div key={p.t} className="bg-white border border-[#E2E8F0] rounded-2xl p-5">

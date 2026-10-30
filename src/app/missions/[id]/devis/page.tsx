@@ -325,7 +325,7 @@ export default function OffreCandidaturePage() {
       badgeCounts={badgeCounts}
       title="Offre de candidature"
     >
-      <div className="max-w-[1600px] mx-auto flex flex-col lg:flex-row gap-6 pb-[96px] lg:pb-0">
+      <div className="page-width flex flex-col lg:flex-row gap-6 pb-[96px] lg:pb-0">
         <main className="flex-1 min-w-0">
           {/* Fil d'Ariane */}
           <div className="flex items-center gap-1.5 text-[13px] text-[#64748B] mb-4 flex-wrap">
@@ -587,7 +587,7 @@ export default function OffreCandidaturePage() {
                     placeholder={`Description du ${lineWord}...`}
                     className={`mt-2 w-full text-sm font-medium border rounded-lg px-3 py-2 ${!item.description.trim() ? "border-[#FCA5A5] bg-[#FEF2F2]" : "border-[#E2E8F0] bg-white"}`}
                   />
-                  <div className="grid grid-cols-3 gap-2 mt-3">
+                  <div className="grid grid-cols-2 min-[420px]:grid-cols-3 gap-2 mt-3">
                     <div>
                       <div className="text-[10px] text-[#64748B] uppercase tracking-widest">Qté</div>
                       <input type="number" min={1} value={item.quantity} onChange={(e) => updateItem(item.id, { quantity: Math.max(1, Number(e.target.value)) })} className="mt-1 w-full h-9 rounded-lg border border-[#E2E8F0] px-2 text-sm" />
@@ -802,20 +802,22 @@ export default function OffreCandidaturePage() {
                     <div className="text-[22px] font-bold font-mono text-[#008751]">{totals.totalTTC.toLocaleString("fr-FR")} {mission.currency}</div>
                   </div>
                 </div>
-                <table className="w-full text-[12px] border border-[#E2E8F0] rounded-lg overflow-hidden">
-                  <thead className="bg-[#F8FAF9] text-[10px] uppercase tracking-wide font-semibold text-[#64748B]">
-                    <tr><th className="text-left p-2.5">#</th><th className="text-left p-2.5">Prestation</th><th className="text-right p-2.5">Montant HT</th></tr>
-                  </thead>
-                  <tbody>
-                    {items.map((it, idx) => (
-                      <tr key={it.id} className="border-t border-[#F1F5F9]">
-                        <td className="p-2.5 font-mono">{String(idx + 1).padStart(2, "0")}</td>
-                        <td className="p-2.5">{it.description || <span className="text-[#94A3B8] italic">— description vide —</span>}</td>
-                        <td className="p-2.5 text-right font-mono">{(it.quantity * it.unitPrice).toLocaleString("fr-FR")}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-[12px] border border-[#E2E8F0] rounded-lg overflow-hidden">
+                    <thead className="bg-[#F8FAF9] text-[10px] uppercase tracking-wide font-semibold text-[#64748B]">
+                      <tr><th className="text-left p-2.5">#</th><th className="text-left p-2.5">Prestation</th><th className="text-right p-2.5">Montant HT</th></tr>
+                    </thead>
+                    <tbody>
+                      {items.map((it, idx) => (
+                        <tr key={it.id} className="border-t border-[#F1F5F9]">
+                          <td className="p-2.5 font-mono">{String(idx + 1).padStart(2, "0")}</td>
+                          <td className="p-2.5">{it.description || <span className="text-[#94A3B8] italic">— description vide —</span>}</td>
+                          <td className="p-2.5 text-right font-mono">{(it.quantity * it.unitPrice).toLocaleString("fr-FR")}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
                 <div className="mt-6 grid grid-cols-2 gap-6 text-[12px]">
                   <div className="p-3 rounded-lg bg-[#F8FAF9] border border-[#E2E8F0]">
                     <div className="font-semibold mb-1">Conditions</div>

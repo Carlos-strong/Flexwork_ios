@@ -690,7 +690,7 @@ export default function DeliverablePage() {
       badgeCounts={badgeCounts}
       title="Gestion des livrables"
     >
-      <div className="max-w-[860px] mx-auto space-y-4 text-[#0f172a]">
+      <div className="fluid-doc [--fw:860px] mx-auto space-y-4 text-[#0f172a]">
         {/* Bandeau d'évolution de la mission — même tracker que /missions/[id] (côté prestataire). */}
         <MissionTracker missionId={missionId} />
 

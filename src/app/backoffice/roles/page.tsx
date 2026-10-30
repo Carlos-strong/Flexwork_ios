@@ -52,7 +52,7 @@ export default function RolesPage() {
           const meta = ADMIN_ROLE_META[role];
           const list = holders(role);
           return (
-            <div key={role} className="rounded-[16px] border border-[#E2E0D9] bg-white p-4 shadow-sm">
+            <div key={role} className="min-w-0 rounded-[16px] border border-[#E2E0D9] bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[14px] font-semibold" style={{ color: meta.accent }}>
                   {meta.label}

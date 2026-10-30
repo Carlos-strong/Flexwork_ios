@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { fetchDedupe } from "@/lib/fetch-dedupe";
 import { onBadgesShouldRefresh } from "@/lib/badge-sync";
+import { realtimeConnected } from "@/lib/realtime/client";
 
 type Mode = "client" | "prestataire";
 
@@ -95,7 +96,14 @@ export function useSidebarBadges(mode: Mode): Record<string, number> {
 
   useEffect(() => {
     refresh();
-    const interval = setInterval(refresh, 30000);
+    // Sondage de secours, espacé tant que le flux temps réel est ouvert (src/lib/realtime/client.ts).
+    // Toutes les 5 min malgré tout : certains changements de compteur ne passent par aucune
+    // notification, donc par aucun signal.
+    let ticks = 0;
+    const interval = setInterval(() => {
+      ticks++;
+      if (!realtimeConnected() || ticks % 10 === 0) refresh();
+    }, 30000);
     const onFocus = () => refresh();
     window.addEventListener("focus", onFocus);
     // Resynchronisation immédiate après une action locale (réponse à une offre, validation

@@ -1,45 +1,16 @@
 import { NextResponse } from "next/server";
-import { applyPspWebhookEvent, recordPspEvent, type PspWebhookPayload } from "@/lib/psp-webhook";
+import { receivePspWebhook } from "@/lib/psp/inbox";
 
 // US-503 (Phase 5) : seule route capable de confirmer un mouvement d'escrow — signature
 // HMAC vérifiée, aucune capture manuelle possible ailleurs dans l'application.
 //
-// Journal (2026-09-15) : les appels refusés AVANT le traitement — sans signature, ou dont la
-// charge est illisible — sont consignés eux aussi. Ce sont les plus suspects, et c'étaient les
-// seuls à ne laisser aucune trace.
+// Boîte de réception (2026-10-01, src/lib/psp/inbox.ts) : le corps est lu BRUT et consigné après
+// vérification de la signature. En mode `worker` (QUEUE_MODE), la route répond dès la
+// consignation et le worker applique ; en mode `inline`, elle applique dans la foulée et répond
+// le résultat, comme avant. Les refus avant traitement (sans signature, charge illisible,
+// signature fausse) restent consignés au journal.
 export async function POST(req: Request) {
-  const startedAt = Date.now();
-  const signature = req.headers.get("x-webhook-signature");
-  const payload = (await req.json().catch(() => null)) as PspWebhookPayload | null;
-
-  if (!signature) {
-    await recordPspEvent({
-      channel: "webhook",
-      payload: payload ?? {},
-      signatureValid: false,
-      durationMs: Date.now() - startedAt,
-      outcome: "rejected",
-      error: "missing_signature",
-    });
-    return NextResponse.json({ error: "missing_signature" }, { status: 401 });
-  }
-
-  if (!payload?.pspReference || !payload?.event) {
-    await recordPspEvent({
-      channel: "webhook",
-      payload: payload ?? {},
-      signatureValid: false,
-      durationMs: Date.now() - startedAt,
-      outcome: "rejected",
-      error: "invalid_payload",
-    });
-    return NextResponse.json({ error: "invalid_payload" }, { status: 400 });
-  }
-
-  const result = await applyPspWebhookEvent(payload, signature, "webhook");
-  if (!result.ok) {
-    return NextResponse.json({ error: result.error }, { status: 409 });
-  }
-
-  return NextResponse.json({ received: true });
+  const rawBody = await req.text();
+  const { status, body } = await receivePspWebhook(rawBody, req.headers.get("x-webhook-signature"));
+  return NextResponse.json(body, { status });
 }

@@ -1,3 +1,4 @@
+import { Plus_Jakarta_Sans } from 'next/font/google'
 import Header from '@/components/afrilance/Header'
 import CategoriesBar from '@/components/afrilance/CategoriesBar'
 import Hero from '@/components/afrilance/Hero'
@@ -5,6 +6,8 @@ import TrustedBy from '@/components/afrilance/TrustedBy'
 import PopularServices from '@/components/afrilance/PopularServices'
 import CategoryGrid from '@/components/afrilance/CategoryGrid'
 import TalentsAfrique from '@/components/afrilance/TalentsAfrique'
+import HowItWorks from '@/components/afrilance/HowItWorks'
+import ForTalent from '@/components/afrilance/ForTalent'
 import Footer from '@/components/afrilance/Footer'
 import { getPublishedFrontendConfig, resolveMenu } from '@/lib/frontend-config'
 
@@ -13,18 +16,30 @@ import { getPublishedFrontendConfig, resolveMenu } from '@/lib/frontend-config'
 //
 // La grille d'icônes qui était écrite ici en JSX est devenue CategoryGrid, pour la même
 // raison que les autres : son contenu est éditable depuis /backoffice/content.
+// Police des titres de l'accueil (voir `.landing` dans globals.css). Importée ICI et pas dans
+// le layout racine : next/font précharge la police là où elle est déclarée, et les autres
+// écrans n'en ont pas l'usage.
+const display = Plus_Jakarta_Sans({
+  subsets: ['latin'],
+  weight: ['500', '600', '700', '800'],
+  variable: '--font-landing-display',
+  display: 'swap',
+})
+
 export default async function Home() {
   const config = await getPublishedFrontendConfig()
 
   return (
-    <main className="min-h-screen bg-white">
+    <main className={`landing min-h-screen bg-white ${display.variable}`}>
       <Header exploreLinks={resolveMenu(config, 'header_explore')} />
       <CategoriesBar />
       <Hero />
       <TrustedBy />
-      <PopularServices />
       <CategoryGrid />
+      <PopularServices />
+      <HowItWorks />
       <TalentsAfrique />
+      <ForTalent />
       <Footer />
     </main>
   )

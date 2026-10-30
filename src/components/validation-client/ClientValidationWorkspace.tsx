@@ -82,7 +82,7 @@ export default function ClientValidationWorkspace({
       badgeCounts={estResponsable ? {} : badgeCounts}
       title={estResponsable ? "Vérification OPR" : "Validation Client"}
     >
-      <div className="max-w-[1000px] mx-auto space-y-4">
+      <div className="page-width space-y-4">
         <MissionTracker missionId={missionId} />
         {/* Client en OPR : désigner, remplacer ou retirer le responsable, là où il valide. */}
         {!estResponsable && <SiteManagerCard missionId={missionId} />}

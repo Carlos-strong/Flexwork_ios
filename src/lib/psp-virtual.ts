@@ -91,6 +91,10 @@ export function eventForInstruction(instructionType: string): PspWebhookPayload[
       return "release_confirmed";
     case "freeze":
       return "freeze_confirmed";
+    // Sans ce cas, le `default` renvoyait "failed" : en autoconfirmation, tout dégel ÉCHOUAIT, et
+    // les fonds d'une médiation close restaient gelés.
+    case "unfreeze":
+      return "unfreeze_confirmed";
     case "refund":
       return "refund_confirmed";
     default:

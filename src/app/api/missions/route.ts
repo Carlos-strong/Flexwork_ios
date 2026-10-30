@@ -3,7 +3,8 @@ import type { RiskLevel, Secteur } from "@prisma/client";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { missionSchema } from "@/lib/validation";
-import { notifyMatchingProviders, notifyMissionUser } from "@/lib/mission-notify";
+import { notifyMissionUser } from "@/lib/mission-notify";
+import { announcePublication, publishBlocker } from "@/lib/mission-publish";
 import { requireVerifiedKyc } from "@/lib/kycGuard";
 import { insuranceRequiredFor } from "@/lib/metier-risk";
 import { isProfessionalTypeAllowed, secteurLabel } from "@/lib/secteur";
@@ -18,6 +19,12 @@ import { resolveSiteManager } from "@/lib/site-manager";
 // jamais l'enregistrement d'un brouillon — auparavant cette route forçait `status: "publiee"`
 // sur toute création et exigeait le KYC même pour un brouillon, empêchant tout brouillon
 // d'exister (contradiction avec la bannière d'aide de /missions/new qui promet l'inverse).
+//
+// Publication demandée SANS identité vérifiée (2026-10-06) : la demande n'est plus refusée.
+// La mission — complète et conforme aux règles de publication — est enregistrée en brouillon
+// et marquée `publicationRequestedAt` ; la réponse le signale (`publicationPending: "kyc"`).
+// Rien de ce que le client a saisi n'est perdu, et dès la vérification il la publie en un clic
+// (POST /api/missions/[id]/publish, voir src/lib/mission-publish.ts).
 export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
   const parsed = missionSchema.safeParse(body);
@@ -37,43 +44,36 @@ export async function POST(req: Request) {
   const budget =
     timeRate && timeMaxQuantity ? expectedMaxAmount({ rate: timeRate, maxQuantity: timeMaxQuantity }) : parsed.data.budget;
 
-  let userId: string;
+  const session = await auth();
+  if (!session?.user) {
+    return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
+  }
+  const userId = (session.user as typeof session.user & { id: string }).id;
+
+  // Publication : conditions de la mission d'abord (mêmes règles que la publication d'un
+  // brouillon), PUIS l'identité — une mission bloquée par le KYC doit être publiable telle
+  // quelle une fois l'identité vérifiée.
+  let kycPending = false;
   if (wantsPublish) {
+    const blocker = publishBlocker({
+      budgetType: isTimeMode ? "RATE" : parsed.data.budgetType,
+      budget,
+      financingModeKey: parsed.data.financingModeKey,
+      timeRate,
+      timeMaxQuantity,
+    });
+    if (blocker) {
+      return NextResponse.json(blocker, { status: 400 });
+    }
     const guard = await requireVerifiedKyc();
     if (!guard.ok) {
-      return NextResponse.json({ error: guard.error }, { status: guard.status });
-    }
-    // "QUOTE" (Demande de devis) annonce explicitement l'absence de montant — le client
-    // recevra des propositions financières des prestataires plutôt que d'en fixer un.
-    // Exiger un budget malgré ce choix contredisait le formulaire lui-même.
-    if (isTimeMode && !(timeRate && timeMaxQuantity)) {
-      return NextResponse.json({ error: "time_terms_required_to_publish" }, { status: 400 });
-    }
-    if (budget === undefined && parsed.data.budgetType !== "QUOTE") {
-      return NextResponse.json({ error: "budget_required_to_publish" }, { status: 400 });
-    }
-    // Mode de financement (2026-09-10) : un mode décrit mais pas encore implémenté (F1, F4,
-    // J4, J5) ne peut pas être publié — il figure au catalogue pour être comparé, pas choisi.
-    // Contrôle fait ici et pas dans le schéma Zod : un BROUILLON peut légitimement porter un
-    // mode indisponible (le client compare, il n'a encore rien engagé), seule la publication
-    // engage un prestataire à chiffrer selon ce mode.
-    if (parsed.data.financingModeKey) {
-      const mode = getFinancingMode(parsed.data.financingModeKey);
-      if (!mode?.available) {
-        return NextResponse.json(
-          { error: "financing_mode_unavailable", reason: mode?.unavailableReason ?? null },
-          { status: 400 }
-        );
+      if (guard.error !== "kyc_not_verified") {
+        return NextResponse.json({ error: guard.error }, { status: guard.status });
       }
+      kycPending = true;
     }
-    userId = guard.userId;
-  } else {
-    const session = await auth();
-    if (!session?.user) {
-      return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
-    }
-    userId = (session.user as typeof session.user & { id: string }).id;
   }
+  const publishNow = wantsPublish && !kycPending;
 
   // ── Taxonomie (2026-09-23) ────────────────────────────────────────────────────────────
   // Le métier choisi fait foi : son libellé devient `domaine`, qui reste le champ sur lequel
@@ -238,7 +238,8 @@ export async function POST(req: Request) {
       tags: parsed.data.tags ?? [],
       maxRevisionRounds: parsed.data.maxRevisionRounds ?? 3,
       dateExpiration: parsed.data.dateExpiration ?? null,
-      status: wantsPublish ? "publiee" : "brouillon",
+      status: publishNow ? "publiee" : "brouillon",
+      publicationRequestedAt: kycPending ? new Date() : null,
     },
   });
 
@@ -274,30 +275,32 @@ export async function POST(req: Request) {
     }
   }
 
-  if (wantsPublish) {
-    // La notification est un effet secondaire non bloquant : si elle échoue, la mission
-    // est déjà publiée — ne pas faire échouer la requête (sinon le client retente et
-    // crée des doublons, la création ayant déjà été committée).
+  if (publishNow) {
+    await announcePublication(mission, userId);
+  } else if (kycPending) {
+    // Le client garde une trace de sa demande (cloche + e-mail), avec ce qui reste à faire.
     try {
-      const notifiés = await notifyMatchingProviders(mission.id, mission.domaine);
-      // Le client aussi est notifié de sa propre publication (cloche + e-mail) — les deux
-      // parties d'un événement sont prévenues, pas seulement celle qui le subit (2026-09-09).
       await notifyMissionUser({
         missionId: mission.id,
         userId,
-        type: "mission_publiee",
-        message: `Votre mission « ${mission.titre} » est publiée — ${notifiés.length} prestataire(s) du domaine « ${mission.domaine} » ont été notifiés.`,
+        type: "mission_publication_en_attente",
+        message: `Votre mission « ${mission.titre} » est enregistrée. Elle pourra être publiée dès que votre identité sera vérifiée.`,
         email: {
-          subject: `Mission publiée — ${mission.titre}`,
-          text: `Votre mission « ${mission.titre} » est en ligne. ${notifiés.length} prestataire(s) du domaine « ${mission.domaine} » ont été notifiés et peuvent désormais candidater.`,
+          subject: `Mission enregistrée — vérification d'identité requise`,
+          text: `Votre mission « ${mission.titre} » est enregistrée en brouillon. Votre identité doit être vérifiée avant de publier une mission : dès la vérification, vous pourrez la publier en un clic depuis votre tableau de bord.`,
         },
       });
     } catch (e) {
-      console.error("notifyMatchingProviders failed (non fatal):", e);
+      console.error("[missions] notification de publication en attente échouée (non bloquant) :", e);
     }
   }
 
-  return NextResponse.json({ id: mission.id, status: mission.status, riskLevel: mission.riskLevel });
+  return NextResponse.json({
+    id: mission.id,
+    status: mission.status,
+    riskLevel: mission.riskLevel,
+    ...(kycPending ? { publicationPending: "kyc" as const } : {}),
+  });
 }
 
 // GET : le client voit ses propres missions ; un prestataire voit les missions ouvertes
@@ -317,8 +320,12 @@ export async function GET() {
   // (TS18047). Même convention que GET /api/messages.
   if (!user) return NextResponse.json({ error: "user_not_found" }, { status: 404 });
   if (user.role === "client") {
+    // Gestion des missions : les BROUILLONS en sont exclus (2026-10-06). Une mission non
+    // publiée n'est pas une mission à gérer — elle s'affichait même « Ouverte », comme si elle
+    // était en ligne. Les brouillons ont leur propre carte au tableau de bord
+    // (GET /api/missions/pending-publication, PendingPublicationsCard).
     const missions = await prisma.mission.findMany({
-      where: { clientId: userId },
+      where: { clientId: userId, status: { not: "brouillon" } },
       orderBy: { createdAt: "desc" },
       // `contract.jalons` inclus pour que useSidebarBadges.ts puisse détecter un jalon
       // "livrable_soumis" en attente — sur un contrat à jalons, mission.status ne reflète

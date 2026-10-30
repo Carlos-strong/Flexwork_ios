@@ -55,35 +55,37 @@ export default function SigninPage() {
       {/* ================================================================ */}
       {/* LEFT — Hero / Branding                                             */}
       {/* ================================================================ */}
-      <div className="lg:w-[45%] xl:w-[42%] bg-[#0A1931] text-white flex flex-col justify-between p-6 md:p-10 lg:p-12 relative overflow-hidden">
+      {/* Sous lg, le panneau se réduit au logo : l'argumentaire repoussait le formulaire sous la
+          ligne de flottaison sur mobile (audit 2026-10-02). */}
+      <div className="lg:w-[45%] xl:w-[42%] bg-[#0A1931] text-white flex flex-col justify-between px-5 py-4 md:px-10 lg:p-12 relative overflow-hidden">
         {/* Decorative orbs */}
         <div className="absolute top-[-15%] right-[-10%] w-[350px] h-[350px] rounded-full bg-[#FF7A00]/8 blur-[100px]" />
         <div className="absolute bottom-[-10%] left-[-15%] w-[250px] h-[250px] rounded-full bg-[#008751]/8 blur-[80px]" />
 
         <div className="relative z-10">
           {/* Logo */}
-          <div className="flex items-center gap-2 mb-10 md:mb-14">
+          <div className="flex items-center gap-2 lg:mb-14">
             <div className="w-10 h-10 rounded-xl bg-[#FF7A00] flex items-center justify-center text-white font-extrabold text-[16px]">FW</div>
             <span className="text-white font-extrabold text-[20px] tracking-tight">FlexWork</span>
           </div>
 
           {/* Country flags + tagline */}
-          <div className="flex items-center gap-2 mb-4">
+          <div className="hidden lg:flex items-center gap-2 mb-4">
             <span className="text-lg">🇧🇯 🇳🇬 🇸🇳 🇨🇮</span>
-            <span className="text-[11px] text-white/50 ml-1">+4 pays</span>
+            <span className="text-[12px] text-white/60 ml-1">+4 pays</span>
           </div>
-          <h1 className="text-[26px] md:text-[32px] lg:text-[36px] font-extrabold leading-tight mb-3">
+          <p className="hidden lg:block text-[36px] font-extrabold leading-tight mb-3">
             Talents vérifiés,<br />
             <span className="text-[#FF7A00]">zéro arnaque</span>
-          </h1>
-          <p className="text-white/50 text-[14px] leading-relaxed max-w-[380px]">
+          </p>
+          <p className="hidden lg:block text-white/60 text-[14px] leading-relaxed max-w-[380px]">
             La première plateforme ouest-africaine avec vérification d&apos;identité obligatoire.
           </p>
         </div>
 
         {/* Pas de chiffres inventés ici (« 500K+ », « 4.9/5 », « 100% ») : chaque case décrit
             un fait produit — KYC, Mobile Money FCFA, séquestre, OTP (même règle que le Hero). */}
-        <div className="relative z-10 grid grid-cols-2 gap-3 mt-6">
+        <div className="hidden lg:grid relative z-10 grid-cols-2 gap-3 mt-6">
           {[
             { icon: <Users className="w-4 h-4" />, value: "KYC", label: "Identité vérifiée" },
             { icon: <CreditCard className="w-4 h-4" />, value: "MoMo", label: "Paiement FCFA" },
@@ -93,13 +95,13 @@ export default function SigninPage() {
             <div key={i} className="p-3 rounded-xl bg-white/[0.04] border border-white/[0.05]">
               <div className="text-[#FF7A00] mb-1">{s.icon}</div>
               <div className="text-[16px] font-bold">{s.value}</div>
-              <div className="text-[10px] text-white/40">{s.label}</div>
+              <div className="text-[12px] text-white/60">{s.label}</div>
             </div>
           ))}
         </div>
 
         {/* Footer */}
-        <div className="relative z-10 mt-6 text-[11px] text-white/25">
+        <div className="hidden lg:block relative z-10 mt-6 text-[12px] text-white/50">
           © 2026 FlexWork • Talents vérifiés, zéro arnaque
         </div>
       </div>
@@ -107,7 +109,7 @@ export default function SigninPage() {
       {/* ================================================================ */}
       {/* RIGHT — Login Form                                                 */}
       {/* ================================================================ */}
-      <div className="flex-1 flex items-center justify-center p-4 md:p-8 lg:p-12">
+      <div className="flex-1 flex items-start lg:items-center justify-center p-4 pt-6 md:p-8 lg:p-12">
         <div className="w-full max-w-[440px]">
           {/* Header */}
           <div className="text-center mb-8">

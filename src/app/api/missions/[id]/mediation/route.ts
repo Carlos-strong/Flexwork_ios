@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { requireContractByMission } from "@/lib/resource-guard";
 import { heldBalance } from "@/lib/escrow";
+import { afterInstructionCommitted } from "@/lib/psp/dispatch";
 import { randomUUID } from "crypto";
 
 const schema = z.object({ reason: z.string().min(5) });
@@ -76,22 +77,26 @@ export async function POST(
     await tx.mission.update({ where: { id: missionId }, data: { status: "mediation_ouverte" } });
     // Rien sous séquestre : aucune instruction de gel à transmettre (0 n'est pas une
     // instruction valide). La médiation reste ouverte — le différend peut être non financier.
-    if (held > 0) {
-      await tx.pspEscrowOperation.create({
-        data: {
-          contractId: contract.id,
-          pspName: process.env.PSP_NAME ?? "fedapay",
-          pspReference: `freeze_${randomUUID()}`,
-          amount: held,
-          currency: contract.mission.currency,
-          instructionType: "freeze",
-        },
-      });
-    }
-    return created;
+    const freeze =
+      held > 0
+        ? await tx.pspEscrowOperation.create({
+            data: {
+              contractId: contract.id,
+              pspName: process.env.PSP_NAME ?? "fedapay",
+              pspReference: `freeze_${randomUUID()}`,
+              amount: held,
+              currency: contract.mission.currency,
+              instructionType: "freeze",
+            },
+          })
+        : null;
+    return { created, freeze };
   });
+  // Transmission au PSP hors transaction (outbox) — jusqu'ici ce gel était écrit sans jamais être
+  // transmis : en développement il restait `pending` faute d'autoconfirmation.
+  if (mediation.freeze) await afterInstructionCommitted(mediation.freeze);
 
-  return NextResponse.json(mediation);
+  return NextResponse.json(mediation.created);
 }
 
 export async function GET(

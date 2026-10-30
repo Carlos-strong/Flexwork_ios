@@ -14,7 +14,7 @@ export default function ConfidentialitePage() {
         subtitle="Ce que nous collectons, pourquoi, combien de temps nous le conservons, et vos droits. Document à jour de la politique de protection des données personnelles."
       />
 
-      <section className="max-w-4xl mx-auto px-4 sm:px-6 py-12 lg:py-16 space-y-6">
+      <section className="page-shell py-12 lg:py-16 space-y-6">
         {[
           {
             t: "Données d'identification (KYC)",

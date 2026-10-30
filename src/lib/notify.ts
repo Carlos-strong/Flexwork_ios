@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
-import { sendMail } from "@/lib/mail";
+import { queueMail } from "@/lib/mail-queue";
 import { notificationLabel } from "@/lib/notification-labels";
+import { publishToUser } from "@/lib/realtime/hub";
 
 // Notification d'un utilisateur sur les DEUX canaux à la fois : cloche du navbar
 // (model Notification, GET /api/notifications) et e-mail (src/lib/mail.ts, Mailpit en dev).
@@ -47,13 +48,18 @@ export async function notifyUser(params: {
     },
   });
 
+  // Temps réel : les onglets ouverts de l'utilisateur rafraîchissent cloche et badges sans
+  // attendre leur prochain sondage (src/lib/realtime/hub.ts). Ne lève jamais.
+  await publishToUser(params.userId, params.type);
+
   if (params.email === false) return notification;
 
   const email = params.email ?? defaultEmail(params.type, params.message);
   try {
     const user = await prisma.user.findUnique({ where: { id: params.userId }, select: { email: true } });
     if (user?.email) {
-      await sendMail({ to: user.email, subject: email.subject, text: email.text, html: email.html });
+      // Mis en file en mode worker (src/lib/mail-queue.ts) : la requête ne paie plus le SMTP.
+      await queueMail({ to: user.email, subject: email.subject, text: email.text, html: email.html, kind: params.type });
     }
   } catch (err) {
     console.error(`[notify] Échec e-mail (${params.type}, user ${params.userId}) :`, err);

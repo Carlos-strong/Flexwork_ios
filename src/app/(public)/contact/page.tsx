@@ -20,7 +20,7 @@ export default function ContactPage() {
         subtitle="Notre équipe basée à Cotonou vous répond. Pour un litige en cours, passez d'abord par la médiation de votre mission."
       />
 
-      <section className="max-w-3xl mx-auto px-4 sm:px-6 py-12 lg:py-16 space-y-6">
+      <section className="page-shell [&>*]:max-w-3xl py-12 lg:py-16 space-y-6">
         <div className="grid sm:grid-cols-3 gap-4">
           {CANAUX.map((c) => (
             <div key={c.t} className="bg-white border border-[#E2E8F0] rounded-2xl p-5">

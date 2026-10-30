@@ -357,7 +357,7 @@ export default function ChronologiePage() {
 
   return (
     <div className="min-h-screen bg-[#F8FAF9] text-[#0f172a]">
-      <div className="max-w-[960px] mx-auto px-4 lg:px-0 py-8 space-y-6">
+      <div className="fluid-doc [--fw:960px] mx-auto px-4 lg:px-0 py-8 space-y-6">
         {/* Bandeau */}
         <div className="rounded-xl overflow-hidden border border-[#E2E8F0]">
           <div className="h-1 w-full bg-gradient-to-r from-[#008751] via-[#FCD116] to-[#E8112D]" />
@@ -482,37 +482,39 @@ export default function ChronologiePage() {
                               <span>Aperçu tableau jalons — modèle officiel (Total HT)</span>
                               <span className="text-[10px] font-mono text-white/60">NON CONTRACTUEL · BROUILLON</span>
                             </div>
-                            <table className="w-full text-[12px] bg-white">
-                              <thead>
-                                <tr className="bg-[#F1F5F9] text-[#475569] text-left text-[10px] uppercase tracking-wide">
-                                  <th className="px-3 py-2 font-bold">#</th>
-                                  <th className="px-3 py-2 font-bold">Description</th>
-                                  <th className="px-3 py-2 font-bold text-right">Qté</th>
-                                  <th className="px-3 py-2 font-bold text-right">PU HT</th>
-                                  <th className="px-3 py-2 font-bold text-right">Montant</th>
-                                  <th className="px-3 py-2 font-bold">Échéance</th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-[#E2E8F0]">
-                                {SAMPLE_JALONS.map((j) => (
-                                  <tr key={j.n}>
-                                    <td className="px-3 py-2 text-[#64748B]">{j.n}</td>
-                                    <td className="px-3 py-2">{j.desc}</td>
-                                    <td className="px-3 py-2 text-right tabular-nums">{j.qte}</td>
-                                    <td className="px-3 py-2 text-right tabular-nums">{j.pu}</td>
-                                    <td className="px-3 py-2 text-right tabular-nums font-medium">{j.montant}</td>
-                                    <td className="px-3 py-2 tabular-nums">{j.echeance}</td>
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-[12px] bg-white">
+                                <thead>
+                                  <tr className="bg-[#F1F5F9] text-[#475569] text-left text-[10px] uppercase tracking-wide">
+                                    <th className="px-3 py-2 font-bold">#</th>
+                                    <th className="px-3 py-2 font-bold">Description</th>
+                                    <th className="px-3 py-2 font-bold text-right">Qté</th>
+                                    <th className="px-3 py-2 font-bold text-right">PU HT</th>
+                                    <th className="px-3 py-2 font-bold text-right">Montant</th>
+                                    <th className="px-3 py-2 font-bold">Échéance</th>
                                   </tr>
-                                ))}
-                              </tbody>
-                              <tfoot>
-                                <tr className="border-t border-[#E2E8F0] bg-[#F8FAF9]">
-                                  <td colSpan={4} className="px-3 py-2 text-[11px] font-bold">Total HT</td>
-                                  <td className="px-3 py-2 text-right tabular-nums font-bold text-[#008751]">487 000 XOF</td>
-                                  <td className="px-3 py-2" />
-                                </tr>
-                              </tfoot>
-                            </table>
+                                </thead>
+                                <tbody className="divide-y divide-[#E2E8F0]">
+                                  {SAMPLE_JALONS.map((j) => (
+                                    <tr key={j.n}>
+                                      <td className="px-3 py-2 text-[#64748B]">{j.n}</td>
+                                      <td className="px-3 py-2">{j.desc}</td>
+                                      <td className="px-3 py-2 text-right tabular-nums">{j.qte}</td>
+                                      <td className="px-3 py-2 text-right tabular-nums">{j.pu}</td>
+                                      <td className="px-3 py-2 text-right tabular-nums font-medium">{j.montant}</td>
+                                      <td className="px-3 py-2 tabular-nums">{j.echeance}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                                <tfoot>
+                                  <tr className="border-t border-[#E2E8F0] bg-[#F8FAF9]">
+                                    <td colSpan={4} className="px-3 py-2 text-[11px] font-bold">Total HT</td>
+                                    <td className="px-3 py-2 text-right tabular-nums font-bold text-[#008751]">487 000 XOF</td>
+                                    <td className="px-3 py-2" />
+                                  </tr>
+                                </tfoot>
+                              </table>
+                            </div>
                             <div className="px-3 py-2 bg-[#F0FDF4] text-[11px] text-[#008751] font-semibold border-t border-[#A7F3D0]">
                               TTC 487 000 XOF · TVA 18% incluse · Délai 4j — généré par <span className="font-mono">src/lib/devis.ts</span> / <span className="font-mono">DevisPanel</span>
                             </div>

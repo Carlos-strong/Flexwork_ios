@@ -53,7 +53,7 @@ export default function CguPage() {
         subtitle="Le cadre contractuel de la mise en relation. Ce document décrit le modèle retenu ; la version finale engageante doit être validée par un avocat."
       />
 
-      <section className="max-w-3xl mx-auto px-4 sm:px-6 py-12 lg:py-16 space-y-5">
+      <section className="page-shell [&>*]:max-w-3xl py-12 lg:py-16 space-y-5">
         {SECTIONS.map((s) => (
           <div key={s.t} className="bg-white border border-[#E2E8F0] rounded-2xl p-6">
             <h2 className="font-bold text-[#0f172a] mb-2">{s.t}</h2>

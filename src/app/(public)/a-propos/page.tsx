@@ -22,7 +22,7 @@ export default function AProposPage() {
         subtitle="FlexWork met en relation des clients et des prestataires au Bénin et en Afrique de l'Ouest. Nous vérifions l'identité, nous sécurisons le paiement — et nous affichons honnêtement ce que nous ne vérifions pas."
       />
 
-      <section className="max-w-4xl mx-auto px-4 sm:px-6 py-12 lg:py-16 space-y-10">
+      <section className="page-shell py-12 lg:py-16 space-y-10">
         <div className="bg-white border border-[#E2E8F0] rounded-2xl p-6 lg:p-8">
           <h2 className="text-xl lg:text-2xl font-bold text-[#0f172a] mb-3">Notre position : un intermédiaire neutre</h2>
           <p className="text-[15px] text-[#475569] leading-relaxed">

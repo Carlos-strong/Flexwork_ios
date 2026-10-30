@@ -247,6 +247,9 @@ describe("Back Office — superviseur seul", () => {
       "gig-order-expirations",
       "tacit-acceptance",
       "residual-refunds",
+      "psp-outbox",
+      "psp-inbox",
+      "emails",
     ]);
     for (const t of body.tasks) expect(t.due).toBeGreaterThanOrEqual(0);
   });

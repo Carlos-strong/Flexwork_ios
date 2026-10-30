@@ -1,171 +1,124 @@
-"use client";
+import type { Metadata } from "next";
+import { cache } from "react";
+import { Plus_Jakarta_Sans } from "next/font/google";
+import Header from "@/components/afrilance/Header";
+import CategoriesBar from "@/components/afrilance/CategoriesBar";
+import Footer from "@/components/afrilance/Footer";
+import { prisma } from "@/lib/db";
+import { getPublishedFrontendConfig, resolveMenu } from "@/lib/frontend-config";
+import { searchProviders } from "@/lib/provider-search";
+import { resolveLandingTarget, type LandingCategorie, type LandingTarget } from "@/lib/taxonomy-landing";
+import { CategoryLanding, type LandingService } from "./category-landing";
+import { SearchResults } from "./search-results";
 
-import { Suspense, useCallback, useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { PersonCard } from "@/components/person-card";
-import {
-  PROVIDER_ROLE_LABEL,
-  providerDisplayName,
-  providerInitials,
-  providerPriceLabel,
-} from "@/lib/provider-display";
+// Recherche de prestataires — et, depuis le 2026-10-06, page Catégorie / Métier.
+//
+// Quand l'URL désigne une rubrique de la taxonomie (?categorie=<id>, ?metier=<id>, ou un
+// ?domaine= libre qui se rapproche d'un libellé du catalogue, voir taxonomy-landing.ts), la page
+// s'ouvre sur l'en-tête de cette rubrique (CategoryLanding) au-dessus des résultats. Sinon elle
+// reste la recherche libre / l'annuaire qu'elle était.
+//
+// Composant SERVEUR : la taxonomie ET les résultats sont lus ici et partent dans le premier HTML
+// (aucun aller-retour client, aucun « Recherche en cours… »). Le formulaire vit dans
+// SearchResults (client). L'état reste entièrement dans l'URL.
 
-type Provider = {
-  id: string;
-  role: string;
-  firstname: string | null;
-  lastname: string | null;
-  avatarPath: string | null;
-  country: string | null;
-  mainDomain: string | null;
-  declaredLevel: string | null;
-  tarifUnite: string | null;
-  indicativeRate: number | null;
-  zoneVille: string | null;
-  averageRating: number | null;
-  reviewCount: number;
+const display = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  weight: ["500", "600", "700", "800"],
+  variable: "--font-landing-display",
+  display: "swap",
+});
+
+type SearchParams = Record<string, string | string[] | undefined>;
+const param = (sp: SearchParams, key: string) => {
+  const v = sp[key];
+  return (Array.isArray(v) ? v[0] : v)?.trim() ?? "";
 };
 
+// Arbre catégories + métiers, lu UNE fois par requête : generateMetadata et la page en ont
+// besoin tous les deux, et `cache` partage le résultat entre eux.
+const loadTree = cache(
+  (): Promise<LandingCategorie[]> =>
+    prisma.categorie.findMany({
+      orderBy: { ordre: "asc" },
+      select: {
+        id: true,
+        libelle: true,
+        description: true,
+        icon: true,
+        metiers: { select: { id: true, libelle: true, description: true }, orderBy: { libelle: "asc" } },
+      },
+    }),
+);
 
-// Recherche de prestataires — aligné sur formulaires-flexwork-tous-profils.html.
-// Filtre par domaine + rôle, résultats : identité vérifiée uniquement. Cartes de résultat
-// au format exact de profil.png (PersonCard, src/components/person-card.tsx).
-// Style harmonisé (2026-08-29) sur le même modèle Tailwind que missions/[id]/devis/
-// page.tsx (palette #0f172a/#E2E8F0/#008751).
-//
-// 2026-09-09 : l'état de la recherche vit désormais dans l'URL (?domaine=&role=), ce qui
-// rend la page adressable depuis l'extérieur — c'est ce qui permet à la barre de recherche
-// de la navbar d'envoyer ici, et à un résultat d'être partagé par lien. Le domaine n'est
-// plus obligatoire : sans lui, la page liste tous les prestataires vérifiés (mode annuaire).
-function SearchProvidersInner() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const urlDomaine = searchParams.get("domaine") ?? "";
-  const urlRole = searchParams.get("role") ?? "";
-
-  const [domaine, setDomaine] = useState(urlDomaine);
-  const [role, setRole] = useState(urlRole);
-  const [results, setResults] = useState<Provider[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  // La recherche est déclenchée par l'URL, pas par la soumission du formulaire : le
-  // formulaire se contente de pousser les paramètres (router.push), et cet effet exécute la
-  // requête. Un seul chemin de code sert donc l'arrivée depuis la navbar, le rechargement
-  // de la page et la navigation arrière.
-  const runSearch = useCallback(async (d: string, r: string) => {
-    setError(null);
-    setLoading(true);
-    const params = new URLSearchParams();
-    if (d.trim()) params.set("domaine", d.trim());
-    if (r) params.set("role", r);
-    try {
-      const res = await fetch(`/api/search/prestataires?${params.toString()}`);
-      if (!res.ok) {
-        setError("Échec de la recherche.");
-        setResults(null);
-        return;
-      }
-      const data = await res.json();
-      setResults(data.items);
-    } catch {
-      setError("Échec de la recherche.");
-      setResults(null);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    setDomaine(urlDomaine);
-    setRole(urlRole);
-    void runSearch(urlDomaine, urlRole);
-  }, [urlDomaine, urlRole, runSearch]);
-
-  function handleSearch(e: React.FormEvent) {
-    e.preventDefault();
-    const params = new URLSearchParams();
-    if (domaine.trim()) params.set("domaine", domaine.trim());
-    if (role) params.set("role", role);
-    const qs = params.toString();
-    router.push(qs ? `/recherche?${qs}` : "/recherche");
-  }
-
-  return (
-    <div className="min-h-screen bg-[#F8FAF9] text-[#0f172a]">
-      <div className="max-w-[1000px] mx-auto px-4 py-5 space-y-4">
-        <div className="bg-white border border-[#E2E8F0] rounded-xl p-4 lg:p-5">
-          <h1 className="text-[13px] font-semibold mb-3">Rechercher un prestataire</h1>
-          {error && <div className="rounded-xl border border-[#FECACA] bg-[#FEF2F2] p-3 text-[13px] text-[#B91C1C] mb-3">{error}</div>}
-          <form onSubmit={handleSearch} className="flex flex-wrap gap-2.5">
-            <input
-              type="text"
-              placeholder="Domaine (ex: plomberie, design, dev_web...) — vide pour tout voir"
-              value={domaine}
-              onChange={(e) => setDomaine(e.target.value)}
-              className="flex-1 min-w-[200px] h-10 px-3 rounded-lg border border-[#E2E8F0] text-[13px] focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751]"
-            />
-            <select
-              value={role}
-              onChange={(e) => setRole(e.target.value)}
-              className="w-[200px] h-10 px-3 rounded-lg border border-[#E2E8F0] text-[13px] bg-white focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751]"
-            >
-              <option value="">Tous les profils</option>
-              <option value="expert_digital">Prestataire indépendant</option>
-              <option value="expert_btp_autres">Entreprise</option>
-              <option value="artisan">Artisan</option>
-              <option value="manoeuvre">Manœuvre</option>
-            </select>
-            <button type="submit" disabled={loading} className="h-10 px-5 rounded-lg bg-[#008751] text-white text-[13px] font-semibold hover:bg-[#007a49] transition-colors disabled:opacity-50">
-              {loading ? "Recherche..." : "Rechercher"}
-            </button>
-          </form>
-        </div>
-
-        {loading && !results && <p className="text-[13px] text-[#64748B]">Recherche en cours…</p>}
-
-        {results && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {results.length === 0 && (
-              <p className="text-[13px] text-[#64748B]">
-                {urlDomaine
-                  ? `Aucun prestataire vérifié pour « ${urlDomaine} ».`
-                  : "Aucun prestataire vérifié pour l'instant."}
-              </p>
-            )}
-            {results.map((p) => (
-              <PersonCard
-                key={p.id}
-                name={providerDisplayName(p)}
-                countryCode={p.country}
-                avatarSrc={p.avatarPath ? `/api/users/${p.id}/avatar` : null}
-                initials={providerInitials(p)}
-                subtitle={`${PROVIDER_ROLE_LABEL[p.role] ?? p.role} — ${p.mainDomain ?? "Domaine non renseigné"}${p.zoneVille ? ` • ${p.zoneVille}` : ""}`}
-                rating={p.averageRating}
-                reviewCount={p.reviewCount}
-                priceLabel={providerPriceLabel(p.indicativeRate, p.tarifUnite)}
-                href={`/profil/${p.id}`}
-              />
-            ))}
-          </div>
-        )}
-
-        <div className="rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] p-3 text-[12.5px] text-[#1E40AF] leading-relaxed">
-          <strong>Algorithme de classement :</strong> les résultats affichés proviennent uniquement de prestataires à
-          l&apos;identité vérifiée. Aucun critère commercial caché n&apos;est appliqué.
-        </div>
-      </div>
-    </div>
-  );
+async function loadTarget(sp: SearchParams): Promise<LandingTarget | null> {
+  const query = { domaine: param(sp, "domaine"), categorie: param(sp, "categorie"), metier: param(sp, "metier") };
+  if (!query.domaine && !query.categorie && !query.metier) return null;
+  return resolveLandingTarget(await loadTree(), query);
 }
 
-// useSearchParams() impose une frontière Suspense en Next 14 App Router (sinon la page
-// entière bascule en rendu dynamique et le build échoue sur /recherche) — même motif que
-// DocumentsNav dans DashboardSidebar.tsx.
-export default function SearchProvidersPage() {
+export async function generateMetadata({ searchParams }: { searchParams: SearchParams }): Promise<Metadata> {
+  const [config, target] = await Promise.all([getPublishedFrontendConfig(), loadTarget(searchParams)]);
+  if (!target) return { title: "Rechercher un prestataire — FlexWork" };
+  const label = target.kind === "metier" ? target.metier.libelle : target.categorie.libelle;
+  return { title: `${label} — prestataires vérifiés | FlexWork` };
+}
+
+export default async function SearchPage({ searchParams }: { searchParams: SearchParams }) {
+  const [config, target] = await Promise.all([getPublishedFrontendConfig(), loadTarget(searchParams)]);
+
+  const urlParams = {
+    domaine: param(searchParams, "domaine"),
+    role: param(searchParams, "role"),
+    categorie: param(searchParams, "categorie"),
+    metier: param(searchParams, "metier"),
+    tags: param(searchParams, "tags"),
+  };
+
+  // Requête de résultats : la rubrique résolue remplace le libellé libre, qui ne correspond
+  // pas forcément au `mainDomain` des profils (« Design » ≠ « Design et UX/UI »).
+  const api = new URLSearchParams();
+  if (target?.kind === "metier") api.set("metier", target.metier.id);
+  else if (target?.kind === "categorie") api.set("categorie", target.categorie.id);
+  else if (urlParams.domaine) api.set("domaine", urlParams.domaine);
+  if (urlParams.role) api.set("role", urlParams.role);
+  if (urlParams.tags) api.set("tags", urlParams.tags);
+
+  const [results, services] = await Promise.all([
+    searchProviders(api),
+    target
+      ? prisma.service.findMany({
+          where: { metier: { categorieId: target.categorie.id } },
+          select: { metierId: true, libelle: true },
+          orderBy: { libelle: "asc" },
+        })
+      : Promise.resolve([] as LandingService[]),
+  ]);
+
+  const scopeLabel = target
+    ? [target.kind === "metier" ? target.metier.libelle : target.categorie.libelle, urlParams.tags]
+        .filter(Boolean)
+        .join(" — ")
+    : null;
+
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#F8FAF9]" />}>
-      <SearchProvidersInner />
-    </Suspense>
+    <main className={`landing min-h-screen bg-white ${display.variable}`}>
+      <Header exploreLinks={resolveMenu(config, "header_explore")} />
+      <CategoriesBar />
+      {/* `key` : une nouvelle requête repart d'un formulaire aligné sur l'URL. La largeur est
+          posée par section (CategoryLanding) : le héros est plein écran, le reste centré. */}
+      <div className="py-6 lg:py-8">
+        {target ? (
+          <CategoryLanding target={target} services={services} activeTag={urlParams.tags || null}>
+            <SearchResults key={api.toString()} results={results} urlParams={urlParams} scopeLabel={scopeLabel} />
+          </CategoryLanding>
+        ) : (
+          <div className="page-shell">
+            <SearchResults key={api.toString()} results={results} urlParams={urlParams} scopeLabel={scopeLabel} />
+          </div>
+        )}
+      </div>
+      <Footer />
+    </main>
   );
 }

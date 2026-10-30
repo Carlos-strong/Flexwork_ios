@@ -18,6 +18,7 @@ import {
   AVAILABILITY_VALUES,
   DEPLACEMENT_VALUES,
   MAX_COMPETENCES,
+  MAX_COMPETENCE_LENGTH,
   MAX_COVERAGE_ZONES,
   MODE_CONTACT_VALUES,
   PROVIDER_KIND_VALUES,
@@ -77,12 +78,14 @@ export const profileSchema = z.object({
   // prestataire enregistre ONGLET PAR ONGLET, et saisir sa biographie ne doit pas obliger à
   // renvoyer son métier. En base la colonne reste non nulle — c'est la route qui tranche, la
   // seule à savoir s'il existe déjà un profil à mettre à jour.
-  mainDomain: z.string().min(2).optional(),
+  // `trim()` avant `min(2)` : sans lui, « "   " » passait, et sur un profil existant remplaçait
+  // le métier par des espaces — le profil sortait alors de tous les rapprochements.
+  mainDomain: z.string().trim().min(2).optional(),
   // Métier du catalogue (2026-09-23). `mainDomain` ne porte qu'un LIBELLÉ, ce qui suffit au
   // rapprochement mais ne dit pas de quelle catégorie il vient : la cascade du formulaire se
   // rouvrait donc vide. La clé étrangère le dit, et devient la source du libellé — voir
   // POST /api/profile, qui l'ignore au profit de celui du catalogue.
-  metierId: z.string().min(1).optional(),
+  metierId: z.string().trim().min(1).optional(),
   // `subSpecialty` et `offeredServices` ont été retirés (2026-09-23) : le premier redisait le
   // métier en texte libre, le second créait une seconde liste de compétences sous un autre
   // nom. Une seule liste désormais, `tags`. Les colonnes restent en base, inutilisées.
@@ -92,7 +95,25 @@ export const profileSchema = z.object({
   // La limite était de 20 alors que la cascade n'en propose que 5 et que le formulaire en
   // annonce 10 : trois chiffres différents pour une seule règle. Une seule source désormais
   // (src/lib/provider-options.ts), partagée avec l'écran.
-  tags: z.array(z.string().min(1)).max(MAX_COMPETENCES).optional(),
+  //
+  // Chaque compétence est nettoyée (espaces de bord), bornée en longueur, et les doublons sont
+  // retirés sans tenir compte de la casse — « Calcul » et « calcul » déclarent la même chose.
+  // La première écriture est conservée. Le plafond porte sur la liste REÇUE : l'écran n'envoie
+  // jamais de doublon, et sans borne avant le tri un appel direct ferait traiter une liste de
+  // taille arbitraire.
+  tags: z
+    .array(z.string().trim().min(1).max(MAX_COMPETENCE_LENGTH))
+    .max(MAX_COMPETENCES)
+    .transform((tags) => {
+      const seen = new Set<string>();
+      return tags.filter((tag) => {
+        const key = tag.toLocaleLowerCase("fr");
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    })
+    .optional(),
   // Profil enrichi 2026-08-06
   description: z.string().max(2000).optional(),
   // Photos téléversées (relPaths "portfolio/...") OU URLs externes — on accepte les deux,

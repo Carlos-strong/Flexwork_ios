@@ -16,8 +16,8 @@ export default async function CategoriesBar() {
 
   return (
     <div className="border-b border-gray-100 bg-white">
-      <div className="page-shell">
-        <div className="flex items-center gap-6 lg:gap-8 overflow-x-auto scrollbar-hide py-3 text-sm font-medium whitespace-nowrap">
+      <div className="nav-shell">
+        <div className="flex items-center gap-4 lg:gap-5 overflow-x-auto scrollbar-hide py-3 text-sm font-medium whitespace-nowrap">
           {section.items.map((c) => (
             <Link
               key={c.label}

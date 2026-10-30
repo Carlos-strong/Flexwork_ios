@@ -120,7 +120,7 @@ export default function PspSandboxPage() {
 
   return (
     <div className="min-h-screen bg-[#F8FAF9] text-[#0f172a]">
-      <div className="max-w-[900px] mx-auto px-4 py-6 space-y-4">
+      <div className="fluid-doc [--fw:900px] mx-auto px-4 py-6 space-y-4">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div>
             <h1 className="text-[16px] font-bold">PSP virtuelle — console sandbox</h1>

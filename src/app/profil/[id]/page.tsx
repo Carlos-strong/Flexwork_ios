@@ -111,7 +111,7 @@ export default function TalentProfilePage() {
 
   return (
     <div className="min-h-screen bg-[#F8FAF9]">
-      <div className="max-w-[1100px] mx-auto px-4 py-8 lg:py-12 space-y-5">
+      <div className="page-shell py-8 lg:py-12 space-y-5">
         {/* ── Carte identité + badge Vérifié ── */}
         <div className="bg-white rounded-2xl border border-[#E2E8F0] shadow-sm p-6">
           <div className="flex flex-wrap items-center gap-4">

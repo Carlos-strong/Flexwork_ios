@@ -79,7 +79,55 @@ export const PROFILE_ERROR_MESSAGES: Record<string, string> = {
   birth_date_missing:
     "Votre identité est vérifiée, mais la date de naissance n'a pas été relevée sur votre pièce. Elle est obligatoire pour cette filière : signalez-le au support.",
   not_found: "Compte introuvable — reconnectez-vous puis réessayez.",
+  // Le métier a été retiré ou renommé dans le catalogue entre l'ouverture de l'onglet et
+  // l'enregistrement : le seul geste utile est d'en choisir un autre.
+  metier_not_found:
+    "Ce métier n'existe plus dans le catalogue. Rechargez la page puis choisissez un autre métier.",
+  main_domain_required:
+    "Choisissez votre métier principal — sans lui, votre profil ne peut être rapproché d'aucune mission.",
 };
+
+/** Message affiché quand la requête n'a pas pu partir ou n'a pas reçu de réponse. */
+export const NETWORK_ERROR_MESSAGE =
+  "Connexion impossible — vérifiez votre réseau, puis réessayez. Rien n'a été enregistré.";
+
+// Champs de `profileSchema` → ce que l'utilisateur doit corriger. `invalid_payload` arrive avec
+// `details.fieldErrors` : le nommer évite le message fourre-tout qui citait le tarif indicatif
+// sur un onglet qui n'en affiche pas.
+const PROFILE_FIELD_HINTS: Record<string, string> = {
+  mainDomain: "le métier principal",
+  metierId: "le métier principal",
+  tags: "les compétences (120 caractères au plus chacune, 10 au total)",
+  indicativeRate: "le tarif indicatif (un montant positif)",
+  description: "la bio courte (2 000 caractères au plus)",
+  overview: "la présentation détaillée (5 000 caractères au plus)",
+  title: "le titre professionnel (120 caractères au plus)",
+  zoneVille: "la ville (100 caractères au plus)",
+  zoneRayonKm: "le rayon d'intervention (entre 1 et 500 km)",
+  coverageZones: "les zones couvertes",
+};
+
+/**
+ * Traduit une réponse d'échec de POST /api/profile en message affichable. `body` est le JSON
+ * lu (ou `{}` si la réponse n'en était pas) : un code connu donne son message, `invalid_payload`
+ * nomme les champs refusés, le reste retombe sur un message selon le statut.
+ */
+export function profileErrorMessage(
+  body: { error?: string; details?: { fieldErrors?: Record<string, unknown> } },
+  status: number,
+): string {
+  if (body.error === "invalid_payload") {
+    const hints = Object.keys(body.details?.fieldErrors ?? {})
+      .map((field) => PROFILE_FIELD_HINTS[field])
+      .filter((hint, i, all): hint is string => !!hint && all.indexOf(hint) === i);
+    return hints.length > 0
+      ? `Une valeur saisie n'est pas acceptée — vérifiez ${hints.join(", ")}.`
+      : "Une valeur saisie n'est pas acceptée. Vérifiez les champs de cet onglet.";
+  }
+  if (body.error && PROFILE_ERROR_MESSAGES[body.error]) return PROFILE_ERROR_MESSAGES[body.error];
+  if (status >= 500) return "Erreur serveur inattendue — réessayez dans un instant.";
+  return "Échec de l'enregistrement.";
+}
 
 export function Field({
   label,

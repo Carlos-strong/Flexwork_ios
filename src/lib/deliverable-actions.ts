@@ -158,6 +158,12 @@ export async function handleCheckpoint(req: Request, args: ActionArgs): Promise<
   ]);
 
   const releasedAmount = await emitProgressiveRelease(scope, progress);
+  // En financement progressif, confirmer le palier à 100 % EST la validation définitive du client :
+  // ce point d'étape libère le solde, et le clic « Valider » qui suit ne fait plus que le constater.
+  // On en garde la trace ici, comme la validation l'aurait fait.
+  if (progress >= 100 && scope.financingMode === "progressive") {
+    await clientValidationUpdate(scope, userId);
+  }
 
   const note = readNote(body);
   const cible = scope.jalonTitre ? ` sur ${deliverableLabel(scope)}` : "";

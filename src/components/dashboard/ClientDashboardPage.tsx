@@ -9,7 +9,7 @@
 // page (params/searchParams). `/dashboard/client` redirige maintenant vers `/client/dashboard`
 // (voir src/app/dashboard/client/page.tsx) ; ce composant est importé par les pages
 // wrapper /client/dashboard, /client/propositions et /client/paiements.
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -20,6 +20,7 @@ import ClientPropositionsSection from "@/components/dashboard/client/Proposition
 import ClientPaiementsSection from "@/components/dashboard/client/PaiementsSection";
 import DevisContratsSection from "@/components/dashboard/DevisContratsSection";
 import { ClientProfileCompletionCard } from "@/components/dashboard/ClientProfileCompletionCard";
+import { PendingPublicationsCard } from "@/components/dashboard/PendingPublicationsCard";
 import { MISSION_STATUS_STYLE } from "@/lib/mission-status";
 import { useSidebarBadges } from "@/components/dashboard/useSidebarBadges";
 import { fetchDedupe } from "@/lib/fetch-dedupe";
@@ -148,6 +149,11 @@ export default function ClientDashboardPage({ initialNav = "dashboard" }: { init
           <div><h1 className="text-[22px] md:text-[26px] font-bold text-[#0A1931]">Bonjour {summary?.user?.firstName ?? ""} 👋</h1><p className="text-[13px] text-zinc-500 mt-1"><span className="text-[#FF7A00]">✦</span> Tu as <span className="font-semibold text-[#FF7A00]">{livraison} livraison{livraison>1?"s":""} à valider</span> • {enCours} mission{enCours>1?"s":""} active{enCours>1?"s":""}</p></div>
           <div className="flex items-center gap-2"><Link href="/missions/new" className="h-9 px-4 rounded-full bg-[#008751] text-white text-[13px] font-semibold flex items-center hover:brightness-110" style={{textDecoration:"none"}}>+ Mission</Link><Link href="/recherche" className="h-9 px-4 rounded-full bg-white border border-gray-200 text-[13px] font-medium text-zinc-600 hover:bg-gray-50" style={{textDecoration:"none"}}>Trouver un talent</Link></div>
         </div>
+        {/* Publication bloquée par le KYC, puis « Publier maintenant » une fois vérifié.
+            Suspense : la carte lit ?publication=kyc via useSearchParams. */}
+        <Suspense fallback={null}>
+          <PendingPublicationsCard />
+        </Suspense>
         <ClientProfileCompletionCard />
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6">
           {[{l:"Missions actives",v:stats?String(stats.active):"—",s:stats?`${stats.total} au total`:"",c:"from-[#3B82F6] to-[#3B82F6]"},{l:"Budget dépensé",v:stats?stats.budgetSpent.toLocaleString("fr-FR"):"—",s:"FCFA total",c:"from-[#22C55E] to-[#22C55E]"},{l:"Propositions",v:stats?String(stats.totalProposals):"—",s:"reçues — voir tout →",c:"from-[#8B5CF6] to-[#8B5CF6]",action:()=>goTo("propositions")},{l:"Clôturées",v:stats?String(stats.closed):"—",s:"missions terminées",c:"from-[#EF4444] to-[#EF4444]"}].map(s=><div key={s.l} onClick={s.action} className={`bg-white rounded-[16px] border border-gray-100 p-4 hover:shadow-md transition-shadow relative overflow-hidden ${s.action?"cursor-pointer":""}`}><div className={`absolute top-0 left-0 w-full h-1 bg-gradient-to-r ${s.c}`}/><div className="text-[11px] uppercase tracking-widest text-zinc-400 font-semibold mb-1">{s.l}</div><div className="text-[28px] font-bold text-[#0A1931]">{s.v}</div><div className="text-[12px] text-zinc-400 mt-0.5">{s.s}</div></div>)}

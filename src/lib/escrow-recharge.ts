@@ -2,7 +2,8 @@ import { randomUUID } from "crypto";
 import type { PspEscrowOperation } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { assertFundingPreconditions, escrowBalance } from "@/lib/escrow";
-import { virtualPspName, isVirtualPspEnabled, shouldAutoConfirmStub, autoConfirmPending } from "@/lib/psp-virtual";
+import { virtualPspName } from "@/lib/psp-virtual";
+import { afterInstructionCommitted } from "@/lib/psp/dispatch";
 
 // Recharge du séquestre (§13 du cahier des charges, Phase 3 — 2026-09-14).
 //
@@ -117,9 +118,7 @@ export async function requestRecharge(contractId: string): Promise<RechargeResul
     },
   });
 
-  if (isVirtualPspEnabled() && shouldAutoConfirmStub()) {
-    await autoConfirmPending(operation.pspReference!);
-  }
+  await afterInstructionCommitted(operation);
 
   return { ok: true, operation, amount: need.missing };
 }

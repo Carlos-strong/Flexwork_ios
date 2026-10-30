@@ -13,6 +13,8 @@ const FEATURES = [
   { icon: <Users className="w-4 h-4" />, label: "Identité vérifiée (KYC)", sub: "Obligatoire avant toute mise en relation" },
 ];
 
+// Sous lg (mobile, tablette), seul le bandeau titre reste : l'argumentaire complet repoussait
+// le formulaire sous la ligne de flottaison (audit 2026-10-02).
 export function AuthHero() {
   return (
     <div className="lg:w-[45%] xl:w-[42%] bg-[#0A1931] text-white flex flex-col justify-between p-6 md:p-10 lg:p-12 relative overflow-hidden">
@@ -22,22 +24,22 @@ export function AuthHero() {
 
       <div className="relative z-10">
         {/* Logo */}
-        <div className="flex items-center gap-2 mb-12 md:mb-16">
+        <div className="flex items-center gap-2 mb-5 lg:mb-16">
           <div className="w-10 h-10 rounded-xl bg-[#FF7A00] flex items-center justify-center text-white font-extrabold text-[16px]">FW</div>
           <span className="text-white font-extrabold text-[18px] tracking-tight">FlexWork</span>
         </div>
 
-        <h1 className="text-[28px] md:text-[34px] lg:text-[38px] font-extrabold leading-tight mb-4">
+        <h1 className="text-[24px] md:text-[34px] lg:text-[38px] font-extrabold leading-tight lg:mb-4">
           Le talent <span className="text-[#FF7A00]">vérifié</span>,<br />
           la mission <span className="text-[#FCD116]">sécurisée</span>
         </h1>
-        <p className="text-white/60 text-[14px] md:text-[15px] leading-relaxed max-w-[420px] mb-8">
+        <p className="hidden lg:block text-white/60 text-[15px] leading-relaxed max-w-[420px] mb-8">
           Identité vérifiée avant toute mise en relation. Contrat signé, paiement sous
           séquestre en FCFA.
         </p>
 
         {/* Feature pills */}
-        <div className="space-y-4">
+        <div className="hidden lg:block space-y-4">
           {FEATURES.map((f, i) => (
             <div key={i} className="flex items-start gap-3 p-3 rounded-xl bg-white/[0.05] border border-white/[0.06]">
               <div className="w-8 h-8 rounded-full bg-[#FF7A00]/20 flex items-center justify-center shrink-0 mt-0.5">
@@ -45,7 +47,7 @@ export function AuthHero() {
               </div>
               <div>
                 <div className="text-[13px] font-semibold">{f.label}</div>
-                <div className="text-[11px] text-white/50 mt-0.5">{f.sub}</div>
+                <div className="text-[12px] text-white/60 mt-0.5">{f.sub}</div>
               </div>
             </div>
           ))}
@@ -56,7 +58,7 @@ export function AuthHero() {
           Remis à jour le 2026-09-23 (« Option C ») : l'inscription ne demande plus de choisir
           une filière, et le KYC n'est plus présenté comme une étape d'entrée mais comme la
           condition de la mise en relation — ce qu'il est réellement (§9). */}
-      <div className="relative z-10 mt-8 p-4 rounded-2xl bg-white/[0.04] border border-white/[0.06]">
+      <div className="hidden lg:block relative z-10 mt-8 p-4 rounded-2xl bg-white/[0.04] border border-white/[0.06]">
         <p className="text-[12px] font-semibold text-white/80 mb-2">Comment ça se passe</p>
         <ol className="space-y-1.5 text-[12px] text-white/70">
           <li>1. Crée ton compte — sans choisir de rôle</li>
@@ -66,7 +68,7 @@ export function AuthHero() {
       </div>
 
       {/* Footer */}
-      <div className="relative z-10 mt-6 flex items-center gap-2 text-[11px] text-white/30">
+      <div className="hidden lg:flex relative z-10 mt-6 items-center gap-2 text-[12px] text-white/50">
         <span>© 2026 FlexWork</span> <span>•</span> <span>Identité vérifiée</span> <span>•</span> <span>Paiement sous séquestre</span>
       </div>
     </div>

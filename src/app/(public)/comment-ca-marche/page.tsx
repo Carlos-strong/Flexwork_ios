@@ -28,7 +28,7 @@ export default function CommentCaMarchePage() {
         subtitle="Un cycle unique et transparent, partagé par les deux parties — pas de surprise, pas de double flux."
       />
 
-      <section className="max-w-4xl mx-auto px-4 sm:px-6 py-12 lg:py-16 space-y-12">
+      <section className="page-shell py-12 lg:py-16 space-y-12">
         <div>
           <h2 className="text-xl lg:text-2xl font-bold text-[#0f172a] mb-6">Côté client</h2>
           <div className="space-y-4">

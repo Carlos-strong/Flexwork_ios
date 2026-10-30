@@ -61,7 +61,7 @@ function FlowBar({ snap }: { snap: Snapshot }) {
       <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
         <h2 className="text-[13px] font-semibold">Destination des fonds financés</h2>
         {snap.identity.ok ? (
-          <Chip tone="green">Identité comptable vérifiée : financé = versé + remboursé + détenu</Chip>
+          <Chip tone="green" className="!whitespace-normal">Identité comptable vérifiée : financé = versé + remboursé + détenu</Chip>
         ) : (
           <Chip tone="red">Écart comptable de {money(snap.identity.gap)}</Chip>
         )}
@@ -460,7 +460,7 @@ export default function AdminFinancePage() {
 
             <AnomalyPanel anomalies={snap.anomalies} onOpen={setSelected} />
 
-            <div className="flex items-center gap-1 border-b border-[#E2E0D9]" role="tablist">
+            <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide border-b border-[#E2E0D9]" role="tablist">
               {(
                 [
                   ["sequestres", `Séquestres (${snap.rows.length})`],
@@ -474,7 +474,7 @@ export default function AdminFinancePage() {
                   role="tab"
                   aria-selected={tab === id}
                   onClick={() => setTab(id)}
-                  className={`h-10 px-3.5 text-[13px] font-medium border-b-2 -mb-px transition-colors ${
+                  className={`h-10 shrink-0 whitespace-nowrap px-3.5 text-[13px] font-medium border-b-2 -mb-px transition-colors ${
                     tab === id ? "border-[#2D5BE3] text-[#1A1916]" : "border-transparent text-[#5A5750] hover:text-[#1A1916]"
                   }`}
                 >

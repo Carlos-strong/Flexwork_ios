@@ -62,7 +62,7 @@ export default function DevisDocumentPage() {
 
   return (
     <div className="min-h-screen bg-[#F8FAF9] text-[#0f172a]">
-      <div className="max-w-[860px] mx-auto px-4 lg:px-0 py-5 space-y-4">
+      <div className="fluid-doc [--fw:860px] mx-auto px-4 lg:px-0 py-5 space-y-4">
         <div className="flex items-center gap-1.5 text-[12px] text-[#64748B] flex-wrap">
           <Link href={`/missions/${missionId}`} className="hover:text-[#0f172a]" style={{ textDecoration: "none" }}>Mission</Link>
           <span>›</span>

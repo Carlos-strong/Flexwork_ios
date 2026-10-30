@@ -146,7 +146,7 @@ export default function ProposalsPage() {
     const mine = (proposals ?? [])[0] ?? null;
     const backHref = candidaturesHrefForRole(role as Parameters<typeof candidaturesHrefForRole>[0]);
     return (
-      <div className="max-w-[900px] mx-auto px-4 lg:px-6 py-5 space-y-4 text-[#0f172a]">
+      <div className="fluid-doc [--fw:900px] mx-auto px-4 lg:px-6 py-5 space-y-4 text-[#0f172a]">
         <div className="text-xs text-[#64748B]">
           <Link href={`/missions/${missionId}`} style={{ textDecoration: "none" }} className="hover:text-[#0f172a]">Mission</Link> › Ma candidature
         </div>
@@ -200,7 +200,7 @@ export default function ProposalsPage() {
 
     return (
       <div className="min-h-screen bg-[#F8FAF9] text-[#0f172a]">
-        <div className="max-w-[1200px] mx-auto px-4 lg:px-6 py-5 space-y-4">
+        <div className="page-shell py-5 space-y-4">
           <div className="text-xs text-[#64748B]">
             <Link href={`/missions/${missionId}`} style={{ textDecoration: "none" }} className="hover:text-[#0f172a]">Mission</Link> › Candidatures
           </div>
@@ -474,7 +474,7 @@ export default function ProposalsPage() {
 
   return (
     <div className="min-h-screen bg-[#F8FAF9] text-[#0f172a]">
-      <div className="max-w-[1200px] mx-auto px-4 lg:px-6 py-5 space-y-4">
+      <div className="page-shell py-5 space-y-4">
         <div className="text-xs text-[#64748B]">
           <Link href={`/missions/${missionId}`} style={{ textDecoration: "none" }} className="hover:text-[#0f172a]">Mission</Link> › Candidatures
         </div>

@@ -85,7 +85,7 @@ export function AdminShell({
         {open && <div onClick={() => setOpen(false)} className="fixed inset-0 z-40 bg-black/40 lg:hidden" />}
 
         <aside
-          className={`fixed lg:sticky top-0 left-0 z-50 h-screen w-56 shrink-0 border-r border-[#E2E0D9] bg-white flex flex-col transition-transform duration-200 ${
+          className={`fixed lg:sticky top-0 left-0 z-50 h-screen h-dvh w-56 shrink-0 border-r border-[#E2E0D9] bg-white flex flex-col transition-transform duration-200 ${
             open ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
           }`}
         >
@@ -218,7 +218,7 @@ export function AdminShell({
 
           {/* `space-y-5` : plusieurs écrans renvoient un fragment (en-tête, barre de publication,
               blocs) et comptaient sur leur ancien gabarit pour les espacer. */}
-          <div className="mx-auto max-w-[1200px] space-y-5">
+          <div className="page-width space-y-5">
             {!allowed ? (
               <OutOfRole roleLabel={meta.label} />
             ) : activeModule?.unavailable ? (

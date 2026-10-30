@@ -160,6 +160,8 @@ function TaxonomyCascadeImpl({
   maxCompetences = MAX_COMPETENCES,
   onCatalogueCompetences,
   onMetierRisk,
+  afterSecteur,
+  onSecteurChange,
 }: {
   value: TaxonomySelection;
   onChange: (next: TaxonomySelection) => void;
@@ -181,6 +183,14 @@ function TaxonomyCascadeImpl({
   // formulaire prestataire doit annoncer la conséquence du choix AU MOMENT où il est fait.
   // `null` = aucun métier choisi. Même précaution de ref que ci-dessus.
   onMetierRisk?: (risk: RiskLevelValue | null) => void;
+  // Champ intercalé APRÈS le secteur (2026-10-06) : le formulaire de mission demande le type
+  // de professionnel entre le secteur et la catégorie. Fourni, il réorganise la cascade en
+  // deux rangées (Secteur | champ intercalé, puis Catégorie | Métier) ; absent, la cascade
+  // garde sa rangée unique (profil prestataire).
+  afterSecteur?: React.ReactNode;
+  // Secteur choisi dans le filtre (`null` = tous / autres), remonté pour filtrer le champ
+  // intercalé AVANT qu'une catégorie soit choisie. Même précaution de ref que ci-dessus.
+  onSecteurChange?: (secteur: string | null) => void;
 }) {
   const [categories, setCategories] = useState<TaxonomyCategorie[]>([]);
   const [loadingTree, setLoadingTree] = useState(true);
@@ -291,8 +301,12 @@ function TaxonomyCascadeImpl({
     notifyRisk.current?.(selectedRisk);
   }, [selectedRisk]);
 
+  const notifySecteur = useRef(onSecteurChange);
+  notifySecteur.current = onSecteurChange;
+
   function handleSecteur(next: string) {
     setSecteurFilter(next);
+    notifySecteur.current?.(next === SECTEUR_ALL || next === SECTEUR_OTHERS ? null : next);
     // Un secteur qui ne couvre plus la catégorie choisie la désélectionne, avec son métier et
     // ses compétences — comme changer de catégorie invalide le métier.
     const current = categories.find((c) => c.id === value.categorieId);
@@ -343,75 +357,94 @@ function TaxonomyCascadeImpl({
     );
   }
 
+  const secteurField = secteurOptions.length > 0 && (
+    <div>
+      <label htmlFor="secteurFilter" className={labelClass}>
+        Secteur
+      </label>
+      <select
+        id="secteurFilter"
+        value={secteurFilter}
+        onChange={(e) => handleSecteur(e.target.value)}
+        disabled={loadingTree}
+        className={inputClass}
+      >
+        <option value={SECTEUR_ALL}>Tous les secteurs</option>
+        {secteurOptions.map((s) => (
+          <option key={s.value} value={s.value}>
+            {s.label}
+          </option>
+        ))}
+      </select>
+      <p className="text-[11px] text-zinc-400 mt-1">Grande famille du besoin — filtre les catégories.</p>
+    </div>
+  );
+  const categorieField = (
+    <div>
+      <label htmlFor="categorieId" className={labelClass}>
+        Catégorie <span className="text-[#E8112D]">*</span>
+      </label>
+      <select
+        id="categorieId"
+        value={value.categorieId}
+        onChange={(e) => handleCategorie(e.target.value)}
+        disabled={loadingTree}
+        required
+        className={inputClass}
+      >
+        <option value="">{loadingTree ? "Chargement..." : "Sélectionner une catégorie"}</option>
+        {visibleCategories.map((c) => (
+          <option key={c.id} value={c.id}>
+            {c.icon ? `${c.icon} ` : ""}
+            {c.libelle}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+  const metierField = (
+    <div>
+      <label htmlFor="metierId" className={labelClass}>
+        Métier <span className="text-[#E8112D]">*</span>
+      </label>
+      <select
+        id="metierId"
+        value={value.metierId}
+        onChange={(e) => handleMetier(e.target.value)}
+        disabled={!value.categorieId}
+        required
+        className={`${inputClass} disabled:bg-zinc-50 disabled:text-zinc-400`}
+      >
+        <option value="">{value.categorieId ? "Sélectionner un métier" : "Choisissez d'abord une catégorie"}</option>
+        {metiers.map((m) => (
+          <option key={m.id} value={m.id}>
+            {m.libelle}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+
   return (
     <div className="space-y-4">
-      <div className={`grid gap-4 ${secteurOptions.length > 0 ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
-        {secteurOptions.length > 0 && (
-          <div>
-            <label htmlFor="secteurFilter" className={labelClass}>
-              Secteur
-            </label>
-            <select
-              id="secteurFilter"
-              value={secteurFilter}
-              onChange={(e) => handleSecteur(e.target.value)}
-              disabled={loadingTree}
-              className={inputClass}
-            >
-              <option value={SECTEUR_ALL}>Tous les secteurs</option>
-              {secteurOptions.map((s) => (
-                <option key={s.value} value={s.value}>
-                  {s.label}
-                </option>
-              ))}
-            </select>
-            <p className="text-[11px] text-zinc-400 mt-1">Grande famille du besoin — filtre les catégories.</p>
+      {afterSecteur !== undefined ? (
+        <>
+          <div className="grid gap-4 md:grid-cols-2">
+            {secteurField}
+            {afterSecteur}
           </div>
-        )}
-
-        <div>
-          <label htmlFor="categorieId" className={labelClass}>
-            Catégorie <span className="text-[#E8112D]">*</span>
-          </label>
-          <select
-            id="categorieId"
-            value={value.categorieId}
-            onChange={(e) => handleCategorie(e.target.value)}
-            disabled={loadingTree}
-            required
-            className={inputClass}
-          >
-            <option value="">{loadingTree ? "Chargement..." : "Sélectionner une catégorie"}</option>
-            {visibleCategories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.icon ? `${c.icon} ` : ""}
-                {c.libelle}
-              </option>
-            ))}
-          </select>
+          <div className="grid gap-4 md:grid-cols-2">
+            {categorieField}
+            {metierField}
+          </div>
+        </>
+      ) : (
+        <div className={`grid gap-4 ${secteurOptions.length > 0 ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
+          {secteurField}
+          {categorieField}
+          {metierField}
         </div>
-
-        <div>
-          <label htmlFor="metierId" className={labelClass}>
-            Métier <span className="text-[#E8112D]">*</span>
-          </label>
-          <select
-            id="metierId"
-            value={value.metierId}
-            onChange={(e) => handleMetier(e.target.value)}
-            disabled={!value.categorieId}
-            required
-            className={`${inputClass} disabled:bg-zinc-50 disabled:text-zinc-400`}
-          >
-            <option value="">{value.categorieId ? "Sélectionner un métier" : "Choisissez d'abord une catégorie"}</option>
-            {metiers.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.libelle}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
+      )}
 
       <div>
         <div className="flex items-baseline justify-between mb-1.5">

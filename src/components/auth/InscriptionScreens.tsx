@@ -132,7 +132,7 @@ export function InscriptionScreens() {
             quand vous voulez — sans créer de second compte, sans repartir de zéro.
           </p>
 
-          <div className="mt-6 grid grid-cols-3 gap-3 text-[11px]">
+          <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-3 text-[11px]">
             {[
               { titre: "Paliers", detail: "20 % explorer → 100 % mise en avant" },
               { titre: "Métiers", detail: "domaine → métier → compétences" },

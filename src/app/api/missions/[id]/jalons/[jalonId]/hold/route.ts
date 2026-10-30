@@ -8,12 +8,8 @@ import { contractPrice, hasInFlightHold } from "@/lib/escrow";
 import { canStartMission, coversAmount } from "@/lib/mission-risk-gate";
 import { isMissionFundingClosed } from "@/lib/mission-status";
 import { canHoldJalonSequential, firstBlockingSequentialJalon, isJalonUnengaged } from "@/lib/jalons";
-import {
-  autoConfirmPending,
-  isVirtualPspEnabled,
-  shouldAutoConfirmStub,
-  virtualPspName,
-} from "@/lib/psp-virtual";
+import { isVirtualPspEnabled, shouldAutoConfirmStub, virtualPspName } from "@/lib/psp-virtual";
+import { afterInstructionCommitted } from "@/lib/psp/dispatch";
 
 // Version scopée-jalon de POST /api/missions/[id]/escrow/hold (US-501) — même garde-fous
 // (contrat signé des deux côtés, flag PSP par zone, assurance effective si risque élevé),
@@ -121,15 +117,13 @@ export async function POST(
   // PSP virtuelle : autoconfirm (stub) → confirmation webhook immédiate ; sinon `pending` et
   // redirection vers la page de paiement Mobile Money simulée.
   let status = operation.status;
+  await afterInstructionCommitted(operation);
   if (isVirtualPspEnabled() && shouldAutoConfirmStub()) {
-    const confirmed = await autoConfirmPending(operation.pspReference!);
-    if (confirmed.ok) {
-      const refreshed = await prisma.pspEscrowOperation.findUnique({
-        where: { id: operation.id },
-        select: { status: true },
-      });
-      if (refreshed) status = refreshed.status;
-    }
+    const refreshed = await prisma.pspEscrowOperation.findUnique({
+      where: { id: operation.id },
+      select: { status: true },
+    });
+    if (refreshed) status = refreshed.status;
   }
   const pspRedirect =
     isVirtualPspEnabled() && !shouldAutoConfirmStub() && status === "pending"

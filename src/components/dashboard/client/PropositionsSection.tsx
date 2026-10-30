@@ -235,7 +235,7 @@ export default function PropositionsSection() {
   ];
 
   return (
-    <div className="max-w-[1400px] w-full mx-auto space-y-6">
+    <div className="page-width space-y-6">
       {/* Titre */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>

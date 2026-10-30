@@ -20,20 +20,22 @@
 // `mainDomain` n'est remplacé que si un métier est réellement choisi, sinon rouvrir cet
 // onglet pour ajouter un service retirerait le métier du profil.
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   TaxonomyCascade,
   resolveMetierSelection,
   type RiskLevelValue,
   type TaxonomySelection,
 } from "@/components/mission/TaxonomyCascade";
-import { MAX_COMPETENCES } from "@/lib/provider-options";
+import { MAX_COMPETENCES, MAX_COMPETENCE_LENGTH } from "@/lib/provider-options";
+import { MIN_COMPETENCES } from "@/lib/provider-profile-completion";
 import {
   ProfileCard,
   SaveRow,
   btnSecondary,
   inputClass,
-  PROFILE_ERROR_MESSAGES,
+  NETWORK_ERROR_MESSAGE,
+  profileErrorMessage,
   type ProviderProfile,
 } from "@/components/profile/profile-shared";
 
@@ -63,6 +65,16 @@ export function DomainesTab({
   });
 
   const competences = taxonomy.competences;
+
+  // Toute modification efface le bandeau du dernier enregistrement : un « Une valeur n'est pas
+  // acceptée » resté affiché après la correction laisse croire que le problème demeure, et un
+  // « Domaines enregistrés » ne vaut plus pour des choix qui ne le sont pas encore.
+  // `useCallback` : TaxonomyCascade est mémoïsé, une fonction recréée à chaque rendu le ferait
+  // se redessiner à chaque frappe dans le champ « Compétences proposées ».
+  const updateTaxonomy = useCallback((next: TaxonomySelection) => {
+    setTaxonomy(next);
+    setMsg(null);
+  }, []);
 
   // Ce qui a été ajouté À LA MAIN : ce que le catalogue du métier ne liste pas.
   const addedCompetences = competences.filter((c) => !catalogueCompetences.includes(c));
@@ -122,20 +134,35 @@ export function DomainesTab({
   function addCompetence() {
     const value = competenceDraft.trim();
     if (!value || !taxonomy.metierId || competences.length >= MAX_COMPETENCES) return;
-    if (!competences.includes(value)) {
-      setTaxonomy({ ...taxonomy, competences: [...competences, value] });
+    // Même règle que le serveur : « calcul » ne s'ajoute pas à « Calcul » déjà déclarée.
+    const key = value.toLocaleLowerCase("fr");
+    if (!competences.some((c) => c.toLocaleLowerCase("fr") === key)) {
+      updateTaxonomy({ ...taxonomy, competences: [...competences, value] });
     }
     setCompetenceDraft("");
   }
 
   function removeCompetence(value: string) {
-    setTaxonomy({ ...taxonomy, competences: competences.filter((c) => c !== value) });
+    updateTaxonomy({ ...taxonomy, competences: competences.filter((c) => c !== value) });
   }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setSaving(true);
     setMsg(null);
+    // `try/finally` : une requête qui ne part pas (réseau coupé, serveur arrêté) lève une
+    // exception au lieu de rendre une réponse. Sans ce filet, `setSaving(false)` n'était jamais
+    // atteint et le bouton restait figé sur « Enregistrement... » jusqu'au rechargement.
+    try {
+      await save();
+    } catch {
+      setMsg({ text: NETWORK_ERROR_MESSAGE, ok: false });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function save() {
     const res = await fetch("/api/profile", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -155,25 +182,25 @@ export function DomainesTab({
         tags: competences,
       }),
     });
-    setSaving(false);
     if (res.ok) {
-      const saved = await res.json();
+      const saved: ProviderProfile = await res.json();
       setMainDomain(saved.mainDomain ?? "");
       onSaved(saved);
-      setMsg({ text: "Domaines enregistrés.", ok: true });
+      // L'enregistrement réussit dès le métier choisi, mais l'onglet n'est VALIDÉ au barème
+      // qu'à MIN_COMPETENCES compétences. Le dire ici, au moment où l'on regarde le résultat,
+      // plutôt que de laisser découvrir que la coche de l'onglet ne s'est pas allumée.
+      const missing = MIN_COMPETENCES - (saved.tags?.length ?? 0);
+      setMsg({
+        text:
+          missing > 0
+            ? `Domaines enregistrés. Ajoutez encore ${missing} compétence${missing > 1 ? "s" : ""} pour valider cet onglet.`
+            : "Domaines enregistrés.",
+        ok: true,
+      });
       return;
     }
     const data = await res.json().catch(() => ({}));
-    setMsg({
-      text:
-        PROFILE_ERROR_MESSAGES[data.error] ??
-        (data.error === "main_domain_required"
-          ? "Choisissez votre métier principal — sans lui, votre profil ne peut être rapproché d'aucune mission."
-          : res.status >= 500
-            ? "Erreur serveur inattendue — réessayez dans un instant."
-            : "Échec de l'enregistrement."),
-      ok: false,
-    });
+    setMsg({ text: profileErrorMessage(data, res.status), ok: false });
   }
 
   return (
@@ -192,7 +219,7 @@ export function DomainesTab({
         )}
         <TaxonomyCascade
           value={taxonomy}
-          onChange={setTaxonomy}
+          onChange={updateTaxonomy}
           inputClass={inputClass}
           labelClass="block text-[13px] font-medium text-zinc-700 mb-1.5"
           competencesLabel="Compétences déclarées"
@@ -230,7 +257,7 @@ export function DomainesTab({
                 addCompetence();
               }
             }}
-            maxLength={120}
+            maxLength={MAX_COMPETENCE_LENGTH}
             disabled={!taxonomy.metierId}
             className={`${inputClass} disabled:bg-zinc-50 disabled:text-zinc-400`}
             placeholder={taxonomy.metierId ? "Installation électrique résidentielle" : "Choisissez d'abord un métier"}

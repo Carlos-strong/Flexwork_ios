@@ -355,7 +355,7 @@ export default function Messagerie({ currentUserId }: { currentUserId: string })
 
   if (loading) {
     return (
-      <div className="h-[calc(100vh-68px)] -m-4 md:-m-6 flex items-center justify-center">
+      <div className="h-dash-content -m-4 md:-m-6 flex items-center justify-center">
         <div className="w-8 h-8 border-[3px] border-[#FF7A00] border-t-transparent rounded-full animate-spin" />
       </div>
     );
@@ -363,7 +363,7 @@ export default function Messagerie({ currentUserId }: { currentUserId: string })
 
   if (!conv) {
     return (
-      <div className="h-[calc(100vh-68px)] -m-4 md:-m-6 flex items-center justify-center">
+      <div className="h-dash-content -m-4 md:-m-6 flex items-center justify-center">
         <div className="text-center">
           <div className="text-3xl mb-2">💬</div>
           <p className="text-[13px] text-gray-500 font-medium">Aucune conversation</p>
@@ -373,12 +373,12 @@ export default function Messagerie({ currentUserId }: { currentUserId: string })
   }
 
   return (
-    <div className="h-[calc(100vh-68px)] -m-4 md:-m-6">
+    <div className="h-dash-content -m-4 md:-m-6">
       {/* 1150 px et non 1400 : la 3e colonne (« Détails mission ») a été retirée — à
           1400 px le fil de discussion s'étirait sur ~1030 px, une longueur de ligne
           inconfortable pour du message court. Ici le fil fait ~780 px, la liste garde
           sa largeur. */}
-      <div className="max-w-[1150px] mx-auto p-3 lg:p-4 h-full flex gap-3 lg:gap-4">
+      <div className="page-width p-3 lg:p-4 h-full flex gap-3 lg:gap-4">
         {/* Colonne conversations */}
         <div
           className={`${activeId ? "hidden lg:flex" : "flex"}

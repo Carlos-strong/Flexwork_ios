@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import DashboardLayout, { CLIENT_NAV, type DashboardUser } from "@/components/dashboard/DashboardLayout";
 import MesMissions from "@/components/dashboard/MesMissions";
+import { PublishedNotice } from "@/components/dashboard/PublishedNotice";
 import { useSidebarBadges } from "@/components/dashboard/useSidebarBadges";
 import { useUserIdentity } from "@/components/user-identity";
 
@@ -53,6 +54,10 @@ export default function ClientMissionsPage() {
       badgeCounts={badgeCounts}
       title="Tableau de bord / Mes Missions"
     >
+      {/* Arrivée juste après une publication (?publiee=<id>). */}
+      <Suspense fallback={null}>
+        <PublishedNotice />
+      </Suspense>
       <MesMissions />
     </DashboardLayout>
   );

@@ -203,7 +203,7 @@ export default function DeclarationsPage() {
 
   return (
     <div className="min-h-screen bg-zinc-50 py-10 px-4">
-      <div className="mx-auto max-w-[700px] space-y-5">
+      <div className="mx-auto fluid-form [--fw:700px] space-y-5">
         {/* Warning banner */}
         <div className="bg-[#FEF9C3] border border-[#FCD116] rounded-2xl p-5">
           <div className="text-[14px] font-bold text-zinc-800">⚠️ Important</div>

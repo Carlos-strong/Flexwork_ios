@@ -4,6 +4,8 @@ import { prisma } from "@/lib/db";
 import { verifyWebhookSignatureGeneric } from "@/lib/webhook-signing";
 import { contractPrice, heldBalance, instructOwedPayables, releasedAmounts } from "@/lib/escrow";
 import { IN_FLIGHT_STATUSES } from "@/lib/escrow-instructions";
+import { afterInstructionCommitted } from "@/lib/psp/dispatch";
+import { scheduleFailedPayableRetry } from "@/lib/psp/payable-retry";
 import { MONTANT_EPSILON, releasableBeforeRetention, totalRetentionAmount } from "@/lib/jalons";
 
 export type PspWebhookPayload = {
@@ -22,7 +24,7 @@ export type PspWebhookPayload = {
 // un PSP qui rappelle dix fois la même confirmation est un signal d'intégration à voir.
 export type ApplyResult = { ok: true; replayed?: boolean } | { ok: false; error: string };
 
-export type PspEventChannel = "webhook" | "virtual_console" | "autoconfirm";
+export type PspEventChannel = "webhook" | "virtual_console" | "autoconfirm" | "reconciliation";
 
 // Le montant total CONFIRMÉ libéré sur ce jalon (ou, jalonId null, sur ce contrat sans jalon)
 // a-t-il atteint le montant dû ? Financement progressif (règle 18.4) : plusieurs RELEASE
@@ -100,8 +102,7 @@ export async function emitRetentionRelease(args: {
   // psp-virtual ici fermerait donc le cycle psp-webhook → psp-virtual → psp-webhook. Le charger
   // au moment de l'appel casse le cycle à l'évaluation des modules sans dupliquer la résolution
   // du nom de PSP ni la logique d'autoconfirmation.
-  const { autoConfirmPending, isVirtualPspEnabled, shouldAutoConfirmStub, virtualPspName } =
-    await import("@/lib/psp-virtual");
+  const { virtualPspName } = await import("@/lib/psp-virtual");
 
   // Garde d'idempotence SOUS VERROU : ce chemin est atteint par le webhook du dernier jalon
   // libéré, et `closeJalonFullyReleased` est aussi appelable par POST .../validate. Un simple
@@ -151,12 +152,10 @@ export async function emitRetentionRelease(args: {
   });
   if (!operation) return { emitted: false };
 
-  // Confirmation HORS transaction, volontairement : `autoConfirmPending` rentre à nouveau dans
+  // Transmission HORS transaction, volontairement : en autoconfirm elle rentre à nouveau dans
   // `applyPspWebhookEvent`, qui écrit en base. L'appeler à l'intérieur ferait attendre le verrou
-  // `FOR UPDATE` que cette même transaction détient — interblocage garanti en mode autoconfirm.
-  if (isVirtualPspEnabled() && shouldAutoConfirmStub()) {
-    await autoConfirmPending(operation.pspReference!);
-  }
+  // `FOR UPDATE` que cette même transaction détient — interblocage garanti.
+  await afterInstructionCommitted(operation);
   return { emitted: true };
 }
 
@@ -244,6 +243,27 @@ export async function recordPspEvent(entry: {
   }
 }
 
+// Transition `pending` → dénouement ATOMIQUE (2026-10-01). La garde de statut lue plus haut ne
+// suffit pas : deux livraisons simultanées du même webhook (le PSP réessaie, ou deux workers
+// traitent la boîte de réception) la passaient toutes les deux, puis appliquaient deux fois les
+// effets métier — clôture, instruction de la retenue, réinstruction des créances. La condition
+// `status = pending` portée par l'écriture elle-même fait du premier arrivé le seul gagnant.
+async function settleOperation(
+  id: string,
+  data: { status: PspOperationStatus; pspConfirmedAt?: Date; webhookReference?: string }
+): Promise<boolean> {
+  const { count } = await prisma.pspEscrowOperation.updateMany({ where: { id, status: "pending" }, data });
+  return count === 1;
+}
+
+// Le perdant de la course relit le dénouement posé par le gagnant : même issue → rejeu
+// idempotent, issue contraire → refus, exactement comme s'il était arrivé après.
+async function settledMeanwhile(id: string, outcome: PspOperationStatus): Promise<ApplyResult> {
+  const current = await prisma.pspEscrowOperation.findUnique({ where: { id }, select: { status: true } });
+  if (current?.status === outcome) return { ok: true, replayed: true };
+  return { ok: false, error: "operation_already_settled" };
+}
+
 async function applyPspWebhookEventCore(
   payload: PspWebhookPayload,
   signature: string,
@@ -293,10 +313,7 @@ async function applyPspWebhookEventCore(
   }
 
   if (payload.event === "failed") {
-    await prisma.pspEscrowOperation.update({
-      where: { id: operation.id },
-      data: { status: "failed" },
-    });
+    if (!(await settleOperation(operation.id, { status: "failed" }))) return settledMeanwhile(operation.id, outcome);
     // Le payable retombe `failed` — mais il reste DÛ : le refus du PSP (solde insuffisant,
     // indisponibilité) est par nature réessayable, et `emitScopedRelease` réaligne un payable
     // `failed` sur ce qui reste à verser au tour suivant. C'est la même logique de reprise que
@@ -305,6 +322,9 @@ async function applyPspWebhookEventCore(
       where: { escrowOperationId: operation.id },
       data: { status: "failed" },
     });
+    // Reprise AUTOMATIQUE, mais seulement là où aucun geste humain ne peut la porter (créance de
+    // présence) — voir src/lib/psp/payable-retry.ts.
+    await scheduleFailedPayableRetry(operation.id);
     // Reprise (règle 18.5) : une libération refusée laissait le jalon en `valide` — statut
     // qu'aucune route n'accepte (canDecideDeliverable exige `livrable_soumis`). Le jalon était
     // donc condamné et ses fonds immobilisés pour toujours, alors qu'un refus PSP (solde
@@ -320,10 +340,15 @@ async function applyPspWebhookEventCore(
     return { ok: true };
   }
 
-  await prisma.pspEscrowOperation.update({
-    where: { id: operation.id },
-    data: { status: "confirmed", pspConfirmedAt: new Date(), webhookReference: payload.event },
-  });
+  if (
+    !(await settleOperation(operation.id, {
+      status: "confirmed",
+      pspConfirmedAt: new Date(),
+      webhookReference: payload.event,
+    }))
+  ) {
+    return settledMeanwhile(operation.id, outcome);
+  }
 
   // Le payable adossé à cette instruction est PAYÉ. C'est ici, et nulle part ailleurs, que se
   // referme la distinction que ce modèle apporte : « validé » ne vaut pas « payé », et seule la

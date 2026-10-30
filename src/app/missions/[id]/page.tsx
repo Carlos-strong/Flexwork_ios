@@ -483,7 +483,7 @@ export default function MissionDetailPage() {
 
   return (
     <div className="min-h-screen bg-[#F8FAF9] text-[#0f172a]">
-      <div className="max-w-[900px] mx-auto px-4 lg:px-0 pb-[110px] lg:pb-10 pt-5 space-y-4">
+      <div className="fluid-doc [--fw:900px] mx-auto px-4 lg:px-0 pb-[110px] lg:pb-10 pt-5 space-y-4">
         {/* Bandeau d'évolution de la mission — synchronisé sur le statut réel (client +
             prestataire), voir mission-tracker.tsx */}
         <MissionTracker missionId={mission.id} />

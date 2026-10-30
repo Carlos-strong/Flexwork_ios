@@ -92,6 +92,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await prisma.pspEventLog.deleteMany({ where: { pspReference: { contains: TAG } } });
+  await prisma.pspInboundEvent.deleteMany({ where: { pspReference: { contains: TAG } } });
   await prisma.payable.deleteMany({ where: { contractId } });
   await prisma.pspEscrowOperation.deleteMany({ where: { contractId } });
   await prisma.prestationContract.deleteMany({ where: { id: contractId } });

@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { fetchDedupe } from "@/lib/fetch-dedupe";
 import { onBadgesShouldRefresh } from "@/lib/badge-sync";
+import { realtimeConnected } from "@/lib/realtime/client";
 
 export type DevisContratsCounts = {
   brouillon: number;
@@ -47,7 +48,14 @@ export function useDevisContratsBadges(enabled = true): DevisContratsCounts {
   useEffect(() => {
     if (!enabled) return;
     refresh();
-    const interval = setInterval(refresh, 30000);
+    // Sondage de secours, espacé tant que le flux temps réel est ouvert (src/lib/realtime/client.ts).
+    // Toutes les 5 min malgré tout : certains changements de compteur ne passent par aucune
+    // notification, donc par aucun signal.
+    let ticks = 0;
+    const interval = setInterval(() => {
+      ticks++;
+      if (!realtimeConnected() || ticks % 10 === 0) refresh();
+    }, 30000);
     const onFocus = () => refresh();
     window.addEventListener("focus", onFocus);
     // Resynchronisation immédiate après une action locale (devis rejeté, révision

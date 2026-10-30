@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 import Link from "next/link";
-import { Search, LogOut, Menu, LayoutDashboard, Briefcase, MessageSquare, Heart, FileText, Wallet, Star, Handshake, Sparkles, UserRound } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Search, LogOut, Menu, X, LayoutDashboard, Briefcase, MessageSquare, Heart, FileText, Wallet, Star, Handshake, Sparkles, UserRound } from "lucide-react";
 import DashboardSidebar, { type NavItem, type SidebarUser, type DocumentsBlock } from "./DashboardSidebar";
 import { NotificationsBell } from "@/components/notifications-bell";
 import { Avatar } from "@/components/avatar";
@@ -37,6 +38,26 @@ type Props = {
 export default function DashboardLayout(p: Props) {
   const { mode, user, navItems, activeNav, onNavChange, solde, title, topAction, badgeCounts, hideDocuments, children } = p;
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const router = useRouter();
+  const [query, setQuery] = useState("");
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  // Recherche de l'en-tête (2026-10-02) — elle n'était branchée sur rien : le champ desktop
+  // ignorait la saisie et la loupe mobile n'avait pas d'action. Le client cherche un talent
+  // (annuaire /recherche) ; le prestataire filtre ses missions disponibles (?q= lu par
+  // MissionsSection). Un rôle sans liste de missions (responsable de chantier) n'a pas de recherche.
+  const missionsHref = navItems.find((n) => n.id === "missions")?.href;
+  const canSearch = mode === "client" || !!missionsHref;
+  const searchPlaceholder = mode === "client" ? "Rechercher un talent…" : "Rechercher une mission…";
+  function submitSearch(e: FormEvent) {
+    e.preventDefault();
+    const q = query.trim();
+    const target =
+      mode === "client"
+        ? `/recherche${q ? `?domaine=${encodeURIComponent(q)}` : ""}`
+        : `${missionsHref}${q ? `?q=${encodeURIComponent(q)}` : ""}`;
+    setMobileSearchOpen(false);
+    router.push(target);
+  }
   // Compteurs du bloc « Documents Contractuels » — calculés ici une seule fois, pour toutes
   // les pages qui montent DashboardLayout (client et prestataire), plutôt que dans chacun
   // des ~10 points d'appel (R03 : ne pas dupliquer). La base de la rubrique « Devis &
@@ -66,7 +87,9 @@ export default function DashboardLayout(p: Props) {
   };
 
   return (
-    <div className="h-screen bg-[#FFF8F0] flex overflow-hidden">
+    // `h-dvh` après `h-screen` : sur Safari iOS, 100vh ignore la barre d'outils et le bas de la
+    // zone de contenu passait dessous ; 100vh ne reste qu'en secours pour un navigateur ancien.
+    <div className="h-screen h-dvh bg-[#FFF8F0] flex overflow-hidden">
       <DashboardSidebar
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
@@ -80,37 +103,58 @@ export default function DashboardLayout(p: Props) {
       />
 
       <div className="flex-1 min-w-0 flex flex-col">
-        <header className="sticky top-0 z-30 h-[68px] bg-white/95 backdrop-blur-xl border-b border-gray-100/60 flex items-center gap-4 px-4 md:px-6 shrink-0">
-          <div className="flex items-center gap-3 min-w-0">
-            <button onClick={() => setSidebarOpen(true)} className="lg:hidden w-9 h-9 rounded-xl bg-gray-50 border border-gray-200 flex items-center justify-center hover:bg-gray-100 transition-colors shrink-0"><Menu className="w-4 h-4 text-zinc-600" /></button>
-            <div className="hidden sm:flex items-center gap-2 min-w-0">
-              <span className="text-[13px] text-zinc-400 font-medium">Tableau de bord</span>
-              <svg className="w-4 h-4 text-zinc-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-              <span className="text-[14px] font-semibold text-[#0A1931] truncate">{title === "Tableau de bord" ? user.role : title}</span>
+        <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-xl border-b border-gray-100/60 shrink-0">
+          <div className="h-[68px] flex items-center gap-3 md:gap-4 px-4 md:px-6">
+            <div className="flex items-center gap-3 min-w-0">
+              <button onClick={() => setSidebarOpen(true)} aria-label="Ouvrir le menu" className="lg:hidden w-11 h-11 rounded-xl bg-gray-50 border border-gray-200 flex items-center justify-center hover:bg-gray-100 transition-colors shrink-0"><Menu className="w-5 h-5 text-zinc-600" /></button>
+              {/* Mobile : le titre de la rubrique, faute de place pour le fil d'Ariane. */}
+              <span className="sm:hidden text-[15px] font-semibold text-[#0A1931] truncate">{title === "Tableau de bord" ? "Tableau de bord" : title}</span>
+              <div className="hidden sm:flex items-center gap-2 min-w-0">
+                <span className="text-[13px] text-zinc-400 font-medium">Tableau de bord</span>
+                <svg className="w-4 h-4 text-zinc-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                <span className="text-[14px] font-semibold text-[#0A1931] truncate">{title === "Tableau de bord" ? user.role : title}</span>
+              </div>
             </div>
-          </div>
-          <div className="hidden lg:flex flex-1 max-w-[420px] mx-auto">
-            <div className="relative w-full group">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 group-focus-within:text-[#FF7A00] transition-colors" />
-              <input type="text" placeholder={mode === "client" ? "Rechercher un talent, une mission..." : "Rechercher une mission..."} className="w-full h-10 pl-10 pr-4 rounded-full bg-gray-50 border border-gray-100 text-[13px] placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-[#FF7A00]/20 focus:border-[#FF7A00] focus:bg-white transition-all" />
-            </div>
-          </div>
-          <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
-            <button className="lg:hidden w-9 h-9 rounded-full bg-gray-50 border border-gray-100 flex items-center justify-center hover:bg-gray-100 transition-colors"><Search className="w-4 h-4 text-zinc-500" /></button>
-            {solde && <div className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#008751]/10 text-[#008751] text-[12px] font-semibold border border-[#008751]/10"><span className="w-1.5 h-1.5 rounded-full bg-[#008751] animate-pulse" />{solde} FCFA</div>}
-            <NotificationsBell />
-            {topAction}
-            <div className="hidden md:flex items-center gap-2.5 pl-2 ml-1 border-l border-gray-100">
-              {user.id ? (
-                <Link href={`/profil/${user.id}`} title="Voir mon profil">
-                  <Avatar src={user.avatarUrl} initials={user.initials} gradient={user.avatarGradient} size={32} className="ring-2 ring-white shadow-sm hover:opacity-80 transition" />
-                </Link>
-              ) : (
-                <Avatar src={user.avatarUrl} initials={user.initials} gradient={user.avatarGradient} size={32} className="ring-2 ring-white shadow-sm" />
+            {canSearch && (
+              <form onSubmit={submitSearch} role="search" className="hidden lg:flex flex-1 max-w-[420px] mx-auto">
+                <div className="relative w-full group">
+                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 group-focus-within:text-[#FF7A00] transition-colors" />
+                  <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={searchPlaceholder} aria-label={searchPlaceholder} className="w-full h-10 pl-10 pr-4 rounded-full bg-gray-50 border border-gray-100 text-[13px] placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-[#FF7A00]/20 focus:border-[#FF7A00] focus:bg-white transition-all" />
+                </div>
+              </form>
+            )}
+            {/* `ml-auto` : sous lg le champ de recherche (flex-1) est masqué, et ce groupe restait
+                collé à gauche, laissant le côté droit de l'en-tête vide. */}
+            <div className="ml-auto flex items-center gap-1.5 md:gap-2 shrink-0">
+              {canSearch && (
+                <button type="button" onClick={() => setMobileSearchOpen((o) => !o)} aria-label={mobileSearchOpen ? "Fermer la recherche" : "Rechercher"} aria-expanded={mobileSearchOpen} className="lg:hidden w-11 h-11 rounded-full bg-gray-50 border border-gray-100 flex items-center justify-center hover:bg-gray-100 transition-colors">
+                  {mobileSearchOpen ? <X className="w-5 h-5 text-zinc-500" /> : <Search className="w-5 h-5 text-zinc-500" />}
+                </button>
               )}
-              <div className="hidden lg:block text-right leading-tight"><div className="text-[12px] font-semibold text-[#0A1931]">{user.name}</div><div className="text-[10px] text-zinc-400">{user.role}</div></div>
+              {solde && <div className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#008751]/10 text-[#008751] text-[12px] font-semibold border border-[#008751]/10"><span className="w-1.5 h-1.5 rounded-full bg-[#008751] animate-pulse" />{solde} FCFA</div>}
+              <NotificationsBell />
+              {topAction}
+              <div className="hidden md:flex items-center gap-2.5 pl-2 ml-1 border-l border-gray-100">
+                {user.id ? (
+                  <Link href={`/profil/${user.id}`} title="Voir mon profil">
+                    <Avatar src={user.avatarUrl} initials={user.initials} gradient={user.avatarGradient} size={32} className="ring-2 ring-white shadow-sm hover:opacity-80 transition" />
+                  </Link>
+                ) : (
+                  <Avatar src={user.avatarUrl} initials={user.initials} gradient={user.avatarGradient} size={32} className="ring-2 ring-white shadow-sm" />
+                )}
+                <div className="hidden lg:block text-right leading-tight"><div className="text-[12px] font-semibold text-[#0A1931]">{user.name}</div><div className="text-[11px] text-zinc-500">{user.role}</div></div>
+              </div>
             </div>
           </div>
+          {canSearch && mobileSearchOpen && (
+            <form onSubmit={submitSearch} role="search" className="lg:hidden px-4 pb-3">
+              <div className="relative">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+                {/* 16 px : en dessous, Safari iOS zoome toute la page à la prise de focus. */}
+                <input type="search" autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder={searchPlaceholder} aria-label={searchPlaceholder} className="w-full h-11 pl-10 pr-4 rounded-full bg-gray-50 border border-gray-200 text-base placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-[#FF7A00]/20 focus:border-[#FF7A00] focus:bg-white" />
+              </div>
+            </form>
+          )}
         </header>
         <main className="flex-1 overflow-y-auto p-4 md:p-6">{children}</main>
       </div>

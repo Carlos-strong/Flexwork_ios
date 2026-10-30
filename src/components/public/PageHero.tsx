@@ -12,7 +12,7 @@ export function PageHero({
 }) {
   return (
     <section className="bg-white border-b border-[#E2E8F0]">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-12 lg:py-16">
+      <div className="page-shell py-12 lg:py-16">
         <span className="inline-block text-[12px] font-bold uppercase tracking-wider text-[#008751] bg-[#008751]/5 border border-[#008751]/20 rounded-full px-3 py-1 mb-4">
           {badge}
         </span>

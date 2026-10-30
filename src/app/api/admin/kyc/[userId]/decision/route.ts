@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { notifyPendingPublications } from "@/lib/mission-publish";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireAdminRole } from "@/lib/adminGuard";
@@ -83,6 +84,10 @@ export async function POST(
     },
   });
 
+  // Statut AVANT la décision : les missions en attente de publication ne sont signalées qu'au
+  // PASSAGE à « verifie », pas à chaque décision sur un compte déjà vérifié.
+  const wasVerified =
+    (await prisma.user.findUnique({ where: { id: userId }, select: { kycStatus: true } }))?.kycStatus === "verifie";
   const user = await prisma.user.update({
     where: { id: userId },
     data: {
@@ -96,6 +101,12 @@ export async function POST(
         : {}),
     },
   });
+
+  // Identité vérifiée à l'instant : les missions dont le client avait demandé la publication
+  // avant la vérification sont prêtes — il en est prévenu (src/lib/mission-publish.ts).
+  if (!wasVerified && user.kycStatus === "verifie") {
+    await notifyPendingPublications(userId);
+  }
 
   // logAdminAction (US-801) exige une justification non vide pour TOUTE action admin —
   // invariant qu'on ne relâche pas ici : une validation sans motif garde quand même une

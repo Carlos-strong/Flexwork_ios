@@ -150,4 +150,8 @@ export const TARIF_UNITES: Option[] = [
 // services proposés étaient une seconde liste de compétences sous un autre nom, ils sont
 // désormais réunis dans `tags`, sous le seul plafond MAX_COMPETENCES.
 export const MAX_COMPETENCES = 10;
+// Longueur d'UNE compétence. Le champ « Compétences proposées » la bornait seul (maxLength) :
+// un POST direct pouvait enregistrer un libellé de plusieurs milliers de caractères, affiché
+// tel quel sur les cartes et dans la recherche.
+export const MAX_COMPETENCE_LENGTH = 120;
 export const MAX_COVERAGE_ZONES = 10;

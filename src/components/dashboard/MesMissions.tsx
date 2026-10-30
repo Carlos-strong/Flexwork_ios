@@ -165,7 +165,7 @@ export default function MesMissions() {
   }
 
   return (
-    <div className="max-w-[1400px] w-full mx-auto space-y-6">
+    <div className="page-width space-y-6">
       <style>{`
         .scrollbar-none::-webkit-scrollbar { display: none; }
         .scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
@@ -247,7 +247,52 @@ export default function MesMissions() {
           fiche détaillée /missions/[id]) — messagerie et dropdown "Validations partielles"
           retirés de cette colonne (2026-09-04), ce détail se consultant désormais sur la fiche
           mission elle-même plutôt que depuis la liste. */}
-      <div className="bg-white rounded-[16px] border border-gray-100 shadow-sm overflow-x-auto">
+      {/* Mobile (< md) : une carte par mission. Le tableau à six colonnes y défilait
+          horizontalement et cachait statut, montant et action hors de l'écran (audit 2026-10-02). */}
+      <div className="md:hidden space-y-3">
+        {filtered.map((m) => (
+          <Link
+            key={m.id}
+            href={`/missions/${m.id}`}
+            className="block bg-white rounded-[16px] border border-gray-100 shadow-sm p-4 active:bg-gray-50"
+            style={{ textDecoration: "none" }}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="font-semibold text-[15px] text-[#0A1931] line-clamp-2">{m.title}</div>
+                <div className="text-[12px] text-gray-500 mt-0.5">#{m.id.slice(-6).toUpperCase()}{m.deadline ? ` · ⏰ ${m.deadline}` : ""}</div>
+              </div>
+              <span className={`shrink-0 inline-flex rounded-full px-2.5 py-1 text-[12px] font-bold border whitespace-nowrap ${STATUS_STYLE[m.status] || "bg-gray-100"}`}>
+                {m.status === "Propositions" && m.proposals ? `${m.proposals} ${m.status}` : m.status}
+              </span>
+            </div>
+            <div className="mt-3 flex items-center justify-between gap-3 text-[13px]">
+              <span className="font-bold text-[#0A1931] whitespace-nowrap">{m.budget}</span>
+              {m.freelanceName ? (
+                <span className="flex items-center gap-2 min-w-0">
+                  <Avatar
+                    src={m.freelanceAvatarPath ? `/api/users/${m.freelanceId}/avatar` : null}
+                    initials={m.freelanceName.charAt(0)}
+                    gradient="from-[#FF6B35] to-[#F7C948]"
+                    size={24}
+                  />
+                  <span className="font-medium text-[#0A1931] truncate">{m.freelanceName}</span>
+                </span>
+              ) : (
+                <span className="text-gray-400">Aucun prestataire</span>
+              )}
+            </div>
+            <div className="mt-3 flex items-center gap-2">
+              <div className="flex-1 h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                <div className="h-full bg-gradient-to-r from-[#FF6B35] to-[#F7C948] rounded-full" style={{ width: `${m.progress}%` }} />
+              </div>
+              <span className="text-[12px] font-semibold text-gray-600 whitespace-nowrap">{m.progress}%</span>
+            </div>
+          </Link>
+        ))}
+      </div>
+
+      <div className="hidden md:block bg-white rounded-[16px] border border-gray-100 shadow-sm overflow-x-auto">
         <table className="w-full text-[13px]">
           <thead>
             <tr className="bg-[#F9FAFB] border-b border-gray-100">
@@ -312,7 +357,7 @@ export default function MesMissions() {
                             mission engagée, ou détail générique sinon). Seule action de cette
                             colonne (2026-09-04) — messagerie et "Validations partielles" se
                             consultent désormais depuis la fiche mission elle-même. */}
-                        <Link href={`/missions/${m.id}`} className="w-7 h-7 rounded-full bg-[#F8F6F3] hover:bg-gray-100 flex items-center justify-center shrink-0" style={{ textDecoration: "none" }} title="Voir">
+                        <Link href={`/missions/${m.id}`} className="w-9 h-9 rounded-full bg-[#F8F6F3] hover:bg-gray-100 flex items-center justify-center shrink-0" style={{ textDecoration: "none" }} title="Voir" aria-label="Voir la mission">
                           <Eye className="w-3.5 h-3.5 text-zinc-500" />
                         </Link>
                       </div>

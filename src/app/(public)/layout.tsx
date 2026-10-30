@@ -11,7 +11,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
 
       <footer className="bg-[#0A1931] text-white">
         <div className="h-1 w-full bg-gradient-to-r from-[#008751] via-[#FCD116] to-[#E8112D]" />
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12 lg:py-14 grid grid-cols-2 md:grid-cols-4 gap-8 text-sm">
+        <div className="page-shell py-12 lg:py-14 grid grid-cols-2 md:grid-cols-4 gap-8 text-sm">
           <div>
             <p className="font-extrabold text-lg mb-3">
               Flex<span style={{ color: "#008751" }}>Work</span>
@@ -52,7 +52,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
           </div>
         </div>
         <div className="border-t border-white/10 py-4">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-wrap items-center justify-between gap-2 text-xs text-white/50">
+          <div className="page-shell flex flex-wrap items-center justify-between gap-2 text-xs text-white/50">
             <p>© 2026 FlexWork — Made with ❤️ à Cotonou 🇧🇯</p>
             <p>Mobile Money · FedaPay · MTN · Moov · Orange</p>
           </div>

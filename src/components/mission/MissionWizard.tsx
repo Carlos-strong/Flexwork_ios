@@ -16,6 +16,7 @@ import {
   MISSION_DESCRIPTION_MAX,
   MISSION_DESCRIPTION_MIN,
   MISSION_DESCRIPTION_SAISIE_MIN,
+  MISSION_MAX_CANDIDATURES_MAX,
   MISSION_TITRE_MAX,
   MISSION_TITRE_MIN,
   MISSION_TITRE_SAISIE_MIN,
@@ -75,6 +76,12 @@ const PROFESSIONAL_TYPES = [
   { value: "ARTISAN", label: PROFESSIONAL_TYPE_LABELS.ARTISAN },
   { value: "MANOEUVRE", label: PROFESSIONAL_TYPE_LABELS.MANOEUVRE },
 ];
+
+// Le niveau requis n'a de sens que pour une personne ciblée : ni pour une entreprise, ni pour
+// un ciblage « Indifférent » (2026-10-06) — le champ est alors masqué et sa valeur effacée.
+function levelApplies(professionalType: string): boolean {
+  return professionalType !== "" && professionalType !== "EXPERT_BTP";
+}
 
 const LEVELS = ["Débutant", "Junior", "Intermédiaire", "Senior", "Expert"];
 
@@ -198,7 +205,16 @@ export function MissionWizard() {
   // mémoïsée et ne doit pas se re-rendre à chaque frappe (voir TaxonomyCascade).
   const handleTaxonomy = useCallback((next: TaxonomySelection) => {
     setTaxonomy(next);
-    setForm((f) => (isProfessionalTypeAllowed(next.secteur, f.professionalType) ? f : { ...f, professionalType: "" }));
+    setForm((f) => (isProfessionalTypeAllowed(next.secteur, f.professionalType) ? f : { ...f, professionalType: "", level: "" }));
+  }, []);
+
+  // Secteur choisi dans la cascade (2026-10-06). Le type de professionnel se saisit désormais
+  // ENTRE le secteur et la catégorie : il doit donc être filtré par le secteur dès son choix,
+  // sans attendre la catégorie — qui, une fois choisie, fait foi (`taxonomy.secteur`).
+  const [secteurChoice, setSecteurChoice] = useState<string | null>(null);
+  const handleSecteur = useCallback((secteur: string | null) => {
+    setSecteurChoice(secteur);
+    setForm((f) => (isProfessionalTypeAllowed(secteur, f.professionalType) ? f : { ...f, professionalType: "", level: "" }));
   }, []);
 
   // ── Chargements ────────────────────────────────────────────────────────────────────────
@@ -368,6 +384,13 @@ export function MissionWizard() {
       if (!isProfessionalTypeAllowed(taxonomy.secteur, form.professionalType)) {
         e.push("Ce type de professionnel ne peut pas être ciblé pour une mission de ce secteur.");
       }
+      // Saisie libre (entier naturel) : vide = illimité ; sinon mêmes bornes que la route.
+      if (form.maxCandidatures) {
+        const n = Number(form.maxCandidatures);
+        if (!Number.isInteger(n) || n < 1 || n > MISSION_MAX_CANDIDATURES_MAX) {
+          e.push(`Candidatures souhaitées : un nombre entier entre 1 et ${MISSION_MAX_CANDIDATURES_MAX}, ou vide pour illimité.`);
+        }
+      }
     }
     if (step === 1) {
       if (needsPlace && !form.ville.trim()) e.push("Indiquez la ville de la mission.");
@@ -427,7 +450,7 @@ export function MissionWizard() {
         metierId: taxonomy.metierId || undefined,
         tags: taxonomy.competences,
         professionalType: form.professionalType || undefined,
-        level: form.level || undefined,
+        level: (levelApplies(form.professionalType) && form.level) || undefined,
         maxCandidatures: form.maxCandidatures ? Number(form.maxCandidatures) : null,
         urgent: form.urgent,
         mode: form.mode,
@@ -465,8 +488,8 @@ export function MissionWizard() {
       }),
     });
 
-    setSubmitting(false);
     if (!res.ok) {
+      setSubmitting(false);
       const data = await res.json().catch(() => ({}));
       setError(
         data.error === "financing_mode_unavailable"
@@ -478,6 +501,21 @@ export function MissionWizard() {
 
     const mission = await res.json();
     clearMissionDraft();
+    // Publication (2026-10-06) :
+    //  - publiée → page des missions publiées, avec la confirmation ;
+    //  - identité non vérifiée → la route a ENREGISTRÉ la mission en brouillon marqué
+    //    « publication demandée » : retour au tableau de bord, qui explique le blocage et
+    //    proposera « Publier maintenant » dès la vérification.
+    // Le bouton reste désactivé pendant la navigation (pas de double envoi).
+    if (publish && mission.status === "publiee") {
+      router.push(`/client/missions?publiee=${encodeURIComponent(mission.id)}`);
+      return;
+    }
+    if (publish && mission.publicationPending === "kyc") {
+      router.push("/client/dashboard?publication=kyc");
+      return;
+    }
+    setSubmitting(false);
     setPublished({ id: mission.id, status: mission.status });
   }
 
@@ -487,6 +525,41 @@ export function MissionWizard() {
   const areaClass =
     "w-full px-3 py-2.5 rounded-xl border border-zinc-200 text-[14px] resize-y focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751] transition";
   const labelClass = "block text-[13px] font-semibold text-zinc-700 mb-1.5";
+  // Type de professionnel, intercalé dans la cascade juste après le secteur. Mémoïsé : la
+  // cascade l'est aussi, et un nœud recréé à chaque frappe dans le titre la ferait se re-rendre.
+  const effectiveSecteur = taxonomy.secteur ?? secteurChoice;
+  const professionalTypeField = useMemo(
+    () => (
+      <div>
+        <label htmlFor="professionalType" className={labelClass}>Type de professionnel</label>
+        <select
+          id="professionalType"
+          value={form.professionalType}
+          // Passer à « Entreprise » ou « Indifférent » masque le niveau requis : on l'efface
+          // pour qu'une valeur invisible ne parte pas avec la mission.
+          onChange={(e) => {
+            const value = e.target.value;
+            setForm((f) => ({ ...f, professionalType: value, level: levelApplies(value) ? f.level : "" }));
+          }}
+          className={inputClass}
+        >
+          <option value="">Indifférent</option>
+          {PROFESSIONAL_TYPES.filter((p) => allowedProfessionalTypes(effectiveSecteur).includes(p.value)).map((p) => (
+            <option key={p.value} value={p.value}>{p.label}</option>
+          ))}
+        </select>
+        {/* Préférence, pas barrière (A16) : la filière dit QUI exerce, le secteur QUEL
+            travail — les deux ne se déduisent pas l'un de l'autre. */}
+        <p className="text-[11px] text-zinc-400 mt-1">
+          {effectiveSecteur === "digital"
+            ? "Secteur Digital : seuls un prestataire indépendant ou une entreprise peuvent être ciblés."
+            : "Cible le type de professionnel, sans définir le secteur ni exclure les autres profils."}
+        </p>
+      </div>
+    ),
+    [form.professionalType, effectiveSecteur, inputClass, labelClass],
+  );
+
   const card = "bg-white rounded-2xl border border-zinc-200 shadow-sm p-6";
   const btnPrimary =
     "h-10 px-6 rounded-full bg-[#008751] text-white text-[13px] font-semibold hover:bg-[#006e43] disabled:opacity-50 disabled:cursor-not-allowed transition";
@@ -550,7 +623,7 @@ export function MissionWizard() {
 
   return (
     <div className="min-h-screen bg-zinc-50 py-10 px-4">
-      <div className="mx-auto max-w-[760px] space-y-5">
+      <div className="mx-auto fluid-form [--fw:760px] space-y-5">
         {/* Progression */}
         <div>
           <div className="flex items-center justify-between mb-2">
@@ -595,8 +668,9 @@ export function MissionWizard() {
 
         {kycVerified === false && (
           <div className="px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-[13px] text-amber-900">
-            Votre identité n&apos;est pas encore vérifiée : vous pouvez tout préparer et enregistrer un brouillon, mais
-            la publication attendra la validation de votre KYC.
+            Votre identité n&apos;est pas encore vérifiée : vous pouvez tout préparer et cliquer sur « Publier ». La mission
+            sera enregistrée en brouillon, et vous pourrez la publier en un clic depuis votre tableau de bord dès la
+            vérification.
           </div>
         )}
 
@@ -608,7 +682,31 @@ export function MissionWizard() {
 
         {/* ── M2 — Décrire et catégoriser ──────────────────────────────────────────── */}
         {step === 0 && (
+          // Ordre de saisie (2026-10-06) : Secteur → Type de professionnel → Catégorie → Métier
+          // → Compétences → Niveau requis → Titre → Description → Cahier des charges → Plans
+          // et documents → Candidatures souhaitées → Urgence. On cible d'abord QUI et QUOI,
+          // puis on décrit le besoin.
           <div className={`${card} space-y-5`}>
+            <TaxonomyCascade
+              value={taxonomy}
+              onChange={handleTaxonomy}
+              onSecteurChange={handleSecteur}
+              inputClass={inputClass}
+              labelClass={labelClass}
+              afterSecteur={professionalTypeField}
+            />
+
+            {/* Niveau requis : sans objet pour une entreprise ou un ciblage « Indifférent ». */}
+            {levelApplies(form.professionalType) && (
+              <div className="md:w-1/2 md:pr-2">
+                <label htmlFor="level" className={labelClass}>Niveau requis</label>
+                <select id="level" value={form.level} onChange={(e) => set("level", e.target.value)} className={inputClass}>
+                  <option value="">Indifférent</option>
+                  {LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
+                </select>
+              </div>
+            )}
+
             <div>
               <label htmlFor="titre" className={labelClass}>
                 Titre de la mission <span className="text-[#E8112D]">*</span>
@@ -625,7 +723,7 @@ export function MissionWizard() {
 
             <div>
               <label htmlFor="description" className={labelClass}>
-                Description détaillée <span className="text-[#E8112D]">*</span>
+                Description de la mission <span className="text-[#E8112D]">*</span>
               </label>
               <textarea
                 id="description"
@@ -660,44 +758,25 @@ export function MissionWizard() {
 
             <DraftAttachments draftId={draftId} labelClass={labelClass} onCountChange={setAttachmentCount} />
 
-            <TaxonomyCascade value={taxonomy} onChange={handleTaxonomy} inputClass={inputClass} labelClass={labelClass} />
-
-            <div className="grid md:grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="professionalType" className={labelClass}>Type de professionnel</label>
-                <select id="professionalType" value={form.professionalType} onChange={(e) => set("professionalType", e.target.value)} className={inputClass}>
-                  <option value="">Indifférent</option>
-                  {PROFESSIONAL_TYPES.filter((p) => allowedProfessionalTypes(taxonomy.secteur).includes(p.value)).map((p) => (
-                    <option key={p.value} value={p.value}>{p.label}</option>
-                  ))}
-                </select>
-                {/* Préférence, pas barrière (A16) : la filière dit QUI exerce, le secteur QUEL
-                    travail — les deux ne se déduisent pas l'un de l'autre. */}
-                <p className="text-[11px] text-zinc-400 mt-1">
-                  {taxonomy.secteur === "digital"
-                    ? "Secteur Digital : seuls un prestataire indépendant ou une entreprise peuvent être ciblés."
-                    : "Cible le type de professionnel, sans définir le secteur ni exclure les autres profils."}
-                </p>
-              </div>
-              <div>
-                <label htmlFor="level" className={labelClass}>Niveau requis</label>
-                <select id="level" value={form.level} onChange={(e) => set("level", e.target.value)} className={inputClass}>
-                  <option value="">Indifférent</option>
-                  {LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
-                </select>
-              </div>
-            </div>
-
             <div className="grid md:grid-cols-2 gap-4">
               <div>
                 <label htmlFor="maxCandidatures" className={labelClass}>Candidatures souhaitées</label>
-                <select id="maxCandidatures" value={form.maxCandidatures} onChange={(e) => set("maxCandidatures", e.target.value)} className={inputClass}>
-                  <option value="">Illimité</option>
-                  {[3, 5, 10, 20].map((n) => <option key={n} value={n}>{n}</option>)}
-                </select>
+                <input
+                  id="maxCandidatures"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={form.maxCandidatures}
+                  // Entier naturel saisi à la main : tout ce qui n'est pas un chiffre est ignoré.
+                  onChange={(e) => set("maxCandidatures", e.target.value.replace(/\D/g, "").replace(/^0+/, "").slice(0, 3))}
+                  placeholder="Illimité"
+                  className={inputClass}
+                />
                 {/* Le plafond EST appliqué (candidature-guard.ts, 2026-09-23) : l'ancien texte le disait
                     indicatif et induisait le client en erreur. */}
-                <p className="text-[11px] text-zinc-400 mt-1">Au-delà, la mission n&apos;accepte plus de nouvelle candidature.</p>
+                <p className="text-[11px] text-zinc-400 mt-1">
+                  Nombre entier de 1 à {MISSION_MAX_CANDIDATURES_MAX}, vide = illimité. Au-delà, la mission n&apos;accepte plus de nouvelle candidature.
+                </p>
               </div>
               <div>
                 <span className={labelClass}>Urgence</span>

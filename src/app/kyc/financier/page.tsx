@@ -14,7 +14,7 @@ export default async function KycFinancierPage() {
 
   return (
     <div className="min-h-screen bg-zinc-50 py-10 px-4">
-      <div className="mx-auto max-w-[720px] space-y-5">
+      <div className="mx-auto fluid-form [--fw:720px] space-y-5">
         <div>
           <h1 className="text-[22px] font-bold text-[#0A1931]">Vérification financière requise</h1>
           <p className="mt-1 text-[13px] text-zinc-500">

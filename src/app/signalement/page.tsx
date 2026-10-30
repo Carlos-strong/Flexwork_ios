@@ -61,7 +61,7 @@ export default function SignalementPage() {
 
   return (
     <div className="min-h-screen bg-[#F8FAF9] text-[#0f172a]">
-      <div className="max-w-[560px] mx-auto px-4 py-5 space-y-4">
+      <div className="fluid-form [--fw:560px] mx-auto px-4 py-5 space-y-4">
         <div className="bg-white border border-[#E2E8F0] rounded-xl p-4 lg:p-5 space-y-4">
           <h1 className="text-[13px] font-semibold">Signaler un contenu</h1>
 

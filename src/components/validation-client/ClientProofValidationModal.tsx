@@ -249,7 +249,7 @@ export default function ClientProofValidationModal({
   return (
     <>
       <div className="fixed inset-0 z-50 flex items-start md:items-center justify-center p-0 md:p-4 bg-black/40 backdrop-blur-[1px]">
-        <div className="w-full md:w-[800px] bg-white md:rounded-2xl rounded-none shadow-2xl max-h-[100vh] md:max-h-[90vh] flex flex-col overflow-hidden">
+        <div className="w-full md:w-[800px] bg-white md:rounded-2xl rounded-none shadow-2xl max-h-screen max-h-dvh md:max-h-[90vh] flex flex-col overflow-hidden">
           {/* En-tête */}
           <div className="shrink-0 px-5 md:px-6 py-4 border-b border-gray-200 flex items-start justify-between gap-4">
             <div className="min-w-0">

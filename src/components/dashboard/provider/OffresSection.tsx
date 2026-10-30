@@ -184,7 +184,7 @@ export default function OffresSection() {
   ];
 
   return (
-    <div className="max-w-[1400px] w-full mx-auto space-y-6">
+    <div className="page-width space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
           <h1 className="text-[28px] font-extrabold leading-none tracking-tight text-[#0A1931]">Offres</h1>

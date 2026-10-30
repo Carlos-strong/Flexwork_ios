@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { utcTimestamp } from "@/lib/sql-time";
 import { contractPrice, emitScopedRelease, releasedAmounts } from "@/lib/escrow";
 import {
   MONTANT_EPSILON,
@@ -83,9 +84,10 @@ type Candidate = {
  * le délai courir pendant un litige ferait payer automatiquement ce qui est précisément en
  * train d'être contesté — le pire mode de défaillance imaginable pour cette règle.
  */
-async function findCandidates(): Promise<Candidate[]> {
+async function findCandidates(contractIds?: string[]): Promise<Candidate[]> {
   const contracts = await prisma.prestationContract.findMany({
     where: {
+      ...(contractIds ? { id: { in: contractIds } } : {}),
       mission: { status: { not: "mediation_ouverte" } },
       OR: [
         { jalons: { some: { status: "livrable_soumis" } } },
@@ -316,7 +318,49 @@ export type SweepReport = {
  * attente sans que rien ne le signale.
  */
 export async function runTacitAcceptanceSweep(now: Date = new Date()): Promise<SweepReport> {
-  const candidates = await findCandidates();
+  return processCandidates(await findCandidates(), now);
+}
+
+/**
+ * Contrats ayant AU MOINS un livrable dont le délai tacite est écoulé (2026-10-01).
+ *
+ * Le balayage complet charge tous les livrables soumis, avec leurs contrats et jalons, pour n'en
+ * retenir qu'une poignée — un coût qui croît avec l'activité, pas avec le travail à faire. Le
+ * worker part d'ici : le délai est comparé EN BASE (`submittedAt + délai < maintenant`), et seuls
+ * les contrats échus sont chargés, chacun dans son propre job. Mêmes exclusions que
+ * `findCandidates` (médiation ouverte, délai nul ou négatif = règle désactivée) ; la décision
+ * finale reste celle de `isTacitlyAccepted`, relue par contrat.
+ */
+export async function findDueTacitContractIds(now: Date = new Date(), limit = 5000): Promise<string[]> {
+  const rows = await prisma.$queryRaw<{ id: string }[]>`
+    SELECT c.id
+      FROM "PrestationContract" c
+      JOIN "Mission" m ON m.id = c."missionId"
+     WHERE m.status <> 'mediation_ouverte'
+       AND c."acceptanceDeadlineDays" > 0
+       AND (
+         EXISTS (
+           SELECT 1 FROM "Jalon" j
+            WHERE j."contractId" = c.id
+              AND j.status = 'livrable_soumis'
+              AND j."submittedAt" + c."acceptanceDeadlineDays" * interval '1 day' < ${utcTimestamp(now)}
+         )
+         OR (
+           m.status = 'livrable_soumis'
+           AND m."submittedAt" + c."acceptanceDeadlineDays" * interval '1 day' < ${utcTimestamp(now)}
+           AND NOT EXISTS (SELECT 1 FROM "Jalon" j WHERE j."contractId" = c.id)
+         )
+       )
+     LIMIT ${limit}`;
+  return rows.map((r) => r.id);
+}
+
+/** Acceptation tacite des livrables échus d'UN contrat — l'unité de travail du worker. */
+export async function runTacitAcceptanceForContract(contractId: string, now: Date = new Date()): Promise<SweepReport> {
+  return processCandidates(await findCandidates([contractId]), now);
+}
+
+async function processCandidates(candidates: Candidate[], now: Date): Promise<SweepReport> {
   const report: SweepReport = { examined: candidates.length, applied: 0, amount: 0, skipped: [] };
 
   for (const candidate of candidates) {

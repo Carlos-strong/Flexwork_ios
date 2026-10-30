@@ -96,50 +96,52 @@ export default function PagesPage() {
       )}
 
       <div className="bg-white border border-[#E2E0D9] rounded-xl overflow-hidden">
-        <table className="w-full text-[12px]">
-          <thead className="bg-[#FBFCFD] border-b border-[#E2E0D9] text-left">
-            <tr>
-              <th className="px-4 py-2.5 font-semibold text-[#9C9A95]">Route</th>
-              <th className="px-3 py-2.5 font-semibold text-[#9C9A95]">Titre</th>
-              <th className="px-3 py-2.5 font-semibold text-[#9C9A95]">Description de référencement</th>
-              <th className="px-3 py-2.5 font-semibold text-[#9C9A95]">État</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[#E2E0D9]">
-            {pages.map((page) => (
-              <tr key={page.id} className={page.state === "orpheline" ? "bg-[#FEF2F2]" : ""}>
-                <td className="px-4 py-2 font-mono text-[11px] whitespace-nowrap">{page.path}</td>
-                <td className="px-3 py-2">
-                  {page.piloted ? (
-                    <Cell value={page.title} onSave={(v) => v && patch(page.id, { title: v })} />
-                  ) : (
-                    <span className="text-[#9C9A95]">{page.title}</span>
-                  )}
-                </td>
-                <td className="px-3 py-2">
-                  {page.piloted ? (
-                    <Cell
-                      value={page.seoDescription ?? ""}
-                      placeholder="160 caractères maximum"
-                      onSave={(v) => patch(page.id, { seoDescription: v || null })}
-                    />
-                  ) : (
-                    <span className="text-[#9C9A95]">—</span>
-                  )}
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap">
-                  <StatusBadge status={page.status} />
-                  {page.state === "orpheline" && (
-                    <span className="ml-1.5 text-[10px] text-[#B91C1C] font-semibold">orpheline</span>
-                  )}
-                  {!page.piloted && (
-                    <span className="ml-1.5 text-[10px] text-[#9C9A95]">titre figé</span>
-                  )}
-                </td>
+        <div className="overflow-x-auto">
+          <table className="w-full text-[12px]">
+            <thead className="bg-[#FBFCFD] border-b border-[#E2E0D9] text-left">
+              <tr>
+                <th className="px-4 py-2.5 font-semibold text-[#9C9A95]">Route</th>
+                <th className="px-3 py-2.5 font-semibold text-[#9C9A95]">Titre</th>
+                <th className="px-3 py-2.5 font-semibold text-[#9C9A95]">Description de référencement</th>
+                <th className="px-3 py-2.5 font-semibold text-[#9C9A95]">État</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-[#E2E0D9]">
+              {pages.map((page) => (
+                <tr key={page.id} className={page.state === "orpheline" ? "bg-[#FEF2F2]" : ""}>
+                  <td className="px-4 py-2 font-mono text-[11px] whitespace-nowrap">{page.path}</td>
+                  <td className="px-3 py-2">
+                    {page.piloted ? (
+                      <Cell value={page.title} onSave={(v) => v && patch(page.id, { title: v })} />
+                    ) : (
+                      <span className="text-[#9C9A95]">{page.title}</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2">
+                    {page.piloted ? (
+                      <Cell
+                        value={page.seoDescription ?? ""}
+                        placeholder="160 caractères maximum"
+                        onSave={(v) => patch(page.id, { seoDescription: v || null })}
+                      />
+                    ) : (
+                      <span className="text-[#9C9A95]">—</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <StatusBadge status={page.status} />
+                    {page.state === "orpheline" && (
+                      <span className="ml-1.5 text-[10px] text-[#B91C1C] font-semibold">orpheline</span>
+                    )}
+                    {!page.piloted && (
+                      <span className="ml-1.5 text-[10px] text-[#9C9A95]">titre figé</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </>
   );

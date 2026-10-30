@@ -91,7 +91,7 @@ const CONTRAT_FILTER_TO_BUCKET: Record<string, ContratBucket> = { "en-cours": "e
 // rien à changer.
 export default function DevisContratsSection({ viewer }: { viewer: "client" | "provider" }) {
   return (
-    <Suspense fallback={<div className="max-w-[1400px] w-full mx-auto text-[13px] text-gray-400">Chargement…</div>}>
+    <Suspense fallback={<div className="page-width text-[13px] text-gray-400">Chargement…</div>}>
       <DevisContratsSectionInner viewer={viewer} />
     </Suspense>
   );
@@ -160,7 +160,7 @@ function DevisContratsSectionInner({ viewer }: { viewer: "client" | "provider" }
   }
 
   return (
-    <div className="max-w-[1400px] w-full mx-auto space-y-6">
+    <div className="page-width space-y-6">
       <div>
         <h1 className="text-[28px] font-extrabold leading-none tracking-tight text-[#0A1931]">Devis & Contrats</h1>
         <p className="text-[13px] text-gray-500 mt-2">Tous tes devis en négociation et tes contrats signés, au même endroit.</p>
