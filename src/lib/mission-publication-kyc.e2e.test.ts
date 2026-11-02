@@ -1,14 +1,17 @@
 /**
- * Publication demandée avant vérification d'identité (2026-10-06), par les vraies routes :
+ * Publication et vérification d'identité, par les vraies routes (politique 2026-11-02,
+ * src/lib/kyc-policy.ts) :
  *
- *  1. « Publier » sans KYC vérifié → la mission n'est pas perdue : enregistrée en brouillon,
- *     marquée `publicationRequestedAt`, réponse `publicationPending: "kyc"`.
- *  2. Elle reste conforme aux règles de publication : une mission non publiable est refusée
- *     AVANT, comme une publication normale (sinon on enregistrerait un brouillon impubliable).
- *  3. Identité vérifiée → POST /api/missions/[id]/publish la publie, une seule fois.
- *  4. Encore non vérifiée, ou mission d'autrui → refus.
- *  5. Tant qu'elle n'est pas publiée, une mission n'apparaît PAS dans la gestion des missions
- *     (GET /api/missions, résumé du tableau de bord) — seulement dans la carte des brouillons.
+ *  1. KYC en attente → la mission est PUBLIÉE : l'identité n'est exigée qu'à la
+ *     contractualisation et au financement.
+ *  2. Contrôles antifraude : au-delà de UNVERIFIED_PUBLISHED_LIMIT missions en ligne, ou KYC
+ *     rejeté, la mission n'est pas perdue mais gardée en brouillon marqué
+ *     `publicationRequestedAt` (réponse `publicationPending: "kyc"`).
+ *  3. Elle reste conforme aux règles de publication : une mission non publiable est refusée
+ *     AVANT, comme une publication normale.
+ *  4. Débloqué (identité vérifiée) → POST /api/missions/[id]/publish la publie, une seule fois.
+ *  5. Encore retenue, ou mission d'autrui → refus.
+ *  6. Un client non vérifié ne retient pas de prestataire (acceptation refusée en 403).
  */
 
 import { describe, expect, it, beforeAll, afterAll, vi } from "vitest";
@@ -19,12 +22,12 @@ vi.mock("@/auth", () => ({ auth: () => mockAuth() }));
 import { POST as missionPost } from "@/app/api/missions/route";
 import { POST as publishPost } from "@/app/api/missions/[id]/publish/route";
 import { GET as pendingGet } from "@/app/api/missions/pending-publication/route";
-import { GET as missionsGet } from "@/app/api/missions/route";
-import { GET as summaryGet } from "@/app/api/dashboard/client-summary/route";
+import { POST as acceptPost } from "@/app/api/missions/[id]/proposals/[proposalId]/accept/route";
 import { prisma } from "@/lib/db";
+import { UNVERIFIED_PUBLISHED_LIMIT } from "@/lib/kyc-policy";
 
 const RUN = Date.now();
-const ids = { client: "", other: "" };
+const ids = { client: "", other: "", provider: "" };
 const missionIds: string[] = [];
 
 function authAs(userId: string) {
@@ -59,7 +62,7 @@ async function publier(body: Record<string, unknown> = {}) {
 
 beforeAll(async () => {
   let n = 0;
-  const mk = (key: string, kycStatus: "en_attente" | "verifie") =>
+  const mk = (key: string, kycStatus: "en_attente" | "verifie", role: "client" | "artisan" = "client") =>
     prisma.user.create({
       data: {
         email: `pk-${key}-${RUN}@flexwork.test`,
@@ -67,42 +70,33 @@ beforeAll(async () => {
         status: "active",
         country: "BJ",
         kycStatus,
-        role: "client",
+        role,
       },
     });
   ids.client = (await mk("client", "en_attente")).id;
   ids.other = (await mk("autre", "verifie")).id;
+  ids.provider = (await mk("prestataire", "verifie", "artisan")).id;
 });
 
 afterAll(async () => {
   await prisma.missionNotification.deleteMany({ where: { missionId: { in: missionIds } } });
+  await prisma.missionProposal.deleteMany({ where: { missionId: { in: missionIds } } });
   await prisma.mission.deleteMany({ where: { id: { in: missionIds } } });
   await prisma.user.deleteMany({ where: { id: { in: Object.values(ids) } } });
 });
 
-const managedIds = async () => {
-  authAs(ids.client);
-  const list = await (await missionsGet()).json();
-  const summary = await (await summaryGet()).json();
-  return {
-    missions: list.items.map((m: { id: string }) => m.id) as string[],
-    recent: summary.missions.map((m: { id: string }) => m.id) as string[],
-    total: summary.stats.total as number,
-  };
-};
+const atProposal = (id: string, proposalId: string) => ({ params: Promise.resolve({ id, proposalId }) });
 
-describe("publication demandée sans identité vérifiée", () => {
-  let pendingId = "";
-  let draftId = "";
+describe("publication avec un KYC en attente", () => {
+  const publishedIds: string[] = [];
+  let heldId = "";
 
-  it("enregistre la mission en brouillon marqué, au lieu de la refuser", async () => {
+  it("publie directement, sans attendre la vérification", async () => {
     const { res, data } = await publier();
     expect(res.status).toBe(200);
-    expect(data).toMatchObject({ status: "brouillon", publicationPending: "kyc" });
-    const mission = await prisma.mission.findUniqueOrThrow({ where: { id: data.id } });
-    expect(mission.status).toBe("brouillon");
-    expect(mission.publicationRequestedAt).toBeInstanceOf(Date);
-    pendingId = data.id;
+    expect(data.status).toBe("publiee");
+    expect(data.publicationPending).toBeUndefined();
+    publishedIds.push(data.id);
   });
 
   it("refuse d'abord une mission non publiable (budget manquant), comme une publication normale", async () => {
@@ -111,62 +105,73 @@ describe("publication demandée sans identité vérifiée", () => {
     expect(data.error).toBe("budget_required_to_publish");
   });
 
-  it("un brouillon ordinaire n'est pas marqué", async () => {
-    const { data } = await publier({ status: "brouillon" });
+  it(`au-delà de ${UNVERIFIED_PUBLISHED_LIMIT} missions en ligne : gardée en brouillon marqué`, async () => {
+    while (publishedIds.length < UNVERIFIED_PUBLISHED_LIMIT) {
+      const { data } = await publier();
+      expect(data.status).toBe("publiee");
+      publishedIds.push(data.id);
+    }
+    const { res, data } = await publier();
+    expect(res.status).toBe(200);
+    expect(data).toMatchObject({ status: "brouillon", publicationPending: "kyc" });
+    expect(data.publicationBlock.error).toBe("unverified_publication_limit");
     const mission = await prisma.mission.findUniqueOrThrow({ where: { id: data.id } });
-    expect(mission.publicationRequestedAt).toBeNull();
-    draftId = data.id;
+    expect(mission.publicationRequestedAt).toBeInstanceOf(Date);
+    heldId = data.id;
   });
 
-  it("aucun brouillon dans la gestion des missions (liste et tableau de bord)", async () => {
-    const managed = await managedIds();
-    expect(managed.missions).not.toContain(pendingId);
-    expect(managed.missions).not.toContain(draftId);
-    expect(managed.recent).toEqual([]);
-    expect(managed.total).toBe(0);
-  });
-
-  it("la carte du tableau de bord liste les brouillons, publication demandée en tête", async () => {
+  it("la carte du tableau de bord dit pourquoi, et publier reste refusé", async () => {
     authAs(ids.client);
     const body = await (await pendingGet()).json();
-    expect(body.kycVerified).toBe(false);
-    expect(body.missions.map((m: { id: string }) => m.id)).toEqual([pendingId, draftId]);
-  });
+    expect(body).toMatchObject({ kycVerified: false, canPublish: false });
+    expect(body.publicationBlock.error).toBe("unverified_publication_limit");
+    expect(body.missions.map((m: { id: string }) => m.id)).toEqual([heldId]);
 
-  it("publier le brouillon reste refusé tant que l'identité n'est pas vérifiée", async () => {
-    authAs(ids.client);
-    const res = await publishPost(new Request("http://localhost"), at(pendingId));
+    const res = await publishPost(new Request("http://localhost"), at(heldId));
     expect(res.status).toBe(403);
-    expect((await res.json()).error).toBe("kyc_not_verified");
+    expect((await res.json()).error).toBe("unverified_publication_limit");
   });
 
   it("un autre client ne peut pas publier ce brouillon", async () => {
     authAs(ids.other);
-    const res = await publishPost(new Request("http://localhost"), at(pendingId));
+    const res = await publishPost(new Request("http://localhost"), at(heldId));
     expect(res.status).toBe(404);
+  });
+
+  it("un client non vérifié ne retient pas de prestataire", async () => {
+    const proposal = await prisma.missionProposal.create({
+      data: { missionId: publishedIds[0], providerId: ids.provider, message: "Candidature de test" },
+    });
+    authAs(ids.client);
+    const res = await acceptPost(new Request("http://localhost"), atProposal(publishedIds[0], proposal.id));
+    expect(res.status).toBe(403);
+    expect((await res.json()).error).toBe("kyc_not_verified");
+    const unchanged = await prisma.missionProposal.findUniqueOrThrow({ where: { id: proposal.id } });
+    expect(unchanged.status).toBe(proposal.status);
+  });
+
+  it("KYC rejeté : plus aucune publication, même sous le plafond", async () => {
+    await prisma.mission.updateMany({ where: { id: { in: publishedIds } }, data: { status: "cloturee" } });
+    await prisma.user.update({ where: { id: ids.client }, data: { kycStatus: "rejete" } });
+    const { data } = await publier();
+    expect(data).toMatchObject({ status: "brouillon", publicationPending: "kyc" });
+    expect(data.publicationBlock.error).toBe("kyc_rejected");
   });
 
   it("identité vérifiée : publication en un clic, une seule fois", async () => {
     await prisma.user.update({ where: { id: ids.client }, data: { kycStatus: "verifie" } });
     authAs(ids.client);
 
-    const first = await publishPost(new Request("http://localhost"), at(pendingId));
+    const first = await publishPost(new Request("http://localhost"), at(heldId));
     expect(first.status).toBe(200);
-    const mission = await prisma.mission.findUniqueOrThrow({ where: { id: pendingId } });
+    const mission = await prisma.mission.findUniqueOrThrow({ where: { id: heldId } });
     expect(mission.status).toBe("publiee");
     expect(mission.publicationRequestedAt).toBeNull();
 
-    const again = await publishPost(new Request("http://localhost"), at(pendingId));
+    const again = await publishPost(new Request("http://localhost"), at(heldId));
     expect(again.status).toBe(409);
 
     const body = await (await pendingGet()).json();
-    expect(body.kycVerified).toBe(true);
-    expect(body.missions.map((m: { id: string }) => m.id)).toEqual([draftId]);
-
-    // Publiée : elle entre dans la gestion des missions ; le brouillon, toujours pas.
-    const managed = await managedIds();
-    expect(managed.missions).toEqual([pendingId]);
-    expect(managed.recent).toEqual([pendingId]);
-    expect(managed.total).toBe(1);
+    expect(body).toMatchObject({ kycVerified: true, canPublish: true, publicationBlock: null });
   });
 });

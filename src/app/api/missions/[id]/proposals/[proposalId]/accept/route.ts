@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { acceptProposal } from "@/lib/accept-proposal";
 import { assertNoSelfDealing } from "@/lib/invariants";
+import { kycBlockFor } from "@/lib/kyc-policy";
 
 // Phase 4 : le client accepte une proposition — les autres sont automatiquement refusées.
 // Ne génère pas encore le contrat (voir /contract, US-402), simple sélection.
@@ -15,6 +16,11 @@ export async function POST(
     return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
   }
   const userId = (session.user as typeof session.user & { id: string }).id;
+  // Retenir un prestataire engage le client : identité vérifiée exigée (src/lib/kyc-policy.ts).
+  const kycBlock = await kycBlockFor(userId, "contractualiser");
+  if (kycBlock) {
+    return NextResponse.json(kycBlock, { status: 403 });
+  }
   const { id: missionId, proposalId } = await params;
 
   const mission = await prisma.mission.findUnique({ where: { id: missionId } });

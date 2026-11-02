@@ -685,8 +685,15 @@ export default function OffreCandidaturePage() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <div className="font-semibold text-[14px]">{clientName} {mission.client?.country && <span>{countryFlag(mission.client.country)}</span>}</div>
-                  {mission.clientStats.kycVerified && (
+                  {mission.clientStats.kycVerified ? (
                     <span className="px-2 py-0.5 rounded-full bg-[#E6F4EE] text-[#008751] text-[10px] font-bold">KYC Validé</span>
+                  ) : (
+                    <span
+                      title="Le client peut publier avant sa vérification ; aucun contrat ni paiement n'est possible tant qu'elle n'est pas faite."
+                      className="px-2 py-0.5 rounded-full bg-[#FEF3C7] text-[#92400E] text-[10px] font-bold"
+                    >
+                      Identité non vérifiée
+                    </span>
                   )}
                 </div>
                 <div className="flex items-center gap-3 text-[12px] text-[#64748B] mt-1 flex-wrap">

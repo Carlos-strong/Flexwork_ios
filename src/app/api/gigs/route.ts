@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
+import { kycBlockFor } from "@/lib/kyc-policy";
 
 export const dynamic = "force-dynamic";
 
@@ -59,6 +60,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
   }
   const userId = (session.user as { id: string }).id;
+  // Publier un Gig, c'est proposer une prestation ferme : identité vérifiée exigée (src/lib/kyc-policy.ts).
+  const kycBlock = await kycBlockFor(userId, "publier_gig");
+  if (kycBlock) {
+    return NextResponse.json(kycBlock, { status: 403 });
+  }
   // Un prestataire = tout rôle non-client (expert_digital, expert_btp_autres, artisan,
   // manoeuvre) — même convention que les routes missions.
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });

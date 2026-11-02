@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
+import { kycBlockFor } from "@/lib/kyc-policy";
 import { rechargeNeed, requestRecharge } from "@/lib/escrow-recharge";
 import { isVirtualPspEnabled, shouldAutoConfirmStub } from "@/lib/psp-virtual";
 
@@ -51,6 +52,11 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
 
   const contract = await loadOwnedContract(missionId, userId);
   if (!contract) return NextResponse.json({ error: "not_found" }, { status: 404 });
+  // Mouvement de fonds : identité vérifiée exigée (src/lib/kyc-policy.ts).
+  const kycBlock = await kycBlockFor(userId, "financer");
+  if (kycBlock) {
+    return NextResponse.json(kycBlock, { status: 403 });
+  }
 
   const result = await requestRecharge(contract.id);
   if (!result.ok) {

@@ -74,7 +74,7 @@ beforeAll(async () => {
 
   const mk = (suffix: string, role: string, n: number) =>
     prisma.user.create({
-      data: { email: `e2e-opr-${suffix}-${RUN}@flexwork.test`, tel: `+229${RUN}7${n}`, role: role as "client", status: "active", country: "BJ" },
+      data: { email: `e2e-opr-${suffix}-${RUN}@flexwork.test`, tel: `+229${RUN}7${n}`, role: role as "client", status: "active", country: "BJ", kycStatus: "verifie" },
     });
   const [c, p, m, x] = await Promise.all([
     mk("client", "client", 0),

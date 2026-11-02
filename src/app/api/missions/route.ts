@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db";
 import { missionSchema } from "@/lib/validation";
 import { notifyMissionUser } from "@/lib/mission-notify";
 import { announcePublication, publishBlocker } from "@/lib/mission-publish";
-import { requireVerifiedKyc } from "@/lib/kycGuard";
+import { clientPublicationRight, type KycBlock } from "@/lib/kyc-policy";
 import { insuranceRequiredFor } from "@/lib/metier-risk";
 import { isProfessionalTypeAllowed, secteurLabel } from "@/lib/secteur";
 import { getFinancingMode } from "@/lib/financing-modes";
@@ -20,10 +20,12 @@ import { resolveSiteManager } from "@/lib/site-manager";
 // sur toute création et exigeait le KYC même pour un brouillon, empêchant tout brouillon
 // d'exister (contradiction avec la bannière d'aide de /missions/new qui promet l'inverse).
 //
-// Publication demandée SANS identité vérifiée (2026-10-06) : la demande n'est plus refusée.
-// La mission — complète et conforme aux règles de publication — est enregistrée en brouillon
-// et marquée `publicationRequestedAt` ; la réponse le signale (`publicationPending: "kyc"`).
-// Rien de ce que le client a saisi n'est perdu, et dès la vérification il la publie en un clic
+// Publication SANS identité vérifiée (2026-11-02, src/lib/kyc-policy.ts) : un KYC en attente
+// ne bloque plus la mise en ligne — c'est la contractualisation et le financement qui
+// l'exigent. Restent gardées en brouillon marqué `publicationRequestedAt` (réponse
+// `publicationPending: "kyc"`, comme depuis 2026-10-06) les publications que les contrôles
+// antifraude retiennent : KYC rejeté, ou plafond de missions en ligne non vérifiées atteint.
+// Rien de ce que le client a saisi n'est perdu, et il la publie en un clic une fois débloqué
 // (POST /api/missions/[id]/publish, voir src/lib/mission-publish.ts).
 export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
@@ -51,9 +53,9 @@ export async function POST(req: Request) {
   const userId = (session.user as typeof session.user & { id: string }).id;
 
   // Publication : conditions de la mission d'abord (mêmes règles que la publication d'un
-  // brouillon), PUIS l'identité — une mission bloquée par le KYC doit être publiable telle
-  // quelle une fois l'identité vérifiée.
-  let kycPending = false;
+  // brouillon), PUIS les contrôles d'identité — une mission retenue doit être publiable telle
+  // quelle une fois débloquée.
+  let publicationBlock: KycBlock | null = null;
   if (wantsPublish) {
     const blocker = publishBlocker({
       budgetType: isTimeMode ? "RATE" : parsed.data.budgetType,
@@ -65,14 +67,10 @@ export async function POST(req: Request) {
     if (blocker) {
       return NextResponse.json(blocker, { status: 400 });
     }
-    const guard = await requireVerifiedKyc();
-    if (!guard.ok) {
-      if (guard.error !== "kyc_not_verified") {
-        return NextResponse.json({ error: guard.error }, { status: guard.status });
-      }
-      kycPending = true;
-    }
+    const right = await clientPublicationRight(userId);
+    if (!right.ok) publicationBlock = { error: right.error, message: right.message };
   }
+  const kycPending = publicationBlock !== null;
   const publishNow = wantsPublish && !kycPending;
 
   // ── Taxonomie (2026-09-23) ────────────────────────────────────────────────────────────
@@ -277,17 +275,17 @@ export async function POST(req: Request) {
 
   if (publishNow) {
     await announcePublication(mission, userId);
-  } else if (kycPending) {
+  } else if (publicationBlock) {
     // Le client garde une trace de sa demande (cloche + e-mail), avec ce qui reste à faire.
     try {
       await notifyMissionUser({
         missionId: mission.id,
         userId,
         type: "mission_publication_en_attente",
-        message: `Votre mission « ${mission.titre} » est enregistrée. Elle pourra être publiée dès que votre identité sera vérifiée.`,
+        message: `Votre mission « ${mission.titre} » est enregistrée en brouillon. ${publicationBlock.message}`,
         email: {
           subject: `Mission enregistrée — vérification d'identité requise`,
-          text: `Votre mission « ${mission.titre} » est enregistrée en brouillon. Votre identité doit être vérifiée avant de publier une mission : dès la vérification, vous pourrez la publier en un clic depuis votre tableau de bord.`,
+          text: `Votre mission « ${mission.titre} » est enregistrée en brouillon. ${publicationBlock.message} Dès que ce sera réglé, vous pourrez la publier en un clic depuis votre tableau de bord.`,
         },
       });
     } catch (e) {
@@ -299,7 +297,7 @@ export async function POST(req: Request) {
     id: mission.id,
     status: mission.status,
     riskLevel: mission.riskLevel,
-    ...(kycPending ? { publicationPending: "kyc" as const } : {}),
+    ...(publicationBlock ? { publicationPending: "kyc" as const, publicationBlock } : {}),
   });
 }
 

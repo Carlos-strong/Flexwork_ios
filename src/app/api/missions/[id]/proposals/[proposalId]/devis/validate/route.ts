@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { notifyMissionUser } from "@/lib/mission-notify";
+import { kycBlockFor } from "@/lib/kyc-policy";
 
 // Le client valide le devis d'une proposition en négociation → "devis_valide".
 // Les autres propositions encore ouvertes sont refusées (même règle que l'acceptation
@@ -16,6 +17,11 @@ export async function POST(
     return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
   }
   const userId = (session.user as typeof session.user & { id: string }).id;
+  // Valider un devis retient le prestataire : identité vérifiée exigée (src/lib/kyc-policy.ts).
+  const kycBlock = await kycBlockFor(userId, "contractualiser");
+  if (kycBlock) {
+    return NextResponse.json(kycBlock, { status: 403 });
+  }
   const { id: missionId, proposalId } = await params;
 
   const mission = await prisma.mission.findUnique({ where: { id: missionId } });

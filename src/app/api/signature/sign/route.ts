@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
+import { kycBlockFor } from "@/lib/kyc-policy";
 import { SignatureService } from "@/lib/signature";
 import { requireContractParty } from "@/lib/resource-guard";
 import { counterSignDeadline, cancelExpiredContract } from "@/lib/contract-expiry";
@@ -34,6 +35,12 @@ export async function POST(req: Request) {
     const guard = await requireContractParty(contractId, userId);
     if (!guard.ok) {
       return NextResponse.json({ error: "not_found" }, { status: 404 });
+    }
+    // Signer engage, et la contre-signature du client déclenche le séquestre : identité
+    // vérifiée exigée des deux parties (src/lib/kyc-policy.ts).
+    const kycBlock = await kycBlockFor(userId, "signer");
+    if (kycBlock) {
+      return NextResponse.json(kycBlock, { status: 403 });
     }
 
     // Ordre de signature (modèle mission) imposé côté serveur : le PRESTATAIRE signe en

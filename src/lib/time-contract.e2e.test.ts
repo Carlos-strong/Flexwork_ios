@@ -54,10 +54,10 @@ beforeAll(async () => {
   delete process.env.ESCROW_STUB_AUTOCONFIRM;
 
   const client = await prisma.user.create({
-    data: { email: `e2e-s2-client-${RUN}@flexwork.test`, tel: `+229${RUN}90`, role: "client", status: "active", country: "BJ" },
+    data: { email: `e2e-s2-client-${RUN}@flexwork.test`, tel: `+229${RUN}90`, role: "client", status: "active", country: "BJ", kycStatus: "verifie" },
   });
   const provider = await prisma.user.create({
-    data: { email: `e2e-s2-provider-${RUN}@flexwork.test`, tel: `+229${RUN}91`, role: "manoeuvre", status: "active", country: "BJ" },
+    data: { email: `e2e-s2-provider-${RUN}@flexwork.test`, tel: `+229${RUN}91`, role: "manoeuvre", status: "active", country: "BJ", kycStatus: "verifie" },
   });
   clientId = client.id;
   providerId = provider.id;

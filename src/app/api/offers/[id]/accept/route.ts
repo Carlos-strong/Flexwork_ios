@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { acceptProposal } from "@/lib/accept-proposal";
+import { kycBlockFor } from "@/lib/kyc-policy";
 
 // Le prestataire accepte une offre formelle reçue (model Offer). Réutilise exactement la
 // même logique que l'acceptation directe d'une candidature (src/lib/accept-proposal.ts) —
@@ -16,6 +17,11 @@ export async function POST(
     return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
   }
   const userId = (session.user as typeof session.user & { id: string }).id;
+  // Accepter une offre vaut candidature : identité vérifiée exigée (src/lib/kyc-policy.ts).
+  const kycBlock = await kycBlockFor(userId, "candidater");
+  if (kycBlock) {
+    return NextResponse.json(kycBlock, { status: 403 });
+  }
   const { id: offerId } = await params;
 
   const offer = await prisma.offer.findFirst({ where: { id: offerId, providerId: userId } });

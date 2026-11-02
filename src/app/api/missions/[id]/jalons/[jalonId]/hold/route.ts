@@ -10,6 +10,7 @@ import { isMissionFundingClosed } from "@/lib/mission-status";
 import { canHoldJalonSequential, firstBlockingSequentialJalon, isJalonUnengaged } from "@/lib/jalons";
 import { isVirtualPspEnabled, shouldAutoConfirmStub, virtualPspName } from "@/lib/psp-virtual";
 import { afterInstructionCommitted } from "@/lib/psp/dispatch";
+import { kycBlockFor } from "@/lib/kyc-policy";
 
 // Version scopée-jalon de POST /api/missions/[id]/escrow/hold (US-501) — même garde-fous
 // (contrat signé des deux côtés, flag PSP par zone, assurance effective si risque élevé),
@@ -23,6 +24,11 @@ export async function POST(
     return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
   }
   const userId = (session.user as typeof session.user & { id: string }).id;
+  // Mouvement de fonds : identité vérifiée exigée (src/lib/kyc-policy.ts).
+  const kycBlock = await kycBlockFor(userId, "financer");
+  if (kycBlock) {
+    return NextResponse.json(kycBlock, { status: 403 });
+  }
   const { id: missionId, jalonId } = await params;
 
   const contract = await prisma.prestationContract.findUnique({

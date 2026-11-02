@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
+import { kycBlockFor } from "@/lib/kyc-policy";
 import { GigSignatureService } from "@/lib/gig-signature";
 import { isOrderExpired, refundExpiredOrder, PROVIDER_SIGN_DEADLINE_HOURS } from "@/lib/gig-expiry";
 import { notifyBoth } from "@/lib/notify";
@@ -38,6 +39,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ orderId
   if (!order) return NextResponse.json({ error: "not_found" }, { status: 404 });
 
   const signerIsClient = userId === order.clientId;
+  // Le client signe en finançant, le prestataire en s'engageant : identité vérifiée exigée des
+  // deux (src/lib/kyc-policy.ts).
+  const kycBlock = await kycBlockFor(userId, signerIsClient ? "financer" : "signer");
+  if (kycBlock) {
+    return NextResponse.json(kycBlock, { status: 403 });
+  }
 
   // Ordre INVERSÉ + délai 24h (mêmes messages utilisateur que le modèle Mission).
   if (signerIsClient) {

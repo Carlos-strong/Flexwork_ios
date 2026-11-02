@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
+import { kycBlockFor } from "@/lib/kyc-policy";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +14,11 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
   }
   const userId = (session.user as { id: string }).id;
+  // Acheter un Gig crée une commande ferme : identité vérifiée exigée (src/lib/kyc-policy.ts).
+  const kycBlock = await kycBlockFor(userId, "contractualiser");
+  if (kycBlock) {
+    return NextResponse.json(kycBlock, { status: 403 });
+  }
 
   const gig = await prisma.gig.findUnique({ where: { id: (await params).id } });
   if (!gig || gig.status !== "publie") {

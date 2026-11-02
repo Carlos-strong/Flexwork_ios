@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { notifyMissionParties } from "@/lib/mission-notify";
 import { offerSchema } from "@/lib/validation";
+import { kycBlockFor } from "@/lib/kyc-policy";
 
 // Le client envoie une offre formelle à un candidat, à partir d'une candidature déjà reçue
 // (model Offer, prisma/schema.prisma — jamais exposé côté API avant cette route). Réutilise
@@ -17,6 +18,11 @@ export async function POST(
     return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
   }
   const userId = (session.user as typeof session.user & { id: string }).id;
+  // Une offre formelle engage le client : identité vérifiée exigée (src/lib/kyc-policy.ts).
+  const kycBlock = await kycBlockFor(userId, "contractualiser");
+  if (kycBlock) {
+    return NextResponse.json(kycBlock, { status: 403 });
+  }
   const { id: missionId, proposalId } = await params;
 
   const mission = await prisma.mission.findUnique({ where: { id: missionId } });

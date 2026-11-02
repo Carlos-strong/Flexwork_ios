@@ -503,9 +503,10 @@ export function MissionWizard() {
     clearMissionDraft();
     // Publication (2026-10-06) :
     //  - publiée → page des missions publiées, avec la confirmation ;
-    //  - identité non vérifiée → la route a ENREGISTRÉ la mission en brouillon marqué
-    //    « publication demandée » : retour au tableau de bord, qui explique le blocage et
-    //    proposera « Publier maintenant » dès la vérification.
+    //  - publication retenue par les contrôles d'identité (KYC rejeté, plafond de missions non
+    //    vérifiées) → la route a ENREGISTRÉ la mission en brouillon marqué « publication
+    //    demandée » : retour au tableau de bord, qui explique le blocage et proposera
+    //    « Publier maintenant » une fois débloquée.
     // Le bouton reste désactivé pendant la navigation (pas de double envoi).
     if (publish && mission.status === "publiee") {
       router.push(`/client/missions?publiee=${encodeURIComponent(mission.id)}`);
@@ -668,9 +669,8 @@ export function MissionWizard() {
 
         {kycVerified === false && (
           <div className="px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-[13px] text-amber-900">
-            Votre identité n&apos;est pas encore vérifiée : vous pouvez tout préparer et cliquer sur « Publier ». La mission
-            sera enregistrée en brouillon, et vous pourrez la publier en un clic depuis votre tableau de bord dès la
-            vérification.
+            Votre identité n&apos;est pas encore vérifiée : vous pouvez publier votre mission et recevoir des candidatures.
+            La vérification sera exigée avant de retenir un prestataire, de signer le contrat et de verser les fonds.
           </div>
         )}
 

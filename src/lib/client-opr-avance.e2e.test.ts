@@ -107,7 +107,7 @@ beforeAll(async () => {
   delete process.env.ESCROW_STUB_AUTOCONFIRM;
   const mk = (key: string, role: string, n: number) =>
     prisma.user.create({
-      data: { email: `coa-${key}-${RUN}@flexwork.test`, tel: `+229${RUN}8${n}`, role: role as "client", status: "active", country: "BJ" },
+      data: { email: `coa-${key}-${RUN}@flexwork.test`, tel: `+229${RUN}8${n}`, role: role as "client", status: "active", country: "BJ", kycStatus: "verifie" },
     });
   clientId = (await mk("client", "client", 0)).id;
   providerId = (await mk("presta", "artisan", 1)).id;

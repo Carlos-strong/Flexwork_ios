@@ -58,6 +58,7 @@ beforeAll(async () => {
       tel: `+229${RUN}1`,
       role: "client",
       status: "active",
+      kycStatus: "verifie",
       country: "BJ",
     },
   });
@@ -67,6 +68,7 @@ beforeAll(async () => {
       tel: `+229${RUN}2`,
       role: "artisan",
       status: "active",
+      kycStatus: "verifie",
       country: "BJ",
     },
   });

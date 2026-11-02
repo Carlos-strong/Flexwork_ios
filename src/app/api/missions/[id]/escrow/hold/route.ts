@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { requestContractHold } from "@/lib/escrow";
 import { isVirtualPspEnabled, shouldAutoConfirmStub } from "@/lib/psp-virtual";
+import { kycBlockFor } from "@/lib/kyc-policy";
 
 // US-501 (Phase 5) : transmet une instruction HOLD au PSP — la plateforme ne détient jamais
 // les fonds, elle enregistre l'instruction et attend la confirmation par webhook (US-503).
@@ -20,6 +21,11 @@ export async function POST(
     return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
   }
   const userId = (session.user as typeof session.user & { id: string }).id;
+  // Mouvement de fonds : identité vérifiée exigée (src/lib/kyc-policy.ts).
+  const kycBlock = await kycBlockFor(userId, "financer");
+  if (kycBlock) {
+    return NextResponse.json(kycBlock, { status: 403 });
+  }
   const { id: missionId } = await params;
 
   const contract = await prisma.prestationContract.findUnique({

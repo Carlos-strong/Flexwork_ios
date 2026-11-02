@@ -10,6 +10,7 @@ import type { DevisData } from "@/lib/devis";
 import { isCounterSignExpired, cancelExpiredContract } from "@/lib/contract-expiry";
 import { notifyMissionParties } from "@/lib/mission-notify";
 import { resolveTimeTerms, type SpotTimeTerms } from "@/lib/spot-time";
+import { kycBlockFor } from "@/lib/kyc-policy";
 
 // US-402 (Phase 4) : génère le contrat de prestation à partir de la proposition acceptée.
 // La plateforme n'est jamais signataire — voir la mention obligatoire ci-dessous, testée en
@@ -27,6 +28,11 @@ export async function POST(
     return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
   }
   const userId = (session.user as typeof session.user & { id: string }).id;
+  // Générer le contrat : identité du client vérifiée exigée (src/lib/kyc-policy.ts).
+  const kycBlock = await kycBlockFor(userId, "contractualiser");
+  if (kycBlock) {
+    return NextResponse.json(kycBlock, { status: 403 });
+  }
   const { id: missionId } = await params;
 
   // Paiement fractionné optionnel (2026-08-06) : `jalons` est facultatif. Absent → comportement

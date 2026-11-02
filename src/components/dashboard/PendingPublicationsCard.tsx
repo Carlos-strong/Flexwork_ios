@@ -9,21 +9,29 @@ import { ShieldAlert, ShieldCheck, Send } from "lucide-react";
 // où un brouillon apparaît : la gestion des missions ne montre que des missions publiées.
 //
 //  - Arrivée depuis le formulaire de mission (?publication=kyc) : le client a cliqué « Publier »
-//    sans identité vérifiée. On lui dit pourquoi la mission n'est pas en ligne, que rien n'est
-//    perdu, et comment débloquer — vérifier son identité.
-//  - Ensuite, tant qu'il reste des missions dont il a demandé la publication : identité non
-//    vérifiée → rappel ; identité vérifiée → « Publier maintenant », en un clic, sans ressaisie
+//    et les contrôles d'identité ont retenu la mission (KYC rejeté, ou plafond de missions en
+//    ligne non vérifiées — src/lib/kyc-policy.ts). On lui dit pourquoi elle n'est pas en ligne,
+//    que rien n'est perdu, et comment débloquer.
+//  - Ensuite, tant qu'il reste des missions dont il a demandé la publication : publication
+//    retenue → rappel ; publication possible → « Publier maintenant », en un clic, sans ressaisie
 //    (POST /api/missions/[id]/publish, qui revérifie toutes les conditions de publication).
 //
 // À rendre sous <Suspense> : useSearchParams l'exige dans l'App Router.
 
-// `publicationRequestedAt` : le client a cliqué « Publier » avant que son identité soit
-// vérifiée ; `null` : brouillon enregistré volontairement.
+// `publicationRequestedAt` : le client a cliqué « Publier » et la mission a été retenue ;
+// `null` : brouillon enregistré volontairement.
 type Pending = { id: string; titre: string; domaine: string; publicationRequestedAt: string | null; createdAt: string };
-type State = { kycVerified: boolean; kycStatus: string | null; missions: Pending[] };
+type State = {
+  kycVerified: boolean;
+  kycStatus: string | null;
+  canPublish: boolean;
+  publicationBlock: { error: string; message: string } | null;
+  missions: Pending[];
+};
 
 const PUBLISH_ERRORS: Record<string, string> = {
   kyc_not_verified: "Votre identité doit être vérifiée avant de publier une mission.",
+  kyc_rejected: "Votre vérification d'identité a été refusée : renvoyez vos justificatifs pour publier une mission.",
   budget_required_to_publish: "Cette mission n'a pas de budget : elle ne peut pas être publiée en l'état.",
   time_terms_required_to_publish: "Le tarif et la quantité maximale sont requis pour publier une mission au temps.",
   financing_mode_unavailable: "Le mode de financement choisi n'est pas encore disponible à la publication.",
@@ -59,7 +67,7 @@ export function PendingPublicationsCard() {
     setError(
       body.error === "financing_mode_unavailable" && body.reason
         ? body.reason
-        : (PUBLISH_ERRORS[body.error] ?? "La publication a échoué. Réessayez dans un instant."),
+        : (PUBLISH_ERRORS[body.error] ?? body.message ?? "La publication a échoué. Réessayez dans un instant."),
     );
     load();
   }
@@ -67,10 +75,11 @@ export function PendingPublicationsCard() {
   const missions = state?.missions ?? [];
   if (!fromWizard && missions.length === 0) return null;
   const verified = state?.kycVerified === true;
+  const canPublish = state?.canPublish === true;
   const anyRequested = fromWizard || missions.some((m) => m.publicationRequestedAt);
-  // Trois tons : identité à vérifier (ambre), publication demandée et désormais possible
-  // (vert), simples brouillons d'un compte vérifié (neutre).
-  const tone = !verified ? "amber" : anyRequested ? "green" : "neutral";
+  // Trois tons : publication retenue (ambre), publication demandée et désormais possible
+  // (vert), simples brouillons publiables (neutre).
+  const tone = !canPublish ? "amber" : anyRequested ? "green" : "neutral";
   const TONES = {
     amber: { box: "border-[#FDE68A] bg-[#FFFBEB]", icon: "bg-[#FEF3C7] text-[#B45309]", title: "text-[#78350F]", text: "text-[#92400E]" },
     green: { box: "border-[#BBF7D0] bg-[#F0FDF4]", icon: "bg-[#DCFCE7] text-[#15803D]", title: "text-[#14532D]", text: "text-[#166534]" },
@@ -81,22 +90,29 @@ export function PendingPublicationsCard() {
     <div role="status" className={`mb-6 rounded-[16px] border p-4 md:p-5 ${TONES.box}`}>
       <div className="flex items-start gap-3">
         <span className={`mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-full ${TONES.icon}`}>
-          {verified ? <ShieldCheck className="h-5 w-5" aria-hidden /> : <ShieldAlert className="h-5 w-5" aria-hidden />}
+          {canPublish ? <ShieldCheck className="h-5 w-5" aria-hidden /> : <ShieldAlert className="h-5 w-5" aria-hidden />}
         </span>
         <div className="min-w-0 flex-1">
-          {!verified ? (
+          {!canPublish ? (
             <>
-              <p className={`text-[14px] font-semibold ${TONES.title}`}>Votre identité doit être vérifiée avant de publier une mission.</p>
+              <p className={`text-[14px] font-semibold ${TONES.title}`}>
+                {state?.publicationBlock?.message ?? "Votre identité doit être vérifiée avant de publier une mission."}
+              </p>
               <p className={`mt-0.5 text-[13px] ${TONES.text}`}>
                 {anyRequested
-                  ? "Votre mission est enregistrée en brouillon : rien n'est perdu. Dès la vérification, vous pourrez la publier en un clic depuis ce tableau de bord."
-                  : "Vos brouillons ne sont pas visibles des prestataires. Ils pourront être publiés en un clic dès la vérification."}
+                  ? "Votre mission est enregistrée en brouillon : rien n'est perdu. Dès que ce sera réglé, vous pourrez la publier en un clic depuis ce tableau de bord."
+                  : "Vos brouillons ne sont pas visibles des prestataires. Ils pourront être publiés en un clic dès que ce sera réglé."}
               </p>
             </>
           ) : anyRequested ? (
             <>
-              <p className={`text-[14px] font-semibold ${TONES.title}`}>Votre identité est vérifiée — vos missions sont prêtes à être publiées</p>
-              <p className={`mt-0.5 text-[13px] ${TONES.text}`}>Publiez-les en un clic : rien n&apos;est à ressaisir.</p>
+              <p className={`text-[14px] font-semibold ${TONES.title}`}>
+                {verified ? "Votre identité est vérifiée — vos missions sont prêtes à être publiées" : "Vos missions peuvent être publiées"}
+              </p>
+              <p className={`mt-0.5 text-[13px] ${TONES.text}`}>
+                Publiez-les en un clic : rien n&apos;est à ressaisir.
+                {!verified && " Votre identité devra être vérifiée avant de conclure un contrat."}
+              </p>
             </>
           ) : (
             <>
@@ -120,7 +136,7 @@ export function PendingPublicationsCard() {
                         : `brouillon du ${new Date(m.createdAt).toLocaleDateString("fr-FR")}`}
                     </p>
                   </div>
-                  {verified ? (
+                  {canPublish ? (
                     <button
                       type="button"
                       onClick={() => publish(m.id)}
@@ -132,7 +148,7 @@ export function PendingPublicationsCard() {
                     </button>
                   ) : (
                     <span className="inline-flex h-7 shrink-0 items-center self-start rounded-full bg-[#FEF3C7] px-3 text-[11px] font-semibold text-[#92400E] sm:self-auto">
-                      En attente de vérification
+                      Publication retenue
                     </span>
                   )}
                 </li>
