@@ -15,6 +15,7 @@
 import { describe, expect, it, beforeAll, afterAll } from "vitest";
 import { prisma } from "@/lib/db";
 import { completeGigOrder, gigHeldBalance, gigAvailableBalance } from "@/lib/gig-completion";
+import { givePayoutAccount } from "@/test/payout-fixture";
 
 const RUN = Date.now();
 const CLIENT_EMAIL = `e2e-gig-client-${RUN}@flexwork.test`;
@@ -67,6 +68,7 @@ beforeAll(async () => {
   });
   clientId = client.id;
   providerId = provider.id;
+  await givePayoutAccount(providerId);
 
   const gig = await prisma.gig.create({
     data: {

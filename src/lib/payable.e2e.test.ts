@@ -17,7 +17,8 @@
 
 import { describe, expect, it, beforeAll, afterAll } from "vitest";
 import { prisma } from "@/lib/db";
-import { emitScopedRelease, escrowBalance, escrowBalancesFor, instructOwedPayable, releaseAwaitingPayouts } from "@/lib/escrow";
+import { emitScopedRelease, escrowBalance, escrowBalancesFor, instructOwedPayable } from "@/lib/escrow";
+import { releaseAwaitingPayouts } from "@/lib/payout-release";
 import { operateVirtualPsp } from "@/lib/psp-virtual";
 import { RETENTION_RATE_J4 } from "@/lib/financing-modes";
 import { givePayoutAccount } from "@/test/payout-fixture";

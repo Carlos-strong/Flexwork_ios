@@ -37,6 +37,8 @@ type Order = {
   montant: number;
   currency: string;
   status: string;
+  /** Livraison validée, versement en attente de la vérification du compte du prestataire. */
+  payoutPending: boolean;
   clientSignedAt: string | null;
   providerSignedAt: string | null;
   refundedAt: string | null;
@@ -234,7 +236,13 @@ export default function GigOrderDetail({ orderId, onBack }: { orderId: string; o
           {/* Réservé au CLIENT — symétrie exacte de la validation d'un livrable de mission : un
               prestataire capable de déclencher son propre paiement viderait le séquestre de sa
               fonction. */}
-          {isClient && (
+          {order.payoutPending ? (
+            <p className="rounded-lg border border-[#FDE68A] bg-[#FFFBEB] p-2.5 text-[12.5px] text-[#92400E]">
+              {isProvider
+                ? "Livraison validée. Votre paiement partira dès que votre compte de versement sera vérifié."
+                : "Livraison validée. Le versement partira dès que le compte de versement du prestataire sera vérifié."}
+            </p>
+          ) : isClient && (
             <button
               onClick={validerLivraison}
               disabled={validating}
@@ -245,7 +253,7 @@ export default function GigOrderDetail({ orderId, onBack }: { orderId: string; o
                 : `Valider la livraison et libérer ${order.montant.toLocaleString("fr-FR")} ${order.currency}`}
             </button>
           )}
-          {isProvider && (
+          {isProvider && !order.payoutPending && (
             <p className="text-[12px] text-[#00623A]">
               Le client validera la livraison pour déclencher votre paiement.
             </p>

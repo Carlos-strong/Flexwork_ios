@@ -73,6 +73,15 @@ export async function POST(
     amount: accrued,
     currency: contract.mission.currency,
   });
+  if (result.reason === "payout_unverified") {
+    return NextResponse.json(
+      {
+        error: "payout_unverified",
+        message: "Le compte de versement du prestataire n'est pas vérifié : la retenue reste au séquestre. Relancez le règlement après sa vérification.",
+      },
+      { status: 409 },
+    );
+  }
   if (!result.emitted) {
     return NextResponse.json({ error: "retention_already_instructed" }, { status: 409 });
   }

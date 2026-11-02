@@ -22,6 +22,7 @@ import { escrowBalance } from "@/lib/escrow";
 import { gigHeldBalance, completeGigOrder } from "@/lib/gig-completion";
 import { applyPspWebhookEvent } from "@/lib/psp-webhook";
 import { signWebhookPayload } from "@/lib/webhook-signing";
+import { givePayoutAccount } from "@/test/payout-fixture";
 
 const RUN = Date.now();
 const CLIENT_EMAIL = `e2e-unif-client-${RUN}@flexwork.test`;
@@ -46,6 +47,7 @@ beforeAll(async () => {
   });
   clientId = client.id;
   providerId = provider.id;
+  await givePayoutAccount(providerId);
 
   const mission = await prisma.mission.create({
     data: {

@@ -6,7 +6,7 @@ import { logAdminAction } from "@/lib/admin-audit";
 import { recordVerificationHistory } from "@/lib/verification-history";
 import { notifyUser } from "@/lib/notify";
 import { mobileMoneyOperatorLabel } from "@/lib/mobile-money";
-import { releaseAwaitingPayouts } from "@/lib/escrow";
+import { releaseAwaitingPayouts } from "@/lib/payout-release";
 
 // Instruction du compte de versement Mobile Money (2026-09-23).
 //

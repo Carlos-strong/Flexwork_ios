@@ -289,13 +289,15 @@ async function availableFrom(
 // Aucun versement n'est adressé à un compte dont l'opérateur n'a pas été contrôlé
 // (isPayoutReady, src/lib/mobile-money.ts). La créance n'en est pas moins DUE : elle reste
 // `validated`, comme quand le séquestre manque, et part dès la vérification du compte
-// (releaseAwaitingPayouts, appelée par la décision admin). Lu sous le verrou de l'appelant.
-async function providerPayoutReady(contractId: string, client: Prisma.TransactionClient | typeof prisma): Promise<boolean> {
-  const contract = await client.prestationContract.findUnique({
-    where: { id: contractId },
-    select: { provider: { select: { payoutAccount: { select: { status: true } } } } },
-  });
-  return isPayoutReady(contract?.provider.payoutAccount?.status);
+// (releaseAwaitingPayouts, src/lib/payout-release.ts). Lu sous le verrou de l'appelant.
+export async function payoutReadyFor(userId: string, client: Prisma.TransactionClient | typeof prisma = prisma): Promise<boolean> {
+  const account = await client.payoutAccount.findUnique({ where: { userId }, select: { status: true } });
+  return isPayoutReady(account?.status);
+}
+
+export async function providerPayoutReady(contractId: string, client: Prisma.TransactionClient | typeof prisma = prisma): Promise<boolean> {
+  const contract = await client.prestationContract.findUnique({ where: { id: contractId }, select: { providerId: true } });
+  return !!contract && (await payoutReadyFor(contract.providerId, client));
 }
 
 export type ScopedReleaseResult =
@@ -309,7 +311,7 @@ export type ScopedReleaseResult =
   | { ok: false; reason: "escrow_insufficient"; payable: Payable; available: number; wanted: number }
   /**
    * Compte de versement du prestataire non vérifié : aucune instruction, le payable reste
-   * `validated` et part à la vérification du compte (releaseAwaitingPayouts).
+   * `validated` et part à la vérification du compte (src/lib/payout-release.ts).
    */
   | { ok: false; reason: "payout_unverified"; payable: Payable };
 
@@ -1030,21 +1032,3 @@ export async function instructOwedPayables(contractId: string): Promise<{ instru
   return { instructed, waiting: owed.length - instructed };
 }
 
-/**
- * Compte de versement vérifié (2026-11-02) : transmet les créances du prestataire restées dues
- * faute de compte contrôlé. Même chemin que la confirmation d'une recharge — dans l'ordre,
- * bornées par le séquestre de chaque contrat. Non bloquant pour l'appelant.
- */
-export async function releaseAwaitingPayouts(providerId: string): Promise<{ instructed: number; waiting: number }> {
-  const contracts = await prisma.prestationContract.findMany({
-    where: { providerId, payables: { some: { status: "validated" } } },
-    select: { id: true },
-  });
-  const total = { instructed: 0, waiting: 0 };
-  for (const c of contracts) {
-    const res = await instructOwedPayables(c.id);
-    total.instructed += res.instructed;
-    total.waiting += res.waiting;
-  }
-  return total;
-}

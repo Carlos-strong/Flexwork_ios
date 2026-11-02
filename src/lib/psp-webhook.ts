@@ -2,7 +2,7 @@ import { randomUUID } from "crypto";
 import type { PspOperationStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { verifyWebhookSignatureGeneric } from "@/lib/webhook-signing";
-import { contractPrice, heldBalance, instructOwedPayables, releasedAmounts } from "@/lib/escrow";
+import { contractPrice, heldBalance, instructOwedPayables, providerPayoutReady, releasedAmounts } from "@/lib/escrow";
 import { IN_FLIGHT_STATUSES } from "@/lib/escrow-instructions";
 import { afterInstructionCommitted } from "@/lib/psp/dispatch";
 import { scheduleFailedPayableRetry } from "@/lib/psp/payable-retry";
@@ -96,7 +96,7 @@ export async function emitRetentionRelease(args: {
   // une mission en médiation ou interrompue ne doit surtout pas être réétiquetée « validée »
   // parce qu'on solde son séquestre.
   missionStatus?: "validee";
-}): Promise<{ emitted: boolean }> {
+}): Promise<{ emitted: boolean; reason?: "payout_unverified" }> {
   // ⚠️ Import DYNAMIQUE, volontaire : `src/lib/psp-virtual.ts` importe `applyPspWebhookEvent`
   // depuis CE fichier (il rejoue le même chemin de vérification signé). Un import statique de
   // psp-virtual ici fermerait donc le cycle psp-webhook → psp-virtual → psp-webhook. Le charger
@@ -124,6 +124,9 @@ export async function emitRetentionRelease(args: {
       },
     });
     if (existing) return null;
+    // Compte de versement du prestataire non vérifié (2026-11-02) : rien ne part. La retenue
+    // reste au séquestre et sera relancée à la vérification du compte (src/lib/payout-release.ts).
+    if (!(await providerPayoutReady(args.contractId, tx))) return "payout_unverified" as const;
 
     // Borne de sûreté (défense en profondeur) : ne jamais transmettre plus que ce que notre
     // registre dit encore séquestré pour ce contrat. Le montant vient des montants de jalons,
@@ -150,6 +153,7 @@ export async function emitRetentionRelease(args: {
     }
     return created;
   });
+  if (operation === "payout_unverified") return { emitted: false, reason: "payout_unverified" };
   if (!operation) return { emitted: false };
 
   // Transmission HORS transaction, volontairement : en autoconfirm elle rentre à nouveau dans

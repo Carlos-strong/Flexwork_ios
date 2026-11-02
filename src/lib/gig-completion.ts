@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { IN_FLIGHT_STATUSES, netHeldAmount, outstandingFreeze } from "@/lib/escrow-instructions";
 import { GigSignatureService } from "@/lib/gig-signature";
+import { payoutReadyFor } from "@/lib/escrow";
 
 // Clôture et PAIEMENT d'une commande Gig (2026-09-14).
 //
@@ -71,7 +72,7 @@ export async function gigAvailableBalance(
 
 export type CompleteGigResult =
   | { ok: true; amount: number; currency: string }
-  | { ok: false; error: "not_found" | "order_not_active" | "nothing_to_release" | "escrow_insufficient" };
+  | { ok: false; error: "not_found" | "order_not_active" | "nothing_to_release" | "escrow_insufficient" | "payout_unverified" };
 
 /**
  * Valide la livraison d'une commande Gig : libère les fonds au prestataire et clôt la commande.
@@ -94,7 +95,7 @@ export async function completeGigOrder(orderId: string): Promise<CompleteGigResu
 
       const order = await tx.gigOrder.findUnique({
         where: { id: orderId },
-        select: { status: true, currency: true, montant: true },
+        select: { status: true, currency: true, montant: true, providerId: true },
       });
       if (!order) return { ok: false, error: "not_found" };
       // Seule une commande engagée (les deux signatures) peut être validée. `created` n'est pas
@@ -139,6 +140,10 @@ export async function completeGigOrder(orderId: string): Promise<CompleteGigResu
         // Aucun versement partiel implicite (§13) : la créance reste due, en `validated`.
         return { ok: false, error: "escrow_insufficient" };
       }
+      // Compte de versement du prestataire non vérifié (2026-11-02) : la validation est reçue et
+      // la créance reste due, en `validated` ; la commande reste `active` jusqu'au versement, qui
+      // part à la vérification du compte (src/lib/payout-release.ts).
+      if (!(await payoutReadyFor(order.providerId, tx))) return { ok: false, error: "payout_unverified" };
 
       const operation = await tx.pspEscrowOperation.create({
         data: {

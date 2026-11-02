@@ -37,6 +37,26 @@ export async function POST(_req: Request, { params }: { params: Promise<{ orderI
   if (!order) return NextResponse.json({ error: "not_found" }, { status: 404 });
 
   const result = await completeGigOrder(orderId);
+  // Compte de versement du prestataire non vérifié (2026-11-02) : PAS un échec — la validation
+  // est reçue et la créance enregistrée ; le versement et la clôture suivront sa vérification.
+  if (!result.ok && result.error === "payout_unverified") {
+    await notifyBoth({
+      type: "gig_order_payout_pending",
+      counterpart: {
+        userId: order.providerId,
+        message: `Livraison validée pour « ${order.gig.titre} ». Votre paiement partira dès que votre compte de versement sera vérifié.`,
+        email: {
+          subject: `Livraison validée — ${order.gig.titre}`,
+          text: `Le client a validé votre livraison pour le Gig « ${order.gig.titre} ». Renseignez votre compte de versement (ou attendez sa vérification) : le paiement partira automatiquement dès qu'il sera vérifié.`,
+        },
+      },
+      actor: {
+        userId: order.clientId,
+        message: `Vous avez validé la livraison de « ${order.gig.titre} ». Le versement partira dès que le compte de versement du prestataire sera vérifié.`,
+      },
+    });
+    return NextResponse.json({ ok: true, payoutPending: true });
+  }
   if (!result.ok) {
     // `order_not_active` couvre aussi bien la commande pas encore engagée que celle DÉJÀ
     // validée : dans les deux cas l'action demandée n'a pas lieu d'être, et distinguer les deux

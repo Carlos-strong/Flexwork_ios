@@ -44,8 +44,15 @@ export async function GET(_req: Request, { params }: { params: Promise<{ orderId
     signatures: [],
   }));
 
+  // Livraison validée, versement en attente du compte du prestataire (2026-11-02) : la créance
+  // finale existe et reste due tant que la commande est `active`.
+  const payoutPending =
+    order.status === "active" &&
+    !!(await prisma.payable.findFirst({ where: { idempotencyKey: `gig:${order.id}:final`, status: "validated" }, select: { id: true } }));
+
   return NextResponse.json({
     id: order.id,
+    payoutPending,
     gigId: order.gigId,
     gig: { titre: order.gig.titre, description: order.gig.description, domaine: order.gig.domaine, delaiJours: order.gig.delaiJours },
     montant: order.montant,
