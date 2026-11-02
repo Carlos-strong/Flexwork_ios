@@ -6,6 +6,7 @@ import { logAdminAction } from "@/lib/admin-audit";
 import { recordVerificationHistory } from "@/lib/verification-history";
 import { notifyUser } from "@/lib/notify";
 import { mobileMoneyOperatorLabel } from "@/lib/mobile-money";
+import { releaseAwaitingPayouts } from "@/lib/escrow";
 
 // Instruction du compte de versement Mobile Money (2026-09-23).
 //
@@ -81,6 +82,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ userId:
     subjectId: userId,
     event: `payout:${parsed.data.decision}`,
   });
+
+  // Compte vérifié : les créances restées dues faute de compte contrôlé partent maintenant
+  // (src/lib/kyc-policy.ts). Non bloquant — la décision est enregistrée, et une créance non
+  // transmise ici reste due et réinstructible depuis la console finance.
+  if (verified) {
+    await releaseAwaitingPayouts(userId).catch((e) => {
+      console.error("[payout-decision] transmission des créances en attente échouée (non bloquant) :", e);
+    });
+  }
 
   // Non bloquant, même règle que partout ailleurs : une décision enregistrée ne doit jamais
   // devenir un 500 parce que le SMTP a hoqueté.

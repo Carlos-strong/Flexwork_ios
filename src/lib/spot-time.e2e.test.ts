@@ -24,6 +24,7 @@ import {
   submitAttendance,
 } from "@/lib/spot-time-actions";
 import { dayPeriod, fundingAlert } from "@/lib/spot-time";
+import { givePayoutAccount } from "@/test/payout-fixture";
 
 const RUN = Date.now();
 const CLIENT_EMAIL = `e2e-temps-client-${RUN}@flexwork.test`;
@@ -52,6 +53,7 @@ beforeAll(async () => {
   });
   clientId = client.id;
   providerId = provider.id;
+  await givePayoutAccount(providerId);
 
   const mission = await prisma.mission.create({
     data: {

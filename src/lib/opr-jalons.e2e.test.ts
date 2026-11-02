@@ -26,6 +26,7 @@ import { PATCH as siteManagerPatch } from "@/app/api/missions/[id]/site-manager/
 import { POST as missionPost } from "@/app/api/missions/route";
 import { operateVirtualPsp } from "@/lib/psp-virtual";
 import { prisma } from "@/lib/db";
+import { givePayoutAccount } from "@/test/payout-fixture";
 
 const RUN = Date.now();
 const MONTANT = 100_000;
@@ -84,6 +85,7 @@ beforeAll(async () => {
   ]);
   clientId = c.id;
   providerId = p.id;
+  await givePayoutAccount(providerId);
   managerId = m.id;
   intrusId = x.id;
 

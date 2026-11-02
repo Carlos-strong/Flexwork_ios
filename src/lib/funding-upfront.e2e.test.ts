@@ -24,6 +24,7 @@ import { operateVirtualPsp } from "@/lib/psp-virtual";
 import { canSubmitJalonDeliverable } from "@/lib/jalons";
 import { FINANCING_MODES, resolveFinancing } from "@/lib/financing-modes";
 import { computeDevisData } from "@/lib/devis";
+import { givePayoutAccount } from "@/test/payout-fixture";
 
 const RUN = Date.now();
 const CLIENT_EMAIL = `e2e-upfront-client-${RUN}@flexwork.test`;
@@ -61,6 +62,7 @@ beforeAll(async () => {
   });
   clientId = client.id;
   providerId = provider.id;
+  await givePayoutAccount(providerId);
 
   const mission = await prisma.mission.create({
     data: {

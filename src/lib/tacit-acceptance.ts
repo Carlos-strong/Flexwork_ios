@@ -251,6 +251,11 @@ export async function applyTacitAcceptance(scope: DeliverableScope): Promise<Tac
     if (released.reason === "escrow_insufficient") {
       return { applied: false, ...identity, reason: "escrow_insufficient" };
     }
+    // Compte de versement du prestataire non vérifié : même attente, levée par sa vérification
+    // (releaseAwaitingPayouts) — le balayage suivant constatera le versement en vol.
+    if (released.reason === "payout_unverified") {
+      return { applied: false, ...identity, reason: "payout_unverified" };
+    }
     // Course perdue : une validation manuelle du client est passée entre-temps et a tout libéré.
     // C'est le bon dénouement — le client a fini par se prononcer — et il n'y a rien à ajouter.
     return { applied: false, ...identity, reason: "already_released" };

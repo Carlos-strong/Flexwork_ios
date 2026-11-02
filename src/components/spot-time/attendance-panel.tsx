@@ -281,6 +281,15 @@ export function AttendancePanel({
         refreshAfterChange();
         return;
       }
+      if (payload.error === "payout_unverified") {
+        // Pas un échec non plus : seul le compte de versement du prestataire reste à vérifier.
+        setDecision(null);
+        setNotice(
+          "Présence constatée. La somme est due au prestataire et lui sera versée dès que son compte de versement sera vérifié."
+        );
+        refreshAfterChange();
+        return;
+      }
       setError(
         payload.error === "quantity_cap_exceeded"
           ? `Le plafond du contrat ne permet plus que ${unite(Number(payload.allowed ?? 0), data.terms.rateUnit)}.`

@@ -31,6 +31,7 @@ import { POST as releasePost } from "@/app/api/missions/[id]/escrow/release/rout
 import { operateVirtualPsp } from "@/lib/psp-virtual";
 import { runTacitAcceptanceSweep } from "@/lib/tacit-acceptance";
 import { prisma } from "@/lib/db";
+import { givePayoutAccount } from "@/test/payout-fixture";
 
 const RUN = Date.now();
 const MONTANT = 100_000;
@@ -111,6 +112,7 @@ beforeAll(async () => {
     });
   clientId = (await mk("client", "client", 0)).id;
   providerId = (await mk("presta", "artisan", 1)).id;
+  await givePayoutAccount(providerId);
   managerId = (await mk("rc", "responsable_chantier", 2)).id;
   await prisma.featureFlag.upsert({
     where: { key_zone: { key: "psp_montage_valide", zone: "BJ" } },

@@ -20,6 +20,7 @@ import { prisma } from "@/lib/db";
 import { runTacitAcceptanceSweep, applyTacitAcceptance } from "@/lib/tacit-acceptance";
 import { heldBalance } from "@/lib/escrow";
 import { RETENTION_RATE_J4 } from "@/lib/financing-modes";
+import { givePayoutAccount } from "@/test/payout-fixture";
 
 const RUN = Date.now();
 const CLIENT_EMAIL = `e2e-tacite-client-${RUN}@flexwork.test`;
@@ -152,6 +153,7 @@ beforeAll(async () => {
   });
   clientId = client.id;
   providerId = provider.id;
+  await givePayoutAccount(providerId);
 });
 
 afterAll(async () => {

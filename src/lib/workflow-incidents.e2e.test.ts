@@ -59,6 +59,7 @@ import { gigHeldBalance } from "@/lib/gig-completion";
 import { operateVirtualPsp, type VirtualPspAction } from "@/lib/psp-virtual";
 import { runTacitAcceptanceSweep } from "@/lib/tacit-acceptance";
 import type { Anomaly, ContractFinanceRow } from "@/lib/admin-finance";
+import { givePayoutAccount } from "@/test/payout-fixture";
 
 const RUN = Date.now();
 const PASSPHRASE = "passphrase-incidents-2026";
@@ -256,6 +257,7 @@ beforeAll(async () => {
     });
   ids.client = (await mk("client", {})).id;
   ids.provider = (await mk("prestataire", { role: "expert_digital" })).id;
+  await givePayoutAccount(ids.provider);
   ids.mediator = (await mk("mediation", { isAdmin: true, adminRole: "mediation" })).id;
   ids.supervisor = (await mk("superviseur", { isAdmin: true, adminRole: "superviseur" })).id;
 

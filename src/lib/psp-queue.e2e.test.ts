@@ -23,6 +23,7 @@ import { retryDuePayables } from "@/lib/psp/payable-retry";
 import { paymentQueueHealth, reconcileStaleOperations } from "@/lib/psp/reconcile";
 import { signWebhookPayload } from "@/lib/webhook-signing";
 import { runWorkerTick } from "@/worker/tick";
+import { givePayoutAccount } from "@/test/payout-fixture";
 
 const RUN = Date.now();
 const TAG = `queue_${RUN}`;
@@ -84,6 +85,7 @@ beforeAll(async () => {
     });
   clientId = (await mk("c", "client")).id;
   providerId = (await mk("pr", "artisan")).id;
+  await givePayoutAccount(providerId);
   const mission = await prisma.mission.create({
     data: { clientId, titre: `Files PSP ${RUN}`, description: "Mission e2e des files de paiement", domaine: "batiment", budget: 100_000, currency: "XOF", delaiJours: 30, status: "fonds_sous_sequestre" },
   });

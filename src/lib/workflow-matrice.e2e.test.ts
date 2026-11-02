@@ -52,6 +52,7 @@ import { escrowBalance } from "@/lib/escrow";
 import { checkEscrowInvariants } from "@/lib/escrow-invariants";
 import { operateVirtualPsp, type VirtualPspAction } from "@/lib/psp-virtual";
 import { dayPeriod, monthPeriod, weekPeriod } from "@/lib/spot-time";
+import { givePayoutAccount } from "@/test/payout-fixture";
 
 const RUN = Date.now();
 const PASSPHRASE = "passphrase-matrice-2026";
@@ -367,6 +368,7 @@ describe("matrice des parcours : publication → candidature → contrat → pai
       async () => {
         const cle = cas.nom.toLowerCase().replace(/[^a-z0-9]+/g, "-");
         const prestataire = await nouvelUtilisateur(`p-${cle}`, "expert_digital");
+        await givePayoutAccount(prestataire.id);
         const prestataireCert = await certificat(prestataire.id, `p-${cle}`);
 
         // 1. Client : publication.

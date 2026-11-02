@@ -37,6 +37,7 @@ import { POST as observePost } from "@/app/api/missions/[id]/jalons/[jalonId]/ob
 import { POST as validatePost } from "@/app/api/missions/[id]/jalons/[jalonId]/validate/route";
 import { operateVirtualPsp } from "@/lib/psp-virtual";
 import { prisma } from "@/lib/db";
+import { givePayoutAccount } from "@/test/payout-fixture";
 
 const RUN = Date.now();
 const CLIENT_EMAIL = `e2e-devis-client-${RUN}@flexwork.test`;
@@ -129,6 +130,7 @@ beforeAll(async () => {
   });
   clientId = client.id;
   providerId = provider.id;
+  await givePayoutAccount(providerId);
 
   await prisma.featureFlag.upsert({
     where: { key_zone: { key: "psp_montage_valide", zone: "BJ" } },

@@ -444,6 +444,24 @@ export async function handleValidateDeliverable(args: ActionArgs): Promise<NextR
         { status: 409 }
       );
     }
+    // Compte de versement du prestataire non vérifié (2026-11-02) : la validation est ACQUISE et
+    // le client n'a rien à faire. La portée passe à `valide`, comme une instruction en vol ; le
+    // versement part à la vérification du compte et le webhook la solde alors (`libere`/`cloturee`).
+    if (released.reason === "payout_unverified") {
+      if (scope.jalonId) {
+        await prisma.jalon.updateMany({
+          where: { id: scope.jalonId, status: "livrable_soumis" },
+          data: { status: "valide" },
+        });
+      }
+      await notifyValidated(scope, userId, {
+        alreadyReleased: false,
+        releaseAmount: released.payable.amount,
+        retenue,
+        payoutPending: true,
+      });
+      return NextResponse.json({ id: null, status: scope.jalonId ? "valide" : scope.status, payoutPending: true });
+    }
     // Course perdue : un autre appel a libéré le solde entre le calcul ci-dessus et le verrou.
     // Rien n'a été transmis — réponse identique à celle du cas « déjà parti, pas encore confirmé ».
     return NextResponse.json({
@@ -538,7 +556,12 @@ export async function handleTransmitVerification(req: Request, args: ActionArgs)
 async function notifyValidated(
   scope: DeliverableScope,
   userId: string,
-  { alreadyReleased, releaseAmount, retenue }: { alreadyReleased: boolean; releaseAmount: number; retenue: number }
+  {
+    alreadyReleased,
+    releaseAmount,
+    retenue,
+    payoutPending = false,
+  }: { alreadyReleased: boolean; releaseAmount: number; retenue: number; payoutPending?: boolean }
 ) {
   const cible = deliverableLabel(scope);
   const sujet = `Livrable validé — ${scope.jalonTitre ?? scope.missionTitre}`;
@@ -551,15 +574,19 @@ async function notifyValidated(
       : "";
   const issue = alreadyReleased
     ? "déjà intégralement libéré via les points d'étape progressifs"
-    : `libération de ${money(releaseAmount)} en cours`;
+    : payoutPending
+      ? `versement de ${money(releaseAmount)} en attente de la vérification du compte de versement du prestataire`
+      : `libération de ${money(releaseAmount)} en cours`;
+  // Le prestataire est le seul à pouvoir débloquer : on lui dit quoi faire.
+  const aFaire = payoutPending ? " Renseignez votre compte de versement (ou attendez sa vérification) pour le recevoir." : "";
 
   await notifyMissionParties({
     missionId: scope.missionId,
     type: "deliverable_validated",
     counterpart: {
       userId: scope.providerId,
-      message: `Validation de ${cible} — ${issue}.${mentionRetenue}`,
-      email: { subject: sujet, text: `Le client a validé ${cible} — ${issue}.${mentionRetenue}` },
+      message: `Validation de ${cible} — ${issue}.${mentionRetenue}${aFaire}`,
+      email: { subject: sujet, text: `Le client a validé ${cible} — ${issue}.${mentionRetenue}${aFaire}` },
     },
     actor: {
       userId,

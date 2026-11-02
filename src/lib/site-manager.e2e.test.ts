@@ -25,6 +25,7 @@ import {
 } from "@/lib/spot-time-actions";
 import { dayPeriod } from "@/lib/spot-time";
 import { canClientFinalize, canVerify, contractRole } from "@/lib/validation-mode";
+import { givePayoutAccount } from "@/test/payout-fixture";
 
 const RUN = Date.now();
 const TARIF = 7_500;
@@ -73,6 +74,7 @@ beforeAll(async () => {
   ]);
   clientId = c.id;
   providerId = p.id;
+  await givePayoutAccount(providerId);
   managerId = m.id;
   autreManagerId = m2.id;
 

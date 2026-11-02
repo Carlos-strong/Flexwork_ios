@@ -102,6 +102,7 @@ export const ACTION_ERROR: Record<string, string> = {
   not_owed: "Cette créance n'est plus due : son versement est déjà parti.",
   out_of_scope: "Cette créance ne se réinstruit pas depuis la console.",
   escrow_insufficient: "Le séquestre ne couvre pas cette créance : le client doit compléter le financement.",
+  payout_unverified: "Le compte de versement du prestataire n'est pas vérifié : la créance partira à sa vérification.",
 };
 
 export const inputCls =

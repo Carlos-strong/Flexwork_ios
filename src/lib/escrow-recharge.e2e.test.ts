@@ -22,6 +22,7 @@ import { prisma } from "@/lib/db";
 import { emitScopedRelease, escrowBalance } from "@/lib/escrow";
 import { rechargeNeed, requestRecharge } from "@/lib/escrow-recharge";
 import { operateVirtualPsp } from "@/lib/psp-virtual";
+import { givePayoutAccount } from "@/test/payout-fixture";
 
 const RUN = Date.now();
 const CLIENT_EMAIL = `e2e-recharge-client-${RUN}@flexwork.test`;
@@ -105,6 +106,7 @@ beforeAll(async () => {
   });
   clientId = client.id;
   providerId = provider.id;
+  await givePayoutAccount(providerId);
 });
 
 afterAll(async () => {

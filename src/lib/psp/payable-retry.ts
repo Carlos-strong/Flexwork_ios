@@ -68,6 +68,11 @@ export async function retryDuePayables(limit = 50): Promise<PayableRetryCounts> 
       // la confirmation d'une recharge relance d'elle-même (instructOwedPayables).
       await prisma.payable.updateMany({ where: { id: p.id, status: "failed" }, data: { status: "validated" } });
       counts.waitingFunds++;
+    } else if (res.reason === "payout_unverified") {
+      // Compte de versement non vérifié : même retour à « due », relancée par sa vérification
+      // (releaseAwaitingPayouts) et non par ce balayage.
+      await prisma.payable.updateMany({ where: { id: p.id, status: "failed" }, data: { status: "validated" } });
+      counts.skipped++;
     } else counts.skipped++;
   }
   return counts;

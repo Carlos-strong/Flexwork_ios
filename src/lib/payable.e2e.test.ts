@@ -17,9 +17,10 @@
 
 import { describe, expect, it, beforeAll, afterAll } from "vitest";
 import { prisma } from "@/lib/db";
-import { emitScopedRelease, escrowBalance, escrowBalancesFor } from "@/lib/escrow";
+import { emitScopedRelease, escrowBalance, escrowBalancesFor, instructOwedPayable, releaseAwaitingPayouts } from "@/lib/escrow";
 import { operateVirtualPsp } from "@/lib/psp-virtual";
 import { RETENTION_RATE_J4 } from "@/lib/financing-modes";
+import { givePayoutAccount } from "@/test/payout-fixture";
 
 const RUN = Date.now();
 const CLIENT_EMAIL = `e2e-payable-client-${RUN}@flexwork.test`;
@@ -104,6 +105,7 @@ beforeAll(async () => {
   });
   clientId = client.id;
   providerId = provider.id;
+  await givePayoutAccount(providerId);
 });
 
 afterAll(async () => {
@@ -446,5 +448,41 @@ describe("vue agrégée — les mêmes chiffres, en un nombre constant de requê
   it("un contrat inconnu est simplement absent du résultat", async () => {
     const lot = await escrowBalancesFor(["contrat-inexistant"]);
     expect(lot.has("contrat-inexistant")).toBe(false);
+  });
+});
+
+describe("compte de versement non vérifié (politique KYC, 2026-11-02)", () => {
+  it("la créance reste due sans instruction, puis part à la vérification du compte", async () => {
+    await prisma.payoutAccount.update({ where: { userId: providerId }, data: { status: "en_attente" } });
+    try {
+      const { contract, jalon } = await createContract({ held: 120_000, jalonMontant: 120_000 });
+      const args = { contractId: contract.id, jalonId: jalon.id, currency: "XOF", plafond: 120_000, targetCumulative: 120_000 };
+
+      const res = await emitScopedRelease(args);
+      expect(res.ok).toBe(false);
+      if (res.ok || res.reason !== "payout_unverified") throw new Error(`motif inattendu : ${JSON.stringify(res)}`);
+      expect(res.payable).toMatchObject({ amount: 120_000, status: "validated", escrowOperationId: null });
+      expect(await prisma.pspEscrowOperation.count({ where: { contractId: contract.id, instructionType: "release" } })).toBe(0);
+
+      // Rejouée : même créance, toujours en attente — jamais de doublon.
+      const again = await emitScopedRelease(args);
+      expect(again.ok).toBe(false);
+      expect(await prisma.payable.count({ where: { contractId: contract.id } })).toBe(1);
+
+      // La réinstruction manuelle (console finance) bute sur la même règle.
+      expect(await instructOwedPayable(res.payable.id)).toMatchObject({ ok: false, reason: "payout_unverified" });
+
+      // Compte vérifié : la créance part, liée à son instruction, pour le montant dû.
+      await prisma.payoutAccount.update({ where: { userId: providerId }, data: { status: "verifie" } });
+      const released = await releaseAwaitingPayouts(providerId);
+      expect(released.instructed).toBeGreaterThanOrEqual(1);
+      const payable = await prisma.payable.findUniqueOrThrow({ where: { id: res.payable.id } });
+      expect(payable.status).toBe("instructed");
+      const op = await prisma.pspEscrowOperation.findUniqueOrThrow({ where: { id: payable.escrowOperationId! } });
+      expect(op).toMatchObject({ instructionType: "release", amount: 120_000, jalonId: jalon.id });
+      await expectLedgerBalances(contract.id);
+    } finally {
+      await prisma.payoutAccount.update({ where: { userId: providerId }, data: { status: "verifie" } });
+    }
   });
 });

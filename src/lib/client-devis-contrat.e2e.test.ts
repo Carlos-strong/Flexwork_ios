@@ -28,6 +28,7 @@ import { POST as observePost } from "@/app/api/missions/[id]/observe-progress/ro
 import { POST as releasePost } from "@/app/api/missions/[id]/escrow/release/route";
 import { operateVirtualPsp } from "@/lib/psp-virtual";
 import { prisma } from "@/lib/db";
+import { givePayoutAccount } from "@/test/payout-fixture";
 
 const RUN = Date.now();
 const PASSPHRASE = "passphrase-client-devis-2026";
@@ -111,6 +112,7 @@ beforeAll(async () => {
     });
   ids.client = (await mk("client", "client")).id;
   for (const key of ["fixe", "j3", "j4", "s1", "legacy", "revision"]) presta[key] = (await mk(key, "expert_digital")).id;
+  for (const id of Object.values(presta)) await givePayoutAccount(id);
 
   await prisma.featureFlag.upsert({
     where: { key_zone: { key: "psp_montage_valide", zone: "BJ" } },

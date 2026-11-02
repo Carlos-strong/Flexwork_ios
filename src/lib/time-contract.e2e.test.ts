@@ -25,6 +25,7 @@ import { operateVirtualPsp } from "@/lib/psp-virtual";
 import { buildContractSections } from "@/lib/contract-clauses";
 import { approveAttendance, closeTimeContract, submitAttendance } from "@/lib/spot-time-actions";
 import { dayPeriod } from "@/lib/spot-time";
+import { givePayoutAccount } from "@/test/payout-fixture";
 
 const RUN = Date.now();
 const TARIF = 7_500;
@@ -61,6 +62,7 @@ beforeAll(async () => {
   });
   clientId = client.id;
   providerId = provider.id;
+  await givePayoutAccount(providerId);
 
   const mission = await prisma.mission.create({
     data: {

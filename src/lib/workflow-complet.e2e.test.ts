@@ -60,6 +60,7 @@ import { checkEscrowInvariants } from "@/lib/escrow-invariants";
 import { operateVirtualPsp, type VirtualPspAction } from "@/lib/psp-virtual";
 import type { Anomaly, ContractFinanceRow } from "@/lib/admin-finance";
 import type { JournalItem } from "@/lib/psp-journal";
+import { givePayoutAccount } from "@/test/payout-fixture";
 
 const RUN = Date.now();
 const PASSPHRASE = "passphrase-workflow-2026";
@@ -281,6 +282,7 @@ beforeAll(async () => {
     });
   ids.client = (await mk("client", {})).id;
   ids.provider = (await mk("prestataire", { role: "expert_digital" })).id;
+  await givePayoutAccount(ids.provider);
   ids.siteManager = (await mk("chantier", { role: "responsable_chantier" })).id;
   ids.mediator = (await mk("mediation", { isAdmin: true, adminRole: "mediation" })).id;
   ids.supervisor = (await mk("superviseur", { isAdmin: true, adminRole: "superviseur" })).id;

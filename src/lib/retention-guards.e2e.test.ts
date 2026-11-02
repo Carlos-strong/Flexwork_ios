@@ -37,6 +37,7 @@ import { POST as respondPost } from "@/app/api/admin/mediations/[id]/respond/rou
 import { RETENTION_RATE_J4 } from "@/lib/financing-modes";
 import { prisma } from "@/lib/db";
 import { randomUUID } from "crypto";
+import { givePayoutAccount } from "@/test/payout-fixture";
 
 const RUN = Date.now();
 const CLIENT_EMAIL = `e2e-retgard-client-${RUN}@flexwork.test`;
@@ -170,6 +171,7 @@ beforeAll(async () => {
   });
   clientId = client.id;
   providerId = provider.id;
+  await givePayoutAccount(providerId);
   adminId = admin.id;
 
   await prisma.featureFlag.upsert({

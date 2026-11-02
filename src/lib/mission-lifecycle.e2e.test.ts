@@ -39,6 +39,7 @@ import { POST as observePost } from "@/app/api/missions/[id]/jalons/[jalonId]/ob
 import { POST as validatePost } from "@/app/api/missions/[id]/jalons/[jalonId]/validate/route";
 import { operateVirtualPsp } from "@/lib/psp-virtual";
 import { prisma } from "@/lib/db";
+import { givePayoutAccount } from "@/test/payout-fixture";
 
 const RUN = Date.now();
 const CLIENT_EMAIL = `e2e-client-${RUN}@flexwork.test`;
@@ -124,6 +125,7 @@ beforeAll(async () => {
   });
   clientId = client.id;
   providerId = provider.id;
+  await givePayoutAccount(providerId);
 
   // upsert (pas create) : d'autres fichiers de test créent le même flag et tournent en
   // parallèle sur la base partagée.

@@ -20,6 +20,7 @@ import {
   verifyAttendance,
 } from "@/lib/spot-time-actions";
 import { dayPeriod } from "@/lib/spot-time";
+import { givePayoutAccount } from "@/test/payout-fixture";
 
 const RUN = Date.now();
 let clientId = "";
@@ -104,6 +105,7 @@ beforeAll(async () => {
     });
   clientId = (await mk("client", "client", 0)).id;
   providerId = (await mk("presta", "manoeuvre", 1)).id;
+  await givePayoutAccount(providerId);
   managerId = (await mk("rc", "responsable_chantier", 2)).id;
   await prisma.featureFlag.upsert({
     where: { key_zone: { key: "psp_montage_valide", zone: "BJ" } },

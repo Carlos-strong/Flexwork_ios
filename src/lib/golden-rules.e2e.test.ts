@@ -30,6 +30,7 @@ import { operateVirtualPsp } from "@/lib/psp-virtual";
 import { RETENTION_RATE_J4 } from "@/lib/financing-modes";
 import { disputeAttendance, submitAttendance } from "@/lib/spot-time-actions";
 import { dayPeriod } from "@/lib/spot-time";
+import { givePayoutAccount } from "@/test/payout-fixture";
 
 const RUN = Date.now();
 let clientId = "";
@@ -121,6 +122,7 @@ beforeAll(async () => {
   });
   clientId = client.id;
   providerId = provider.id;
+  await givePayoutAccount(providerId);
 });
 
 afterAll(async () => {

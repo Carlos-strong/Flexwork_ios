@@ -263,6 +263,22 @@ export async function approveAttendance(args: {
   });
 
   if (!released.ok) {
+    // Compte de versement du prestataire non vérifié (2026-11-02) : le relevé est approuvé et la
+    // créance enregistrée, comme ci-dessous ; elle part à la vérification du compte.
+    if (released.reason === "payout_unverified") {
+      await prisma.attendance.update({
+        where: { id: attendance.id },
+        data: {
+          status: "approved",
+          approvedQuantity: approved,
+          overtimeQuantity: overtime,
+          validatedById: args.validatorId,
+          validatedAt: new Date(),
+          payableId: released.payable.id,
+        },
+      });
+      return { ok: false, error: "payout_unverified" };
+    }
     if (released.reason === "escrow_insufficient") {
       // La créance EXISTE et reste due ; le relevé passe validé pour que le travail reconnu le
       // reste, mais rien n'est versé tant que le client n'a pas rechargé (§18).

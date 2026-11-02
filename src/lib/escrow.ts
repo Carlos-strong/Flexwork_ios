@@ -9,6 +9,7 @@ import { isMissionFundingClosed } from "@/lib/mission-status";
 import { siteManagerMissingForFunding } from "@/lib/validation-mode";
 import { isVirtualPspEnabled, shouldAutoConfirmStub, virtualPspName } from "@/lib/psp-virtual";
 import { afterInstructionCommitted } from "@/lib/psp/dispatch";
+import { isPayoutReady } from "@/lib/mobile-money";
 
 // Le montant séquestré doit être le PRIX DU CONTRAT (termsSnapshot.prix = montant de la
 // proposition acceptée), pas le budget initialement publié de la mission : une contre-
@@ -284,6 +285,19 @@ async function availableFrom(
   return Math.max(0, held - blocked - retained);
 }
 
+// ── Compte de versement du prestataire (2026-11-02, politique KYC) ───────────────────────
+// Aucun versement n'est adressé à un compte dont l'opérateur n'a pas été contrôlé
+// (isPayoutReady, src/lib/mobile-money.ts). La créance n'en est pas moins DUE : elle reste
+// `validated`, comme quand le séquestre manque, et part dès la vérification du compte
+// (releaseAwaitingPayouts, appelée par la décision admin). Lu sous le verrou de l'appelant.
+async function providerPayoutReady(contractId: string, client: Prisma.TransactionClient | typeof prisma): Promise<boolean> {
+  const contract = await client.prestationContract.findUnique({
+    where: { id: contractId },
+    select: { provider: { select: { payoutAccount: { select: { status: true } } } } },
+  });
+  return isPayoutReady(contract?.provider.payoutAccount?.status);
+}
+
 export type ScopedReleaseResult =
   | { ok: true; operation: PspEscrowOperation; payable: Payable }
   /** Rien à transmettre : le plafond de la portée est déjà entièrement parti. */
@@ -292,7 +306,12 @@ export type ScopedReleaseResult =
    * Le séquestre ne couvre pas le montant dû. Aucune instruction n'est transmise ; le payable
    * reste `validated` et attend une recharge (§13 du cahier des charges).
    */
-  | { ok: false; reason: "escrow_insufficient"; payable: Payable; available: number; wanted: number };
+  | { ok: false; reason: "escrow_insufficient"; payable: Payable; available: number; wanted: number }
+  /**
+   * Compte de versement du prestataire non vérifié : aucune instruction, le payable reste
+   * `validated` et part à la vérification du compte (releaseAwaitingPayouts).
+   */
+  | { ok: false; reason: "payout_unverified"; payable: Payable };
 
 export async function emitScopedRelease(args: {
   contractId: string;
@@ -408,6 +427,9 @@ export async function emitScopedRelease(args: {
     const available = await availableFrom(flat, args.contractId, args.retentionRate ?? 0, tx);
     if (amount > available) {
       return { ok: false, reason: "escrow_insufficient", payable, available, wanted: amount };
+    }
+    if (!(await providerPayoutReady(args.contractId, tx))) {
+      return { ok: false, reason: "payout_unverified", payable };
     }
 
     const operation = await tx.pspEscrowOperation.create({
@@ -925,7 +947,7 @@ export async function escrowBalancesFor(
 // concurrent relit la créance sous le verrou, la trouve `instructed`, et s'arrête.
 export type OwedInstructionResult =
   | { ok: true; operation: PspEscrowOperation; payable: Payable }
-  | { ok: false; reason: "not_found" | "not_owed" | "out_of_scope" | "escrow_insufficient"; available?: number };
+  | { ok: false; reason: "not_found" | "not_owed" | "out_of_scope" | "escrow_insufficient" | "payout_unverified"; available?: number };
 
 // Les sources dont le versement est un `release` de contrat. Les commandes Gig ont leur propre
 // domaine ; la médiation et la retenue n'émettent pas de créance réinstructible.
@@ -959,6 +981,7 @@ export async function instructOwedPayable(payableId: string): Promise<OwedInstru
     }));
     const available = await availableFrom(flat, contractId, payable.contract?.retentionRate ?? 0, tx);
     if (payable.amount > available) return { ok: false, reason: "escrow_insufficient", available };
+    if (!(await providerPayoutReady(contractId, tx))) return { ok: false, reason: "payout_unverified" };
 
     const operation = await tx.pspEscrowOperation.create({
       data: {
@@ -1001,7 +1024,27 @@ export async function instructOwedPayables(contractId: string): Promise<{ instru
     const res = await instructOwedPayable(p.id);
     if (res.ok) instructed++;
     // La plus ancienne n'est pas couverte : les suivantes attendront avec elle, dans l'ordre.
-    else if (res.reason === "escrow_insufficient") break;
+    // Compte de versement non vérifié : même prestataire pour tout le contrat, inutile d'insister.
+    else if (res.reason === "escrow_insufficient" || res.reason === "payout_unverified") break;
   }
   return { instructed, waiting: owed.length - instructed };
+}
+
+/**
+ * Compte de versement vérifié (2026-11-02) : transmet les créances du prestataire restées dues
+ * faute de compte contrôlé. Même chemin que la confirmation d'une recharge — dans l'ordre,
+ * bornées par le séquestre de chaque contrat. Non bloquant pour l'appelant.
+ */
+export async function releaseAwaitingPayouts(providerId: string): Promise<{ instructed: number; waiting: number }> {
+  const contracts = await prisma.prestationContract.findMany({
+    where: { providerId, payables: { some: { status: "validated" } } },
+    select: { id: true },
+  });
+  const total = { instructed: 0, waiting: 0 };
+  for (const c of contracts) {
+    const res = await instructOwedPayables(c.id);
+    total.instructed += res.instructed;
+    total.waiting += res.waiting;
+  }
+  return total;
 }
