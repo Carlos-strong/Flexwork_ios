@@ -24,7 +24,14 @@ export default function SigninPage() {
   // Lien « Créer un compte » : il garde la destination d'origine (bouton « Candidater » de
   // l'accueil…), lue après le montage — l'URL n'existe pas pendant le rendu serveur.
   const [signupHref, setSignupHref] = useState("/signup");
-  useEffect(() => setSignupHref(withCallbackUrl("/signup", currentCallbackUrl())), []);
+  // Bouton actif seulement une fois la page interactive (2026-11-09) : cliqué avant, le
+  // formulaire partait en envoi NATIF (GET /signin?email=…) — aucun code envoyé, et la
+  // destination d'origine (?callbackUrl=) perdue. Constaté sur un serveur lent (test E-04).
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    setSignupHref(withCallbackUrl("/signup", currentCallbackUrl()));
+    setReady(true);
+  }, []);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -287,7 +294,7 @@ export default function SigninPage() {
             {/* Submit */}
             <button
               type="submit"
-              disabled={submitting}
+              disabled={submitting || !ready}
               className="w-full h-12 rounded-xl bg-[#FF7A00] text-white text-[15px] font-bold hover:brightness-110 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-[0_4px_16px_rgba(255,122,0,0.3)] flex items-center justify-center gap-2"
             >
               {submitting ? (
