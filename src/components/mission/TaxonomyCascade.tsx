@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { SECTEURS, secteurLabel } from "@/lib/secteur";
 
 // Cascade Catégorie → Métier → Compétences, adossée à GET /api/taxonomy.
@@ -200,6 +200,9 @@ function TaxonomyCascadeImpl({
 
   const inFlight = useRef<AbortController | null>(null);
   const [secteurFilter, setSecteurFilter] = useState(SECTEUR_ALL);
+  // Nomme le groupe de puces pour un lecteur d'écran : « Facturation, bouton bascule » seul ne
+  // dit pas à quelle question il répond (V-04).
+  const competencesLabelId = useId();
 
   useEffect(() => {
     let cancelled = false;
@@ -448,7 +451,7 @@ function TaxonomyCascadeImpl({
 
       <div>
         <div className="flex items-baseline justify-between mb-1.5">
-          <span className={`${labelClass} mb-0`}>{competencesLabel} <span className="text-[#E8112D]">*</span></span>
+          <span id={competencesLabelId} className={`${labelClass} mb-0`}>{competencesLabel} <span className="text-[#E8112D]">*</span></span>
           <span className={`text-[11px] ${atLimit ? "text-[#FF7A00] font-semibold" : "text-zinc-400"}`}>
             {value.competences.length} / {maxCompetences}
           </span>
@@ -473,7 +476,7 @@ function TaxonomyCascadeImpl({
             conservées telles quelles.
           </p>
         ) : (
-          <div className="flex flex-wrap gap-2">
+          <div role="group" aria-labelledby={competencesLabelId} className="flex flex-wrap gap-2">
             {services.map((s) => {
               const selected = value.competences.includes(s.libelle);
               // Une compétence non retenue est désactivée une fois le plafond atteint : le

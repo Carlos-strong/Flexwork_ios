@@ -25,13 +25,16 @@ import {
   TARIF_UNITE_VALUES,
   WORK_MODE_VALUES,
 } from "@/lib/provider-options";
+import { LANGUAGE_CODES, LANGUAGE_LEVEL_VALUES, MAX_LANGUAGES } from "@/lib/languages";
 
 // Phase 1 (US-101/US-102) : inscription, téléphone unique vérifié par SMS, rôle choisi à
 // l'inscription. `role` ne conditionne aucune vérification de la plateforme — uniquement
 // l'affichage et le domaine des missions proposées (modele-skillafrica-v3-Flexwork.md §12).
 export const signupSchema = z.object({
-  email: z.string().email(),
-  tel: z.string().min(8).max(20),
+  // Stockée en minuscules, sans espaces (2026-11-09) : c'est la forme que cherchent la demande
+  // de code et sa vérification (normalizeIdentifier, src/lib/otp.ts).
+  email: z.string().trim().toLowerCase().email(),
+  tel: z.string().trim().transform((v) => v.replace(/\s+/g, "")).pipe(z.string().min(8).max(20)),
   // Plus de mot de passe (2026-09-23). L'alternative posée ici — « soit on l'accepte et le
   // stocke réellement, soit on retire le champ du formulaire » — est tranchée dans le second
   // sens : l'auth est 100 % OTP (src/auth.ts, provider unique `otp`), le champ ne servait à
@@ -119,7 +122,8 @@ export const profileSchema = z.object({
   // Photos téléversées (relPaths "portfolio/...") OU URLs externes — on accepte les deux,
   // une URL externe n'est pas requise pour un fichier stocké localement.
   portfolioUrls: z.array(z.string().max(500)).max(10).optional(),
-  cvUrl: z.string().max(500).optional(),
+  // `null` retire le CV (2026-11-08, éditeur « Portfolio et CV ») ; absent = inchangé.
+  cvUrl: z.string().max(500).nullable().optional(),
   tarifUnite: z.enum(TARIF_UNITE_VALUES).optional(),
   zonePays: z.string().length(2).optional(),
   zoneVille: z.string().max(100).optional(),
@@ -129,6 +133,12 @@ export const profileSchema = z.object({
   // métier du catalogue : le premier se lit par un client, le second sert au rapprochement.
   title: z.string().max(120).optional(),
   providerKind: z.enum(PROVIDER_KIND_VALUES).optional(),
+  // Langues parlées (2026-11-08) : liste fermée (src/lib/languages.ts), une entrée par langue.
+  languages: z
+    .array(z.object({ code: z.enum(LANGUAGE_CODES), niveau: z.enum(LANGUAGE_LEVEL_VALUES) }).strict())
+    .max(MAX_LANGUAGES)
+    .refine((l) => new Set(l.map((x) => x.code)).size === l.length, { message: "Une langue ne figure qu'une fois." })
+    .optional(),
   // ── Onglet 4 — Localisation ─────────────────────────────────────────────────────────
   workModes: z.array(z.enum(WORK_MODE_VALUES)).max(3).optional(),
   // ── Champs du formulaire prestataire (2026-09-23) ────────────────────────────────────
@@ -179,6 +189,11 @@ export const declaredDiplomaSchema = z.object({
   institution: z.string().max(200).optional(),
   specialty: z.string().max(200).optional(),
   isStateIssued: z.boolean().optional(),
+  // Pays d'obtention, code ISO 3166-1 alpha-2 (2026-11-07).
+  country: z.string().regex(/^[A-Z]{2}$/).optional(),
+  // Domaine dans lequel la spécialité a été saisie (2026-11-07) : sert UNIQUEMENT à classer
+  // la spécialité dans le registre partagé (QualificationSpecialty), pas persisté sur le diplôme.
+  categorieId: z.string().max(64).optional(),
 });
 
 // Personne ressource attestant d'une expérience. `experienceId` est l'indice CLIENT de
@@ -308,6 +323,10 @@ export const missionSchema = z.object({
   maxRevisionRounds: z.number().int().min(1).max(MISSION_MAX_REVISION_ROUNDS_MAX).optional(),
   dateExpiration: z.coerce.date().optional(),
   status: z.enum(["brouillon", "publiee"]).optional(),
+  // Mission lancée depuis le profil public d'un prestataire (2026-11-08) : ce prestataire est
+  // invité à candidater. Simple PRÉFÉRENCE du client — le serveur revérifie tout (prestataire
+  // listé, autre que le client, domaine de la mission = le sien) et n'accorde aucun droit.
+  invitedProviderId: z.string().trim().min(1).max(64).optional(),
 });
 
 // Phase 4 : proposition d'un prestataire sur une mission (remplace l'ancien devis).

@@ -581,6 +581,10 @@ model Profile {
   // `ClientProfile.currency`. Défaut XOF : la zone couverte par la plateforme.
   currency String @default("XOF")
 
+  // Langues parlées (2026-11-08) — biographie du profil : [{ "code": "fr", "niveau": "natif" }].
+  // Codes ISO 639-1, niveaux débutant / intermédiaire / courant / natif (src/lib/languages.ts).
+  languages Json @default("[]")
+
   // Badge « Vérifié » (2026-09-23) : demandé par le prestataire, instruit par l'Admin KYC.
   // Porté par le PROFIL et non par le compte : un prestataire multi-profils peut être vérifié
   // sur son métier principal sans l'être sur un second qu'il vient d'ouvrir.
@@ -705,6 +709,9 @@ model DeclaredDiploma {
   location          String?
   institution       String?
   specialty         String?
+  // Pays d'obtention (2026-11-07) — code ISO 3166-1 alpha-2, comme User.country. Distinct de
+  // `location` (« établissement, ville » sur /declarations) : un pays n'est pas un lieu libre.
+  country           String?
   // Pivot du badge : un diplôme d'État vaut vérification, un diplôme déclaratif ne vaut que
   // ce que son auteur en dit.
   isStateIssued     Boolean                 @default(false)
@@ -2139,6 +2146,30 @@ enum GigStatus {
   cloture
 }
 
+// Formules d'un Gig (2026-11-08) : trois offres à prix progressifs.
+enum GigTier {
+  basique
+  standard
+  premium
+}
+
+// Une formule d'un Gig : ce qui est inclus, son prix, son délai, ses révisions. Un Gig publié
+// depuis le 2026-11-08 en porte exactement trois (src/lib/gig-rules.ts) ; les Gigs antérieurs
+// n'en ont aucune et gardent leur prix unique (Gig.prix / Gig.delaiJours).
+model GigPackage {
+  id          String  @id @default(cuid())
+  gigId       String
+  gig         Gig     @relation(fields: [gigId], references: [id], onDelete: Cascade)
+  tier        GigTier
+  titre       String
+  description String
+  prix        Float
+  delaiJours  Int
+  revisions   Int
+
+  @@unique([gigId, tier])
+}
+
 model Gig {
   id          String    @id @default(cuid())
   providerId  String
@@ -2151,10 +2182,16 @@ model Gig {
   delaiJours  Int
   tags        String[]
   status      GigStatus @default(brouillon)
+  // Visuels (2026-11-08) : jusqu'à 3 photos (bucket « gigs »), la première servant de
+  // couverture et toutes défilant en carrousel sur les cartes ; lien vidéo YouTube / Vimeo
+  // facultatif, rendu en lecteur intégré.
+  imagePaths     String[] @default([])
+  videoUrl       String?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  orders GigOrder[]
+  packages GigPackage[]
+  orders   GigOrder[]
 
   @@index([status, createdAt])
   @@index([providerId])
@@ -2179,6 +2216,8 @@ model GigOrder {
   provider         User           @relation("GigOrderProvider", fields: [providerId], references: [id], onDelete: Cascade)
   montant          Float
   currency         String         @default("XOF")
+  // Formule achetée (2026-11-08) — null pour un Gig sans formules (prix unique, antérieur).
+  packageTier      GigTier?
   termsSnapshot    Json // snapshot immuable du Gig au moment de l'achat
   status           GigOrderStatus @default(created)
   clientSignedAt   DateTime?
@@ -2359,6 +2398,7 @@ model Categorie {
   allowsOprVerification Boolean @default(false)
   metiers     Metier[]
   missions    Mission[]
+  qualificationSpecialties QualificationSpecialty[]
 
   @@map("categories")
 }
@@ -2649,4 +2689,44 @@ model WorkerHeartbeat {
   lastSeenAt DateTime
 
   @@index([lastSeenAt])
+}
+
+// ── Spécialités de diplômes (2026-11-07) ───────────────────────────────────────────────────
+//
+// Liste ALIMENTÉE PAR LES PRESTATAIRES : l'onglet Expérience propose un niveau fixe (CAP, DT,
+// DUT, BTS, Licence professionnelle, Ingénieur, Master professionnel) puis laisse SAISIR la
+// spécialité. Chaque spécialité déclarée avec un diplôme est ajoutée ici (POST
+// /api/declarations), et revient en suggestion aux suivants — « Plomberie sanitaire » saisie
+// une fois n'a plus à être retapée, ni à exister en trois orthographes.
+//
+// `normalized` (minuscules, sans accents ni espaces superflus) porte l'unicité : « Génie
+// civil », « genie civil » et « GÉNIE  CIVIL » sont une seule spécialité, affichée sous la
+// première graphie reçue (`libelle`). `categorieId` : domaine dans lequel elle a été saisie la
+// première fois, pour classer les suggestions — pas une contrainte.
+//
+// ⚠️ Contenu saisi par des utilisateurs et montré à d'autres : aucune modération à ce jour.
+model QualificationSpecialty {
+  id          String     @id @default(cuid())
+  libelle     String
+  normalized  String     @unique
+  categorieId String?
+  categorie   Categorie? @relation(fields: [categorieId], references: [id], onDelete: SetNull)
+  createdAt   DateTime   @default(now())
+
+  @@index([categorieId])
+  @@map("qualification_specialties")
+}
+
+// Sessions révoquées à la déconnexion (2026-11-09). La session est un JWT sans état : effacer
+// le cookie ne suffit pas — une requête /api/auth/session encore en vol au moment de la
+// déconnexion peut le réécrire. Chaque connexion porte un identifiant (`sid`) ; à la
+// déconnexion il est inscrit ici, et le callback `jwt` (src/auth.ts) refuse tout token qui le
+// porte. Les lignes expirent avec le token lui-même (`expiresAt`) et sont purgées ensuite.
+model RevokedSession {
+  sid       String   @id
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([expiresAt])
 }

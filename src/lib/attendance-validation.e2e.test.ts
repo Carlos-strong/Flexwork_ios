@@ -12,6 +12,7 @@ import { operateVirtualPsp } from "@/lib/psp-virtual";
 import { approveAttendance, disputeAttendance, rejectAttendance, submitAttendance } from "@/lib/spot-time-actions";
 import { dayPeriod } from "@/lib/spot-time";
 import { givePayoutAccount } from "@/test/payout-fixture";
+import { releaseAwaitingPayouts } from "@/lib/payout-release";
 
 const RUN = Date.now();
 const TARIF = 7_500;
@@ -131,5 +132,39 @@ describe("mode de pointage « validation totale »", () => {
     });
     expect(res).toMatchObject({ ok: true, paid: 3 * TARIF, frozen: 2 * TARIF });
     expect((await escrowBalance(contractId)).blocked).toBe(2 * TARIF);
+  });
+
+  it("la part reconnue du relevé contesté compte dans le cumul : le relevé suivant est payé", async () => {
+    // Régression (2026-11-02) : le cumul n'additionnait que les relevés « approved ». La part
+    // reconnue du relevé contesté, déjà versée, en sortait — la cible cumulée tombait sous le
+    // versé et le relevé suivant échouait en `nothing_to_release`.
+    const releve = await declarer(5, 1);
+    expect(await approveAttendance({ attendanceId: releve, validatorId: clientId, approvedQuantity: 1 })).toMatchObject({
+      ok: true,
+      released: TARIF,
+    });
+  });
+});
+
+describe("compte de versement non vérifié (politique KYC, 2026-11-02)", () => {
+  it("le relevé est approuvé et sa créance reste due ; elle part à la vérification du compte", async () => {
+    await prisma.payoutAccount.update({ where: { userId: providerId }, data: { status: "en_attente" } });
+    try {
+      const releve = await declarer(4, 1);
+      expect(await approveAttendance({ attendanceId: releve, validatorId: clientId, approvedQuantity: 1 })).toEqual({
+        ok: false,
+        error: "payout_unverified",
+      });
+      const approuve = await prisma.attendance.findUniqueOrThrow({ where: { id: releve } });
+      expect(approuve.status).toBe("approved");
+      const payable = await prisma.payable.findUniqueOrThrow({ where: { id: approuve.payableId! } });
+      expect(payable).toMatchObject({ status: "validated", amount: TARIF, escrowOperationId: null });
+
+      await prisma.payoutAccount.update({ where: { userId: providerId }, data: { status: "verifie" } });
+      expect((await releaseAwaitingPayouts(providerId)).instructed).toBe(1);
+      expect((await prisma.payable.findUniqueOrThrow({ where: { id: payable.id } })).status).toBe("instructed");
+    } finally {
+      await prisma.payoutAccount.update({ where: { userId: providerId }, data: { status: "verifie" } });
+    }
   });
 });

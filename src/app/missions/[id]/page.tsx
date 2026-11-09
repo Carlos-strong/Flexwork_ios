@@ -24,6 +24,8 @@ import { AttendancePanel } from "@/components/spot-time/attendance-panel";
 import { getFinancingMode } from "@/lib/financing-modes";
 import { riskLevelLabel } from "@/lib/metier-risk";
 import { ATTENDANCE_VALIDATION_LABEL, RATE_UNIT_LABEL } from "@/lib/spot-time";
+import { PublicMissionView } from "@/components/mission/PublicMissionView";
+import type { PublicMission } from "@/lib/public-mission";
 
 type OfferDetail = {
   id: string;
@@ -132,13 +134,19 @@ export default function MissionDetailPage() {
   // « Candidature ») — lu via window.location plutôt que useSearchParams pour rester un
   // simple useEffect, sans exiger de Suspense boundary (même convention que profile/page.tsx).
   const [requestedProviderId, setRequestedProviderId] = useState<string | null>(null);
+  // `?candidater=1` (2026-11-03) : bouton « Candidater » des cartes de l'accueil. Le visiteur
+  // passe par la connexion (ou l'inscription) et revient ici avec le formulaire déjà ouvert.
+  const [wantsToApply, setWantsToApply] = useState(false);
   useEffect(() => {
-    setRequestedProviderId(new URLSearchParams(window.location.search).get("providerId"));
+    const q = new URLSearchParams(window.location.search);
+    setRequestedProviderId(q.get("providerId"));
+    setWantsToApply(q.get("candidater") === "1");
   }, []);
   const { data: session, status: sessionStatus } = useSession();
   const userId = (session?.user as { id?: string } | undefined)?.id;
   const role = (session?.user as { role?: string } | undefined)?.role;
   const isClient = role === "client";
+  const isAdmin = (session?.user as { isAdmin?: boolean } | undefined)?.isAdmin === true;
   const missionsHref = missionsHrefForRole(role as Parameters<typeof missionsHrefForRole>[0]);
 
   const [mission, setMission] = useState<MissionDetail | null>(null);
@@ -170,6 +178,8 @@ export default function MissionDetailPage() {
   const [applyModeKey, setApplyModeKey] = useState<string | null>(null);
   const [applySubmitting, setApplySubmitting] = useState(false);
   const [applyError, setApplyError] = useState<string | null>(null);
+  // Refus `kyc_not_verified` : la seule issue est la vérification d'identité — un lien y mène.
+  const [applyNeedsKyc, setApplyNeedsKyc] = useState(false);
   const [applySuccessMsg, setApplySuccessMsg] = useState<string | null>(null);
   // Blocage par profil incomplet (garant/assurance manquant) — même mécanisme que
   // la page devis (src/app/missions/[id]/devis/page.tsx, mode QUOTE) : distinct de `applyError`, il
@@ -245,6 +255,7 @@ export default function MissionDetailPage() {
     }
     setApplySubmitting(true);
     setApplyError(null);
+    setApplyNeedsKyc(false);
     setBlockedByProfile(null);
     const res = await fetch(`/api/missions/${missionId}/proposals`, {
       method: "POST",
@@ -291,6 +302,7 @@ export default function MissionDetailPage() {
         payment_mode_invalid: "Ce modèle de paiement n'est pas proposé — choisissez prix fixe ou par jalons.",
       };
       setApplyError(messages[data.error ?? ""] ?? "Échec de l'envoi de la candidature.");
+      setApplyNeedsKyc(data.error === "kyc_not_verified");
       return;
     }
     clearProposalDraft(missionId);
@@ -406,17 +418,59 @@ export default function MissionDetailPage() {
     if (listRes.ok) setAttachments((await listRes.json()).items);
   }
 
+  // Retour ici après connexion : la mission elle-même, avec l'intention de candidater conservée.
+  const selfHref = `/missions/${missionId}${wantsToApply ? "?candidater=1" : ""}`;
+
+  // Visiteur venu par « Candidater » : l'API refuse la mission sans session — on l'envoie se
+  // connecter (ou s'inscrire depuis /signin), retour ici ensuite.
+  useEffect(() => {
+    if (wantsToApply && sessionStatus === "unauthenticated" && !loading && !mission) {
+      router.replace(`/signin?callbackUrl=${encodeURIComponent(selfHref)}`);
+    }
+  }, [wantsToApply, sessionStatus, loading, mission, router, selfHref]);
+
+  // Fiche PUBLIQUE (2026-11-09) : un visiteur non connecté lit une mission publiée — champs
+  // filtrés par le serveur (src/lib/public-mission.ts). `undefined` = pas encore demandée,
+  // `null` = mission non publique (brouillon, engagée, inexistante).
+  const [publicMission, setPublicMission] = useState<PublicMission | null | undefined>(undefined);
+  useEffect(() => {
+    if (wantsToApply || sessionStatus !== "unauthenticated" || loading || mission) return;
+    let alive = true;
+    fetch(`/api/missions/${missionId}/public`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => alive && setPublicMission(d))
+      .catch(() => alive && setPublicMission(null));
+    return () => {
+      alive = false;
+    };
+  }, [wantsToApply, sessionStatus, loading, mission, missionId]);
+
+  // Prestataire de retour avec `?candidater=1` : formulaire ouvert et amené à l'écran, une seule
+  // fois — fermer le formulaire ensuite reste possible.
+  const [applyIntentHandled, setApplyIntentHandled] = useState(false);
+  useEffect(() => {
+    if (!wantsToApply || applyIntentHandled || !mission || myProposal === undefined) return;
+    setApplyIntentHandled(true);
+    if (mission.budgetType !== "QUOTE" && !mission.isOwner && !isClient && myProposal === null && mission.status === "publiee") setApplying(true);
+    requestAnimationFrame(() => document.getElementById("candidater")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  }, [wantsToApply, applyIntentHandled, mission, myProposal, isClient]);
+
   if (loading) return <div className="min-h-screen bg-[#F8FAF9] flex items-center justify-center text-[13px] text-[#64748B]">Chargement...</div>;
   // Visiteur non connecté : l'API répond 401, la mission reste donc nulle — annoncer
   // « Mission introuvable » désignait alors une cause fausse (la mission existe, c'est la
   // session qui manque) et laissait l'utilisateur sans moyen d'aller plus loin. On l'envoie
   // se connecter, avec retour sur cette mission.
   if (!mission && sessionStatus === "unauthenticated") {
+    // Venu par « Candidater » : direction la connexion sans étape intermédiaire (effet plus haut).
+    if (wantsToApply) return <div className="min-h-screen bg-[#F8FAF9] flex items-center justify-center text-[13px] text-[#64748B]">Redirection vers la connexion...</div>;
+    if (publicMission === undefined) return <div className="min-h-screen bg-[#F8FAF9] flex items-center justify-center text-[13px] text-[#64748B]">Chargement...</div>;
+    if (publicMission) return <PublicMissionView mission={publicMission} />;
+    // Mission non publique (engagée, clôturée…) : seules ses parties la consultent, connectées.
     return (
       <div className="min-h-screen bg-[#F8FAF9] flex flex-col items-center justify-center gap-3 px-4 text-center">
         <p className="text-[13px] text-[#64748B]">Connectez-vous pour consulter cette mission.</p>
         <Link
-          href={`/signin?callbackUrl=${encodeURIComponent(`/missions/${missionId}`)}`}
+          href={`/signin?callbackUrl=${encodeURIComponent(selfHref)}`}
           className="inline-flex h-10 px-5 rounded-lg bg-[#008751] text-white text-[13px] font-semibold items-center"
           style={{ textDecoration: "none" }}
         >
@@ -614,7 +668,7 @@ export default function MissionDetailPage() {
             <p className="text-[13px] text-[#64748B]">Chargement de votre candidature...</p>
           </div>
         ) : (
-          <>
+          <div id="candidater" className="scroll-mt-20">
           <DevisPanel
             missionId={mission.id}
             maxRounds={mission.maxRevisionRounds ?? 3}
@@ -624,14 +678,34 @@ export default function MissionDetailPage() {
             onChanged={loadMyProposal}
             currency={mission.currency}
           />
-          </>
+          </div>
         ))}
+
+        {/* Compte en mode client sur la mission d'un autre (2026-11-03) : candidater exige
+            l'espace prestataire. Sans cet encadré, un visiteur inscrit depuis « Candidater »
+            revenait sur une mission sans aucune action possible ni explication. */}
+        {isClient && !isAdmin && !mission.isOwner && mission.status === "publiee" && (
+          <div id="candidater" className="scroll-mt-20 bg-white border border-[#E2E8F0] rounded-xl p-4 lg:p-5">
+            <h3 className="text-[13px] font-semibold mb-1">Candidater à cette mission</h3>
+            <p className="text-[13px] text-[#64748B] mb-3">
+              Votre compte est en mode client. Ouvrez votre espace prestataire — même compte, aucune nouvelle
+              inscription — puis revenez ici pour proposer votre prix.
+            </p>
+            <Link
+              href={`/devenir-prestataire?returnTo=${encodeURIComponent(`/missions/${missionId}?candidater=1`)}`}
+              className="inline-flex h-10 px-5 rounded-lg bg-[#008751] text-white text-[13px] font-semibold items-center hover:bg-[#007a49]"
+              style={{ textDecoration: "none" }}
+            >
+              Ouvrir mon espace prestataire
+            </Link>
+          </div>
+        )}
 
         {/* Candidater à prix fixe/taux (hors mode QUOTE) — pendant du bloc DevisPanel
             ci-dessus pour le mode devis. N'apparaît que si aucune candidature n'existe
             encore (myProposal === null) et que la mission accepte des candidatures. */}
         {mission.budgetType !== "QUOTE" && !mission.isOwner && !isClient && myProposal === null && mission.status === "publiee" && (
-          <div className="bg-white border border-[#E2E8F0] rounded-xl p-4 lg:p-5">
+          <div id="candidater" className="scroll-mt-20 bg-white border border-[#E2E8F0] rounded-xl p-4 lg:p-5">
             <h3 className="text-[13px] font-semibold mb-2">Candidater à cette mission</h3>
 
             {/* quoteMode={false} : hors mode devis il n'y a aucune ligne à dériver en jalons —
@@ -738,7 +812,17 @@ export default function MissionDetailPage() {
                 </div>
                 {applySuccessMsg && <p className="text-[12px] text-emerald-700">{applySuccessMsg}</p>}
                 {draftSavedMsg && !applySuccessMsg && <p className="text-[12px] text-emerald-700">{draftSavedMsg}</p>}
-                {applyError && <p className="text-[12px] text-red-600">{applyError}</p>}
+                {applyError && (
+                  <p className="text-[12px] text-red-600">
+                    {applyError}
+                    {applyNeedsKyc && (
+                      <>
+                        {" "}
+                        <Link href="/kyc" className="font-semibold underline">Vérifier mon identité</Link>
+                      </>
+                    )}
+                  </p>
+                )}
                 <div className="flex flex-wrap gap-2">
                   <button disabled={applySubmitting || !!applySuccessMsg} onClick={submitProposal} className="h-10 px-5 rounded-lg bg-[#008751] text-white text-[13px] font-semibold hover:bg-[#007a49] disabled:opacity-50">
                     {applySubmitting ? "Envoi..." : "Envoyer ma candidature"}
@@ -746,7 +830,7 @@ export default function MissionDetailPage() {
                   <button disabled={applySubmitting || !!applySuccessMsg} onClick={saveProposalDraftNow} className="h-10 px-5 rounded-lg border border-[#E2E8F0] bg-white text-[13px] font-medium hover:bg-[#F8FAF9] disabled:opacity-50">
                     Enregistrer brouillon
                   </button>
-                  <button disabled={applySubmitting || !!applySuccessMsg} onClick={() => { setApplying(false); setApplyError(null); }} className="h-10 px-5 rounded-lg border border-[#E2E8F0] bg-white text-[13px] font-medium hover:bg-[#F8FAF9]">
+                  <button disabled={applySubmitting || !!applySuccessMsg} onClick={() => { setApplying(false); setApplyError(null); setApplyNeedsKyc(false); }} className="h-10 px-5 rounded-lg border border-[#E2E8F0] bg-white text-[13px] font-medium hover:bg-[#F8FAF9]">
                     Annuler
                   </button>
                 </div>

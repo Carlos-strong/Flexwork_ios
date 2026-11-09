@@ -6,7 +6,7 @@
 // des cinq recopiait ses styles, ses messages d'erreur et son bandeau de sauvegarde — et
 // cinq copies finissent par diverger à la première retouche.
 
-import type { ReactNode } from "react";
+import { createContext, useContext, type ReactNode } from "react";
 
 /** Profil prestataire tel que le renvoie GET /api/profile (tous les champs sont optionnels). */
 export type ProviderProfile = {
@@ -28,6 +28,8 @@ export type ProviderProfile = {
   // Onglet 1
   title?: string | null;
   providerKind?: string | null;
+  // Langues parlées (2026-11-08) — JSON [{ code, niveau }], lu par readLanguages().
+  languages?: unknown;
   // Métier du catalogue (2026-09-23) — la clé, distincte de `mainDomain` qui n'en est que le
   // libellé. C'est elle qui permet de rouvrir la cascade sur le métier déjà choisi.
   metierId?: string | null;
@@ -55,7 +57,7 @@ export type ProviderIdentity = {
 
 export const inputClass =
   "w-full h-10 px-3 rounded-xl border border-zinc-200 text-[14px] focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751] transition";
-export const labelClass = "block text-[13px] font-medium text-zinc-700 mb-1.5";
+export const labelClass = "block text-[14px] font-medium text-zinc-700 mb-1.5";
 export const btnPrimary =
   "h-10 px-5 rounded-full bg-[#008751] text-white text-[13px] font-semibold hover:bg-[#006e43] transition disabled:opacity-50";
 export const btnSecondary =
@@ -148,7 +150,7 @@ export function Field({
         {label} {required && <span className="text-[#E8112D]">*</span>}
       </label>
       {children}
-      {hint && <p className="mt-1 text-[11px] text-zinc-400">{hint}</p>}
+      {hint && <p className="mt-1.5 text-[12px] leading-snug text-zinc-500">{hint}</p>}
     </div>
   );
 }
@@ -169,33 +171,85 @@ export function SaveBanner({ message }: { message: { text: string; ok: boolean }
   );
 }
 
-/** Pied de carte : bouton d'enregistrement + bandeau, identique sur les cinq onglets. */
+/**
+ * Libellé par défaut du bouton d'enregistrement, fourni par le parcours par étapes
+ * (ProviderProfileTabs) : dans le parcours, enregistrer FAIT avancer — « Enregistrer et
+ * continuer ». Un SaveRow qui passe son propre `label` (« Enregistrer le niveau ») le garde.
+ */
+export const StepSaveLabelContext = createContext<string | null>(null);
+
+/**
+ * Pied de formulaire : bouton d'enregistrement + bandeau, identique sur les cinq onglets.
+ *
+ * Collant en bas de l'écran (2026-11-07) : sur l'onglet Présentation, le bouton tombait à
+ * ~2 000 px sur mobile, sous quatre cartes — on remplissait le titre sans voir comment
+ * l'enregistrer. `dirty` (optionnel) signale les modifications non enregistrées.
+ *
+ * `sticky` est OPT-IN : pour un formulaire posé hors des cartes (Présentation). À l'intérieur
+ * d'une carte blanche (« Enregistrer le niveau »…), le dégradé gris de la barre collante
+ * dessinait une bande dans la carte.
+ */
 export function SaveRow({
   saving,
   message,
-  label = "Enregistrer",
+  label,
+  dirty,
+  sticky = false,
 }: {
   saving: boolean;
   message: { text: string; ok: boolean } | null;
   label?: string;
+  dirty?: boolean;
+  sticky?: boolean;
 }) {
+  const stepLabel = useContext(StepSaveLabelContext);
+  const text = label ?? stepLabel ?? "Enregistrer";
   return (
-    <div className="pt-1 space-y-3">
-      <button type="submit" disabled={saving} className={btnPrimary}>
-        {saving ? "Enregistrement..." : label}
-      </button>
+    <div
+      className={
+        sticky
+          ? "sticky bottom-0 z-10 -mx-4 px-4 sm:mx-0 sm:px-0 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-gradient-to-t from-zinc-50 from-70% to-zinc-50/0 space-y-3"
+          : "pt-1 space-y-3"
+      }
+    >
+      <div className="flex items-center gap-3">
+        <button type="submit" disabled={saving} className={`${btnPrimary} shadow-sm`}>
+          {saving ? "Enregistrement..." : text}
+        </button>
+        {dirty && !saving && (
+          <span className="flex items-center gap-1.5 text-[12px] text-amber-700" role="status">
+            <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+            Modifications non enregistrées
+          </span>
+        )}
+      </div>
       <SaveBanner message={message} />
     </div>
   );
 }
 
 /** Carte d'une section d'onglet — même enveloppe pour toutes, pour que la page se lise d'un bloc. */
-export function ProfileCard({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
+export function ProfileCard({
+  title,
+  description,
+  aside,
+  children,
+}: {
+  title: string;
+  description?: string;
+  /** Indicateur aligné à droite du titre (ex. coche « critère rempli »). */
+  aside?: ReactNode;
+  children: ReactNode;
+}) {
   return (
-    <section className="bg-white rounded-[20px] border border-gray-100 p-6">
-      <h2 className="text-[15px] font-semibold text-[#0A1931]">{title}</h2>
-      {description && <p className="mt-1 text-[12px] text-zinc-500">{description}</p>}
-      <div className="mt-4">{children}</div>
+    <section className="bg-white rounded-[20px] border border-gray-100 shadow-[0_1px_2px_rgba(10,25,49,0.04)] p-4 sm:p-6">
+      <div className="flex items-start justify-between gap-3">
+        {/* `!tracking` : `.landing h2` (globals.css) resserre à -0,025em, trop serré à 17 px. */}
+        <h2 className="text-[17px] font-bold leading-snug !tracking-[-0.01em] text-[#0A1931]">{title}</h2>
+        {aside}
+      </div>
+      {description && <p className="mt-1 text-[13px] leading-relaxed text-zinc-500">{description}</p>}
+      <div className="mt-5">{children}</div>
     </section>
   );
 }

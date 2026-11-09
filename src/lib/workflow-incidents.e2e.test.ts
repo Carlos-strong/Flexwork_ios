@@ -60,6 +60,7 @@ import { operateVirtualPsp, type VirtualPspAction } from "@/lib/psp-virtual";
 import { runTacitAcceptanceSweep } from "@/lib/tacit-acceptance";
 import type { Anomaly, ContractFinanceRow } from "@/lib/admin-finance";
 import { givePayoutAccount } from "@/test/payout-fixture";
+import { gigBody } from "@/test/gig-fixture";
 
 const RUN = Date.now();
 const PASSPHRASE = "passphrase-incidents-2026";
@@ -613,7 +614,7 @@ describe("W8 — commande Gig : achat direct d'une prestation", () => {
     authAs(ids.provider);
     const created = await (
       await expectOk(
-        await gigPost(postReq({ titre: `Audit SEO ${RUN}`, description: "Audit SEO complet et recommandations.", domaine: "expert_digital", prix: 60_000, delaiJours: 7, status: "publie" })),
+        await gigPost(postReq(gigBody({ titre: `auditer le SEO de votre site ${RUN}`, prix: 60_000, delaiJours: 7, status: "publie" }))),
         "publication du Gig",
         [201]
       )

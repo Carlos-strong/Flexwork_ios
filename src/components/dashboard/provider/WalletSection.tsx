@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
 import { fetchDedupe } from "@/lib/fetch-dedupe";
-import { Wallet, ShieldCheck, Clock } from "lucide-react";
+import Link from "next/link";
+import { Wallet, ShieldCheck, Clock, Landmark } from "lucide-react";
 
 type Summary = {
   stats: {
@@ -10,6 +11,41 @@ type Summary = {
     missionsCompleted: number;
   };
   escrow?: { owed: number; awaitingFunding: number; retained: number; blocked: number; inFlight: number };
+};
+
+type PayoutStatus = "non_renseigne" | "en_attente" | "verifie" | "rejete";
+
+// Compte de versement Mobile Money (2026-11-08) : sa vérification se lance DEPUIS LE WALLET,
+// là où l'on regarde ce qu'on doit recevoir — plus depuis l'accueil du tableau de bord.
+const PAYOUT_DISPLAY: Record<PayoutStatus, { badge: string; badgeClass: string; text: string; cta: string; primary: boolean }> = {
+  non_renseigne: {
+    badge: "Non renseigné",
+    badgeClass: "bg-zinc-100 text-zinc-600",
+    text: "Renseigne ton numéro Mobile Money : sans compte vérifié, aucun versement ne peut partir vers toi.",
+    cta: "Vérifier mon compte de versement",
+    primary: true,
+  },
+  en_attente: {
+    badge: "En cours de vérification",
+    badgeClass: "bg-amber-100 text-amber-800",
+    text: "Ton compte est en cours d'instruction par l'équipe KYC. Les versements partiront dès sa validation.",
+    cta: "Voir mon dossier",
+    primary: false,
+  },
+  verifie: {
+    badge: "Vérifié",
+    badgeClass: "bg-[#008751]/10 text-[#008751]",
+    text: "Ton compte est vérifié : les paiements validés te sont versés automatiquement.",
+    cta: "Voir mon compte",
+    primary: false,
+  },
+  rejete: {
+    badge: "Refusé",
+    badgeClass: "bg-red-100 text-red-700",
+    text: "La vérification de ton compte a été refusée. Corrige-le pour pouvoir recevoir tes paiements.",
+    cta: "Corriger mon compte de versement",
+    primary: true,
+  },
 };
 
 function formatFCFA(n: number): string {
@@ -22,6 +58,17 @@ function formatFCFA(n: number): string {
 // est donc la somme des paiements confirmés réellement reçus.
 export default function WalletSection() {
   const [summary, setSummary] = useState<Summary | null>(null);
+  const [payout, setPayout] = useState<{ status: PayoutStatus; refusalReason: string | null } | null>(null);
+  // Page courante, pour que /kyc/financier ramène ici.
+  const [here, setHere] = useState("/dashboard/provider");
+
+  useEffect(() => {
+    setHere(window.location.pathname);
+    fetch("/api/kyc/payout")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => d && setPayout({ status: d.status, refusalReason: d.refusalReason ?? null }))
+      .catch(() => setPayout(null));
+  }, []);
 
   useEffect(() => {
     fetchDedupe("/api/dashboard/provider-summary")
@@ -54,6 +101,36 @@ export default function WalletSection() {
           </div>
         </div>
       </div>
+
+      {payout && (() => {
+        const d = PAYOUT_DISPLAY[payout.status] ?? PAYOUT_DISPLAY.non_renseigne;
+        return (
+          <div className="bg-white rounded-[16px] border border-gray-100 p-4 md:p-5 flex flex-col sm:flex-row sm:items-center gap-4">
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <Landmark className="w-4 h-4 text-[#0A1931]" aria-hidden />
+                <span className="text-[14px] font-semibold text-[#0A1931]">Compte de versement</span>
+                <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${d.badgeClass}`}>{d.badge}</span>
+              </div>
+              <p className="mt-1.5 text-[12px] text-zinc-500 leading-relaxed">{d.text}</p>
+              {payout.status === "rejete" && payout.refusalReason && (
+                <p className="mt-1 text-[12px] text-red-700">Motif : {payout.refusalReason}</p>
+              )}
+            </div>
+            <Link
+              href={`/kyc/financier?returnTo=${encodeURIComponent(here)}`}
+              className={`h-10 px-5 shrink-0 rounded-full text-[13px] font-semibold flex items-center justify-center transition ${
+                d.primary
+                  ? "bg-[#008751] text-white hover:bg-[#006e43]"
+                  : "bg-white border border-gray-200 text-[#0A1931] hover:bg-gray-50"
+              }`}
+              style={{ textDecoration: "none" }}
+            >
+              {d.cta}
+            </Link>
+          </div>
+        );
+      })()}
 
       {/* Ce qui est engagé et pas encore reçu (2026-09-15). « Revenus totaux » ne dit que le
           passé ; ces quatre montants disent ce qui arrive, et ce qui bloque. Mêmes règles de

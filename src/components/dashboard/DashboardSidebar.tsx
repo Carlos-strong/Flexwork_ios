@@ -100,7 +100,7 @@ export default function DashboardSidebar({
         <div onClick={onClose} className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden" />
       )}
 
-      <aside className={`fixed lg:sticky top-0 left-0 z-50 lg:z-30 h-full w-[260px] bg-[#0A1931] text-white flex flex-col transition-transform duration-300 ${open ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
+      <aside className={`fixed lg:sticky top-0 left-0 z-50 lg:z-30 h-full w-[260px] bg-[#0A1931] text-white flex flex-col transition-[transform,visibility] duration-300 ${open ? "translate-x-0" : "-translate-x-full max-lg:invisible lg:translate-x-0"}`}>
         <div className="h-[4px] w-full shrink-0 bg-[linear-gradient(90deg,#FF7A00_0%,#FCD116_33%,#008751_66%,#8B5CF6_100%)]" />
 
         {/* Logo */}
@@ -110,7 +110,7 @@ export default function DashboardSidebar({
             <span className="text-[#FF7A00] font-extrabold text-[19px] tracking-tight">work</span>
             <span className="w-1.5 h-1.5 rounded-full bg-[#FF7A00] inline-block -mt-2" />
           </Link>
-          <button onClick={onClose} className="lg:hidden p-1.5 rounded-lg hover:bg-white/[0.08]"><X className="w-4 h-4" /></button>
+          <button onClick={onClose} aria-label="Fermer le menu" className="lg:hidden p-1.5 rounded-lg hover:bg-white/[0.08]"><X className="w-4 h-4" aria-hidden /></button>
         </div>
 
         {header && <div className="px-3 pb-2 shrink-0">{header}</div>}

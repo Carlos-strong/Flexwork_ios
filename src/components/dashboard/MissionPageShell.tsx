@@ -48,10 +48,11 @@ export default function MissionPageShell({ title = "Mission", children }: { titl
   const segment = pathname.split("/").filter(Boolean).pop() ?? "";
   const activeNav = segment === "proposals" ? PROPOSALS_ACTIVE_NAV[isClient ? "client" : "provider"] : "missions";
 
-  // Page protégée : un visiteur non connecté est redirigé vers la connexion.
+  // Page protégée : un visiteur non connecté est redirigé vers la connexion, qui l'y ramène
+  // ensuite (mission ouverte depuis l'accueil, lien partagé).
   useEffect(() => {
-    if (status === "unauthenticated") router.replace("/signin");
-  }, [status, router]);
+    if (status === "unauthenticated") router.replace(`/signin?callbackUrl=${encodeURIComponent(pathname)}`);
+  }, [status, router, pathname]);
 
   if (status === "loading") {
     return (

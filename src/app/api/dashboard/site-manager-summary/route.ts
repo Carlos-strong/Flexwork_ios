@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { escrowBalancesFor } from "@/lib/escrow";
 import { attendanceAmount, fundingAlert } from "@/lib/spot-time";
+import { RECOGNIZED_ATTENDANCE_STATUSES } from "@/lib/spot-time-actions";
 
 // Tableau de bord du RESPONSABLE DE CHANTIER (2026-09-14).
 //
@@ -77,7 +78,8 @@ export async function GET() {
 
       // En OPR, « à constater » = soumis par le prestataire, pas encore vérifiés.
       const enAttente = releves.filter((r) => r.status === "submitted");
-      const valides = releves.filter((r) => r.status === "approved");
+      // Part reconnue des relevés contestés comprise : elle est payée et consomme le plafond.
+      const valides = releves.filter((r) => (RECOGNIZED_ATTENDANCE_STATUSES as readonly string[]).includes(r.status));
       const consomme = valides.reduce((s, r) => s + (r.approvedQuantity ?? 0), 0);
 
       return {

@@ -54,7 +54,7 @@ const BECOME_ERROR_LINKS: Record<string, string> = {
   kyc_required_for_age: "/kyc",
 };
 
-export function BecomeProviderForm() {
+export function BecomeProviderForm({ returnTo = null }: { returnTo?: string | null } = {}) {
   const router = useRouter();
   const [providerType, setProviderType] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -76,6 +76,13 @@ export function BecomeProviderForm() {
     if (res.ok) {
       // Direction l'onglet Domaines : c'est lui qui crée le profil, et donc la clé de
       // rapprochement dont tout le reste dépend. Présentation se remplit très bien après.
+      // Arrivé ici depuis une mission (« Candidater » sur l'accueil) : retour sur la mission.
+      // Navigation complète, pas router.push : la session en mémoire porte encore le rôle
+      // client, et la page mission n'afficherait pas le formulaire de candidature.
+      if (returnTo) {
+        window.location.assign(returnTo);
+        return;
+      }
       router.push("/profile?tab=domaines&bienvenue=1");
       return;
     }

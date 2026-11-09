@@ -52,6 +52,17 @@ export async function POST(req: Request) {
   }
   const userId = (session.user as typeof session.user & { id: string }).id;
 
+  // Mission lancée depuis SON PROPRE profil de prestataire (2026-11-09) : refusée, brouillon
+  // compris. Un visiteur non connecté qui cliquait « Publier une mission » sur son profil puis
+  // s'identifiait arrivait sur le tunnel, et la mission partait (seule l'invitation était
+  // ignorée). On ne publie pas de mission adressée à soi-même.
+  if (parsed.data.invitedProviderId && parsed.data.invitedProviderId === userId) {
+    return NextResponse.json(
+      { error: "self_invitation", message: "Vous ne pouvez pas publier une mission sur votre propre profil de prestataire." },
+      { status: 403 },
+    );
+  }
+
   // Publication : conditions de la mission d'abord (mêmes règles que la publication d'un
   // brouillon), PUIS les contrôles d'identité — une mission retenue doit être publiable telle
   // quelle une fois débloquée.
@@ -274,7 +285,7 @@ export async function POST(req: Request) {
   }
 
   if (publishNow) {
-    await announcePublication(mission, userId);
+    await announcePublication(mission, userId, { invitedProviderId: parsed.data.invitedProviderId });
   } else if (publicationBlock) {
     // Le client garde une trace de sa demande (cloche + e-mail), avec ce qui reste à faire.
     try {

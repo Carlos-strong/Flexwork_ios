@@ -4,7 +4,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import type { UserRole } from "@prisma/client";
 import { readStoredFile } from "@/lib/storage";
-import { PROVIDER_ROLES } from "@/lib/provider-options";
+import { isPubliclyListed } from "@/lib/profile-visibility";
 
 const CONTENT_TYPE_BY_EXT: Record<string, string> = {
   ".jpg": "image/jpeg",
@@ -32,11 +32,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const { id } = await params;
   const user = await prisma.user.findUnique({
     where: { id },
-    select: { avatarPath: true, kycStatus: true, role: true, _count: { select: { profiles: true } } },
+    select: { avatarPath: true, kycStatus: true, status: true, role: true, _count: { select: { profiles: true } } },
   });
 
-  const publiclyListed =
-    !!user && user.kycStatus === "verifie" && PROVIDER_ROLES.includes(user.role) && user._count.profiles > 0;
+  const publiclyListed = isPubliclyListed(user ? { ...user, profileCount: user._count.profiles } : null);
 
   if (!session?.user && !publiclyListed) {
     return NextResponse.json({ error: "unauthenticated" }, { status: 401 });

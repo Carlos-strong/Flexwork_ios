@@ -79,12 +79,21 @@ export async function POST(req: Request) {
     return created;
   });
 
-  await requestOtp({
-    userId: user.id,
-    identifier: email,
-    channel: "email",
-    purpose: "signup",
-  });
+  // Échec d'envoi du code (2026-11-09) : le compte EST créé. Répondre 500 ici laissait
+  // l'utilisateur sur un message d'erreur, puis « compte déjà existant » au nouvel essai —
+  // bloqué. On le laisse continuer vers /verify-otp, qui le lui dit et propose le renvoi.
+  let otpSent = true;
+  try {
+    await requestOtp({
+      userId: user.id,
+      identifier: email,
+      channel: "email",
+      purpose: "signup",
+    });
+  } catch (err) {
+    console.error("[signup] échec de l'envoi OTP :", err);
+    otpSent = false;
+  }
 
-  return NextResponse.json({ userId: user.id });
+  return NextResponse.json({ userId: user.id, email, otpSent });
 }

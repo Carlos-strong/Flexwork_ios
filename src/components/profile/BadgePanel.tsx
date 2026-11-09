@@ -152,7 +152,7 @@ export function BadgePanel() {
             </button>
           )}
           <Link
-            href="/declarations#qualifications"
+            href="/declarations?returnTo=%2Fbadge#qualifications"
             className="h-10 px-5 rounded-full bg-white border border-zinc-200 text-[13px] font-medium text-zinc-600 flex items-center hover:bg-zinc-50"
             style={{ textDecoration: "none" }}
           >

@@ -13,6 +13,7 @@
 import { useRef, useState } from "react";
 import { Avatar } from "@/components/avatar";
 import { PROVIDER_KINDS } from "@/lib/provider-options";
+import { LANGUAGES, LANGUAGE_LEVELS, MAX_LANGUAGES, readLanguages, type SpokenLanguage } from "@/lib/languages";
 import {
   Field,
   ProfileCard,
@@ -42,6 +43,8 @@ export function PresentationTab({
   // développe la méthode et les réalisations sur le profil complet. Un seul champ ne peut pas
   // servir les deux — court partout, il ne dit rien ; long partout, il noie les cartes.
   const [overview, setOverview] = useState(profile?.overview ?? "");
+  // Langues parlées (2026-11-08) — partie de la biographie, comme la photo et la bio.
+  const [languages, setLanguages] = useState<SpokenLanguage[]>(() => readLanguages(profile?.languages));
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
   const [avatarBusy, setAvatarBusy] = useState(false);
@@ -49,6 +52,17 @@ export function PresentationTab({
   const fileRef = useRef<HTMLInputElement>(null);
 
   const bioLength = description.trim().length;
+  const overviewLength = overview.trim().length;
+  // Seuil du barème serveur (src/lib/provider-profile-completion.ts) pour la bio courte.
+  const BIO_MIN = 40;
+  // Modifications non enregistrées : comparées à la dernière version renvoyée par le serveur
+  // (`profile` est remplacé par la réponse de chaque enregistrement réussi).
+  const dirty =
+    providerKind !== (profile?.providerKind ?? "") ||
+    title.trim() !== (profile?.title ?? "").trim() ||
+    description.trim() !== (profile?.description ?? "").trim() ||
+    overview.trim() !== (profile?.overview ?? "").trim() ||
+    JSON.stringify(languages) !== JSON.stringify(readLanguages(profile?.languages));
 
   async function handleAvatarSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -107,6 +121,7 @@ export function PresentationTab({
         title: title.trim(),
         description: description.trim(),
         overview: overview.trim(),
+        languages,
       }),
     });
     setSaving(false);
@@ -124,41 +139,76 @@ export function PresentationTab({
     });
   }
 
+  // Mise en page (2026-11-07) : trois cartes au lieu de quatre. La photo et le titre forment
+  // ensemble l'en-tête de la carte que voient les clients — ils sont réunis ; la présentation
+  // détaillée rejoint la bio (son titre de carte répétait mot pour mot celui du champ). Chaque
+  // carte porte la coche de ses critères du barème, et chaque compteur est collé à son champ.
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
+    <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
       <ProfileCard
-        title="Photo de profil"
-        description="Elle apparaît sur vos candidatures, vos offres et votre profil public."
+        title="Photo et titre"
+        description="Ce que le client voit en premier, sur vos candidatures, vos offres et votre profil public."
+        aside={<Criterion done={!!identity?.avatarUrl && title.trim().length > 0} />}
       >
         <div className="flex items-center gap-4">
           <Avatar src={identity?.avatarUrl ?? null} initials={initialsOf(identity)} size={64} />
-          <div className="flex flex-wrap items-center gap-2">
-            <input
-              ref={fileRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              className="hidden"
-              onChange={handleAvatarSelect}
-            />
-            <button type="button" disabled={avatarBusy} className={btnSecondary} onClick={() => fileRef.current?.click()}>
-              {avatarBusy ? "Envoi..." : identity?.avatarUrl ? "Changer la photo" : "Ajouter une photo"}
-            </button>
-            {identity?.avatarUrl && (
-              <button type="button" disabled={avatarBusy} className={btnSecondary} onClick={handleAvatarRemove}>
-                Retirer
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={handleAvatarSelect}
+              />
+              <button type="button" disabled={avatarBusy} className={btnSecondary} onClick={() => fileRef.current?.click()}>
+                {avatarBusy ? "Envoi..." : identity?.avatarUrl ? "Changer la photo" : "Ajouter une photo"}
               </button>
-            )}
+              {identity?.avatarUrl && (
+                <button
+                  type="button"
+                  disabled={avatarBusy}
+                  className="h-10 px-3 rounded-full text-[13px] font-medium text-zinc-500 hover:text-red-600 transition"
+                  onClick={handleAvatarRemove}
+                >
+                  Retirer
+                </button>
+              )}
+            </div>
+            {/* La photo s'applique dès l'envoi — le dire évite de la croire liée au bouton du bas. */}
+            <p className="mt-1.5 text-[12px] text-zinc-500">JPG, PNG ou WEBP · 2 Mo max · enregistrée dès l&apos;envoi</p>
           </div>
         </div>
-        {avatarMsg && <p className={`mt-3 text-[12px] ${avatarMsg.ok ? "text-emerald-700" : "text-red-600"}`}>{avatarMsg.text}</p>}
+        {avatarMsg && (
+          <p className={`mt-3 text-[12px] ${avatarMsg.ok ? "text-emerald-700" : "text-red-600"}`} role="status">
+            {avatarMsg.text}
+          </p>
+        )}
+
+        <div className="mt-5">
+          <Field label="Titre professionnel" htmlFor="title" hint="Une ligne, votre métier et ce qui vous distingue.">
+            <input
+              id="title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              maxLength={120}
+              className={inputClass}
+              placeholder="Ex. : Électricien certifié, installations domestiques"
+            />
+          </Field>
+        </div>
       </ProfileCard>
 
-      <ProfileCard title="Type de prestataire" description="Déclaratif : cela change la façon dont vous vous présentez, pas vos droits.">
-        <div className="grid sm:grid-cols-2 gap-2">
+      <ProfileCard
+        title="Type de prestataire"
+        description="Déclaratif : cela change la façon dont vous vous présentez, pas vos droits."
+        aside={<Criterion done={!!providerKind} />}
+      >
+        <div className="grid grid-cols-2 gap-2">
           {PROVIDER_KINDS.map((option) => (
             <label
               key={option.value}
-              className={`flex items-center gap-2.5 px-4 py-3 rounded-xl border text-[13px] cursor-pointer transition ${
+              className={`flex items-center gap-2.5 px-3 sm:px-4 py-3 rounded-xl border text-[14px] leading-tight cursor-pointer transition-colors duration-200 ${
                 providerKind === option.value
                   ? "border-[#008751] bg-[#008751]/5 text-[#0A1931] font-medium"
                   : "border-zinc-200 text-zinc-600 hover:bg-zinc-50"
@@ -170,7 +220,7 @@ export function PresentationTab({
                 value={option.value}
                 checked={providerKind === option.value}
                 onChange={() => setProviderKind(option.value)}
-                className="accent-[#008751]"
+                className="accent-[#008751] shrink-0"
               />
               {option.label}
             </label>
@@ -178,69 +228,147 @@ export function PresentationTab({
         </div>
       </ProfileCard>
 
-      <ProfileCard title="Titre et présentation">
-        <div className="space-y-4">
-          <Field
-            label="Titre professionnel"
-            htmlFor="title"
-            hint="Ce que le client lit en premier. Ex. : Électricien certifié"
-          >
-            <input
-              id="title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              maxLength={120}
-              className={inputClass}
-              placeholder="Électricien certifié"
-            />
-          </Field>
-
-          <Field label="Bio courte" htmlFor="description">
+      <ProfileCard title="Présentation" aside={<Criterion done={bioLength >= BIO_MIN} />}>
+        <div className="space-y-5">
+          <div>
+            <CounterLabel htmlFor="description" label="Bio courte">
+              {/* Le seuil est celui du barème serveur : l'afficher évite qu'un utilisateur croie
+                  avoir rempli la section avec un mot, et découvre le contraire dans le pourcentage. */}
+              <span className={bioLength >= BIO_MIN ? "text-emerald-600" : "text-zinc-400"}>
+                {bioLength >= BIO_MIN ? `✓ ${bioLength} caractères` : `${bioLength} / ${BIO_MIN} min.`}
+              </span>
+            </CounterLabel>
             <textarea
               id="description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              rows={4}
+              rows={3}
               maxLength={2000}
-              className="w-full px-3 py-2.5 rounded-xl border border-zinc-200 text-[14px] focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751] transition"
-              placeholder="Votre expérience, vos méthodes, ce que vous aimez faire."
+              className={textareaClass}
+              placeholder="En deux ou trois phrases : votre expérience et ce que vous faites le mieux."
             />
-          </Field>
-          {/* Le seuil est celui du barème serveur : l'afficher évite qu'un utilisateur croie
-              avoir rempli la section avec un mot, et découvre le contraire dans le pourcentage. */}
-          <p className={`text-[11px] ${bioLength >= 40 ? "text-emerald-600" : "text-zinc-400"}`}>
-            {bioLength} / 40 caractères minimum pour valider cette section
-          </p>
+            <p className="mt-1.5 text-[12px] leading-snug text-zinc-500">Affichée sur les cartes de vos offres et candidatures.</p>
+          </div>
+
+          {/* Le modèle en demande 500 caractères pour un profil abouti — mais l'exiger d'emblée
+              découragerait : le barème de complétion ne s'appuie pas sur ce champ, et le
+              compteur suffit à montrer où l'on en est. */}
+          <div>
+            <CounterLabel htmlFor="overview" label="Présentation détaillée" optional>
+              <span className={overviewLength >= 500 ? "text-emerald-600" : "text-zinc-400"}>
+                {overviewLength} / 500 conseillés
+              </span>
+            </CounterLabel>
+            <textarea
+              id="overview"
+              value={overview}
+              onChange={(e) => setOverview(e.target.value)}
+              maxLength={5000}
+              rows={5}
+              className={textareaClass}
+              placeholder="Votre méthode, vos réalisations, votre façon de travailler — sans liens ni listes."
+            />
+            <p className="mt-1.5 text-[12px] leading-snug text-zinc-500">Sur votre profil complet. Commencez court, complétez plus tard.</p>
+          </div>
         </div>
       </ProfileCard>
 
       <ProfileCard
-        title="Présentation détaillée"
-        description="Ce que vous développez au-delà de la bio : votre méthode, vos réalisations, votre façon de travailler."
+        title="Langues parlées"
+        description="Les langues dans lesquelles vous pouvez échanger avec un client et travailler."
       >
-        {/* Le modèle en demande 500 caractères pour un profil abouti — mais l'exiger d'emblée
-            découragerait : le barème de complétion ne s'appuie pas sur ce champ, et le
-            compteur suffit à montrer où l'on en est. */}
-        <Field
-          label="Présentation détaillée"
-          htmlFor="overview"
-          hint="Le modèle recommande 500 caractères pour un profil abouti. Commencez court, complétez plus tard."
-        >
-          <textarea
-            id="overview"
-            value={overview}
-            onChange={(e) => setOverview(e.target.value)}
-            maxLength={5000}
-            rows={6}
-            className="w-full px-3 py-2.5 rounded-xl border border-zinc-200 text-[14px] resize-y focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751] transition"
-            placeholder="Décrivez votre approche, vos réalisations, votre méthode de travail — sans liens ni listes."
-          />
-        </Field>
-        <p className="mt-1 text-[11px] text-zinc-400">{overview.trim().length} / 5000</p>
+        {languages.length > 0 && (
+          <ul className="mb-3 space-y-2">
+            {languages.map((l, i) => (
+              <li key={l.code} className="flex flex-wrap items-center gap-2">
+                <span className="min-w-[110px] text-[14px] font-medium text-[#0A1931]">
+                  {LANGUAGES.find((x) => x.code === l.code)?.label ?? l.code}
+                </span>
+                <select
+                  aria-label={`Niveau en ${LANGUAGES.find((x) => x.code === l.code)?.label ?? l.code}`}
+                  value={l.niveau}
+                  onChange={(e) =>
+                    setLanguages((prev) => prev.map((x, j) => (j === i ? { ...x, niveau: e.target.value as SpokenLanguage["niveau"] } : x)))
+                  }
+                  className={`${inputClass} !w-auto`}
+                >
+                  {LANGUAGE_LEVELS.map((lv) => (
+                    <option key={lv.value} value={lv.value}>
+                      {lv.label}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => setLanguages((prev) => prev.filter((_, j) => j !== i))}
+                  className="text-[12px] text-red-500 hover:underline"
+                >
+                  Retirer
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        {languages.length < MAX_LANGUAGES ? (
+          <select
+            aria-label="Ajouter une langue"
+            value=""
+            onChange={(e) => {
+              const code = e.target.value;
+              if (code) setLanguages((prev) => [...prev, { code, niveau: prev.length === 0 ? "natif" : "courant" }]);
+            }}
+            className={`${inputClass} sm:max-w-xs`}
+          >
+            <option value="">+ Ajouter une langue</option>
+            {LANGUAGES.filter((x) => !languages.some((l) => l.code === x.code)).map((x) => (
+              <option key={x.code} value={x.code}>
+                {x.label}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <p className="text-[12px] text-zinc-500">{MAX_LANGUAGES} langues maximum.</p>
+        )}
       </ProfileCard>
 
-      <SaveRow saving={saving} message={msg} />
+      <SaveRow saving={saving} message={msg} dirty={dirty} sticky />
     </form>
+  );
+}
+
+const textareaClass =
+  "w-full px-3 py-2.5 rounded-xl border border-zinc-200 text-[14px] resize-y focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751] transition";
+
+/** Libellé d'un champ texte long avec son compteur aligné à droite, au plus près de la saisie. */
+function CounterLabel({
+  htmlFor,
+  label,
+  optional,
+  children,
+}: {
+  htmlFor: string;
+  label: string;
+  optional?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="mb-1.5 flex items-baseline justify-between gap-3">
+      <label htmlFor={htmlFor} className="text-[14px] font-medium text-zinc-700">
+        {label} {optional && <span className="font-normal text-zinc-400">(facultatif)</span>}
+      </label>
+      <span className="shrink-0 text-[12px] tabular-nums">
+        {children}
+      </span>
+    </div>
+  );
+}
+
+/** Pastille « critère du barème rempli / à compléter », en tête de carte. */
+function Criterion({ done }: { done: boolean }) {
+  return done ? (
+    <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">✓ Complet</span>
+  ) : (
+    <span className="shrink-0 rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] font-medium text-zinc-500">À compléter</span>
   );
 }
 

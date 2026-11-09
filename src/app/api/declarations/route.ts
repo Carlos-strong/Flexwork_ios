@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
+import { recordQualificationSpecialties } from "@/lib/qualification-specialties";
 import { declarationSchema } from "@/lib/validation";
 import { computeChainedHash } from "@/lib/hash-chain";
 import { saveDeclarationDocument } from "@/lib/storage";
@@ -129,6 +130,7 @@ export async function POST(req: Request) {
           location: d.location || null,
           institution: d.institution || null,
           specialty: d.specialty || null,
+          country: d.country || null,
           isStateIssued: d.isStateIssued ?? false,
         })),
       });
@@ -196,6 +198,12 @@ export async function POST(req: Request) {
     });
   }
 
+  // Spécialités des diplômes déclarés → registre partagé des suggestions (2026-11-07).
+  // Après la transaction et au mieux : la déclaration est déjà scellée, rien ici ne la défait.
+  if (parsed.data.diplomes?.length) {
+    await recordQualificationSpecialties(parsed.data.diplomes);
+  }
+
   await recordVerificationHistory({
     subjectType: "declaration",
     subjectId: profile.id,
@@ -217,9 +225,23 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "invalid_query" }, { status: 400 });
   }
 
-  // Consultables par tout utilisateur authentifié — une déclaration est par nature publique
-  // (modele-skillafrica-v3-Flexwork.md §5 : "rendre le document consultable n'est pas le
-  // certifier"), on n'affiche que la déclaration la plus récente par type.
+  // Réservé au TITULAIRE du profil et aux administrateurs (2026-11-08). La route renvoie les
+  // déclarations brutes : personnes ressources (noms et téléphones de TIERS), adresse IP,
+  // user-agent, hachages de chaînage, chemins des justificatifs. Tout connecté pouvait les lire
+  // pour n'importe quel profil en changeant `profileId`. La lecture publique d'une déclaration
+  // passe par /api/users/[id]/public-profile, qui choisit ses champs un par un.
+  // Refus = 404, comme un profil inexistant : la route ne confirme pas qu'un id existe.
+  const requesterId = (session.user as typeof session.user & { id: string }).id;
+  const isAdmin = (session.user as { isAdmin?: boolean }).isAdmin === true;
+  const owned = await prisma.profile.findFirst({
+    where: isAdmin ? { id: profileId } : { id: profileId, userId: requesterId },
+    select: { id: true },
+  });
+  if (!owned) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+
+  // Seule la déclaration la plus récente par type est renvoyée.
   const declarations = await prisma.professionalDeclaration.findMany({
     where: { profileId, removedAt: null },
     // Le DÉTAIL est inclus (2026-09-23) : `diplomas` et `experiences` étaient écrits mais

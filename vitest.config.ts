@@ -1,4 +1,4 @@
-import { defineConfig } from "vitest/config";
+import { configDefaults, defineConfig } from "vitest/config";
 import path from "path";
 import { TEST_DATABASE_URL } from "./src/lib/test-database";
 
@@ -14,6 +14,8 @@ export default defineConfig({
     // `npm run test:db:prepare`, et vérifiée avant chaque fichier (src/test/assert-test-db.ts).
     env: { DATABASE_URL: TEST_DATABASE_URL },
     setupFiles: ["./src/test/assert-test-db.ts"],
+    // Tests navigateur (Playwright, `npx playwright test`) : autre exécuteur, autre base.
+    exclude: [...configDefaults.exclude, "e2e/**"],
     // Les tests e2e frappent tous la même base Postgres ; en parallèle, la contention
     // dépasse régulièrement le timeout par défaut de 5 s et fait échouer des tests qui
     // passent en 2 s isolément (constaté 2026-09-16).

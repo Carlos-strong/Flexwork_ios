@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { notifyMissionParties } from "@/lib/mission-notify";
 import { offerSchema } from "@/lib/validation";
 import { kycBlockFor } from "@/lib/kyc-policy";
+import { assertNoSelfDealing } from "@/lib/invariants";
 
 // Le client envoie une offre formelle à un candidat, à partir d'une candidature déjà reçue
 // (model Offer, prisma/schema.prisma — jamais exposé côté API avant cette route). Réutilise
@@ -33,6 +34,12 @@ export async function POST(
   const proposal = await prisma.missionProposal.findUnique({ where: { id: proposalId } });
   if (!proposal || proposal.missionId !== missionId) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+  // Défense en profondeur (2026-11-09) : candidater à sa propre mission est déjà refusé
+  // (POST …/proposals et …/devis) ; une candidature antérieure à ce garde ne doit pas permettre
+  // de s'adresser une offre à soi-même.
+  if (!assertNoSelfDealing(mission.clientId, proposal.providerId)) {
+    return NextResponse.json({ error: "self_dealing_forbidden" }, { status: 403 });
   }
 
   const body = await req.json().catch(() => null);

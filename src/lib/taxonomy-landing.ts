@@ -1,6 +1,6 @@
 // Pages d'atterrissage Catégorie / Métier de /recherche (2026-10-06).
 //
-// Les liens de l'accueil (CategoriesBar, CategoryGrid, PopularServices, recherche libre) ouvrent
+// Les liens de l'accueil (CategoriesBar, PopularServices, recherche libre) ouvrent
 // /recherche?domaine=<libellé> avec un libellé ÉDITORIAL — « Design », « Code », « Vidéo » —
 // qui n'est pas forcément celui du catalogue (« Design et UX/UI »). Ce module rapproche ce
 // libellé de la taxonomie pour savoir si la page doit s'ouvrir sur une catégorie ou un métier,

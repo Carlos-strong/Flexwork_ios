@@ -22,7 +22,7 @@ export default async function TalentsAfrique() {
   // getFeaturedProviders sélectionne en base sur des critères vérifiables ; aucun écran
   // d'administration ne permet d'en épingler un à la main, ce qui serait une mise en avant
   // sur critère non publié — règle de conformité n°5.
-  const [talents, config] = await Promise.all([getFeaturedProviders(4), getPublishedFrontendConfig()])
+  const [talents, config] = await Promise.all([getFeaturedProviders(6), getPublishedFrontendConfig()])
   const section = resolveSection(config, 'featured_talents')
 
   return (
@@ -53,22 +53,26 @@ export default async function TalentsAfrique() {
             </Link>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+          // Même grille que « Dernières missions » et « Nouveaux services » : 6 cartes, 3 colonnes.
+          <ul className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-5">
             {talents.map((t) => (
+              <li key={t.id}>
               <PersonCard
-                key={t.id}
                 name={providerDisplayName(t)}
                 countryCode={t.country}
                 avatarSrc={t.avatarPath ? `/api/users/${t.id}/avatar` : null}
                 initials={providerInitials(t)}
-                subtitle={`${PROVIDER_ROLE_LABEL[t.role] ?? t.role}${t.mainDomain ? ` • ${t.mainDomain}` : ''}${t.zoneVille ? ` • ${t.zoneVille}` : ''}`}
+                roleLabel={PROVIDER_ROLE_LABEL[t.role] ?? t.role}
+                domain={t.mainDomain}
+                city={t.zoneVille}
                 rating={t.averageRating}
                 reviewCount={t.reviewCount}
                 priceLabel={providerPriceLabel(t.indicativeRate, t.tarifUnite)}
-                href={`/profil/${t.id}`}
+                href={`/profil/${t.id}?returnTo=%2F`}
               />
+              </li>
             ))}
-          </div>
+          </ul>
         )}
       </div>
     </section>

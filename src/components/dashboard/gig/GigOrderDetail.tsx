@@ -33,7 +33,14 @@ type SignatureRecord = {
 type Order = {
   id: string;
   gigId: string;
-  gig: { titre: string; description: string; domaine: string; delaiJours: number };
+  gig: {
+    titre: string;
+    description: string;
+    domaine: string;
+    delaiJours: number;
+    /** Formule achetée (Gigs à trois formules, 2026-11-08). */
+    formule?: { tier: string; titre: string; description: string; revisions: number } | null;
+  };
   montant: number;
   currency: string;
   status: string;
@@ -287,6 +294,12 @@ export default function GigOrderDetail({ orderId, onBack }: { orderId: string; o
         <div className="flex items-center gap-2 text-[12px] text-[#64748B] flex-wrap">
           <span className="px-2 py-0.5 rounded-full bg-[#0A1931] text-white text-[10px] font-bold uppercase tracking-widest">{order.gig.domaine}</span>
           <span>Livraison sous {order.gig.delaiJours} j</span>
+          {order.gig.formule && (
+            <span className="rounded-full bg-[#f0faf5] px-2 py-0.5 text-[11px] font-semibold text-[#008751]">
+              Formule {order.gig.formule.tier.charAt(0).toUpperCase() + order.gig.formule.tier.slice(1)} · {order.gig.formule.titre} ·{" "}
+              {order.gig.formule.revisions} révision{order.gig.formule.revisions > 1 ? "s" : ""}
+            </span>
+          )}
           <span className="ml-auto text-[11px]">Commandé le {new Date(order.createdAt).toLocaleDateString("fr-FR")}</span>
         </div>
       </div>

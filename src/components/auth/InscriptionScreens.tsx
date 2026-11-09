@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { currentCallbackUrl, withCallbackUrl } from "@/lib/safe-callback";
 import Link from "next/link";
 import { Shield } from "lucide-react";
 import { COUNTRIES } from "@/lib/countries";
@@ -35,7 +36,7 @@ import { CURRENT_TERMS } from "@/lib/terms";
 //     rien protéger.
 
 type Screen = "splash" | "identite";
-type ErrorKind = "account_exists" | "duplicate" | "generic" | null;
+type ErrorKind = "account_exists" | "duplicate" | "too_many_requests" | "network" | "generic" | null;
 
 // Domaines grand public signalés — jamais refusés. Liste volontairement courte : elle sert à
 // CONSEILLER, pas à filtrer, donc une liste incomplète ne coûte qu'un conseil non donné.
@@ -54,6 +55,23 @@ export function InscriptionScreens() {
   const [email, setEmail] = useState("");
   // Deuxième clic sur « Continuer avec cet email » = acceptation explicite.
   const [publicEmailAccepted, setPublicEmailAccepted] = useState(false);
+  // Arrivée depuis la porte de publication d'une mission (2026-11-09) : `?email=` (identifiant
+  // inconnu, déjà saisi) ou `?nouveau=1` — on passe directement au formulaire, email pré-rempli.
+  const [fromUnknownEmail, setFromUnknownEmail] = useState<string | null>(null);
+  // Liens « Se connecter » : la destination d'origine suit (lue après le montage).
+  const [signinHref, setSigninHref] = useState("/signin");
+  useEffect(() => {
+    setSigninHref(withCallbackUrl("/signin", currentCallbackUrl()));
+    const sp = new URLSearchParams(window.location.search);
+    const prefill = sp.get("email")?.trim().slice(0, 254);
+    if (prefill && prefill.includes("@")) {
+      setEmail(prefill);
+      setFromUnknownEmail(prefill);
+      setScreen("identite");
+    } else if (sp.get("nouveau") === "1") {
+      setScreen("identite");
+    }
+  }, []);
 
   const selectedCountry = COUNTRIES.find((c) => c.code === country) ?? COUNTRIES[0];
   const isPublicEmail = PUBLIC_EMAIL_DOMAINS.some((d) => email.trim().toLowerCase().endsWith(`@${d}`));
@@ -94,22 +112,36 @@ export function InscriptionScreens() {
       cgvAccepted: form.get("cgvAccepted") === "on",
     };
 
-    const res = await fetch("/api/auth/signup", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+    let res: Response;
+    try {
+      res = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+    } catch {
+      setSubmitting(false);
+      setError("network");
+      return;
+    }
 
     setSubmitting(false);
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       if (data.error === "account_already_exists") setError("account_exists");
       else if (data.error === "duplicate_account_suspected") setError("duplicate");
+      else if (data.error === "too_many_requests") setError("too_many_requests");
       else setError("generic");
       return;
     }
 
-    router.push(`/verify-otp?identifier=${encodeURIComponent(String(payload.email))}&purpose=signup`);
+    // Email tel qu'ENREGISTRÉ (minuscules) et état de l'envoi du code : si l'email n'est pas
+    // parti, /verify-otp le dit et propose le renvoi tout de suite (2026-11-09).
+    const created = (await res.json().catch(() => ({}))) as { email?: string; otpSent?: boolean };
+    const email = created.email ?? String(payload.email);
+    const sent = created.otpSent === false ? "&sent=0" : "";
+    // Destination d'origine (/signup?callbackUrl=, relayée par /signin) : suit jusqu'à /bienvenue.
+    router.push(withCallbackUrl(`/verify-otp?identifier=${encodeURIComponent(email)}&purpose=signup${sent}`, currentCallbackUrl()));
   }
 
   // ── P1 — Accueil de l'inscription ───────────────────────────────────────────────────────
@@ -158,7 +190,7 @@ export function InscriptionScreens() {
               Créer un compte
             </button>
             <Link
-              href="/signin"
+              href={signinHref}
               className="h-11 px-5 inline-flex items-center justify-center rounded-xl bg-white border border-[#E2E8F0] text-sm font-medium text-zinc-700 hover:bg-zinc-50"
             >
               Se connecter
@@ -188,11 +220,17 @@ export function InscriptionScreens() {
           </span>
         </div>
 
+        {fromUnknownEmail && !error && (
+          <div role="status" className="mb-5 px-4 py-3 rounded-xl bg-[#eefaf4] border border-[#008751]/20 text-[13px] text-zinc-700">
+            Aucun compte n&apos;existe encore avec <span className="font-semibold text-[#0A1931]">{fromUnknownEmail}</span>.
+            Créez le vôtre : vous reviendrez ensuite à votre mission pour la publier.
+          </div>
+        )}
         {error === "account_exists" && (
           <div role="alert" className="mb-5 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-[13px]">
             <div className="font-bold text-amber-800 mb-1">⚠️ Compte existant</div>
             <p className="text-zinc-700">Un compte existe déjà avec cet email ou ce téléphone.</p>
-            <Link href="/signin" className="inline-flex items-center gap-1 mt-2 text-[#008751] font-semibold hover:underline">
+            <Link href={signinHref} className="inline-flex items-center gap-1 mt-2 text-[#008751] font-semibold hover:underline">
               → Se connecter
             </Link>
           </div>
@@ -200,6 +238,16 @@ export function InscriptionScreens() {
         {error === "duplicate" && (
           <div role="alert" className="mb-5 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700 font-medium">
             ⚠️ Une activité suspecte a été détectée. Veuillez contacter le support.
+          </div>
+        )}
+        {error === "too_many_requests" && (
+          <div role="alert" className="mb-5 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700 font-medium">
+            Trop de demandes — réessayez dans quelques minutes.
+          </div>
+        )}
+        {error === "network" && (
+          <div role="alert" className="mb-5 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700 font-medium">
+            Connexion au serveur impossible. Vérifiez votre réseau, puis réessayez.
           </div>
         )}
         {error === "generic" && (

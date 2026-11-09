@@ -43,6 +43,7 @@ import { prisma } from "@/lib/db";
 import { COUNTER_SIGN_DEADLINE_MS, cancelExpiredContract } from "@/lib/contract-expiry";
 import { PROVIDER_SIGN_DEADLINE_MS, refundExpiredOrder } from "@/lib/gig-expiry";
 import { gigHeldBalance } from "@/lib/gig-completion";
+import { gigBody } from "@/test/gig-fixture";
 
 const RUN = Date.now();
 const PASSPHRASE = "passphrase-crons-2026";
@@ -383,7 +384,7 @@ describe("X4 — gig-order-expirations : le prestataire muet sous 24h rend l'arg
     authAs(ids.provider);
     const gigId = (await (
       await expectOk(
-        await gigPost(postReq({ titre: `Refonte de logo ${RUN}`, description: "Refonte complète d'un logo et déclinaisons.", domaine: "expert_digital", prix: 45_000, delaiJours: 5, status: "publie" })),
+        await gigPost(postReq(gigBody({ titre: `refondre votre logo ${RUN}`, prix: 45_000, delaiJours: 5, status: "publie" }))),
         "publication du Gig",
         [201]
       )

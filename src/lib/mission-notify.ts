@@ -64,9 +64,12 @@ export async function notifyMissionParties(params: {
  * à la mission. Aucune notion de certification ici — le matching se fait sur une donnée
  * déclarative (Profile.mainDomain), pas sur une vérification de la plateforme.
  */
-export async function notifyMatchingProviders(missionId: string, domaine: string) {
+export async function notifyMatchingProviders(missionId: string, domaine: string, excludeIds: string[] = []) {
   const candidates = await prisma.user.findMany({
     where: {
+      // Le prestataire invité (mission lancée depuis son profil) est prévenu à part, avec un
+      // message qui le nomme : on ne lui envoie pas en plus l'alerte générique.
+      ...(excludeIds.length ? { id: { notIn: excludeIds } } : {}),
       role: { not: "client" },
       kycStatus: "verifie",
       // Correspondance partielle insensible à la casse, et non égalité stricte : le domaine de

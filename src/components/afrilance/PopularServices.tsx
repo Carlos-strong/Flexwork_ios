@@ -1,6 +1,8 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { getPublishedFrontendConfig, resolveSection } from '@/lib/frontend-config'
+import { rankedLandingItems } from '@/lib/landing-activity'
+import HorizontalCarousel from '@/components/afrilance/HorizontalCarousel'
 
 // Vignettes de services. `sublabel` porte le DOMAINE visé par la recherche, distinct du
 // `label` affiché : la vignette « Design & Identité » ouvre la recherche sur « Design ».
@@ -13,6 +15,8 @@ export default async function PopularServices() {
   const config = await getPublishedFrontendConfig()
   const section = resolveSection(config, 'popular_services')
   if (!section || section.items.length === 0) return null
+  // Domaines classés par missions et prestations publiées, actifs ajoutés (landing-activity.ts).
+  const items = await rankedLandingItems(section.items, (s) => s.sublabel ?? s.label)
 
   return (
     <section className="py-12 lg:py-16 bg-white">
@@ -25,15 +29,15 @@ export default async function PopularServices() {
             </Link>
           )}
         </div>
-        {/* Mobile : carrousel horizontal (une vignette et demie visible, défilement aimanté)
-            plutôt que quatre rangées empilées. Le débord négatif colle le défilement aux
-            bords de l'écran tout en gardant la première vignette alignée sur la gouttière. */}
-        <div className="-mx-4 px-4 sm:mx-0 sm:px-0 flex sm:grid sm:grid-cols-2 md:grid-cols-4 gap-3 lg:gap-4 overflow-x-auto sm:overflow-visible snap-x snap-mandatory scroll-px-4 scrollbar-hide">
-          {section.items.map((s) => (
+        {/* Diapositives qui défilent à l'horizontale, sur tous les écrans (2026-11-08) : le
+            carrousel avance seul, s'arrête au survol, au focus et au toucher, et propose
+            Pause et flèches. Les vignettes restent rendues ici, côté serveur. */}
+        <HorizontalCarousel label={section.title ?? 'Services populaires'}>
+          {items.map((s) => (
             <Link
               key={s.label}
               href={s.href ?? `/recherche?domaine=${encodeURIComponent(s.sublabel ?? s.label)}`}
-              className="group relative shrink-0 w-[62%] sm:w-auto snap-start rounded-xl overflow-hidden aspect-[3/4] sm:aspect-[4/3] md:aspect-[3/4] block"
+              className="group relative rounded-xl overflow-hidden aspect-[3/4] block"
               style={{ textDecoration: 'none' }}
             >
               {s.imageUrl?.startsWith('/') && !s.imageUrl.startsWith('//') ? (
@@ -43,7 +47,7 @@ export default async function PopularServices() {
                   src={s.imageUrl}
                   alt=""
                   fill
-                  sizes="(max-width: 640px) 62vw, (max-width: 768px) 50vw, 280px"
+                  sizes="(max-width: 640px) 62vw, (max-width: 768px) 42vw, 300px"
                   className="object-cover group-hover:scale-105 transition duration-700"
                 />
               ) : s.imageUrl ? (
@@ -63,7 +67,7 @@ export default async function PopularServices() {
               </div>
             </Link>
           ))}
-        </div>
+        </HorizontalCarousel>
       </div>
     </section>
   )

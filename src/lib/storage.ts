@@ -64,6 +64,12 @@ export async function saveAvatar(params: { userId: string; fileName: string; buf
   return saveFile(AVATARS_BUCKET, { ownerId: params.userId, fileName: params.fileName, buffer: params.buffer });
 }
 
+// Photos d'un Gig (2026-11-08, 3 au plus) — bucket « gigs/<gigId>/ », servies par
+// GET /api/gigs/[id]/images/[index] selon la visibilité du Gig (publié et prestataire listé → public).
+export async function saveGigImage(params: { gigId: string; fileName: string; buffer: Buffer }): Promise<string> {
+  return saveFile("gigs", { ownerId: params.gigId, fileName: params.fileName, buffer: params.buffer });
+}
+
 export async function deleteStoredFile(relPath: string): Promise<void> {
   const absPath = path.join(STORAGE_ROOT, relPath);
   if (!absPath.startsWith(STORAGE_ROOT)) {

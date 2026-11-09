@@ -2,10 +2,12 @@
 
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import { safeCallbackUrl, withCallbackUrl } from "@/lib/safe-callback";
 import { signIn, getSession } from "next-auth/react";
 import Link from "next/link";
 import { KeyRound, ArrowRight, Info, Shield, Users, CreditCard, Mail, RefreshCw, PencilLine } from "lucide-react";
 import { ROLE_DASHBOARD } from "@/lib/role-dashboard";
+import { otpErrorView, otpScreenError, resendMessage, type OtpErrorView } from "@/lib/otp-messages";
 
 // Vérification OTP — étape commune signup/login.
 // Aligné sur formulaires-flexwork-tous-profils.html.
@@ -14,18 +16,23 @@ function VerifyOtpForm() {
   const params = useSearchParams();
   const router = useRouter();
   const identifier = params.get("identifier") ?? "";
-  const purpose = params.get("purpose") ?? "login";
+  // Seuls deux usages existent ; toute autre valeur d'URL retombe sur la connexion.
+  const purpose: "login" | "signup" = params.get("purpose") === "signup" ? "signup" : "login";
+  // Inscription dont l'email de code n'est pas parti (/api/auth/signup → otpSent: false).
+  const notSent = params.get("sent") === "0";
 
   const [code, setCode] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<OtpErrorView | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   // Renvoi du code (connexion) : compte à rebours anti-spam côté client, miroir du
   // rate-limit serveur (/api/auth/login/request-otp). Démarre à 30s — le code vient d'être
   // envoyé depuis /signin — puis « Renvoyer un code » se réactive à 0.
-  const [resendIn, setResendIn] = useState(30);
+  const [resendIn, setResendIn] = useState(notSent ? 0 : 30);
   const [resending, setResending] = useState(false);
-  const [resendMsg, setResendMsg] = useState<string | null>(null);
+  const [resendMsg, setResendMsg] = useState<{ text: string; ok: boolean } | null>(
+    notSent ? { text: "Le code n'a pas pu être envoyé. Cliquez sur « Renvoyer par email ».", ok: false } : null,
+  );
 
   useEffect(() => {
     if (resendIn <= 0) return;
@@ -41,25 +48,33 @@ function VerifyOtpForm() {
     // L'id du provider est "otp" (src/auth.ts) — "credentials" est le type générique,
     // pas l'id ; signIn("credentials", …) cible un provider inexistant et NextAuth
     // renvoie vers /signin avec un callbackUrl pointant sur cette page elle-même.
-    const result = await signIn("otp", { identifier, code: value, purpose, redirect: false });
+    //
+    // Erreurs PRÉCISES (2026-11-09) : le motif du refus arrive dans `result.code`
+    // (src/auth.ts, OtpSigninError) — code faux, expiré, bloqué, compte désactivé… — et une
+    // panne réseau n'est plus une promesse rejetée qui laissait le bouton sur « Vérification... ».
+    let result: Awaited<ReturnType<typeof signIn>> | undefined;
+    try {
+      result = await signIn("otp", { identifier, code: value, purpose, redirect: false });
+    } catch {
+      setSubmitting(false);
+      setError(otpErrorView("network", purpose));
+      return;
+    }
 
     setSubmitting(false);
     if (!result || result.error) {
-      // Message volontairement ambigu en connexion : un code invalide/expiré et un
-      // identifiant qui n'a jamais reçu de code (compte inexistant, voir
-      // /api/auth/login/request-otp) produisent la même erreur ici. Distinguer les deux cas
-      // explicitement ("vous n'êtes pas inscrit") permettrait d'énumérer les comptes
-      // enregistrés en testant des identifiants un par un — exactement ce que la réponse
-      // identique de request-otp (timing + rate-limit inclus) est censée empêcher. Le lien
-      // vers /signup couvre le cas légitime (utilisateur pas encore inscrit) sans confirmer
-      // son hypothèse côté serveur.
-      setError(
-        purpose === "signup"
-          ? "Code invalide ou expiré."
-          : "Code invalide, expiré, ou aucun compte associé à cet identifiant."
-      );
+      const view = otpErrorView(otpScreenError(result), purpose);
+      setError(view);
+      if (view.resendNow) setResendIn(0);
+      // Le code refusé est effacé : on ressaisit dans des cases vides, depuis la première.
+      setCode("");
+      inputsRef.current[0]?.focus();
       return;
     }
+
+    // Session ouverte : le cache du routeur client garde les pages rendues SANS session (porte
+    // d'identification de /missions/new, 2026-11-09) — on l'invalide avant d'y retourner.
+    router.refresh();
 
     if (purpose === "signup") {
       // Écran P4 — et non plus l'assistant KYC (2026-09-23, décision « Option C »).
@@ -72,7 +87,10 @@ function VerifyOtpForm() {
       // d'entrée obligatoire, ce que le modèle refuse (§9 : le KYC ne conditionne QUE des
       // actions précises — publier, candidater). Il transformait aussi un écran de
       // déclaration en péage : l'utilisateur n'avait rien choisi qu'il puisse comprendre.
-      router.push("/bienvenue");
+      //
+      // La destination d'origine (bouton « Candidater » / « Commander » de l'accueil) suit :
+      // /bienvenue y renvoie une fois l'usage choisi.
+      router.push(withCallbackUrl("/bienvenue", params.get("callbackUrl")));
       return;
     }
 
@@ -83,7 +101,14 @@ function VerifyOtpForm() {
     // Next (résolution de module, correspondance de layout), plus lourd qu'un handler
     // d'API minimal. Et ça évite une double navigation visible (/dashboard puis
     // /dashboard/{role}) pour une seule transition directe vers l'URL finale.
-    const session = await getSession();
+    // Retour à la page d'origine (?callbackUrl=, relayé par /signin) avant le tableau de bord.
+    const callbackUrl = safeCallbackUrl(params.get("callbackUrl"));
+    if (callbackUrl) {
+      router.push(callbackUrl);
+      return;
+    }
+
+    const session = await getSession().catch(() => null);
     // Les admins ont role="client" en DB mais isAdmin=true — priorité à isAdmin, sinon
     // ils atterrissent sur /dashboard/client comme n'importe quel client (même correctif
     // que src/app/dashboard/page.tsx, dupliqué ici car cette page évite ce relais serveur).
@@ -151,17 +176,27 @@ function VerifyOtpForm() {
     if (resending || resendIn > 0) return;
     setResending(true);
     setResendMsg(null);
-    const res = await fetch("/api/auth/login/request-otp", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      // `purpose` transmis (2026-09-23) : sans lui, un renvoi en inscription créait un code
-      // `login` que la vérification (`purpose=signup`, src/auth.ts) ne trouvait jamais.
-      body: JSON.stringify({ identifier, purpose }),
-    });
+    let outcome: { ok: true } | { ok: false; error?: string | null };
+    try {
+      const res = await fetch("/api/auth/login/request-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        // `purpose` transmis (2026-09-23) : sans lui, un renvoi en inscription créait un code
+        // `login` que la vérification (`purpose=signup`, src/auth.ts) ne trouvait jamais.
+        body: JSON.stringify({ identifier, purpose }),
+      });
+      outcome = res.ok ? { ok: true } : { ok: false, error: (await res.json().catch(() => ({})))?.error };
+    } catch {
+      outcome = { ok: false, error: "network" };
+    }
     setResending(false);
-    setResendMsg(
-      res.ok ? "Un nouveau code a été envoyé." : "Trop de demandes — réessayez dans quelques minutes."
-    );
+    setResendMsg(resendMessage(outcome));
+    // Un nouveau code remplace l'erreur du précédent.
+    if (outcome.ok) {
+      setError(null);
+      setCode("");
+      inputsRef.current[0]?.focus();
+    }
     setResendIn(30);
   }
 
@@ -248,13 +283,20 @@ function VerifyOtpForm() {
           </div>
 
           {/* Error */}
+          {!identifier && (
+            <div role="alert" className="mb-5 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700 font-medium">
+              Lien incomplet : aucun email n&apos;est indiqué.{" "}
+              <Link href="/signin" className="font-semibold underline hover:no-underline">Recommencer la connexion</Link>
+            </div>
+          )}
+
           {error && (
             <div role="alert" className="mb-5 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700 font-medium">
-              {error}
-              {purpose !== "signup" && (
+              {error.message}
+              {error.offerSignup && (
                 <p className="mt-2 font-normal">
                   Pas encore de compte ?{" "}
-                  <Link href="/signup" className="font-semibold underline hover:no-underline">Créer un compte</Link>
+                  <Link href={withCallbackUrl("/signup", params.get("callbackUrl"))} className="font-semibold underline hover:no-underline">Créer un compte</Link>
                 </p>
               )}
             </div>
@@ -294,7 +336,7 @@ function VerifyOtpForm() {
             {/* Submit */}
             <button
               type="submit"
-              disabled={submitting}
+              disabled={submitting || !identifier}
               className="w-full h-12 rounded-xl bg-[#FF7A00] text-white text-[15px] font-bold hover:brightness-110 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-[0_4px_16px_rgba(255,122,0,0.3)] flex items-center justify-center gap-2"
             >
               {submitting ? (
@@ -312,11 +354,15 @@ function VerifyOtpForm() {
                 serveur savait déjà émettre un nouveau code : elle laissait l'utilisateur
                 sans recours pour une simple non-réception. */}
             <div className="text-center pt-1 space-y-1.5">
-              {resendMsg && <p className="text-[12.5px] text-[#008751] font-medium">{resendMsg}</p>}
+              {resendMsg && (
+                <p role="status" className={`text-[12.5px] font-medium ${resendMsg.ok ? "text-[#008751]" : "text-red-700"}`}>
+                  {resendMsg.text}
+                </p>
+              )}
               <button
                 type="button"
                 onClick={handleResend}
-                disabled={resending || resendIn > 0}
+                disabled={resending || resendIn > 0 || !identifier}
                 className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-[#008751] hover:underline disabled:text-zinc-400 disabled:no-underline disabled:cursor-not-allowed"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${resending ? "animate-spin" : ""}`} />

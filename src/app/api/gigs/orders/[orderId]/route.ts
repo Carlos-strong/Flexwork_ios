@@ -54,7 +54,22 @@ export async function GET(_req: Request, { params }: { params: Promise<{ orderId
     id: order.id,
     payoutPending,
     gigId: order.gigId,
-    gig: { titre: order.gig.titre, description: order.gig.description, domaine: order.gig.domaine, delaiJours: order.gig.delaiJours },
+    // Termes figés à l'achat (2026-11-08) : titre, délai et formule de la COMMANDE, pas du Gig
+    // tel qu'il a pu être modifié depuis.
+    gig: (() => {
+      const snap = (order.termsSnapshot ?? {}) as {
+        gig?: { titre?: string; description?: string };
+        delaiJours?: number;
+        formule?: { tier: string; titre: string; description: string; revisions: number };
+      };
+      return {
+        titre: snap.gig?.titre ?? order.gig.titre,
+        description: snap.gig?.description ?? order.gig.description,
+        domaine: order.gig.domaine,
+        delaiJours: snap.delaiJours ?? order.gig.delaiJours,
+        formule: snap.formule ?? null,
+      };
+    })(),
     montant: order.montant,
     currency: order.currency,
     termsSnapshot: order.termsSnapshot,

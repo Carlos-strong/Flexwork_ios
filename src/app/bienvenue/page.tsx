@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { currentCallbackUrl, withCallbackUrl } from "@/lib/safe-callback";
 
 // ── P4 — Choix de l'usage (2026-09-23) ────────────────────────────────────────────────────
 //
@@ -53,12 +54,28 @@ export default function BienvenuePage() {
   const router = useRouter();
   const [usage, setUsage] = useState<Usage | null>(null);
   const [leaving, setLeaving] = useState(false);
+  // Destination d'origine (2026-11-03) : un visiteur qui a cliqué « Candidater » ou
+  // « Commander » sur l'accueil s'est inscrit en chemin — il y retourne une fois l'usage
+  // choisi, au lieu d'atterrir sur un tableau de bord vide. Candidater exige l'espace
+  // prestataire : depuis une mission, la carte prestataire est présélectionnée.
+  const [callbackUrl, setCallbackUrl] = useState<string | null>(null);
+  useEffect(() => {
+    const cb = currentCallbackUrl();
+    setCallbackUrl(cb);
+    // Publier une mission (/missions/new) est un usage CLIENT ; ouvrir une mission existante
+    // pour y candidater est un usage prestataire.
+    if (cb?.startsWith("/missions/new")) setUsage("client");
+    else if (cb?.startsWith("/missions/")) setUsage("provider");
+  }, []);
 
   function continueTo(_usage: Usage) {
     setLeaving(true);
-    // « client » mène directement au tableau de bord : rien à activer, c'est déjà l'état du
-    // compte. Les deux autres passent par la qualification de la filière.
-    router.push(usage === "client" ? "/client/dashboard" : "/devenir-prestataire");
+    // « client » mène directement au tableau de bord (ou à la destination d'origine) : rien à
+    // activer, c'est déjà l'état du compte. Les deux autres passent par la qualification de la
+    // filière, qui relaie la destination d'origine.
+    router.push(
+      usage === "client" ? callbackUrl ?? "/client/dashboard" : withCallbackUrl("/devenir-prestataire", callbackUrl, "returnTo")
+    );
   }
 
   return (
@@ -108,7 +125,7 @@ export default function BienvenuePage() {
         </div>
 
         <div className="mt-6 flex items-center justify-between">
-          <Link href="/client/dashboard" className="h-11 px-4 inline-flex items-center rounded-xl border border-[#E2E8F0] text-sm text-slate-700 hover:bg-slate-50">
+          <Link href={callbackUrl ?? "/client/dashboard"} className="h-11 px-4 inline-flex items-center rounded-xl border border-[#E2E8F0] text-sm text-slate-700 hover:bg-slate-50">
             Plus tard
           </Link>
           <button

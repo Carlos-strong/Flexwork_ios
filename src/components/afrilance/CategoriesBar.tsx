@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { getPublishedFrontendConfig, resolveSection } from '@/lib/frontend-config'
+import { rankedLandingItems } from '@/lib/landing-activity'
 
 // Composant SERVEUR : les catégories viennent de la configuration publiée (module
 // « Sections d'accueil » de /backoffice/content), plus des neuf entrées codées en dur qui
@@ -13,12 +14,14 @@ export default async function CategoriesBar() {
   const config = await getPublishedFrontendConfig()
   const section = resolveSection(config, 'categories_bar')
   if (!section || section.items.length === 0) return null
+  // Domaines classés par missions et prestations publiées, actifs ajoutés (landing-activity.ts).
+  const items = await rankedLandingItems(section.items)
 
   return (
     <div className="border-b border-gray-100 bg-white">
       <div className="nav-shell">
         <div className="flex items-center gap-4 lg:gap-5 overflow-x-auto scrollbar-hide py-3 text-sm font-medium whitespace-nowrap">
-          {section.items.map((c) => (
+          {items.map((c) => (
             <Link
               key={c.label}
               href={c.href ?? `/recherche?domaine=${encodeURIComponent(c.label)}`}

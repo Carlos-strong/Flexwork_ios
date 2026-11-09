@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/db";
 import { getFinancingMode } from "@/lib/financing-modes";
 import { notifyMatchingProviders, notifyMissionUser } from "@/lib/mission-notify";
+import { profileDomainFilter } from "@/lib/domain-match";
+import { LISTED_PROVIDER_WHERE } from "@/lib/profile-visibility";
 
 // Publication d'une mission — règles et effets PARTAGÉS (2026-10-06).
 //
@@ -48,14 +50,36 @@ export function publishBlocker(m: {
  * e-mail). Non bloquant : la mission est déjà publiée et committée — échouer ici ferait
  * retenter le client et créerait des doublons.
  */
-export async function announcePublication(mission: { id: string; titre: string; domaine: string }, clientId: string) {
+export async function announcePublication(
+  mission: { id: string; titre: string; domaine: string },
+  clientId: string,
+  opts: { invitedProviderId?: string | null } = {},
+) {
   try {
-    const notifiés = await notifyMatchingProviders(mission.id, mission.domaine);
+    const invited = opts.invitedProviderId
+      ? await resolveInvitedProvider(opts.invitedProviderId, clientId, mission.domaine)
+      : null;
+    if (invited) {
+      await notifyMissionUser({
+        missionId: mission.id,
+        userId: invited.id,
+        type: "mission_invitation",
+        message: `Un client a publié la mission « ${mission.titre} » depuis votre profil, dans votre domaine « ${mission.domaine} ». Vous êtes invité à candidater.`,
+        email: {
+          subject: `Invitation à candidater — ${mission.titre}`,
+          text: `Un client a publié la mission « ${mission.titre} » depuis votre profil Flexwork, dans votre domaine « ${mission.domaine} ». Connectez-vous pour la consulter et candidater.`,
+        },
+      });
+    }
+    const matched = await notifyMatchingProviders(mission.id, mission.domaine, invited ? [invited.id] : []);
+    const notifiés = invited ? [invited, ...matched] : matched;
     await notifyMissionUser({
       missionId: mission.id,
       userId: clientId,
       type: "mission_publiee",
-      message: `Votre mission « ${mission.titre} » est publiée — ${notifiés.length} prestataire(s) du domaine « ${mission.domaine} » ont été notifiés.`,
+      message: `Votre mission « ${mission.titre} » est publiée — ${notifiés.length} prestataire(s) du domaine « ${mission.domaine} » ont été notifiés${
+        invited ? ", dont le prestataire depuis le profil duquel vous l'avez lancée" : ""
+      }.`,
       email: {
         subject: `Mission publiée — ${mission.titre}`,
         text: `Votre mission « ${mission.titre} » est en ligne. ${notifiés.length} prestataire(s) du domaine « ${mission.domaine} » ont été notifiés et peuvent désormais candidater.`,
@@ -64,6 +88,21 @@ export async function announcePublication(mission: { id: string; titre: string; 
   } catch (e) {
     console.error("[mission-publish] notification de publication échouée (non bloquant) :", e);
   }
+}
+
+/**
+ * Prestataire invité (mission lancée depuis son profil, 2026-11-08). L'identifiant vient du
+ * navigateur : il n'est retenu que s'il désigne un prestataire LISTÉ publiquement (identité
+ * vérifiée, compte actif), autre que le client, et dont le domaine correspond à celui de la
+ * mission — sinon il est ignoré en silence. On ne peut donc ni démarcher un compte au hasard,
+ * ni s'inviter soi-même, ni pousser une mission hors du domaine du prestataire.
+ */
+async function resolveInvitedProvider(providerId: string, clientId: string, domaine: string) {
+  if (providerId === clientId) return null;
+  return prisma.user.findFirst({
+    where: { AND: [{ id: providerId }, LISTED_PROVIDER_WHERE, { profiles: { some: profileDomainFilter(domaine) } }] },
+    select: { id: true },
+  });
 }
 
 /**

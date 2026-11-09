@@ -30,6 +30,7 @@ import { POST as signPost } from "@/app/api/gigs/orders/[orderId]/sign/route";
 import { GigSignatureService } from "@/lib/gig-signature";
 import { refundExpiredOrder, PROVIDER_SIGN_DEADLINE_HOURS } from "@/lib/gig-expiry";
 import { prisma } from "@/lib/db";
+import { gigBody } from "@/test/gig-fixture";
 
 const RUN = Date.now();
 const CLIENT_EMAIL = `gig-client-${RUN}@flexwork.test`;
@@ -81,15 +82,13 @@ afterAll(async () => {
 describe("Workflow modèle Gig (implémentation réelle)", () => {
   it("S1 — le prestataire publie un Gig à prix fixe", async () => {
     authAs(providerId);
-    const res = await gigPost(postReq({
-      titre: "Site vitrine — création complète",
-      description: "Création d'un site vitrine moderne (5 pages).",
-      domaine: "expert_digital",
+    const res = await gigPost(postReq(gigBody({
+      titre: "créer votre site vitrine complet",
       prix: 250000,
       delaiJours: 14,
       tags: ["web", "vitrine"],
       status: "publie",
-    }));
+    })));
     expect(res.status).toBe(201);
     const body = await res.json();
     expect(body.id).toBeDefined();
@@ -103,13 +102,7 @@ describe("Workflow modèle Gig (implémentation réelle)", () => {
 
   it("S1 — un client ne peut pas publier un Gig (403)", async () => {
     authAs(clientId);
-    const res = await gigPost(postReq({
-      titre: "Interdit",
-      description: "x",
-      domaine: "expert_digital",
-      prix: 1000,
-      delaiJours: 1,
-    }));
+    const res = await gigPost(postReq(gigBody({ prix: 1000, delaiJours: 1 })));
     expect(res.status).toBe(403);
   });
 

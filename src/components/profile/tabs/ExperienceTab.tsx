@@ -23,6 +23,13 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { hasRequiredGarants } from "@/lib/garant-rules";
+import { QualificationPicker } from "@/components/profile/tabs/QualificationPicker";
+import { PortfolioEditor } from "@/components/profile/PortfolioEditor";
+import { countryName, diplomaCountryGroups } from "@/lib/world-countries";
+
+// Année d'obtention : de l'année en cours à 1950 (borne du schéma serveur).
+const DIPLOMA_YEARS = Array.from({ length: new Date().getFullYear() - 1949 }, (_, i) => String(new Date().getFullYear() - i));
+const DIPLOMA_COUNTRY_GROUPS = diplomaCountryGroups();
 import {
   Field,
   ProfileCard,
@@ -38,18 +45,114 @@ type DeclaredDiploma = {
   id: string;
   qualificationName: string;
   year: number | null;
+  location?: string | null;
   institution: string | null;
+  specialty?: string | null;
+  country?: string | null;
   isStateIssued: boolean;
+};
+
+type DeclaredReference = {
+  kind: string;
+  nom: string;
+  prenom: string | null;
+  tel: string | null;
+  email: string | null;
+  lien: string | null;
 };
 
 type DeclaredExperience = {
   id: string;
+  clientType: string;
   role: string;
   clientName: string | null;
   startDate: string | null;
   endDate: string | null;
   domain: string | null;
+  description: string | null;
+  technologies?: string | null;
+  projectUrl?: string | null;
+  livrables?: string | null;
+  references?: DeclaredReference[];
 };
+
+// Plafond du schéma serveur (`declarationSchema.experiences`, src/lib/validation.ts).
+const MAX_EXPERIENCES = 20;
+
+// ── Déclaration = ÉTAT COMPLET, pas un ajout (2026-11-07) ──────────────────────────────────
+// GET /api/declarations ne renvoie que la déclaration la PLUS RÉCENTE par type : c'est elle
+// qui fait foi (l'historique reste consultable, une correction crée une nouvelle déclaration).
+// « Ajouter » ne postait QUE la nouvelle ligne — la deuxième expérience effaçait donc la
+// première de l'affichage, du barème et du profil public. Chaque ajout redéclare désormais
+// l'ensemble : les lignes existantes, telles que le serveur les a scellées, plus la nouvelle.
+// C'est déjà ce que fait /declarations, qui envoie toujours la liste entière.
+const orUndef = (v: string | null | undefined) => (v ? v : undefined);
+
+function experiencePayload(existing: DeclaredExperience[], added: Record<string, string | undefined>) {
+  // `id` = indice CLIENT (1, 2, …) : la route s'en sert pour rattacher chaque personne
+  // ressource à SON expérience (declaredReferenceSchema.experienceId). Les renvoyer avec les
+  // lignes existantes évite de perdre « qui atteste de quoi ».
+  const experiences = [
+    ...existing.map((xp, i) => ({
+      id: i + 1,
+      clientType: xp.clientType === "COMPANY" ? "COMPANY" : "INDIVIDUAL",
+      clientName: orUndef(xp.clientName),
+      role: xp.role,
+      domain: orUndef(xp.domain),
+      description: orUndef(xp.description),
+      startDate: orUndef(xp.startDate),
+      endDate: orUndef(xp.endDate),
+      technologies: orUndef(xp.technologies),
+      projectUrl: orUndef(xp.projectUrl),
+      livrables: orUndef(xp.livrables),
+    })),
+    { id: existing.length + 1, ...added },
+  ];
+  const references = existing.flatMap((xp, i) =>
+    (xp.references ?? []).map((r) => ({
+      experienceId: i + 1,
+      kind: r.kind === "secondary" || r.kind === "cross" ? r.kind : "primary",
+      nom: r.nom,
+      prenom: orUndef(r.prenom),
+      tel: orUndef(r.tel),
+      email: orUndef(r.email),
+      lien: orUndef(r.lien),
+    })),
+  );
+  return { experiences, references };
+}
+
+/**
+ * Message d'échec de POST /api/declarations (2026-11-07). Un « Échec de l'enregistrement »
+ * unique ne disait pas si la faute venait d'une valeur saisie ou du serveur — la seconde ne se
+ * corrige pas en retouchant le formulaire.
+ */
+function declarationErrorMessage(body: { error?: string }, status: number, what: string): string {
+  if (body.error === "profile_required") return "Enregistrez d'abord votre métier principal (onglet Domaines).";
+  if (body.error === "unauthenticated" || status === 401) return "Votre session a expiré — reconnectez-vous puis réessayez.";
+  if (body.error === "invalid_payload") return `Une valeur saisie n'est pas acceptée : vérifiez ${what} puis réessayez.`;
+  if (status >= 500) return `Erreur serveur : ${what} n'a pas été enregistré${what === "l'expérience" ? "e" : ""}. Réessayez dans un instant.`;
+  return "Échec de l'enregistrement. Réessayez.";
+}
+
+const MONTHS = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."];
+
+/** « 2022-03 » → « mars 2022 » ; valeur inattendue rendue telle quelle. */
+function formatMonth(value: string | null): string | null {
+  if (!value) return null;
+  const m = /^(\d{4})-(\d{2})$/.exec(value);
+  if (!m) return value;
+  return `${MONTHS[Number(m[2]) - 1] ?? m[2]} ${m[1]}`;
+}
+
+function formatPeriod(start: string | null, end: string | null): string | null {
+  const a = formatMonth(start);
+  const b = formatMonth(end);
+  if (a && b) return `${a} → ${b}`;
+  if (a) return `depuis ${a}`;
+  if (b) return `jusqu'en ${b}`;
+  return null;
+}
 
 type Garant = { id: string; nom: string; tel: string; obligatoire: boolean };
 
@@ -72,10 +175,13 @@ export function ExperienceTab({
   profile,
   onSaved,
   onCompletionChanged,
+  showPortfolio = true,
 }: {
   profile: ProviderProfile | null;
   onSaved: (profile: ProviderProfile) => void;
   onCompletionChanged: () => void;
+  /** Faux dans la vue « profil complet », où « Portfolio et CV » est une rubrique à part. */
+  showPortfolio?: boolean;
 }) {
   const router = useRouter();
 
@@ -97,15 +203,18 @@ export function ExperienceTab({
   // Deux actions distinctes, deux messages distincts, chacun sous son formulaire.
   const [expMsg, setExpMsg] = useState<{ text: string; ok: boolean } | null>(null);
   const [declSaving, setDeclSaving] = useState(false);
+  // Type de client du formulaire d'ajout : piloté, car il décide des champs affichés.
+  const [xpClientType, setXpClientType] = useState<"COMPANY" | "INDIVIDUAL">("COMPANY");
+  // Période saisie au sélecteur mois/année (« AAAA-MM », ou "" si non renseignée).
+  const [xpStart, setXpStart] = useState("");
+  const [xpEnd, setXpEnd] = useState("");
+  const [xpOngoing, setXpOngoing] = useState(false);
+  // Incrémenté après chaque ajout : remonte les sélecteurs mois/année, vidés avec le formulaire.
+  const [xpFormKey, setXpFormKey] = useState(0);
+  const [declFormKey, setDeclFormKey] = useState(0);
+  // Comparaison lexicographique valable : « AAAA-MM » se trie comme une date.
+  const periodInvalid = !!xpStart && !!xpEnd && !xpOngoing && xpEnd < xpStart;
 
-  // ── Portfolio & CV ────────────────────────────────────────────────────────────────────
-  const [portfolioUrls, setPortfolioUrls] = useState<string[]>(profile?.portfolioUrls ?? []);
-  const [cvUrl, setCvUrl] = useState<string | null>(profile?.cvUrl ?? null);
-  const [linkDraft, setLinkDraft] = useState("");
-  const [portfolioMsg, setPortfolioMsg] = useState<{ text: string; ok: boolean } | null>(null);
-  const [portfolioBusy, setPortfolioBusy] = useState(false);
-  const photoRef = useRef<HTMLInputElement>(null);
-  const cvRef = useRef<HTMLInputElement>(null);
 
   // ── Garants (personnes ressources) ────────────────────────────────────────────────────
   const [garants, setGarants] = useState<Garant[]>([]);
@@ -198,6 +307,10 @@ export function ExperienceTab({
 
   async function addExperience(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (periodInvalid) {
+      setExpMsg({ text: "La date de fin précède la date de début.", ok: false });
+      return;
+    }
     const formEl = e.currentTarget;
     const form = new FormData(formEl);
     setDeclSaving(true);
@@ -207,19 +320,17 @@ export function ExperienceTab({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         declarationType: "experience",
-        experiences: [
-          {
-            clientType: form.get("clientType") === "COMPANY" ? "COMPANY" : "INDIVIDUAL",
-            clientName: form.get("clientName") || undefined,
-            role: form.get("role"),
-            domain: form.get("domain") || undefined,
-            description: form.get("description") || undefined,
-            // Dates « AAAA-MM » telles que <input type="month"> les produit : les convertir en
-            // date complète inventerait un jour qui n'a pas été saisi.
-            startDate: form.get("startDate") || undefined,
-            endDate: form.get("endDate") || undefined,
-          },
-        ],
+        ...experiencePayload(experiences, {
+          clientType: form.get("clientType") === "COMPANY" ? "COMPANY" : "INDIVIDUAL",
+          clientName: (form.get("clientName") as string | null) || undefined,
+          role: String(form.get("role") ?? ""),
+          domain: (form.get("domain") as string | null) || undefined,
+          description: (form.get("description") as string | null) || undefined,
+          // Dates « AAAA-MM » (sélecteur mois/année) : les convertir en date complète
+          // inventerait un jour qui n'a pas été saisi. Particulier : ni l'une ni l'autre.
+          startDate: xpClientType === "COMPANY" ? xpStart || undefined : undefined,
+          endDate: xpClientType === "COMPANY" && !xpOngoing ? xpEnd || undefined : undefined,
+        }),
       }),
     });
     setDeclSaving(false);
@@ -233,26 +344,28 @@ export function ExperienceTab({
       setExperiences(items.flatMap((d) => d.experiences ?? []));
       setDiplomas(items.flatMap((d) => d.diplomas ?? []));
       formEl.reset();
+      setXpClientType("COMPANY");
+      setXpStart("");
+      setXpEnd("");
+      setXpOngoing(false);
+      setXpFormKey((k) => k + 1);
       onCompletionChanged();
       // Identifiant renvoyé pour que l'utilisateur voie laquelle des déclarations est la
       // dernière scellée, sans avoir à la chercher dans l'historique.
       setExpMsg({ text: `Expérience déclarée et horodatée (réf. ${String(created.id).slice(-6)}).`, ok: true });
       return;
     }
-    const data = await res.json().catch(() => ({}));
-    setExpMsg({
-      text:
-        data.error === "profile_required"
-          ? "Enregistrez d'abord votre métier principal (onglet Domaines)."
-          : "Échec de l'enregistrement de l'expérience.",
-      ok: false,
-    });
+    setExpMsg({ text: declarationErrorMessage(await res.json().catch(() => ({})), res.status, "l'expérience"), ok: false });
   }
 
   async function addDiploma(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const formEl = e.currentTarget;
     const form = new FormData(formEl);
+    if (!String(form.get("qualificationName") ?? "").trim()) {
+      setDeclMsg({ text: "Choisissez ou saisissez l'intitulé.", ok: false });
+      return;
+    }
     setDeclSaving(true);
     setDeclMsg(null);
     const res = await fetch("/api/declarations", {
@@ -260,12 +373,26 @@ export function ExperienceTab({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         declarationType: "qualification",
+        // État COMPLET, comme pour les expériences (voir experiencePayload) : sans les
+        // diplômes déjà déclarés, un deuxième diplôme effaçait le premier — y compris un
+        // diplôme d'État, pivot du badge « Vérifié ».
         diplomes: [
+          ...diplomas.map((d) => ({
+            qualificationName: d.qualificationName,
+            year: d.year ?? undefined,
+            location: orUndef(d.location),
+            institution: orUndef(d.institution),
+            specialty: orUndef(d.specialty),
+            country: orUndef(d.country),
+            isStateIssued: d.isStateIssued,
+          })),
           {
             qualificationName: form.get("qualificationName"),
             year: form.get("year") ? Number(form.get("year")) : undefined,
-            institution: form.get("institution") || undefined,
+            country: (form.get("country") as string | null) || undefined,
             specialty: form.get("specialty") || undefined,
+            // Domaine de la spécialité : classe une spécialité NOUVELLE dans le registre partagé.
+            categorieId: (form.get("specialtyCategorieId") as string | null) || undefined,
             // Le diplôme d'État est le PIVOT du badge : c'est lui, et lui seul, qui rend une
             // demande de badge éligible.
             isStateIssued: form.get("isStateIssued") === "on",
@@ -280,67 +407,12 @@ export function ExperienceTab({
         .then((d) => (d.items ?? []) as Array<{ diplomas?: DeclaredDiploma[] }>);
       setDiplomas(items.flatMap((d) => d.diplomas ?? []));
       formEl.reset();
+      setDeclFormKey((k) => k + 1);
       onCompletionChanged();
       setDeclMsg({ text: "Diplôme déclaré et horodaté.", ok: true });
       return;
     }
-    setDeclMsg({ text: "Échec de l'enregistrement du diplôme.", ok: false });
-  }
-
-  async function uploadPortfolio(kind: "photo" | "cv", e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files ?? []);
-    e.target.value = "";
-    if (!files.length) return;
-    setPortfolioBusy(true);
-    setPortfolioMsg(null);
-    const added: string[] = [];
-    for (const file of files) {
-      const formData = new FormData();
-      formData.append("kind", kind);
-      formData.append("file", file);
-      const res = await fetch("/api/profile/portfolio", { method: "POST", body: formData });
-      if (res.ok) added.push((await res.json()).relPath);
-    }
-    setPortfolioBusy(false);
-    if (!added.length) {
-      setPortfolioMsg({ text: "Échec de l'envoi.", ok: false });
-      return;
-    }
-    const nextPhotos = kind === "photo" ? [...portfolioUrls, ...added].slice(0, 10) : portfolioUrls;
-    const nextCv = kind === "cv" ? added[0] : cvUrl;
-    // Sauvegarde immédiate : le fichier est déjà sur le disque, mais il ne compte pour le
-    // profil que lorsque la référence est enregistrée.
-    const res = await fetch("/api/profile", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ portfolioUrls: nextPhotos, cvUrl: nextCv ?? undefined }),
-    });
-    if (res.ok) {
-      setPortfolioUrls(nextPhotos);
-      setCvUrl(nextCv);
-      onSaved(await res.json());
-      setPortfolioMsg({ text: kind === "cv" ? "CV enregistré." : `${added.length} photo(s) enregistrée(s).`, ok: true });
-    } else {
-      setPortfolioMsg({ text: "Fichier(s) téléversé(s) mais profil non enregistré — réessayez.", ok: false });
-    }
-  }
-
-  async function savePortfolioLinks(nextUrls: string[]) {
-    setPortfolioBusy(true);
-    setPortfolioMsg(null);
-    const res = await fetch("/api/profile", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ portfolioUrls: nextUrls, cvUrl: cvUrl ?? undefined }),
-    });
-    setPortfolioBusy(false);
-    if (res.ok) {
-      setPortfolioUrls(nextUrls);
-      onSaved(await res.json());
-      setPortfolioMsg({ text: "Portfolio enregistré.", ok: true });
-    } else {
-      setPortfolioMsg({ text: "Échec de l'enregistrement du portfolio.", ok: false });
-    }
+    setDeclMsg({ text: declarationErrorMessage(await res.json().catch(() => ({})), res.status, "le titre"), ok: false });
   }
 
   async function addGarant(e: React.FormEvent<HTMLFormElement>) {
@@ -468,48 +540,128 @@ export function ExperienceTab({
         title="Expériences professionnelles"
         description="Chaque ajout crée une déclaration horodatée et chaînée. Une correction crée une nouvelle déclaration, l'ancienne reste consultable."
       >
+        {/* Toutes les expériences de la déclaration en vigueur, chacune dans son bandeau. */}
         {experiences.length > 0 && (
-          <ul className="mb-4 space-y-2">
-            {experiences.map((xp) => (
-              <li key={xp.id} className="rounded-xl bg-zinc-50 px-4 py-3">
-                <p className="text-[13px] font-medium text-[#0A1931]">{xp.role}</p>
-                <p className="text-[12px] text-zinc-500">
-                  {[xp.clientName, xp.domain, [xp.startDate, xp.endDate].filter(Boolean).join(" → ")]
-                    .filter(Boolean)
-                    .join(" · ")}
-                </p>
-              </li>
-            ))}
-          </ul>
+          <div className="mb-5">
+            <p className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-zinc-400">
+              {experiences.length} expérience{experiences.length > 1 ? "s" : ""} déclarée{experiences.length > 1 ? "s" : ""}
+            </p>
+            <ul className="space-y-2">
+              {experiences.map((xp) => {
+                const period = formatPeriod(xp.startDate, xp.endDate);
+                const ongoing = !!xp.startDate && !xp.endDate;
+                return (
+                  <li key={xp.id} className="rounded-xl border border-zinc-100 bg-zinc-50 px-4 py-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-[14px] font-semibold text-[#0A1931]">{xp.role}</p>
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                          xp.clientType === "COMPANY" ? "bg-blue-50 text-blue-700" : "bg-amber-50 text-amber-700"
+                        }`}
+                      >
+                        {xp.clientType === "COMPANY" ? "Entreprise" : "Particulier"}
+                      </span>
+                      {ongoing && (
+                        <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">En cours</span>
+                      )}
+                    </div>
+                    {(xp.clientName || xp.domain || period) && (
+                      <p className="mt-0.5 text-[13px] text-zinc-500">
+                        {[xp.clientName, xp.domain, period].filter(Boolean).join(" · ")}
+                      </p>
+                    )}
+                    {xp.description && <p className="mt-1.5 line-clamp-2 text-[13px] text-zinc-600">{xp.description}</p>}
+                    {(xp.references?.length ?? 0) > 0 && (
+                      <p className="mt-1.5 text-[12px] text-zinc-400">
+                        Attestée par {xp.references!.map((r) => [r.prenom, r.nom].filter(Boolean).join(" ")).join(", ")}
+                      </p>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
         )}
 
+        {experiences.length >= MAX_EXPERIENCES ? (
+          <p className="text-[13px] text-zinc-500">
+            Limite de {MAX_EXPERIENCES} expériences atteinte. Pour en modifier la liste, passez par{" "}
+            <Link href="/declarations" className="font-medium text-[#008751] underline">
+              mes déclarations
+            </Link>
+            .
+          </p>
+        ) : (
         <form onSubmit={addExperience} className="space-y-4">
+          {experiences.length > 0 && (
+            <p className="text-[13px] font-semibold text-[#0A1931]">Ajouter une expérience</p>
+          )}
+          {/* Type de client EN TÊTE : il décide des champs qui suivent. Pour un Particulier,
+              employeur et période sont retirés du formulaire (2026-11-07) — un chantier chez un
+              particulier n'a ni employeur à nommer ni contrat daté. Retirés, pas seulement
+              masqués : absents du FormData, ils partent `undefined` et rien n'est déclaré. */}
+          <Field label="Type de client" htmlFor="clientType">
+            <select
+              id="clientType"
+              name="clientType"
+              className={inputClass}
+              value={xpClientType}
+              onChange={(e) => setXpClientType(e.target.value === "INDIVIDUAL" ? "INDIVIDUAL" : "COMPANY")}
+            >
+              <option value="COMPANY">Entreprise</option>
+              <option value="INDIVIDUAL">Particulier</option>
+            </select>
+          </Field>
           <div className="grid sm:grid-cols-2 gap-4">
             <Field label="Poste" htmlFor="role" required>
               <input id="role" name="role" required maxLength={200} className={inputClass} placeholder="Électricien" />
             </Field>
-            <Field label="Employeur / client" htmlFor="clientName">
-              <input id="clientName" name="clientName" maxLength={200} className={inputClass} placeholder="Entreprise X" />
+            {/* Domaine pré-rempli avec le métier principal (onglet Domaines) : c'est le cas
+                courant, et il reste modifiable. `defaultValue` : `reset()` le restaure. */}
+            <Field label="Domaine" htmlFor="domain" hint={profile?.mainDomain ? "Votre métier principal, modifiable." : undefined}>
+              <input
+                id="domain"
+                name="domain"
+                maxLength={200}
+                defaultValue={profile?.mainDomain ?? ""}
+                className={inputClass}
+                placeholder="BTP"
+              />
             </Field>
-            <Field label="Type de client" htmlFor="clientType">
-              <select id="clientType" name="clientType" className={inputClass} defaultValue="COMPANY">
-                <option value="COMPANY">Entreprise</option>
-                <option value="INDIVIDUAL">Particulier</option>
-              </select>
-            </Field>
-            <Field label="Domaine" htmlFor="domain">
-              <input id="domain" name="domain" maxLength={200} className={inputClass} placeholder="BTP" />
-            </Field>
-            <Field label="Début" htmlFor="startDate">
-              <input id="startDate" name="startDate" type="month" className={inputClass} />
-            </Field>
-            <Field label="Fin" htmlFor="endDate" hint="Laissez vide si l'expérience est en cours.">
-              <input id="endDate" name="endDate" type="month" className={inputClass} />
-            </Field>
+            {xpClientType === "COMPANY" && (
+              <>
+                <Field label="Employeur / client" htmlFor="clientName">
+                  <input id="clientName" name="clientName" maxLength={200} className={inputClass} placeholder="Entreprise X" />
+                </Field>
+                <div className="hidden sm:block" aria-hidden />
+                <MonthYearField key={`start-${xpFormKey}`} id="startDate" label="Début" value={xpStart} onChange={setXpStart} />
+                <div>
+                  <MonthYearField
+                    key={`end-${xpFormKey}`}
+                    id="endDate"
+                    label="Fin"
+                    value={xpOngoing ? "" : xpEnd}
+                    onChange={setXpEnd}
+                    disabled={xpOngoing}
+                    invalid={periodInvalid}
+                  />
+                  <label className="mt-2 flex items-center gap-2 text-[13px] text-zinc-600">
+                    <input
+                      type="checkbox"
+                      checked={xpOngoing}
+                      onChange={(e) => setXpOngoing(e.target.checked)}
+                      className="accent-[#008751]"
+                    />
+                    Expérience en cours
+                  </label>
+                  {periodInvalid && <p className="mt-1 text-[12px] text-red-600">La fin doit suivre le début.</p>}
+                </div>
+              </>
+            )}
           </div>
-          <Field label="Description" htmlFor="description">
+          <Field label="Description" htmlFor="xpDescription">
             <textarea
-              id="description"
+              id="xpDescription"
               name="description"
               rows={3}
               maxLength={3000}
@@ -524,6 +676,7 @@ export function ExperienceTab({
             <p className={`text-[12px] ${expMsg.ok ? "text-emerald-700" : "text-red-600"}`}>{expMsg.text}</p>
           )}
         </form>
+        )}
       </ProfileCard>
 
       <ProfileCard
@@ -536,7 +689,9 @@ export function ExperienceTab({
               <li key={d.id} className="flex items-center justify-between gap-3 rounded-xl bg-zinc-50 px-4 py-3">
                 <div>
                   <p className="text-[13px] font-medium text-[#0A1931]">{d.qualificationName}</p>
-                  <p className="text-[12px] text-zinc-500">{[d.institution, d.year].filter(Boolean).join(" · ")}</p>
+                  <p className="text-[12px] text-zinc-500">
+                    {[d.specialty, countryName(d.country) ?? d.institution, d.year].filter(Boolean).join(" · ")}
+                  </p>
                 </div>
                 <span
                   className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-semibold ${
@@ -551,33 +706,42 @@ export function ExperienceTab({
         )}
 
         <form onSubmit={addDiploma} className="space-y-4">
+          {diplomas.length > 0 && <p className="text-[13px] font-semibold text-[#0A1931]">Ajouter un diplôme ou une certification</p>}
+          {/* `key` : remonté après chaque ajout, le sélecteur repart vide (type, intitulé…). */}
+          <QualificationPicker key={declFormKey} metierId={profile?.metierId} mainDomain={profile?.mainDomain} />
           <div className="grid sm:grid-cols-2 gap-4">
-            <Field label="Intitulé" htmlFor="qualificationName" required>
-              <input
-                id="qualificationName"
-                name="qualificationName"
-                required
-                maxLength={200}
-                className={inputClass}
-                placeholder="CQP Plomberie"
-              />
+            {/* Liste d'années (2026-11-07) : de l'année en cours à 1950, borne basse du schéma
+                serveur (declaredDiplomaSchema.year) — plus de saisie hors bornes refusée en 400. */}
+            <Field label="Année d'obtention" htmlFor="year">
+              <select id="year" name="year" className={inputClass} defaultValue="">
+                <option value="">Sélectionner l&apos;année</option>
+                {DIPLOMA_YEARS.map((y) => (
+                  <option key={y} value={y}>
+                    {y}
+                  </option>
+                ))}
+              </select>
             </Field>
-            <Field label="Année" htmlFor="year">
-              <input id="year" name="year" type="number" min={1950} max={2100} className={inputClass} placeholder="2021" />
-            </Field>
-            <Field label="Établissement" htmlFor="institution">
-              <input id="institution" name="institution" maxLength={200} className={inputClass} placeholder="Lycée technique" />
-            </Field>
-            <Field label="Spécialité" htmlFor="specialty">
-              <input id="specialty" name="specialty" maxLength={200} className={inputClass} placeholder="Sanitaire" />
+            {/* Pays d'obtention à la place de l'établissement (2026-11-07) — pré-réglé sur le
+                pays d'intervention du profil. Les diplômes déjà déclarés gardent leur
+                établissement : il est renvoyé tel quel à chaque nouvelle déclaration. */}
+            <Field label="Pays d'obtention" htmlFor="diplomaCountry">
+              <select id="diplomaCountry" name="country" className={inputClass} defaultValue={profile?.zonePays ?? ""}>
+                <option value="">Sélectionner le pays</option>
+                {DIPLOMA_COUNTRY_GROUPS.map((g) => (
+                  <optgroup key={g.label} label={g.label}>
+                    {g.countries.map((c) => (
+                      <option key={c.code} value={c.code}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
             </Field>
           </div>
-          <label className="flex items-center gap-2.5 text-[13px] text-zinc-700">
-            <input type="checkbox" name="isStateIssued" className="accent-[#008751]" />
-            Diplôme d&apos;État
-          </label>
           <button type="submit" disabled={declSaving} className={btnPrimary}>
-            {declSaving ? "Enregistrement..." : "Ajouter le diplôme"}
+            {declSaving ? "Enregistrement..." : "Ajouter ce titre"}
           </button>
           {declMsg && (
             <p className={`text-[12px] ${declMsg.ok ? "text-emerald-700" : "text-red-600"}`}>{declMsg.text}</p>
@@ -585,68 +749,11 @@ export function ExperienceTab({
         </form>
       </ProfileCard>
 
-      <ProfileCard title="Portfolio et CV" description="Photos de réalisations, CV au format PDF, ou liens externes.">
-        <div className="flex flex-wrap gap-2">
-          <input
-            ref={photoRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            multiple
-            className="hidden"
-            onChange={(e) => uploadPortfolio("photo", e)}
-          />
-          <input ref={cvRef} type="file" accept="application/pdf" className="hidden" onChange={(e) => uploadPortfolio("cv", e)} />
-          <button type="button" disabled={portfolioBusy} className={btnSecondary} onClick={() => photoRef.current?.click()}>
-            Ajouter des photos
-          </button>
-          <button type="button" disabled={portfolioBusy} className={btnSecondary} onClick={() => cvRef.current?.click()}>
-            {cvUrl ? "Remplacer le CV" : "Ajouter un CV"}
-          </button>
-        </div>
-
-        <div className="mt-4 flex gap-2">
-          <input
-            value={linkDraft}
-            onChange={(e) => setLinkDraft(e.target.value)}
-            maxLength={500}
-            className={inputClass}
-            placeholder="https://..."
-          />
-          <button
-            type="button"
-            disabled={portfolioBusy || !linkDraft.trim()}
-            className={`${btnSecondary} whitespace-nowrap disabled:opacity-50`}
-            onClick={() => {
-              const next = [...portfolioUrls, linkDraft.trim()].slice(0, 10);
-              setLinkDraft("");
-              void savePortfolioLinks(next);
-            }}
-          >
-            Ajouter un lien
-          </button>
-        </div>
-
-        {portfolioUrls.length > 0 && (
-          <ul className="mt-3 space-y-1.5">
-            {portfolioUrls.map((url) => (
-              <li key={url} className="flex items-center justify-between gap-3 rounded-xl bg-zinc-50 px-3 py-2">
-                <span className="truncate text-[12px] text-zinc-600">{url}</span>
-                <button
-                  type="button"
-                  disabled={portfolioBusy}
-                  onClick={() => void savePortfolioLinks(portfolioUrls.filter((u) => u !== url))}
-                  className="shrink-0 text-[12px] text-red-500 hover:underline"
-                >
-                  Retirer
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-        {portfolioMsg && (
-          <p className={`mt-3 text-[12px] ${portfolioMsg.ok ? "text-emerald-700" : "text-red-600"}`}>{portfolioMsg.text}</p>
-        )}
-      </ProfileCard>
+      {showPortfolio && (
+        <ProfileCard title="Portfolio et CV" description="Photos de réalisations, liens externes et CV au format PDF.">
+          <PortfolioEditor profile={profile} onSaved={onSaved} />
+        </ProfileCard>
+      )}
 
       <ProfileCard
         title="Personnes ressources (garants)"
@@ -725,5 +832,80 @@ export function ExperienceTab({
         </Link>
       </ProfileCard>
     </div>
+  );
+}
+
+const MONTH_NAMES = [
+  "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
+  "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre",
+];
+
+/**
+ * Sélecteur mois + année produisant « AAAA-MM » — le format exigé par l'API
+ * (declaredExperienceSchema). Remplace <input type="month"> (2026-11-07), qui n'existe ni
+ * sous Safari ni sous Firefox : on y voyait un champ texte libre, et toute saisie autre que
+ * « 2022-03 » repartait en 400. Deux listes fonctionnent partout, au clavier comme au doigt.
+ */
+function MonthYearField({
+  id,
+  label,
+  value,
+  onChange,
+  disabled,
+  invalid,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  disabled?: boolean;
+  invalid?: boolean;
+}) {
+  const [year, month] = value ? value.split("-") : ["", ""];
+  // Mois et année gardés séparément tant que l'un manque : la valeur n'est émise qu'entière.
+  const [draft, setDraft] = useState({ year, month });
+  const current = value ? { year, month } : draft;
+  const thisYear = new Date().getFullYear();
+  const years = Array.from({ length: thisYear - 1969 }, (_, i) => String(thisYear - i));
+
+  function update(next: { year: string; month: string }) {
+    setDraft(next);
+    onChange(next.year && next.month ? `${next.year}-${next.month}` : "");
+  }
+
+  const selectClass = `${inputClass} ${invalid ? "border-red-300" : ""} disabled:bg-zinc-50 disabled:text-zinc-400`;
+  return (
+    <fieldset disabled={disabled}>
+      <legend className="block text-[14px] font-medium text-zinc-700 mb-1.5">{label}</legend>
+      <div className="grid grid-cols-[1.4fr_1fr] gap-2">
+        <select
+          id={id}
+          aria-label={`${label} — mois`}
+          className={selectClass}
+          value={current.month}
+          onChange={(e) => update({ ...current, month: e.target.value })}
+        >
+          <option value="">Mois</option>
+          {MONTH_NAMES.map((m, i) => (
+            <option key={m} value={String(i + 1).padStart(2, "0")}>
+              {m}
+            </option>
+          ))}
+        </select>
+        <select
+          aria-label={`${label} — année`}
+          className={selectClass}
+          value={current.year}
+          onChange={(e) => update({ ...current, year: e.target.value })}
+        >
+          <option value="">Année</option>
+          {years.map((y) => (
+            <option key={y} value={y}>
+              {y}
+            </option>
+          ))}
+        </select>
+      </div>
+    </fieldset>
   );
 }

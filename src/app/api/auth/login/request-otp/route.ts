@@ -6,6 +6,7 @@ import {
   isUnderOtpRequestLimit,
   isUnderIpRequestLimit,
   getClientIp,
+  normalizeIdentifier,
   recordOtpRequestAttempt,
 } from "@/lib/otp";
 
@@ -26,7 +27,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "invalid_payload" }, { status: 400 });
   }
 
-  const { identifier } = parsed.data;
+  // Forme canonique (minuscules, sans espaces) : c'est aussi elle que compte le rate-limit,
+  // sinon « A@x.com » et « a@x.com » auraient chacun leurs cinq demandes.
+  const identifier = normalizeIdentifier(parsed.data.identifier);
   const purpose = parsed.data.purpose ?? "login";
   const ip = getClientIp(req);
 
@@ -55,27 +58,31 @@ export async function POST(req: Request) {
     where: { OR: [{ email: identifier }, { tel: identifier }] },
   });
 
-  // Réponse strictement identique que le compte existe ou non — auparavant un 404
-  // "account_not_found" laissait énumérer les comptes enregistrés malgré le commentaire
-  // affirmant l'inverse. Si aucun compte ne correspond, on ne fait juste rien de plus.
-  if (user && user.status === "active") {
-    // ⚠️ Volontairement PAS de `await` ici. `requestOtp` écrit en base puis part en SMTP —
-    // en l'attendant, la réponse HTTP met mesurablement plus longtemps à revenir pour un
-    // compte existant que pour un identifiant inconnu (vérifié : ~20-90ms vs ~10ms en local),
-    // ce qui recrée par le simple timing la fuite d'énumération que ce corps de réponse
-    // identique est censé éliminer. En laissant la promesse courir en arrière-plan, la
-    // réponse part avant l'écriture/l'envoi, dans les deux branches. Ce endpoint tourne sur
-    // un process Node persistant (next start) donc la promesse va bien à son terme — à
-    // revalider si ce handler est un jour déployé en serverless/edge, où le runtime peut
-    // être tué dès la réponse envoyée.
-    void requestOtp({
+  // Vérification d'existence AVANT toute génération d'OTP (2026-11-07) : un identifiant
+  // inconnu reçoit un 404 explicite au lieu d'un `ok` silencieux qui envoyait l'utilisateur
+  // attendre sur /verify-otp un code qui n'arriverait jamais. L'anti-énumération par réponse
+  // identique n'avait de toute façon plus de portée : /api/auth/signup répond déjà 409
+  // `account_already_exists`. Le rate-limit ci-dessus (par identifiant ET par IP, comptabilisé
+  // pour tout identifiant) reste le garde-fou contre le balayage d'identifiants.
+  if (!user) {
+    return NextResponse.json({ error: "account_not_found" }, { status: 404 });
+  }
+  if (user.status !== "active") {
+    return NextResponse.json({ error: "account_inactive" }, { status: 403 });
+  }
+
+  // Attendu désormais : plus de fuite de timing à masquer, et un échec d'envoi (SMTP/SMS)
+  // remonte à l'utilisateur au lieu de le laisser attendre un code jamais parti.
+  try {
+    await requestOtp({
       userId: user.id,
       identifier,
       channel: identifier.includes("@") ? "email" : "sms",
       purpose,
-    }).catch((err) => {
-      console.error("[request-otp] échec de l'envoi OTP en arrière-plan :", err);
     });
+  } catch (err) {
+    console.error("[request-otp] échec de l'envoi OTP :", err);
+    return NextResponse.json({ error: "otp_send_failed" }, { status: 500 });
   }
 
   return NextResponse.json({ ok: true });

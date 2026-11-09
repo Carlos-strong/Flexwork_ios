@@ -497,7 +497,7 @@ tr:hover { background: var(--surface-raised); }
   height: calc(100dvh - 68px);
 }
 
-/* ── Page d'accueil (classe `.landing`, posée par src/app/page.tsx) ─────────────────────────
+/* ── Titres d'affichage (classe `.landing` : accueil, /recherche, /profile) ────────────────
    Titres en Plus Jakarta Sans (chargée par la page), interlettrage resserré ; texte courant
    en Inter, inchangé. La largeur n'est plus propre à l'accueil : voir .page-shell. */
 .landing h1,

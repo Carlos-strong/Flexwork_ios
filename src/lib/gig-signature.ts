@@ -71,13 +71,22 @@ export class GigSignatureService {
       include: { gig: { select: { titre: true, delaiJours: true } } },
     });
 
+    // Termes FIGÉS à l'achat (termsSnapshot), pas le Gig courant (2026-11-08) : le prestataire
+    // peut modifier son Gig après une commande — titre, formules, délais. Signer le Gig courant
+    // aurait fait signer des termes que le client n'a jamais acceptés.
+    const snapshot = (order.termsSnapshot ?? {}) as {
+      gig?: { titre?: string };
+      delaiJours?: number;
+      formule?: { tier?: string; revisions?: number };
+    };
     const contractData = {
       orderId: order.id,
       gigId: order.gigId,
-      gigTitle: order.gig.titre,
+      gigTitle: snapshot.gig?.titre ?? order.gig.titre,
       montant: order.montant,
       currency: order.currency,
-      delaiJours: order.gig.delaiJours,
+      delaiJours: snapshot.delaiJours ?? order.gig.delaiJours,
+      ...(snapshot.formule ? { formule: snapshot.formule.tier ?? null, revisions: snapshot.formule.revisions ?? null } : {}),
       clientId: order.clientId,
       providerId: order.providerId,
       certFingerprint: cert.keyFingerprint,

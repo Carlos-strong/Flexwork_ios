@@ -132,7 +132,14 @@ export function EscrowAccountPanel({ missionId, className = "" }: { missionId: s
   async function recharger() {
     setError(null);
     setSubmitting(true);
-    const res = await fetch(`/api/missions/${missionId}/escrow/recharge`, { method: "POST" });
+    // Coupure réseau (V-03) : message au lieu d'un bouton figé sur « Envoi… ». Un second envoi est
+    // sans risque, le serveur refuse un financement déjà en vol (`hold_already_requested`).
+    const res = await fetch(`/api/missions/${missionId}/escrow/recharge`, { method: "POST" }).catch(() => null);
+    if (!res) {
+      setSubmitting(false);
+      setError("Connexion interrompue : vérifiez votre réseau, puis réessayez. Un financement déjà transmis ne sera pas débité deux fois.");
+      return;
+    }
     const data = await res.json().catch(() => ({}));
     setSubmitting(false);
     if (!res.ok) {

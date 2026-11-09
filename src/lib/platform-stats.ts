@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import type { Prisma, UserRole } from "@prisma/client";
-import { PROVIDER_ROLES } from "@/lib/provider-options";
+import { LISTED_PROVIDER_WHERE } from "@/lib/profile-visibility";
 
 // Même critère d'éligibilité que getFeaturedProviders et /api/search/prestataires : identité
 // vérifiée ET au moins un profil. Le KYC seul ne suffit pas — un compte vérifié sans profil
@@ -8,11 +8,7 @@ import { PROVIDER_ROLES } from "@/lib/provider-options";
 // visiteur « 2 talents vérifiés » sur un lien qui n'en affiche qu'un : un compteur doit
 // décrire ce que la page de destination montre réellement, sinon il redevient un chiffre
 // invérifiable comme ceux retirés du Hero.
-const ELIGIBLE_PROVIDER: Prisma.UserWhereInput = {
-  kycStatus: "verifie",
-  role: { in: PROVIDER_ROLES },
-  profiles: { some: {} },
-};
+const ELIGIBLE_PROVIDER: Prisma.UserWhereInput = LISTED_PROVIDER_WHERE;
 
 export type PlatformStats = {
   /** Prestataires visibles dans l'annuaire — le seul « talent » que la plateforme peut attester. */

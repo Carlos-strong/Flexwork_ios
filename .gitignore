@@ -47,3 +47,11 @@ next-env.d.ts
 
 # artefacts de session Playwright MCP (logs, snapshots, captures) — jetables
 /.playwright-mcp
+
+# Tests navigateur (Playwright)
+/.next-e2e/
+/playwright-report/
+/test-results/
+
+# sauvegardes de base (VPS)
+/deploy/backups/

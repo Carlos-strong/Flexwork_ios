@@ -3,7 +3,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { escrowBalance } from "@/lib/escrow";
 import { attendanceAmount, fundingAlert } from "@/lib/spot-time";
-import { submitAttendance } from "@/lib/spot-time-actions";
+import { RECOGNIZED_ATTENDANCE_STATUSES, submitAttendance } from "@/lib/spot-time-actions";
 import { contractRole } from "@/lib/validation-mode";
 
 // Relevés de présence d'un contrat au temps (§20). Lisibles par les parties concernées — le
@@ -61,8 +61,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     overtimeRate: terms.overtimeRate,
     attendanceValidation: terms.attendanceValidation,
   };
+  // Part reconnue des relevés contestés comprise : elle est payée et consomme le plafond.
   const cumulQuantite = releves
-    .filter((r) => r.status === "approved")
+    .filter((r) => (RECOGNIZED_ATTENDANCE_STATUSES as readonly string[]).includes(r.status))
     .reduce((s, r) => s + (r.approvedQuantity ?? 0), 0);
 
   return NextResponse.json({

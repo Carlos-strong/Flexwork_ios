@@ -2,32 +2,47 @@
 
 import Link from "next/link";
 import { Avatar } from "@/components/avatar";
+import { countryFlag } from "@/lib/country-flag";
+import { countryName } from "@/lib/world-countries";
 
-// Carte prestataire/client — format et modèle repris EXACTEMENT de
-// src/components/afrilance/TalentsAfrique.tsx ("Talents d'Afrique", page d'accueil publique
-// — c'est la source réelle de profil.png) : avatar circulaire, nom + drapeau pays, sous-titre
-// (profession/rôle • ville), note ★ (N avis), ligne de prix "À partir de {tarif}". Un seul
-// composant partagé pour les deux rôles plutôt qu'une carte dupliquée par écran — utilisé par
-// /recherche (résultats de recherche prestataires) et partout où une carte de ce format est
-// nécessaire avec de vraies données (jamais les 4 profils d'exemple de la page d'accueil).
-export function countryFlag(code?: string | null): string {
-  if (!code || code.length !== 2) return "🌍";
-  return String.fromCodePoint(...[...code.toUpperCase()].map((c) => 0x1f1e6 + c.charCodeAt(0) - 65));
-}
+// Carte prestataire — « Talents d'Afrique » (accueil) et résultats de /recherche.
+//
+// Harmonisée (2026-11-08) sur le modèle des cartes « Nouveaux services publiés » et
+// « Dernières missions publiées » de l'accueil, pour que les trois vitrines se lisent de la
+// même façon :
+//
+//   1. étiquette     filière (Artisan, Expert digital…)
+//   2. titre         métier principal — ce que la personne propose
+//   3. ligne auteur  avatar · nom · drapeau du pays · « ✓ Identité vérifiée »
+//   4. méta          ville · note ★ (N avis) — ou « Nouveau » sans avis, jamais une note inventée
+//   5. bas de carte  tarif indicatif (ou « Sur devis ») à gauche, bouton orange à droite
+//
+// Toute la carte est cliquable (le lien du titre la couvre) ; le bouton est un second lien
+// vers la même page, au-dessus — un <a> ne peut pas en contenir un autre.
+//
+// Données réelles uniquement : un prestataire n'apparaît ici que s'il est listé (identité
+// vérifiée, compte actif — src/lib/profile-visibility.ts), d'où le badge d'identité constant.
+
+// Ré-exporté pour les imports existants (propositions, devis).
+export { countryFlag };
 
 export type PersonCardProps = {
   name: string;
   countryCode?: string | null;
   avatarSrc?: string | null;
   initials: string;
-  /** Ex. "Designer UI/UX Wax • Cotonou" (prestataire) ou "Client • Cotonou". */
-  subtitle: string;
-  /** Note moyenne réelle (Review), null si aucun avis pour l'instant — jamais fabriquée. */
+  /** Filière (« Artisan », « Expert digital »…) — étiquette en haut de carte. */
+  roleLabel: string;
+  /** Métier principal déclaré — titre de la carte ; repli sur la filière. */
+  domain?: string | null;
+  city?: string | null;
+  /** Note moyenne réelle (Review), null si aucun avis — jamais fabriquée. */
   rating?: number | null;
   reviewCount?: number;
-  /** "À partir de {tarif} {unité}" — omis si aucun tarif indicatif déclaré (jamais inventé). */
+  /** « 15 000 FCFA / jour » — null si aucun tarif indicatif déclaré (jamais inventé). */
   priceLabel?: string | null;
-  href?: string;
+  href: string;
+  ctaLabel?: string;
   className?: string;
 };
 
@@ -36,45 +51,80 @@ export function PersonCard({
   countryCode,
   avatarSrc,
   initials,
-  subtitle,
+  roleLabel,
+  domain,
+  city,
   rating,
   reviewCount,
   priceLabel,
   href,
+  ctaLabel = "Voir le profil",
   className = "",
 }: PersonCardProps) {
-  const content = (
-    <div className={`bg-white rounded-2xl p-4 lg:p-5 shadow-sm border border-orange-100 ${href ? "hover:shadow-xl hover:-translate-y-1 transition" : ""} ${className}`}>
-      <div className="flex items-start gap-3 lg:gap-4">
-        <Avatar src={avatarSrc} initials={initials} size={56} className="shrink-0" />
-        <div className="flex-1 min-w-0">
-          <p className="font-bold text-base truncate">
-            {name} {countryCode && <span>{countryFlag(countryCode)}</span>}
-          </p>
-          <p className="text-sm text-gray-500 truncate">{subtitle}</p>
-          {rating != null && (
-            <div className="flex items-center gap-1 mt-1 text-sm">
-              <span className="text-[#F7C948]">★</span>
-              <span className="font-bold">{rating.toFixed(1)}</span>
-              {reviewCount != null && <span className="text-gray-400">({reviewCount})</span>}
-            </div>
-          )}
-        </div>
+  const country = countryCode ? (countryName(countryCode) ?? countryCode) : null;
+
+  return (
+    <div
+      className={`group relative h-full flex flex-col rounded-xl bg-[#F7F7F5] border border-transparent p-5 hover:border-[#FF6B35]/40 hover:bg-white hover:shadow-sm transition ${className}`}
+    >
+      <span className="self-start rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-[#0A1931] truncate max-w-full">
+        {roleLabel}
+      </span>
+      <h3 className="mt-3 text-[17px] font-semibold leading-snug text-[#0A1931] group-hover:text-[#E85A24] transition line-clamp-2">
+        <Link
+          href={href}
+          className="after:absolute after:inset-0 after:rounded-xl focus-visible:outline-none"
+          style={{ textDecoration: "none", color: "inherit" }}
+        >
+          {domain || roleLabel}
+        </Link>
+      </h3>
+
+      <div className="mt-3 flex items-center gap-2.5 min-w-0">
+        <Avatar src={avatarSrc} initials={initials} size={32} className="shrink-0" />
+        <span className="text-[13px] font-medium text-[#0A1931] truncate">{name}</span>
+        {countryCode && (
+          <span role="img" aria-label={country ?? undefined} title={country ?? undefined} className="text-[16px] leading-none shrink-0">
+            {countryFlag(countryCode)}
+          </span>
+        )}
+        <span className="shrink-0 rounded-full bg-[#E8F5EE] px-2 py-0.5 text-[11px] font-semibold text-[#008751]">
+          ✓ Identité vérifiée
+        </span>
       </div>
 
-      {priceLabel && (
-        <div className="mt-4 flex items-center justify-between">
-          <p className="text-sm text-gray-500">À partir de</p>
-          <p className="font-extrabold text-lg text-[#0A1931]">{priceLabel}</p>
-        </div>
-      )}
-    </div>
-  );
+      <p className="mt-2 text-[13px] text-gray-500">
+        {city && <>{city} · </>}
+        {rating != null ? (
+          <>
+            <span className="text-[#F7C948]">★</span> {rating.toFixed(1)}
+            {reviewCount != null && ` (${reviewCount} avis)`}
+          </>
+        ) : (
+          "Nouveau"
+        )}
+      </p>
 
-  if (!href) return content;
-  return (
-    <Link href={href} style={{ textDecoration: "none", color: "inherit" }} className="block">
-      {content}
-    </Link>
+      <div className="mt-auto pt-4 flex items-center justify-between gap-3">
+        <span className="text-[15px] font-semibold text-[#0A1931]">
+          {priceLabel ? (
+            <>
+              <span className="text-[12px] font-normal text-gray-500">À partir de </span>
+              {priceLabel}
+            </>
+          ) : (
+            "Sur devis"
+          )}
+        </span>
+        <Link
+          href={href}
+          aria-label={`${ctaLabel} — ${name}`}
+          className="relative z-10 shrink-0 rounded-lg bg-[#FF6B35] hover:bg-[#E85A24] px-4 py-2 text-[13px] font-semibold text-white transition"
+          style={{ textDecoration: "none" }}
+        >
+          {ctaLabel}
+        </Link>
+      </div>
+    </div>
   );
 }

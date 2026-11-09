@@ -21,6 +21,7 @@ import type { DevisProposalPayload } from "@/components/devis/types";
 import { countryFlag } from "@/components/person-card";
 import { PaymentModelPicker, PaymentModelBadge } from "@/components/financing/payment-model-picker";
 import { getFinancingMode } from "@/lib/financing-modes";
+import { uuid } from "@/lib/uuid";
 
 // Rapatrié depuis src/components/dashboard/types.ts, supprimé le 16/09/2026 : cette page en
 // était le seul consommateur restant, le fichier ne portait plus que cette constante, et son
@@ -213,7 +214,7 @@ export default function OffreCandidaturePage() {
   const totals = items ? computeDevisData(items.map((i) => ({ description: i.description, quantity: i.quantity, unit: i.unit, unitPrice: i.unitPrice, echeance: i.echeance })), delay ?? "", message ?? "", tvaRate, laborCost) : null;
 
   function addItem() {
-    setItems((prev) => [...(prev ?? []), { id: crypto.randomUUID(), description: "", quantity: 1, unit: "forfait", unitPrice: 0 }]);
+    setItems((prev) => [...(prev ?? []), { id: uuid(), description: "", quantity: 1, unit: "forfait", unitPrice: 0 }]);
   }
   function updateItem(id: string, patch: Partial<EditableItem>) {
     setItems((prev) => (prev ?? []).map((i) => (i.id === id ? { ...i, ...patch } : i)));
@@ -680,7 +681,7 @@ export default function OffreCandidaturePage() {
         {/* Panneau latéral droit */}
         <aside className={`w-full lg:w-[380px] shrink-0 space-y-4 ${mobileTab === "client" ? "block" : "hidden lg:block"}`}>
           <div className="bg-white border border-[#E2E8F0] rounded-xl shadow-sm p-5">
-            <Link href={mission.client ? `/profil/${mission.client.id}` : "#"} className="flex items-start gap-3" style={{ textDecoration: "none", color: "inherit" }}>
+            <Link href={mission.client ? `/profil/${mission.client.id}?returnTo=${encodeURIComponent(`/missions/${missionId}/devis`)}` : "#"} className="flex items-start gap-3" style={{ textDecoration: "none", color: "inherit" }}>
               <Avatar src={mission.client?.avatarPath ? `/api/users/${mission.client.id}/avatar` : null} initials={clientInitials} size={44} gradient="from-[#0f172a] to-[#334155]" />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">

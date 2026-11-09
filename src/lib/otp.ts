@@ -112,9 +112,24 @@ export async function recordOtpRequestAttempt(identifier: string, ip?: string | 
   await prisma.otpRequestAttempt.create({ data: { identifier, ip: ip ?? null } });
 }
 
+// `crypto.randomInt` (2026-11-09) : `Math.random` n'est pas une source cryptographique — ses
+// sorties successives sont prévisibles à partir d'un petit nombre d'observations.
 function generateSixDigitCode(): string {
-  return String(Math.floor(100000 + Math.random() * 900000));
+  return String(crypto.randomInt(100000, 1000000));
 }
+
+// Forme canonique d'un identifiant de connexion (2026-11-09). Les adresses étaient comparées
+// telles que saisies : « Awa@Mail.com » ne retrouvait pas le compte « awa@mail.com », et
+// l'utilisateur lisait « Aucun compte n'est associé à cet identifiant ». Une adresse est
+// donc ramenée en minuscules, sans espaces autour ; un numéro perd ses espaces.
+// Utilisée à l'inscription (stockage), à la demande de code et à sa vérification.
+export function normalizeIdentifier(raw: string): string {
+  const v = raw.trim();
+  return v.includes("@") ? v.toLowerCase() : v.replace(/\s+/g, "");
+}
+
+/** Motifs d'échec de vérification d'un code, transmis tels quels à l'écran /verify-otp. */
+export type OtpFailure = "no_pending_otp" | "expired" | "too_many_attempts" | "invalid_code";
 
 // bcrypt est délibérément lent (anti brute-force sur un secret longue durée à forte valeur,
 // ex. mot de passe compte). Un OTP à 6 chiffres est le cas inverse : faible entropie (900k
@@ -161,12 +176,21 @@ export async function requestOtp(params: {
 
 async function deliverOtp(params: { identifier: string; channel: OtpChannel; code: string }) {
   if (params.channel === "email") {
-    await sendMail({
+    // `sendMail` ne lève JAMAIS : il journalise et rend `{ delivered: false }`. Ce résultat
+    // était ignoré — l'erreur `otp_send_failed` de /api/auth/login/request-otp ne se
+    // déclenchait donc jamais, et l'utilisateur attendait un code qui n'était pas parti
+    // (constaté 2026-11-09). En production, l'échec remonte. En développement sans SMTP, le
+    // code est journalisé pour rester utilisable.
+    const sent = await sendMail({
       to: params.identifier,
       subject: `Votre code de vérification Flexwork : ${params.code}`,
       text: `Votre code de vérification est ${params.code}. Il expire dans ${OTP_TTL_MINUTES} minutes.`,
       html: `<p>Votre code de vérification est <strong>${params.code}</strong>.</p><p>Il expire dans ${OTP_TTL_MINUTES} minutes.</p>`,
     });
+    if (!sent.delivered) {
+      if (process.env.NODE_ENV === "production") throw new Error("otp_email_not_delivered");
+      console.log(`[OTP DEV — email non délivré] identifier=${params.identifier} code=${params.code}`);
+    }
     return;
   }
 
@@ -178,7 +202,9 @@ export async function verifyOtp(params: {
   userId: string;
   purpose: OtpPurpose;
   code: string;
-}): Promise<{ ok: boolean; reason?: string }> {
+}): Promise<{ ok: true } | { ok: false; reason: OtpFailure }> {
+  // Seul le DERNIER code émis pour cet usage compte : en demander un nouveau invalide les
+  // précédents.
   const otp = await prisma.otpCode.findFirst({
     where: {
       userId: params.userId,
@@ -190,22 +216,29 @@ export async function verifyOtp(params: {
 
   if (!otp) return { ok: false, reason: "no_pending_otp" };
   if (otp.expiresAt < new Date()) return { ok: false, reason: "expired" };
-  if (otp.attempts >= MAX_ATTEMPTS) return { ok: false, reason: "too_many_attempts" };
 
-  const matches = codeMatches(params.code, otp.codeHash);
+  // Tentative RÉSERVÉE de façon atomique AVANT la comparaison (2026-11-09). L'ancienne
+  // séquence « lire `attempts`, comparer, puis incrémenter » laissait passer des essais
+  // simultanés : dix requêtes parallèles lisaient toutes `attempts = 0` et testaient dix
+  // codes, au lieu de cinq. Ici, une tentative n'est examinée que si la base a accepté de
+  // la compter (`attempts < MAX_ATTEMPTS` dans la même instruction).
+  const reserved = await prisma.otpCode.updateMany({
+    where: { id: otp.id, consumedAt: null, attempts: { lt: MAX_ATTEMPTS } },
+    data: { attempts: { increment: 1 } },
+  });
+  if (reserved.count === 0) return { ok: false, reason: "too_many_attempts" };
 
-  if (!matches) {
-    await prisma.otpCode.update({
-      where: { id: otp.id },
-      data: { attempts: { increment: 1 } },
-    });
+  if (!codeMatches(params.code, otp.codeHash)) {
     return { ok: false, reason: "invalid_code" };
   }
 
-  await prisma.otpCode.update({
-    where: { id: otp.id },
+  // Usage unique, atomique lui aussi : deux soumissions simultanées du bon code n'ouvrent
+  // qu'une session.
+  const consumed = await prisma.otpCode.updateMany({
+    where: { id: otp.id, consumedAt: null },
     data: { consumedAt: new Date() },
   });
+  if (consumed.count === 0) return { ok: false, reason: "no_pending_otp" };
 
   return { ok: true };
 }

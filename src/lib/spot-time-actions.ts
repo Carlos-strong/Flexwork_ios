@@ -1,4 +1,4 @@
-import type { Prisma } from "@prisma/client";
+import type { AttendanceStatus, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { emitContractRefund, emitDisputeFreeze, emitScopedRelease, emitUnfreeze } from "@/lib/escrow";
 import { notifyMissionParties } from "@/lib/mission-notify";
@@ -10,6 +10,13 @@ import {
   checkValidationRule,
 } from "@/lib/spot-time";
 import { canVerify, type ValidationMode } from "@/lib/validation-mode";
+
+/**
+ * Relevés dont la quantité `approvedQuantity` est RECONNUE, donc consommée sur les plafonds du
+ * contrat : validés, et contestés (leur part reconnue a été payée, seule la part contestée est
+ * gelée). Source unique des cumuls — paiement, plafond de vérification, écrans.
+ */
+export const RECOGNIZED_ATTENDANCE_STATUSES = ["approved", "disputed"] as const satisfies readonly AttendanceStatus[];
 
 // Cycle de vie d'un relevé de présence (§20 du cahier des charges) — le seul endroit où le
 // pointage rencontre l'argent.
@@ -229,9 +236,12 @@ export async function approveAttendance(args: {
     if (!rule.ok) return { ok: false, error: rule.error };
   }
 
-  // Cumuls déjà reconnus sur ce contrat — la base des deux plafonds contractuels.
+  // Cumuls déjà reconnus sur ce contrat — la base des deux plafonds contractuels. Un relevé
+  // CONTESTÉ en fait partie (2026-11-02) : sa part reconnue a été payée par ce même chemin. L'en
+  // exclure faisait tomber la cible cumulée sous ce qui était déjà versé, et le relevé suivant
+  // n'était pas payé (`nothing_to_release`) — le prestataire perdait la part reconnue.
   const dejaValides = await prisma.attendance.findMany({
-    where: { contractId: attendance.contractId, status: "approved" },
+    where: { contractId: attendance.contractId, status: { in: [...RECOGNIZED_ATTENDANCE_STATUSES] } },
     select: { approvedQuantity: true, overtimeQuantity: true },
   });
   const cumulQuantite = dejaValides.reduce((s, a) => s + (a.approvedQuantity ?? 0), 0);
@@ -366,10 +376,10 @@ export async function verifyAttendance(args: {
   // valider ne ferait que reporter le refus. Les relevés déjà vérifiés mais pas encore validés
   // comptent : ils engagent la même quantité.
   const engages = await prisma.attendance.findMany({
-    where: { contractId: attendance.contractId, status: { in: ["approved", "verified"] } },
+    where: { contractId: attendance.contractId, status: { in: [...RECOGNIZED_ATTENDANCE_STATUSES, "verified"] } },
     select: { status: true, approvedQuantity: true, verifiedQuantity: true },
   });
-  const cumul = engages.reduce((s, a) => s + ((a.status === "approved" ? a.approvedQuantity : a.verifiedQuantity) ?? 0), 0);
+  const cumul = engages.reduce((s, a) => s + ((a.status === "verified" ? a.verifiedQuantity : a.approvedQuantity) ?? 0), 0);
   const restant = terms.maxQuantity - cumul;
   if (quantite > restant + 1e-9) return { ok: false, error: "quantity_cap_exceeded", allowed: Math.max(0, restant) };
 

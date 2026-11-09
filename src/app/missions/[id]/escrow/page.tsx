@@ -24,6 +24,11 @@ type SplitRow = { titre: string; montant: string };
 // (src/components/validation-client/ValidationClientView.tsx, 2026-09-03) — composant
 // factorisé (règle R03). La vue plein écran « Validation Client » est désormais /missions/[id]
 // pour le client propriétaire (missions/[id]/validation-client redirige vers elle).
+const NETWORK_ERROR =
+  "Connexion interrompue : vérifiez votre réseau, puis réessayez. Si la demande était déjà partie, elle ne sera pas débitée une seconde fois.";
+const HOLD_PENDING =
+  "Un paiement est déjà en cours d'autorisation : il ne sera pas débité une seconde fois. Terminez-le sur l'écran Mobile Money ou attendez sa confirmation.";
+
 export default function EscrowPage({ params }: { params: { id: string } }) {
   const { id: missionId } = params;
   const router = useRouter();
@@ -50,16 +55,31 @@ export default function EscrowPage({ params }: { params: { id: string } }) {
 
   useEffect(reload, [missionId]);
 
+  // Coupure réseau (V-03, 2026-11-02) : `fetch` rejette au lieu de répondre. Sans ce filet, le
+  // bouton restait figé sur « Envoi... » sans un mot. La demande a pu partir avant la coupure :
+  // le serveur refuse un second séquestre (`hold_already_requested`), d'où le message.
+  async function postHold(url: string): Promise<Response | null> {
+    try {
+      return await fetch(url, { method: "POST" });
+    } catch {
+      setError(NETWORK_ERROR);
+      return null;
+    }
+  }
+
   async function handleHold(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setSubmitting("whole");
-    const res = await fetch(`/api/missions/${missionId}/escrow/hold`, { method: "POST" });
+    const res = await postHold(`/api/missions/${missionId}/escrow/hold`);
     setSubmitting(null);
+    if (!res) return;
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       setError(
-        data.error === "psp_not_enabled"
+        data.error === "hold_already_requested"
+          ? HOLD_PENDING
+          : data.error === "psp_not_enabled"
           ? "Le montage PSP n'est pas encore activé pour cette zone (prérequis juridique en cours de validation)."
           : data.error === "effective_insurance_required"
             ? "Une assurance effective est requise avant de démarrer cette mission à risque élevé."
@@ -88,12 +108,15 @@ export default function EscrowPage({ params }: { params: { id: string } }) {
   async function holdJalon(jalonId: string) {
     setError(null);
     setSubmitting(jalonId);
-    const res = await fetch(`/api/missions/${missionId}/jalons/${jalonId}/hold`, { method: "POST" });
+    const res = await postHold(`/api/missions/${missionId}/jalons/${jalonId}/hold`);
     setSubmitting(null);
+    if (!res) return;
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       setError(
-        data.error === "psp_not_enabled"
+        data.error === "hold_already_requested"
+          ? HOLD_PENDING
+          : data.error === "psp_not_enabled"
           ? "Le montage PSP n'est pas encore activé pour cette zone."
           : data.error === "effective_insurance_required"
             ? "Une assurance effective est requise avant de démarrer cette mission à risque élevé."

@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { signOut, useSession } from "next-auth/react";
 import Link from "next/link";
+import { currentCallbackUrl, withCallbackUrl } from "@/lib/safe-callback";
 import { Mail, Shield, ArrowRight, Users, CreditCard } from "lucide-react";
 
 const COUNTRY_CODES = [
@@ -14,10 +16,15 @@ const COUNTRY_CODES = [
 
 export default function SigninPage() {
   const router = useRouter();
+  const { data: session, status } = useSession();
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [loginMethod, setLoginMethod] = useState<"email" | "phone">("email");
   const [countryCode, setCountryCode] = useState("+229");
+  // Lien « Créer un compte » : il garde la destination d'origine (bouton « Candidater » de
+  // l'accueil…), lue après le montage — l'URL n'existe pas pendant le rendu serveur.
+  const [signupHref, setSignupHref] = useState("/signup");
+  useEffect(() => setSignupHref(withCallbackUrl("/signup", currentCallbackUrl())), []);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -32,22 +39,42 @@ export default function SigninPage() {
       ? emailVal
       : phoneVal.startsWith("+") ? phoneVal : `${countryCode}${phoneVal}`;
 
-    const res = await fetch("/api/auth/login/request-otp", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ identifier }),
-    });
+    // Panne réseau (2026-11-09) : la promesse rejetée n'était pas rattrapée — le bouton
+    // restait sur « en cours » sans aucun message.
+    let res: Response;
+    try {
+      res = await fetch("/api/auth/login/request-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ identifier }),
+      });
+    } catch {
+      setSubmitting(false);
+      setError("Connexion au serveur impossible. Vérifiez votre réseau, puis réessayez.");
+      return;
+    }
 
     setSubmitting(false);
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      setError(data.error === "too_many_requests"
-        ? "Trop de demandes — réessayez dans quelques minutes."
-        : "Une erreur est survenue. Réessayez.");
+      setError(
+        data.error === "too_many_requests"
+          ? "Trop de demandes — réessayez dans quelques minutes."
+          : data.error === "account_not_found"
+            ? "Aucun compte n'est associé à cet identifiant. Inscrivez-vous pour continuer."
+            : data.error === "account_inactive"
+              ? "Ce compte est désactivé. Contactez le support."
+              : data.error === "otp_send_failed"
+                ? "Le code n'a pas pu être envoyé. Réessayez."
+                : "Une erreur est survenue. Réessayez."
+      );
       return;
     }
 
-    router.push(`/verify-otp?identifier=${encodeURIComponent(identifier)}&purpose=login`);
+    // Destination d'origine (mission ouverte depuis l'accueil…) : relayée jusqu'à /verify-otp,
+    // qui y renvoie après connexion. Lue ici plutôt que par useSearchParams, qui imposerait une
+    // frontière Suspense à toute la page pour un paramètre utile au seul envoi.
+    router.push(withCallbackUrl(`/verify-otp?identifier=${encodeURIComponent(identifier)}&purpose=login`, currentCallbackUrl()));
   }
 
   return (
@@ -138,6 +165,41 @@ export default function SigninPage() {
           )}
 
           {/* Login method toggle */}
+          {/* Session déjà ouverte (2026-11-08) : le formulaire vide laissait croire qu'on était
+              déconnecté, alors que la session restait active — la carte d'un service de l'accueil
+              ramenait ensuite dans le tableau de bord de ce compte. On le dit, et on propose
+              de continuer ou de se déconnecter vraiment. */}
+          {status === "authenticated" && (
+            <div role="status" className="mb-6 rounded-xl border border-[#008751]/25 bg-[#008751]/5 p-4">
+              <p className="text-[14px] text-[#0A1931]">
+                Vous êtes déjà connecté(e)
+                {session?.user?.email ? (
+                  <>
+                    {" "}
+                    en tant que <span className="font-semibold">{session.user.email}</span>
+                  </>
+                ) : null}
+                .
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => router.push(currentCallbackUrl() ?? "/dashboard")}
+                  className="h-10 px-4 rounded-full bg-[#008751] text-white text-[13px] font-semibold hover:bg-[#006e43]"
+                >
+                  Continuer
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void signOut({ callbackUrl: "/signin" })}
+                  className="h-10 px-4 rounded-full border border-zinc-200 bg-white text-[13px] font-medium text-zinc-700 hover:bg-zinc-50"
+                >
+                  Se déconnecter
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="flex bg-gray-100 rounded-xl p-1 mb-5">
             <button
               type="button"
@@ -167,12 +229,13 @@ export default function SigninPage() {
             {/* Email input */}
             {loginMethod === "email" && (
               <div className="animate-[fadeIn_150ms_ease-out]">
-                <label className="block text-[13px] font-semibold text-zinc-700 mb-2">Adresse email</label>
+                <label htmlFor="signin-email" className="block text-[13px] font-semibold text-zinc-700 mb-2">Adresse email</label>
                 <div className="flex items-center gap-2 p-1.5 rounded-2xl border-2 border-gray-100 bg-white focus-within:border-[#FF7A00] focus-within:shadow-[0_0_0_4px_rgba(255,122,0,0.08)] transition-all">
                   <div className="pl-2.5 shrink-0">
                     <Mail className="w-4 h-4 text-zinc-400" />
                   </div>
                   <input
+                    id="signin-email"
                     type="email"
                     name="email"
                     required
@@ -190,10 +253,11 @@ export default function SigninPage() {
             {/* Phone input */}
             {loginMethod === "phone" && (
               <div className="animate-[fadeIn_150ms_ease-out]">
-                <label className="block text-[13px] font-semibold text-zinc-700 mb-2">Numéro de téléphone</label>
+                <label htmlFor="signin-phone" className="block text-[13px] font-semibold text-zinc-700 mb-2">Numéro de téléphone</label>
                 <div className="flex items-center gap-2 p-1.5 rounded-2xl border-2 border-gray-100 bg-white focus-within:border-[#FF7A00] focus-within:shadow-[0_0_0_4px_rgba(255,122,0,0.08)] transition-all">
                   <div className="relative shrink-0">
                     <select
+                      aria-label="Indicatif du pays"
                       value={countryCode}
                       onChange={(e) => setCountryCode(e.target.value)}
                       className="appearance-none bg-gray-50 rounded-lg pl-2.5 pr-7 py-2 text-[12px] font-semibold text-zinc-600 cursor-pointer focus:outline-none"
@@ -205,6 +269,7 @@ export default function SigninPage() {
                     <ArrowRight className="w-3 h-3 text-zinc-400 absolute right-2 top-1/2 -translate-y-1/2 rotate-90 pointer-events-none" />
                   </div>
                   <input
+                    id="signin-phone"
                     type="tel"
                     name="phone"
                     required
@@ -254,7 +319,7 @@ export default function SigninPage() {
             {/* Signup link */}
             <p className="text-center text-[13px] text-zinc-500 pt-2">
               Pas encore de compte ?{" "}
-              <Link href="/signup" className="text-[#008751] font-semibold hover:underline">Créer un compte</Link>
+              <Link href={signupHref} className="text-[#008751] font-semibold hover:underline">Créer un compte</Link>
             </p>
           </form>
 

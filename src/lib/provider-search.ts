@@ -71,6 +71,8 @@ export async function searchProviders(searchParams: URLSearchParams) {
   const providers = await prisma.user.findMany({
     where: {
       kycStatus: "verifie",
+      // Compte sanctionné (suspendu, banni) : jamais dans les résultats.
+      status: "active",
       role: { in: roleFilter },
       profiles: { some: profileWhere },
     },

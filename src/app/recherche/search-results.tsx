@@ -33,6 +33,11 @@ export function SearchResults({
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  // Page de résultats courante, transmise au profil pour son bouton « Revenir ».
+  const searchQuery = new URLSearchParams(
+    Object.entries(urlParams).filter(([, v]) => v) as [string, string][],
+  ).toString();
+  const returnTo = encodeURIComponent(searchQuery ? `/recherche?${searchQuery}` : "/recherche");
   // Dans une rubrique, le champ libre part vide : la rubrique filtre déjà, et y recopier
   // « Plomberie » laisserait croire à un second filtre.
   const [domaine, setDomaine] = useState(scopeLabel ? "" : urlParams.domaine);
@@ -177,7 +182,7 @@ export function SearchResults({
             {results.map((p, i) => (
               <div
                 key={p.id}
-                className="animate-in fade-in slide-in-from-bottom-2 duration-500 fill-mode-both motion-reduce:animate-none"
+                className="h-full animate-in fade-in slide-in-from-bottom-2 duration-500 fill-mode-both motion-reduce:animate-none"
                 style={{ animationDelay: `${Math.min(i, 8) * 60}ms` }}
               >
                 <PersonCard
@@ -185,11 +190,13 @@ export function SearchResults({
                   countryCode={p.country}
                   avatarSrc={p.avatarPath ? `/api/users/${p.id}/avatar` : null}
                   initials={providerInitials(p)}
-                  subtitle={`${PROVIDER_ROLE_LABEL[p.role] ?? p.role} — ${p.mainDomain ?? "Domaine non renseigné"}${p.zoneVille ? ` • ${p.zoneVille}` : ""}`}
+                  roleLabel={PROVIDER_ROLE_LABEL[p.role] ?? p.role}
+                  domain={p.mainDomain}
+                  city={p.zoneVille}
                   rating={p.averageRating}
                   reviewCount={p.reviewCount}
                   priceLabel={providerPriceLabel(p.indicativeRate, p.tarifUnite)}
-                  href={`/profil/${p.id}`}
+                  href={`/profil/${p.id}?returnTo=${returnTo}`}
                 />
               </div>
             ))}

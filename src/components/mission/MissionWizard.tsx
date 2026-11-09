@@ -25,6 +25,7 @@ import { TaxonomyCascade, type TaxonomySelection } from "@/components/mission/Ta
 import { loadMissionDraft, saveMissionDraft, clearMissionDraft } from "@/lib/mission-draft";
 import { DraftAttachments } from "@/components/mission/DraftAttachments";
 import { VALIDATION_MODE_LABEL, type ValidationMode } from "@/lib/validation-mode";
+import { uuid } from "@/lib/uuid";
 
 // Tunnel de création de mission en quatre étapes (M2 → M6), 2026-09-23.
 //
@@ -117,6 +118,7 @@ const STEPS = ["Décrire", "Lieu et dates", "Rémunération", "Récapitulatif"];
 
 const SAVE_ERRORS: Record<string, string> = {
   kyc_not_verified: "Votre identité doit être vérifiée avant de publier une mission.",
+  self_invitation: "Vous ne pouvez pas publier une mission sur votre propre profil de prestataire.",
   professional_type_incompatible: "Ce type de professionnel ne peut pas être ciblé pour le secteur de cette catégorie.",
   budget_required_to_publish: "Le budget est obligatoire pour publier la mission (sauf en mode « Demande de devis »).",
   time_terms_required_to_publish: "Indiquez le tarif et la quantité maximale : ils fixent le plafond du contrat au temps.",
@@ -192,8 +194,12 @@ export function MissionWizard() {
   // Identifiant de brouillon, stable pour toute la durée du tunnel : il rattache les pièces
   // jointes déposées à l'étape 1 à la mission créée à l'étape 4. Restauré avec le brouillon
   // pour qu'un retour après fermeture d'onglet retrouve ses fichiers.
-  const [draftId] = useState(() => loadMissionDraft()?.draftId || crypto.randomUUID());
+  const [draftId] = useState(() => loadMissionDraft()?.draftId || uuid());
   const hydrated = useRef(false);
+  // Mission lancée depuis le profil public d'un prestataire (2026-11-08) :
+  // /missions/new?metierId=…&pour=<id>&nom=… — le métier du prestataire est pré-rempli et, à
+  // la publication, ce prestataire est invité à candidater. Le serveur revérifie tout.
+  const [invitation, setInvitation] = useState<{ providerId: string; name: string | null; metierLabel: string } | null>(null);
 
   const set = useCallback(<K extends keyof typeof emptyState>(key: K, value: (typeof emptyState)[K]) => {
     setForm((f) => ({ ...f, [key]: value }));
@@ -250,7 +256,7 @@ export function MissionWizard() {
       .catch(() => {});
   }, []);
 
-  // Restauration du brouillon local — proposée, jamais imposée.
+
   useEffect(() => {
     const draft = loadMissionDraft();
     hydrated.current = true;
@@ -297,6 +303,44 @@ export function MissionWizard() {
     setStep(Math.min(Math.max(draft.step ?? 0, 0), STEPS.length - 1));
     setRestored(true);
   }, []);
+
+  // Mission lancée depuis le profil d'un prestataire : le métier de l'URL l'emporte sur celui
+  // d'un éventuel brouillon (c'est l'intention du moment). Déclaré APRÈS la restauration du
+  // brouillon : les effets s'exécutent dans l'ordre, ce pré-remplissage passe donc en dernier.
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search);
+    const metierId = sp.get("metierId");
+    const providerId = sp.get("pour");
+    if (!metierId) return;
+    let alive = true;
+    fetch("/api/taxonomy")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((t: { categories?: { id: string; libelle: string; secteur: string | null; allowsOprVerification?: boolean; metiers: { id: string; libelle: string }[] }[] } | null) => {
+        if (!alive || !t?.categories) return;
+        for (const c of t.categories) {
+          const m = c.metiers.find((x) => x.id === metierId);
+          if (!m) continue;
+          handleTaxonomy({
+            categorieId: c.id,
+            categorieLabel: c.libelle,
+            metierId: m.id,
+            metierLabel: m.libelle,
+            competences: [],
+            secteur: c.secteur,
+            secteurLabel: "",
+            allowsOprVerification: c.allowsOprVerification ?? false,
+          });
+          if (providerId && /^[A-Za-z0-9_-]{1,64}$/.test(providerId)) {
+            setInvitation({ providerId, name: sp.get("nom")?.slice(0, 80) || null, metierLabel: m.libelle });
+          }
+          return;
+        }
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [handleTaxonomy]);
 
   // Sauvegarde continue, DIFFÉRÉE de 600 ms. `localStorage.setItem` est synchrone et
   // sérialise tout l'état : l'écrire à chaque frappe bloquait le fil principal une trentaine
@@ -448,6 +492,9 @@ export function MissionWizard() {
         draftId,
         categorieId: taxonomy.categorieId || undefined,
         metierId: taxonomy.metierId || undefined,
+        // Invitation retenue seulement si le métier choisi est resté celui du prestataire.
+        invitedProviderId:
+          invitation && taxonomy.metierLabel === invitation.metierLabel ? invitation.providerId : undefined,
         tags: taxonomy.competences,
         professionalType: form.professionalType || undefined,
         level: (levelApplies(form.professionalType) && form.level) || undefined,
@@ -631,7 +678,7 @@ export function MissionWizard() {
             <button
               type="button"
               onClick={() => (step === 0 ? router.push("/client/dashboard") : setStep(step - 1))}
-              className="text-[13px] text-zinc-500 hover:text-zinc-800"
+              className="min-h-6 text-[13px] text-zinc-500 hover:text-zinc-800"
             >
               ← {step === 0 ? "Tableau de bord" : STEPS[step - 1]}
             </button>
@@ -664,6 +711,24 @@ export function MissionWizard() {
             >
               Repartir de zéro
             </button>
+          </div>
+        )}
+
+        {invitation && step === 0 && (
+          <div role="status" className="px-4 py-3 rounded-xl bg-[#eefaf4] border border-[#008751]/20 text-[13px] text-zinc-700">
+            {taxonomy.metierLabel === invitation.metierLabel ? (
+              <>
+                Mission dans le domaine <strong>{invitation.metierLabel}</strong>
+                {invitation.name ? <> de {invitation.name}</> : null}. À la publication,{" "}
+                {invitation.name ?? "ce prestataire"} sera invité(e) à candidater directement, avec les autres prestataires du
+                domaine.
+              </>
+            ) : (
+              <>
+                Vous avez changé de métier : {invitation.name ?? "le prestataire"} ne sera pas invité(e), la mission sera
+                proposée aux prestataires du nouveau domaine.
+              </>
+            )}
           </div>
         )}
 
@@ -779,8 +844,8 @@ export function MissionWizard() {
                 </p>
               </div>
               <div>
-                <span className={labelClass}>Urgence</span>
-                <div className="flex gap-2">
+                <span id="mw-urgence" className={labelClass}>Urgence</span>
+                <div role="group" aria-labelledby="mw-urgence" className="flex gap-2">
                   {[
                     { value: false, label: "Normale" },
                     { value: true, label: "Urgente" },
@@ -809,8 +874,8 @@ export function MissionWizard() {
         {step === 1 && (
           <div className={`${card} space-y-5`}>
             <div>
-              <span className={labelClass}>Type de mission <span className="text-[#E8112D]">*</span></span>
-              <div className="grid sm:grid-cols-3 gap-3">
+              <span id="mw-mode" className={labelClass}>Type de mission <span className="text-[#E8112D]">*</span></span>
+              <div role="group" aria-labelledby="mw-mode" className="grid sm:grid-cols-3 gap-3">
                 {MISSION_MODES.map((m) => (
                   <button
                     key={m.value}
@@ -954,8 +1019,8 @@ export function MissionWizard() {
         {step === 2 && (
           <div className={`${card} space-y-5`}>
             <div>
-              <span className={labelClass}>Modèle de contrat <span className="text-[#E8112D]">*</span></span>
-              <div className="grid sm:grid-cols-3 gap-3">
+              <span id="mw-modele" className={labelClass}>Modèle de contrat <span className="text-[#E8112D]">*</span></span>
+              <div role="group" aria-labelledby="mw-modele" className="grid sm:grid-cols-3 gap-3">
                 {BUDGET_TYPES.map((b) => (
                   <button
                     key={b.value}
@@ -977,8 +1042,8 @@ export function MissionWizard() {
             {isTimeMode && (
               <div className="space-y-4 p-4 rounded-xl bg-zinc-50 border border-zinc-100">
                 <div>
-                  <span className={labelClass}>Type de taux</span>
-                  <div className="flex flex-wrap gap-2">
+                  <span id="mw-taux" className={labelClass}>Type de taux</span>
+                  <div role="group" aria-labelledby="mw-taux" className="flex flex-wrap gap-2">
                     {RATE_UNITS.map((u) => (
                       <button
                         key={u.value}
@@ -1021,8 +1086,8 @@ export function MissionWizard() {
                     L'outil de pointage horodaté (A12) reste à part : facultatif, après contrat,
                     avec le consentement des deux parties. */}
                 <div>
-                  <span className={labelClass}>Mode de pointage <span className="text-[#E8112D]">*</span></span>
-                  <div className="grid md:grid-cols-2 gap-2">
+                  <span id="mw-pointage" className={labelClass}>Mode de pointage <span className="text-[#E8112D]">*</span></span>
+                  <div role="group" aria-labelledby="mw-pointage" className="grid md:grid-cols-2 gap-2">
                     {(Object.keys(ATTENDANCE_VALIDATION_LABEL) as AttendanceValidation[]).map((rule) => (
                       <button
                         key={rule}

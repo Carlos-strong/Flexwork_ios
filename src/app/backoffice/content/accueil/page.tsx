@@ -49,9 +49,13 @@ const SECTION_HELP: Record<string, { file: string; note: string }> = {
     file: "PopularServices.tsx",
     note: "« Détail » porte ici le DOMAINE visé par la recherche, distinct du libellé affiché.",
   },
-  category_grid: {
-    file: "CategoryGrid.tsx",
-    note: "Une icône, un libellé, une couleur de pastille. Chaque entrée ouvre la recherche sur son libellé.",
+  latest_missions: {
+    file: "LatestMissions.tsx",
+    note: "Libellés seuls. Les missions affichées sont les six dernières publiées, lues en base ; aucune ne s’épingle à la main.",
+  },
+  latest_gigs: {
+    file: "LatestGigs.tsx",
+    note: "Libellés seuls. Les six derniers services publiés, ceux des prestataires au badge « Vérifié » en tête ; aucun ne s’épingle à la main.",
   },
   featured_talents: {
     file: "TalentsAfrique.tsx",

@@ -3,6 +3,7 @@
 import { useState, type FormEvent, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { signOut } from "next-auth/react";
 import { Search, LogOut, Menu, X, LayoutDashboard, Briefcase, MessageSquare, Heart, FileText, Wallet, Star, Handshake, Sparkles, UserRound } from "lucide-react";
 import DashboardSidebar, { type NavItem, type SidebarUser, type DocumentsBlock } from "./DashboardSidebar";
 import { NotificationsBell } from "@/components/notifications-bell";
@@ -98,7 +99,10 @@ export default function DashboardLayout(p: Props) {
         onSelect={onNavChange}
         user={user}
         badgeCounts={badgeCounts}
-        footerActions={[{ id: "logout", label: "Déconnexion", Icon: LogOut, href: "/signin" }]}
+        // Déconnexion RÉELLE (2026-11-08) : c'était un simple lien vers /signin, qui laissait la
+        // session ouverte — le visiteur se croyait déconnecté, et la carte d'un service de
+        // l'accueil (/client/offres) le ramenait dans le tableau de bord du compte resté connecté.
+        footerActions={[{ id: "logout", label: "Déconnexion", Icon: LogOut, onClick: () => void signOut({ callbackUrl: "/" }) }]}
         documents={hideDocuments ? undefined : documents}
       />
 

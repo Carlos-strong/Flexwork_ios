@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { PROVIDER_ROLES } from "@/lib/provider-options";
+import { LISTED_PROVIDER_WHERE } from "@/lib/profile-visibility";
 
 export type FeaturedProvider = {
   id: string;
@@ -29,11 +29,8 @@ export type FeaturedProvider = {
 // d'afficher une note fabriquée.
 export async function getFeaturedProviders(limit = 4): Promise<FeaturedProvider[]> {
   const providers = await prisma.user.findMany({
-    where: {
-      kycStatus: "verifie",
-      role: { in: PROVIDER_ROLES },
-      profiles: { some: {} },
-    },
+    // Critère partagé (src/lib/profile-visibility.ts) : un compte suspendu ou banni sort de la vitrine.
+    where: LISTED_PROVIDER_WHERE,
     include: { profiles: true },
     orderBy: { createdAt: "desc" },
   });

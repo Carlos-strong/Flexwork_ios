@@ -1,13 +1,21 @@
 import { NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { kycBlockFor } from "@/lib/kyc-policy";
+import { gigInputSchema, missingVisual } from "@/lib/gig-rules";
+import { serializeGig } from "@/lib/gig-serialize";
 
 export const dynamic = "force-dynamic";
 
-// GET /api/gigs — catalogue des Gigs publiés (tout utilisateur connecté), ou "Mes Gigs" du
-// prestataire connecté avec ?mine=true (rubrique Offres du dashboard : tous statuts, y
-// compris brouillons/clôturés, + nombre de commandes par Gig).
+const PROVIDER_SELECT = { id: true, firstname: true, lastname: true, avatarPath: true } as const;
+
+// GET /api/gigs — catalogue des Gigs publiés (tout utilisateur connecté), ou « Mes Gigs » du
+// prestataire connecté avec ?mine=true (tous statuts + nombre de commandes).
+//
+// Recherche (2026-11-08) : `?q=` cherche dans le titre, la description et les MOTS-CLÉS du
+// Gig — c'est à cela que servent les mots-clés saisis par le prestataire. `?domaine=` filtre
+// le domaine exact.
 export async function GET(req: Request) {
   const session = await auth();
   if (!session?.user) {
@@ -18,32 +26,41 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const domaine = searchParams.get("domaine");
   const mine = searchParams.get("mine") === "true";
+  const q = searchParams.get("q")?.trim().slice(0, 80) || null;
+
+  const where: Prisma.GigWhereInput = mine
+    ? { providerId: userId }
+    : {
+        status: "publie",
+        // Catalogue CLIENT (2026-11-09) : un compte à la fois client et prestataire n'y voit pas
+        // ses propres services — il ne peut pas les commander (POST …/purchase, 409
+        // self_dealing_forbidden). Il les gère depuis /profile?tab=services.
+        providerId: { not: userId },
+        ...(domaine ? { domaine } : {}),
+        ...(q
+          ? {
+              OR: [
+                { titre: { contains: q, mode: "insensitive" } },
+                { description: { contains: q, mode: "insensitive" } },
+                { tags: { has: q.toLowerCase() } },
+              ],
+            }
+          : {}),
+      };
 
   const gigs = await prisma.gig.findMany({
-    where: mine
-      ? { providerId: userId }
-      : { status: "publie", ...(domaine ? { domaine } : {}) },
-    include: {
-      provider: { select: { id: true, firstname: true, lastname: true, avatarPath: true } },
-      _count: { select: { orders: true } },
-    },
+    where,
+    include: { provider: { select: PROVIDER_SELECT }, packages: true, _count: { select: { orders: true } } },
     orderBy: { createdAt: "desc" },
     take: 50,
   });
 
   return NextResponse.json({
     items: gigs.map((g) => ({
-      id: g.id,
-      titre: g.titre,
-      description: g.description,
-      domaine: g.domaine,
-      prix: g.prix,
-      currency: g.currency,
-      delaiJours: g.delaiJours,
-      tags: g.tags,
-      status: g.status,
+      ...serializeGig(g),
+      // Champ historique, conservé pour les écrans qui le lisent encore.
+      prix: g.packages.length ? serializeGig(g).prixDepart : g.prix,
       ordersCount: g._count.orders,
-      createdAt: g.createdAt,
       provider: {
         id: g.provider.id,
         name: [g.provider.firstname, g.provider.lastname].filter(Boolean).join(" ").trim() || "Prestataire",
@@ -53,7 +70,12 @@ export async function GET(req: Request) {
   });
 }
 
-// POST /api/gigs — un prestataire crée (et publie) un Gig à prix fixe.
+// POST /api/gigs — un prestataire crée un Gig : titre « Je vais… », trois formules à prix
+// progressifs, description, mots-clés, vidéo facultative (src/lib/gig-rules.ts).
+//
+// Les photos (3 au plus) se téléversent APRÈS la création (POST /api/gigs/[id]/images) : elles
+// ont besoin de l'id du Gig. Un Gig ne peut donc être publié d'emblée que s'il a une vidéo ; sinon
+// il naît en brouillon et se publie une fois la couverture ajoutée (PATCH /api/gigs/[id]).
 export async function POST(req: Request) {
   const session = await auth();
   if (!session?.user) {
@@ -65,37 +87,44 @@ export async function POST(req: Request) {
   if (kycBlock) {
     return NextResponse.json(kycBlock, { status: 403 });
   }
-  // Un prestataire = tout rôle non-client (expert_digital, expert_btp_autres, artisan,
-  // manoeuvre) — même convention que les routes missions.
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
   if (!user) return NextResponse.json({ error: "not_found" }, { status: 404 });
   if (user.role === "client") {
     return NextResponse.json({ error: "Seuls les prestataires peuvent publier un Gig" }, { status: 403 });
   }
 
-  const body = await req.json().catch(() => ({}));
-  const titre = typeof body.titre === "string" ? body.titre.trim() : "";
-  const description = typeof body.description === "string" ? body.description.trim() : "";
-  const domaine = typeof body.domaine === "string" ? body.domaine.trim() : "";
-  const prix = typeof body.prix === "number" ? body.prix : Number(body.prix);
-  const delaiJours = typeof body.delaiJours === "number" ? body.delaiJours : Number(body.delaiJours);
-  const tags = Array.isArray(body.tags) ? body.tags.map(String) : [];
-  const status = body.status === "publie" ? "publie" : "brouillon";
-
-  if (!titre || !description || !domaine || !Number.isFinite(prix) || prix <= 0 || !Number.isInteger(delaiJours) || delaiJours <= 0) {
-    return NextResponse.json({ error: "titre, description, domaine, prix (>0) et delaiJours (>0) sont requis" }, { status: 400 });
+  const parsed = gigInputSchema.safeParse(await req.json().catch(() => ({})));
+  if (!parsed.success) {
+    const first = parsed.error.issues[0];
+    return NextResponse.json(
+      { error: "invalid_payload", message: first?.message ?? "Gig incomplet.", details: parsed.error.flatten() },
+      { status: 400 },
+    );
   }
+  const g = parsed.data;
+  const wantsPublish = g.status === "publie";
+  if (wantsPublish && missingVisual({ imagePaths: [], videoUrl: g.videoUrl ?? null })) {
+    return NextResponse.json(
+      { error: "visual_required", message: "Ajoutez au moins une photo ou une vidéo avant de publier." },
+      { status: 400 },
+    );
+  }
+  const basique = g.packages.find((p) => p.tier === "basique")!;
 
   const gig = await prisma.gig.create({
     data: {
       providerId: userId,
-      titre,
-      description,
-      domaine,
-      prix,
-      delaiJours,
-      tags,
-      status,
+      titre: g.titre,
+      description: g.description,
+      domaine: g.domaine,
+      // Prix et délai « à partir de » = formule Basique : les écrans et calculs qui lisent
+      // encore Gig.prix / Gig.delaiJours restent justes.
+      prix: basique.prix,
+      delaiJours: basique.delaiJours,
+      tags: g.tags,
+      videoUrl: g.videoUrl || null,
+      status: wantsPublish ? "publie" : "brouillon",
+      packages: { create: g.packages },
     },
   });
 
