@@ -1,39 +1,79 @@
-export default function TalentsAfrique() {
-  const talents = [
-    { name: 'Aïcha M.', role: 'Designer UI/UX Wax', rating: '5.0', reviews: 127, price: '15 000 FCFA', flag: '🇧🇯', city: 'Cotonou', img: '/images/african_designer_studio.webp' },
-    { name: 'Kwame O.', role: 'Développeur Fullstack', rating: '4.9', reviews: 203, price: '25 000 FCFA', flag: '🇳🇬', city: 'Lagos', img: '/images/lagos_developer_coworking.webp' },
-    { name: 'Fatou D.', role: 'Monteuse Vidéo TikTok', rating: '5.0', reviews: 89, price: '8 000 FCFA', flag: '🇸🇳', city: 'Dakar', img: '/images/ankara_video_editor.webp' },
-    { name: 'Yao K.', role: 'Voix Off & Podcast', rating: '4.9', reviews: 156, price: '12 000 FCFA', flag: '🇨🇮', city: 'Abidjan', img: '/images/african_designer_studio.webp' },
-  ]
+import Link from 'next/link'
+import { PersonCard } from '@/components/person-card'
+import { getFeaturedProviders } from '@/lib/featured-providers'
+import { getPublishedFrontendConfig, resolveSection } from '@/lib/frontend-config'
+import {
+  PROVIDER_ROLE_LABEL,
+  providerDisplayName,
+  providerInitials,
+  providerPriceLabel,
+} from '@/lib/provider-display'
+
+// Section « Talents » de la page d'accueil — composant serveur alimenté par la BASE, plus
+// par les 4 profils d'exemple codés en dur (Aïcha M., Kwame O., Fatou D., Yao K. et leurs
+// notes/avis inventés) qui figuraient ici jusqu'au 2026-09-09. C'est exactement l'usage
+// prévu par PersonCard, dont le commentaire d'en-tête réserve la carte aux « vraies données
+// (jamais les 4 profils d'exemple de la page d'accueil) ».
+//
+// Sans prestataire éligible, on affiche une invitation à s'inscrire plutôt que de remplir la
+// grille avec des profils fictifs : une vitrine vide est honnête, une vitrine inventée non.
+export default async function TalentsAfrique() {
+  // Seuls les LIBELLÉS de la section sont éditables. Les profils affichés restent ceux que
+  // getFeaturedProviders sélectionne en base sur des critères vérifiables ; aucun écran
+  // d'administration ne permet d'en épingler un à la main, ce qui serait une mise en avant
+  // sur critère non publié — règle de conformité n°5.
+  const [talents, config] = await Promise.all([getFeaturedProviders(6), getPublishedFrontendConfig()])
+  const section = resolveSection(config, 'featured_talents')
 
   return (
-    <section className="py-16 lg:py-20 bg-[#FFF8F0]">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="h-1 w-12 bg-gradient-to-r from-[#FF6B35] to-[#F7C948] rounded-full"></div>
-          <p className="text-sm font-extrabold tracking-widest text-[#FF6B35] uppercase">Made in Africa</p>
+    <section className="py-12 lg:py-16 bg-white">
+      <div className="page-shell">
+        <p className="text-sm font-medium uppercase tracking-[0.12em] text-[#E85A24] mb-3">{section?.subtitle ?? 'Made in Africa'}</p>
+        <div className="flex flex-wrap items-end justify-between gap-4 mb-8 lg:mb-10">
+          <h2 className="text-[30px] md:text-[40px] leading-[1.1] font-semibold text-[#0A1931]">{section?.title ?? 'Talents d’Afrique 🌍'}</h2>
+          {talents.length > 0 && section?.ctaText && (
+            <Link href={section.ctaLink ?? '/recherche'} className="text-base font-semibold text-[#E85A24] hover:underline">
+              {section.ctaText}
+            </Link>
+          )}
         </div>
-        <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold mb-8 lg:mb-10">Talents d'Afrique 🌍, plébiscités</h2>
-        
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-5">
-          {talents.map(t=>(
-            <div key={t.name} className="bg-white rounded-2xl p-4 lg:p-5 shadow-sm border border-orange-100 hover:shadow-xl hover:-translate-y-1 transition">
-              <div className="flex items-start gap-3 lg:gap-4">
-                <img src={t.img} className="w-12 h-12 lg:w-14 lg:h-14 rounded-full object-cover" alt={t.name} />
-                <div className="flex-1">
-                  <p className="font-bold text-base">{t.name} <span>{t.flag}</span></p>
-                  <p className="text-sm text-gray-500">{t.role} • {t.city}</p>
-                  <div className="flex items-center gap-1 mt-1 text-sm">
-                    <span className="text-[#F7C948]">★</span><span className="font-bold">{t.rating}</span><span className="text-gray-400">({t.reviews})</span></div>
-                </div>
-              </div>
-              <div className="mt-4 flex items-center justify-between">
-                <p className="text-sm text-gray-500">À partir de</p>
-                <p className="font-extrabold text-lg text-[#0A1931]">{t.price}</p>
-              </div>
-            </div>
-          ))}
-        </div>
+
+        {talents.length === 0 ? (
+          <div className="bg-[#F7F7F5] rounded-2xl p-8 lg:p-12 text-center">
+            <p className="text-xl font-medium text-[#0A1931]">Les premiers profils arrivent</p>
+            <p className="mt-2 text-gray-600 max-w-prose mx-auto">
+              Aucun prestataire n&apos;a encore terminé sa vérification d&apos;identité. Créez votre profil pour
+              faire partie des premiers talents visibles sur FlexWork.
+            </p>
+            <Link
+              href="/signup"
+              className="inline-block mt-6 bg-[#FF6B35] hover:bg-[#E85A24] text-white px-6 py-3 rounded-lg font-semibold transition"
+            >
+              Devenir prestataire
+            </Link>
+          </div>
+        ) : (
+          // Même grille que « Dernières missions » et « Nouveaux services » : 6 cartes, 3 colonnes.
+          <ul className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-5">
+            {talents.map((t) => (
+              <li key={t.id}>
+              <PersonCard
+                name={providerDisplayName(t)}
+                countryCode={t.country}
+                avatarSrc={t.avatarPath ? `/api/users/${t.id}/avatar` : null}
+                initials={providerInitials(t)}
+                roleLabel={PROVIDER_ROLE_LABEL[t.role] ?? t.role}
+                domain={t.mainDomain}
+                city={t.zoneVille}
+                rating={t.averageRating}
+                reviewCount={t.reviewCount}
+                priceLabel={providerPriceLabel(t.indicativeRate, t.tarifUnite)}
+                href={`/profil/${t.id}?returnTo=%2F`}
+              />
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </section>
   )

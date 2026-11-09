@@ -22,6 +22,14 @@
   --surface-muted: #fafafa;
   --surface-raised: #f4f4f5;
   --border: #e4e4e7;
+  /* var(--light)/var(--secondary)/var(--danger) sont référencées dans ce fichier (.step,
+     .block-activity, th, .required, chat-bubble…) et dans plusieurs pages (ex. contrat de
+     prestation) sans jamais avoir été définies ici — elles retombaient silencieusement sur
+     "inherit"/transparent. Ajoutées comme alias des tokens existants plutôt que d'introduire
+     une nouvelle palette. */
+  --light: #f4f4f5;
+  --secondary: #008751;
+  --danger: #E8112D;
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
@@ -55,7 +63,9 @@ body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
-.container { max-width: 1100px; margin: 0 auto; padding: 24px 16px; }
+/* Réservé aux montants clés (contrat, offres, net versé) — jamais au texte courant. */
+.font-fraunces { font-family: var(--font-fraunces), Georgia, serif; }
+.container { max-width: 1200px; margin: 0 auto; padding: 24px 16px; }
 .card {
   background: var(--surface);
   border-radius: var(--radius-lg);
@@ -85,7 +95,11 @@ body {
 .btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .form-group { margin-bottom: 16px; }
 label { display: block; font-weight: 500; margin-bottom: 6px; font-size: 0.85rem; color: var(--text); }
-input, select, textarea {
+/* Cases à cocher et boutons radio exclus (2026-09-28) : étirés à 100 % avec un padding de
+   champ texte, ils devenaient des disques de la moitié de la largeur de leur ligne (liste des
+   modes de financement, barrière d'âge du catalogue). `:where()` garde la spécificité d'un
+   simple `input`, pour que les classes utilitaires (w-16…) continuent de l'emporter. */
+input:where(:not([type="radio"], [type="checkbox"])), select, textarea {
   width: 100%; padding: 10px 14px; border: 1px solid var(--border);
   border-radius: var(--radius-md); font-size: 0.9rem; transition: border-color 0.15s;
   font-family: inherit; background: #fff; color: var(--text);
@@ -114,7 +128,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--p
   border-bottom: 1px solid var(--border); padding: 0;
   position: sticky; top: 0; z-index: 100; height: 64px; display: flex; align-items: center;
 }
-.navbar-inner { max-width: 1100px; margin: 0 auto; padding: 0 20px; display: flex; justify-content: space-between; align-items: center; width: 100%; }
+.navbar-inner { max-width: 1200px; margin: 0 auto; padding: 0 20px; display: flex; justify-content: space-between; align-items: center; width: 100%; }
 .logo { font-size: 1.1rem; font-weight: 800; color: var(--text); text-decoration: none; letter-spacing: -0.02em; display: flex; align-items: center; gap: 8px; }
 .logo::before { content: "SA"; display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 8px; background: var(--primary); color: #fff; font-size: 0.7rem; font-weight: 700; }
 .nav-links { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
@@ -307,3 +321,190 @@ tr:hover { background: var(--surface-raised); }
 .animate-float { animation: float 4s ease-in-out infinite; }
 .animate-float-delayed { animation: float 4.5s ease-in-out 0.6s infinite; }
 .animate-float-slow { animation: float 5s ease-in-out 1.2s infinite; }
+
+/* ═══════════════════════════════════════════════════════════
+   MODALES PREUVES — maquettes Flexwork-Modal-Prestataire-Soumission.html et
+   Flexwork-Modal-Client-Validation-Preuve.html (2026-09-08). Les deux maquettes déclarent
+   ces @keyframes et ce style de curseur dans leur propre <style> ; ils vivent ici pour que
+   les classes Tailwind arbitraires (animate-[fadeIn_0.2s_ease], animate-[slideUp_0.2s_ease])
+   trouvent leur animation, et pour ne pas injecter deux fois la même feuille à chaque
+   ouverture de modale.
+   ═══════════════════════════════════════════════════════════ */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes slideUp {
+  from { opacity: 0; transform: translate(-50%, 10px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
+
+/* Curseur de taux d'exécution — pastille verte Flexwork, identique dans les deux maquettes. */
+.flexwork-proof-range {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 8px;
+  background: #e5e7eb;
+  border-radius: 999px;
+  outline: none;
+}
+.flexwork-proof-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 22px;
+  height: 22px;
+  background: #008751;
+  border-radius: 999px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  border: 3px solid white;
+}
+.flexwork-proof-range::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  background: #008751;
+  border-radius: 999px;
+  border: 3px solid white;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Variante CLIENT (maquette « Apprécier les preuves + Constat ») — même pastille, bordure
+   blanche de 2px et piste peinte en dégradé inline par le composant. */
+.flexwork-constat-range {
+  -webkit-appearance: none;
+  appearance: none;
+}
+.flexwork-constat-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 9999px;
+  background: #008751;
+  border: 2px solid white;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+}
+.flexwork-constat-range::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: 9999px;
+  background: #008751;
+  border: 2px solid white;
+  cursor: pointer;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────────────────────
+   Gouttière des sections publiques (2026-09-21)
+
+   Les neuf conteneurs de la page d'accueil répétaient la même chaîne
+   `max-w-7xl mx-auto px-4 sm:px-6 lg:px-8`, soit un plafond de 1280 px. Sur un écran de
+   1728 px, cela laissait 224 px vides de chaque côté ; le vide de droite se remarquait
+   davantage parce que la colonne d'images du héros s'y arrête, d'où l'impression d'une
+   « colonne vide » alors que les marges sont symétriques.
+
+   La largeur vit désormais ICI, à un seul endroit, et non recopiée dans neuf composants :
+   une console d'administration s'appuie maintenant sur ces sections, et une largeur à neuf
+   exemplaires finit toujours par diverger.
+
+   Grille calquée sur Upwork (2026-10-06, v4) — mesurée sur upwork.com à 375 → 2560 px :
+
+     contenu (sections, héros, bandeaux) : 1280 px max, centré ; gouttières 16 px (< 768),
+                                           32 px (768–1279), 64 px (≥ 1280)
+     en-tête                             : barre pleine largeur, intérieur 1600 px max,
+                                           marges 16 px puis 24 px (≥ 1024)
+     pied de page                        : boîte sombre 1488 px max, coins 8 px, à 24 px des
+                                           bords ; marge intérieure 32 px puis 80 px (≥ 1280)
+
+   Au-delà de 1408 px de fenêtre, rien ne s'étire : le contenu reste à 1280 px, centré, comme
+   chez Upwork (à 1920 px : 313 px de marge de chaque côté).
+
+     .page-shell / .page-wide  conteneur pleine largeur, contenu centré sur 1280 px max.
+     .page-inner               contenu d'un bloc visuel (héros, bandeau) — prend sa largeur.
+     .page-width               contenu de l'espace connecté (à côté du menu latéral) : 1280 px max.
+     .nav-shell                intérieur de l'en-tête et de la barre de catégories : 1600 px max.
+     .footer-shell / -box      pied de page (voir ci-dessus).
+   ────────────────────────────────────────────────────────────────────────────────────────── */
+.page-shell,
+.page-wide {
+  --gutter: 1rem;
+  width: 100%;
+  padding-inline: max(var(--gutter), calc((100% - 80rem) / 2));
+}
+@media (min-width: 768px) {
+  .page-shell,
+  .page-wide { --gutter: 2rem; }
+}
+@media (min-width: 1280px) {
+  .page-shell,
+  .page-wide { --gutter: 4rem; }
+}
+.page-inner { width: 100%; }
+.page-width {
+  width: 100%;
+  max-width: 80rem; /* 1280 px */
+  margin-inline: auto;
+}
+
+.nav-shell {
+  width: 100%;
+  max-width: 100rem; /* 1600 px */
+  margin-inline: auto;
+  padding-inline: 1rem;
+}
+@media (min-width: 1024px) {
+  .nav-shell { padding-inline: 1.5rem; }
+}
+
+.footer-shell { width: 100%; padding-inline: 1.5rem; }
+.footer-box {
+  max-width: 93rem; /* 1488 px */
+  margin-inline: auto;
+  border-radius: 8px;
+  padding-inline: 1.5rem;
+}
+@media (min-width: 768px) {
+  .footer-box { padding-inline: 2rem; }
+}
+@media (min-width: 1280px) {
+  .footer-box { padding-inline: 5rem; }
+}
+
+/* Pages étroites (suivi de mission, formulaires) : largeur de lecture posée par la page
+   (`fluid-doc [--fw:900px]`), centrée dans un conteneur qui, lui, occupe tout l'écran. */
+.fluid-doc  { max-width: var(--fw, 900px); }
+.fluid-form { max-width: var(--fw, 720px); }
+
+/* ── Safari iOS (iPhone, iPad) : pas de zoom à la saisie (audit 2026-10-02) ──────────────────
+   Safari zoome toute la page dès qu'un champ de moins de 16 px prend le focus, et ne dézoome
+   pas en sortant. ~60 champs de l'application sont en 13-14 px (text-sm, text-[13px]).
+   `-webkit-touch-callout` n'existe que sur iOS : la règle ne touche ni le desktop ni Android,
+   où le design reste inchangé. `!important` est nécessaire pour primer sur les utilitaires
+   Tailwind posés sur chaque champ. */
+@supports (-webkit-touch-callout: none) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* Hauteur de la zone de contenu des tableaux de bord (écran moins l'en-tête de 68 px) — pour la
+   messagerie, qui occupe tout l'espace. Deux déclarations : `dvh` suit la barre d'outils de Safari
+   iOS (sinon le champ de saisie passait dessous), `vh` sert de secours aux navigateurs anciens. */
+.h-dash-content {
+  height: calc(100vh - 68px);
+  height: calc(100dvh - 68px);
+}
+
+/* ── Titres d'affichage (classe `.landing` : accueil, /recherche, /profile) ────────────────
+   Titres en Plus Jakarta Sans (chargée par la page), interlettrage resserré ; texte courant
+   en Inter, inchangé. La largeur n'est plus propre à l'accueil : voir .page-shell. */
+.landing h1,
+.landing h2,
+.landing h3,
+.landing header a[href="/"] {
+  font-family: var(--font-landing-display), var(--font-inter), system-ui, sans-serif;
+  letter-spacing: -0.025em;
+}
+.landing h3 { letter-spacing: -0.01em; }

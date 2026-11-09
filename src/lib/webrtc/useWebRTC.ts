@@ -22,26 +22,49 @@ export function useWebRTC(userId: string) {
   const [isVideo, setIsVideo] = useState(true);
   const [remoteAudioRef, setRemoteAudioRef] = useState<HTMLAudioElement | null>(null);
 
-  // --- SSE connection for signaling ---
-  useEffect(() => {
-    if (!userId) return;
-    const es = new EventSource("/api/webrtc/events");
-    eventSourceRef.current = es;
+  // --- Send signal via API ---
+  // Déplacé AVANT ses appelants (`createPC`, `hangup`) : une liste de dépendances est évaluée
+  // PENDANT le rendu, donc référencer une `const` déclarée plus bas lèverait
+  // « Cannot access 'sendSignal' before initialization ». Tant que le linter réclamait
+  // `sendSignal` sans qu'on puisse le déclarer ici, la seule issue était de masquer
+  // l'avertissement — c'est le désordre des déclarations qui créait le faux problème.
+  const sendSignal = useCallback(async (to: string, type: string, payload: unknown) => {
+    await fetch("/api/webrtc/signal", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ to, type, payload }),
+    });
+  }, []);
 
-    es.onmessage = (event) => {
-      try {
-        const msg: SignalMessage = JSON.parse(event.data);
-        handleSignal(msg);
-      } catch { /* ignore parse errors */ }
-    };
+  // Dernier correspondant connu, pour que `hangup` n'ait PAS `remoteUser` en dépendance.
+  // `remoteUser` change au début et à la fin de chaque appel : en dépendance, il recréait
+  // `hangup`, donc `createPC`, donc `startCall`/`acceptCall` à chaque changement
+  // d'interlocuteur. La ref fige l'identité de la fonction tout en lisant la valeur du moment
+  // — et si elle n'est pas encore synchronisée, `hangup` se comporte exactement comme avant
+  // (ancienne valeur capturée le temps d'un rendu).
+  const remoteUserRef = useRef<string | null>(null);
+  useEffect(() => { remoteUserRef.current = remoteUser; }, [remoteUser]);
 
-    es.onerror = () => {
-      // Reconnect handled by EventSource automatically
-    };
-
-    return () => { es.close(); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId]);
+  // --- Hangup ---
+  const hangup = useCallback(() => {
+    const peer = remoteUserRef.current;
+    if (peer) {
+      sendSignal(peer, "hangup", null).catch(() => {});
+    }
+    pcRef.current?.close();
+    pcRef.current = null;
+    localStreamRef.current?.getTracks().forEach(t => t.stop());
+    localStreamRef.current = null;
+    remoteStreamRef.current = null;
+    pendingCandidatesRef.current = [];
+    setCallState("idle");
+    setRemoteUser(null);
+    setError(null);
+    setMuted(false);
+    setVideoOff(false);
+    setIsVideo(false);
+    delete (window as unknown as Record<string, unknown>).__pendingOffer;
+  }, [sendSignal]);
 
   // --- Create peer connection ---
   const createPC = useCallback(() => {
@@ -77,7 +100,7 @@ export function useWebRTC(userId: string) {
     };
 
     return pc;
-  }, [remoteUser, remoteVideoRef, remoteAudioRef]);
+  }, [remoteUser, remoteVideoRef, remoteAudioRef, hangup, sendSignal]);
 
   // --- Handle incoming signals ---
   const handleSignal = useCallback(async (msg: SignalMessage) => {
@@ -85,16 +108,16 @@ export function useWebRTC(userId: string) {
       case "offer": {
         setRemoteUser(msg.from);
         setCallState("ringing");
-        const payload = msg.payload as { sdp: string; type: string; video?: boolean } | null;
+        const payload = msg.payload as { sdp: string; type: RTCSdpType; video?: boolean } | null;
         setIsVideo(payload?.video !== false);
         // Stocker l'offer pour y répondre quand l'utilisateur accepte
-        (window as Record<string, unknown>).__pendingOffer = payload;
+        (window as unknown as Record<string, unknown>).__pendingOffer = payload;
         break;
       }
       case "answer": {
         const pc = pcRef.current;
         if (pc && msg.payload) {
-          const payload = msg.payload as { sdp: string; type: string };
+          const payload = msg.payload as { sdp: string; type: RTCSdpType };
           await pc.setRemoteDescription(new RTCSessionDescription(payload));
           // Appliquer les candidats en attente
           for (const c of pendingCandidatesRef.current) {
@@ -126,16 +149,33 @@ export function useWebRTC(userId: string) {
         setTimeout(() => { hangup(); }, 1000);
         break;
     }
-  }, []);
+  }, [hangup]);
 
-  // --- Send signal via API ---
-  const sendSignal = useCallback(async (to: string, type: string, payload: unknown) => {
-    await fetch("/api/webrtc/signal", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ to, type, payload }),
-    });
-  }, []);
+  // --- SSE connection for signaling ---
+  // Déclaré APRÈS `handleSignal`, et non au montage du composant : la liste de dépendances est
+  // évaluée pendant le rendu, donc un `[userId, handleSignal]` placé plus haut tomberait sur
+  // une `const` non initialisée. Comme `handleSignal` est maintenant STABLE (il ne dépend que
+  // de `hangup`, lui-même stable), le canal SSE s'ouvre toujours une seule fois par
+  // utilisateur — la dépendance est donc déclarée pour de vrai, au lieu d'être masquée par un
+  // `eslint-disable` qui laissait croire que l'effet ne consommait rien.
+  useEffect(() => {
+    if (!userId) return;
+    const es = new EventSource("/api/webrtc/events");
+    eventSourceRef.current = es;
+
+    es.onmessage = (event) => {
+      try {
+        const msg: SignalMessage = JSON.parse(event.data);
+        handleSignal(msg);
+      } catch { /* ignore parse errors */ }
+    };
+
+    es.onerror = () => {
+      // Reconnect handled by EventSource automatically
+    };
+
+    return () => { es.close(); };
+  }, [userId, handleSignal]);
 
   // --- Start a call ---
   const startCall = useCallback(async (to: string, video = true, audio = true) => {
@@ -171,7 +211,7 @@ export function useWebRTC(userId: string) {
       setMuted(false);
       setVideoOff(false);
 
-      const offer = (window as Record<string, unknown>).__pendingOffer as { sdp: string; type: string; video?: boolean } | undefined;
+      const offer = (window as unknown as Record<string, unknown>).__pendingOffer as { sdp: string; type: RTCSdpType; video?: boolean } | undefined;
       if (!offer || !remoteUser) return;
 
       const useVideo = video ?? (offer.video !== false);
@@ -189,32 +229,12 @@ export function useWebRTC(userId: string) {
       await pc.setLocalDescription(answer);
       await sendSignal(remoteUser, "answer", { sdp: pc.localDescription?.sdp, type: "answer" });
 
-      delete (window as Record<string, unknown>).__pendingOffer;
+      delete (window as unknown as Record<string, unknown>).__pendingOffer;
     } catch (e) {
       setError((e as Error).message);
       setCallState("idle");
     }
   }, [createPC, localVideoRef, remoteUser, sendSignal]);
-
-  // --- Hangup ---
-  const hangup = useCallback(() => {
-    if (remoteUser) {
-      sendSignal(remoteUser, "hangup", null).catch(() => {});
-    }
-    pcRef.current?.close();
-    pcRef.current = null;
-    localStreamRef.current?.getTracks().forEach(t => t.stop());
-    localStreamRef.current = null;
-    remoteStreamRef.current = null;
-    pendingCandidatesRef.current = [];
-    setCallState("idle");
-    setRemoteUser(null);
-    setError(null);
-    setMuted(false);
-    setVideoOff(false);
-    setIsVideo(false);
-    delete (window as Record<string, unknown>).__pendingOffer;
-  }, [remoteUser, sendSignal]);
 
   // --- Cleanup on unmount ---
   useEffect(() => {

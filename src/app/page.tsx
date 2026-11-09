@@ -1,43 +1,47 @@
+import { Plus_Jakarta_Sans } from 'next/font/google'
 import Header from '@/components/afrilance/Header'
 import CategoriesBar from '@/components/afrilance/CategoriesBar'
 import Hero from '@/components/afrilance/Hero'
 import TrustedBy from '@/components/afrilance/TrustedBy'
 import PopularServices from '@/components/afrilance/PopularServices'
+import LatestMissions from '@/components/afrilance/LatestMissions'
+import LatestGigs from '@/components/afrilance/LatestGigs'
 import TalentsAfrique from '@/components/afrilance/TalentsAfrique'
+import HowItWorks from '@/components/afrilance/HowItWorks'
+import ForTalent from '@/components/afrilance/ForTalent'
 import Footer from '@/components/afrilance/Footer'
+import { getPublishedFrontendConfig, resolveMenu } from '@/lib/frontend-config'
 
-export default function Home() {
+// Page d'accueil — assemblage seul. Chaque section lit elle-même la configuration publiée
+// (mémoïsée par requête), sauf l'en-tête : composant client, il reçoit son menu en prop.
+//
+// La section « Parcourir les talents par domaine » (CategoryGrid) a été retirée le 2026-11-08 :
+// elle doublait la barre de catégories et le carrousel « Services 🔥 ».
+// Police des titres de l'accueil (voir `.landing` dans globals.css). Importée ICI et pas dans
+// le layout racine : next/font précharge la police là où elle est déclarée, et les autres
+// écrans n'en ont pas l'usage.
+const display = Plus_Jakarta_Sans({
+  subsets: ['latin'],
+  weight: ['500', '600', '700', '800'],
+  variable: '--font-landing-display',
+  display: 'swap',
+})
+
+export default async function Home() {
+  const config = await getPublishedFrontendConfig()
+
   return (
-    <main className="min-h-screen bg-white">
-      <Header />
+    <main className={`landing min-h-screen bg-white ${display.variable}`}>
+      <Header exploreLinks={resolveMenu(config, 'header_explore')} />
       <CategoriesBar />
       <Hero />
       <TrustedBy />
+      <LatestMissions />
+      <LatestGigs />
       <PopularServices />
-      
-      {/* Categories Icons Grid */}
-      <section className="py-14 lg:py-16 bg-white border-t">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-9 gap-4 sm:gap-6 lg:gap-8">
-          {[
-            { icon: '🎨', label: 'Design', color: 'bg-orange-100' },
-            { icon: '💻', label: 'Code', color: 'bg-blue-100' },
-            { icon: '📱', label: 'Marketing', color: 'bg-green-100' },
-            { icon: '🎬', label: 'Vidéo', color: 'bg-purple-100' },
-            { icon: '✍️', label: 'Rédaction', color: 'bg-pink-100' },
-            { icon: '🎧', label: 'Audio', color: 'bg-yellow-100' },
-            { icon: '📊', label: 'Business', color: 'bg-orange-100' },
-            { icon: '🤖', label: 'IA', color: 'bg-indigo-100' },
-            { icon: '🌍', label: 'Traduction', color: 'bg-emerald-100' },
-          ].map(c=>(
-            <div key={c.label} className="text-center group cursor-pointer">
-              <div className={`w-14 h-14 lg:w-16 lg:h-16 mx-auto rounded-2xl ${c.color} flex items-center justify-center text-xl lg:text-2xl group-hover:scale-110 transition`}>{c.icon}</div>
-              <p className="text-xs lg:text-sm font-semibold mt-2 lg:mt-3">{c.label}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
+      <HowItWorks />
       <TalentsAfrique />
+      <ForTalent />
       <Footer />
     </main>
   )

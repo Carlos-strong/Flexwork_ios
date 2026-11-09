@@ -8,3 +8,11 @@ export function canStartMission(riskLevel: RiskLevel, hasEffectiveCoverage: bool
   if (riskLevel === "high") return hasEffectiveCoverage;
   return true;
 }
+
+// Le plafond de la police couvre-t-il réellement le montant mis sous séquestre ? `canStartMission`
+// ne regardait que l'EXISTENCE d'une couverture active : une police plafonnée à 100 000
+// « couvrait » ainsi une mission à 5 000 000, ce qui vide la garantie de son sens sur
+// exactement les missions qu'elle est censée protéger (risque élevé).
+export function coversAmount(coverageCeiling: number, amount: number): boolean {
+  return coverageCeiling >= amount;
+}

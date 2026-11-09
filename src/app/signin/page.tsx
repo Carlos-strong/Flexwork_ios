@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { signOut, useSession } from "next-auth/react";
 import Link from "next/link";
+import { currentCallbackUrl, withCallbackUrl } from "@/lib/safe-callback";
 import { Mail, Shield, ArrowRight, Users, CreditCard } from "lucide-react";
 
 const COUNTRY_CODES = [
@@ -14,10 +16,22 @@ const COUNTRY_CODES = [
 
 export default function SigninPage() {
   const router = useRouter();
+  const { data: session, status } = useSession();
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [loginMethod, setLoginMethod] = useState<"email" | "phone">("email");
   const [countryCode, setCountryCode] = useState("+229");
+  // Lien « Créer un compte » : il garde la destination d'origine (bouton « Candidater » de
+  // l'accueil…), lue après le montage — l'URL n'existe pas pendant le rendu serveur.
+  const [signupHref, setSignupHref] = useState("/signup");
+  // Bouton actif seulement une fois la page interactive (2026-11-09) : cliqué avant, le
+  // formulaire partait en envoi NATIF (GET /signin?email=…) — aucun code envoyé, et la
+  // destination d'origine (?callbackUrl=) perdue. Constaté sur un serveur lent (test E-04).
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    setSignupHref(withCallbackUrl("/signup", currentCallbackUrl()));
+    setReady(true);
+  }, []);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -32,22 +46,42 @@ export default function SigninPage() {
       ? emailVal
       : phoneVal.startsWith("+") ? phoneVal : `${countryCode}${phoneVal}`;
 
-    const res = await fetch("/api/auth/login/request-otp", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ identifier }),
-    });
+    // Panne réseau (2026-11-09) : la promesse rejetée n'était pas rattrapée — le bouton
+    // restait sur « en cours » sans aucun message.
+    let res: Response;
+    try {
+      res = await fetch("/api/auth/login/request-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ identifier }),
+      });
+    } catch {
+      setSubmitting(false);
+      setError("Connexion au serveur impossible. Vérifiez votre réseau, puis réessayez.");
+      return;
+    }
 
     setSubmitting(false);
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      setError(data.error === "too_many_requests"
-        ? "Trop de demandes — réessayez dans quelques minutes."
-        : "Une erreur est survenue. Réessayez.");
+      setError(
+        data.error === "too_many_requests"
+          ? "Trop de demandes — réessayez dans quelques minutes."
+          : data.error === "account_not_found"
+            ? "Aucun compte n'est associé à cet identifiant. Inscrivez-vous pour continuer."
+            : data.error === "account_inactive"
+              ? "Ce compte est désactivé. Contactez le support."
+              : data.error === "otp_send_failed"
+                ? "Le code n'a pas pu être envoyé. Réessayez."
+                : "Une erreur est survenue. Réessayez."
+      );
       return;
     }
 
-    router.push(`/verify-otp?identifier=${encodeURIComponent(identifier)}&purpose=login`);
+    // Destination d'origine (mission ouverte depuis l'accueil…) : relayée jusqu'à /verify-otp,
+    // qui y renvoie après connexion. Lue ici plutôt que par useSearchParams, qui imposerait une
+    // frontière Suspense à toute la page pour un paramètre utile au seul envoi.
+    router.push(withCallbackUrl(`/verify-otp?identifier=${encodeURIComponent(identifier)}&purpose=login`, currentCallbackUrl()));
   }
 
   return (
@@ -55,50 +89,53 @@ export default function SigninPage() {
       {/* ================================================================ */}
       {/* LEFT — Hero / Branding                                             */}
       {/* ================================================================ */}
-      <div className="lg:w-[45%] xl:w-[42%] bg-[#0A1931] text-white flex flex-col justify-between p-6 md:p-10 lg:p-12 relative overflow-hidden">
+      {/* Sous lg, le panneau se réduit au logo : l'argumentaire repoussait le formulaire sous la
+          ligne de flottaison sur mobile (audit 2026-10-02). */}
+      <div className="lg:w-[45%] xl:w-[42%] bg-[#0A1931] text-white flex flex-col justify-between px-5 py-4 md:px-10 lg:p-12 relative overflow-hidden">
         {/* Decorative orbs */}
         <div className="absolute top-[-15%] right-[-10%] w-[350px] h-[350px] rounded-full bg-[#FF7A00]/8 blur-[100px]" />
         <div className="absolute bottom-[-10%] left-[-15%] w-[250px] h-[250px] rounded-full bg-[#008751]/8 blur-[80px]" />
 
         <div className="relative z-10">
           {/* Logo */}
-          <div className="flex items-center gap-2 mb-10 md:mb-14">
+          <div className="flex items-center gap-2 lg:mb-14">
             <div className="w-10 h-10 rounded-xl bg-[#FF7A00] flex items-center justify-center text-white font-extrabold text-[16px]">FW</div>
             <span className="text-white font-extrabold text-[20px] tracking-tight">FlexWork</span>
           </div>
 
           {/* Country flags + tagline */}
-          <div className="flex items-center gap-2 mb-4">
+          <div className="hidden lg:flex items-center gap-2 mb-4">
             <span className="text-lg">🇧🇯 🇳🇬 🇸🇳 🇨🇮</span>
-            <span className="text-[11px] text-white/50 ml-1">+4 pays</span>
+            <span className="text-[12px] text-white/60 ml-1">+4 pays</span>
           </div>
-          <h1 className="text-[26px] md:text-[32px] lg:text-[36px] font-extrabold leading-tight mb-3">
+          <p className="hidden lg:block text-[36px] font-extrabold leading-tight mb-3">
             Talents vérifiés,<br />
             <span className="text-[#FF7A00]">zéro arnaque</span>
-          </h1>
-          <p className="text-white/50 text-[14px] leading-relaxed max-w-[380px]">
+          </p>
+          <p className="hidden lg:block text-white/60 text-[14px] leading-relaxed max-w-[380px]">
             La première plateforme ouest-africaine avec vérification d&apos;identité obligatoire.
           </p>
         </div>
 
-        {/* Stats */}
-        <div className="relative z-10 grid grid-cols-2 gap-3 mt-6">
+        {/* Pas de chiffres inventés ici (« 500K+ », « 4.9/5 », « 100% ») : chaque case décrit
+            un fait produit — KYC, Mobile Money FCFA, séquestre, OTP (même règle que le Hero). */}
+        <div className="hidden lg:grid relative z-10 grid-cols-2 gap-3 mt-6">
           {[
-            { icon: <Users className="w-4 h-4" />, value: "500K+", label: "Talents vérifiés" },
-            { icon: <CreditCard className="w-4 h-4" />, value: "MoMo", label: "Paiement sécurisé" },
-            { icon: <Shield className="w-4 h-4" />, value: "100%", label: "Escrow protégé" },
-            { icon: <Mail className="w-4 h-4" />, value: "4.9/5", label: "Satisfaction" },
+            { icon: <Users className="w-4 h-4" />, value: "KYC", label: "Identité vérifiée" },
+            { icon: <CreditCard className="w-4 h-4" />, value: "MoMo", label: "Paiement FCFA" },
+            { icon: <Shield className="w-4 h-4" />, value: "Escrow", label: "Fonds séquestrés" },
+            { icon: <Mail className="w-4 h-4" />, value: "OTP", label: "Connexion par code" },
           ].map((s, i) => (
             <div key={i} className="p-3 rounded-xl bg-white/[0.04] border border-white/[0.05]">
               <div className="text-[#FF7A00] mb-1">{s.icon}</div>
               <div className="text-[16px] font-bold">{s.value}</div>
-              <div className="text-[10px] text-white/40">{s.label}</div>
+              <div className="text-[12px] text-white/60">{s.label}</div>
             </div>
           ))}
         </div>
 
         {/* Footer */}
-        <div className="relative z-10 mt-6 text-[11px] text-white/25">
+        <div className="hidden lg:block relative z-10 mt-6 text-[12px] text-white/50">
           © 2026 FlexWork • Talents vérifiés, zéro arnaque
         </div>
       </div>
@@ -106,7 +143,7 @@ export default function SigninPage() {
       {/* ================================================================ */}
       {/* RIGHT — Login Form                                                 */}
       {/* ================================================================ */}
-      <div className="flex-1 flex items-center justify-center p-4 md:p-8 lg:p-12">
+      <div className="flex-1 flex items-start lg:items-center justify-center p-4 pt-6 md:p-8 lg:p-12">
         <div className="w-full max-w-[440px]">
           {/* Header */}
           <div className="text-center mb-8">
@@ -122,6 +159,9 @@ export default function SigninPage() {
                 ? "Un code de vérification sera envoyé à votre email."
                 : "Un code de vérification sera envoyé par SMS."}
             </p>
+            <p className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#eefaf4] border border-[#008751]/15 text-[11.5px] text-[#008751] font-semibold">
+              <Shield className="w-3.5 h-3.5" /> Connexion 100% par code — aucun mot de passe
+            </p>
           </div>
 
           {/* Error */}
@@ -132,6 +172,41 @@ export default function SigninPage() {
           )}
 
           {/* Login method toggle */}
+          {/* Session déjà ouverte (2026-11-08) : le formulaire vide laissait croire qu'on était
+              déconnecté, alors que la session restait active — la carte d'un service de l'accueil
+              ramenait ensuite dans le tableau de bord de ce compte. On le dit, et on propose
+              de continuer ou de se déconnecter vraiment. */}
+          {status === "authenticated" && (
+            <div role="status" className="mb-6 rounded-xl border border-[#008751]/25 bg-[#008751]/5 p-4">
+              <p className="text-[14px] text-[#0A1931]">
+                Vous êtes déjà connecté(e)
+                {session?.user?.email ? (
+                  <>
+                    {" "}
+                    en tant que <span className="font-semibold">{session.user.email}</span>
+                  </>
+                ) : null}
+                .
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => router.push(currentCallbackUrl() ?? "/dashboard")}
+                  className="h-10 px-4 rounded-full bg-[#008751] text-white text-[13px] font-semibold hover:bg-[#006e43]"
+                >
+                  Continuer
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void signOut({ callbackUrl: "/signin" })}
+                  className="h-10 px-4 rounded-full border border-zinc-200 bg-white text-[13px] font-medium text-zinc-700 hover:bg-zinc-50"
+                >
+                  Se déconnecter
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="flex bg-gray-100 rounded-xl p-1 mb-5">
             <button
               type="button"
@@ -161,12 +236,13 @@ export default function SigninPage() {
             {/* Email input */}
             {loginMethod === "email" && (
               <div className="animate-[fadeIn_150ms_ease-out]">
-                <label className="block text-[13px] font-semibold text-zinc-700 mb-2">Adresse email</label>
+                <label htmlFor="signin-email" className="block text-[13px] font-semibold text-zinc-700 mb-2">Adresse email</label>
                 <div className="flex items-center gap-2 p-1.5 rounded-2xl border-2 border-gray-100 bg-white focus-within:border-[#FF7A00] focus-within:shadow-[0_0_0_4px_rgba(255,122,0,0.08)] transition-all">
                   <div className="pl-2.5 shrink-0">
                     <Mail className="w-4 h-4 text-zinc-400" />
                   </div>
                   <input
+                    id="signin-email"
                     type="email"
                     name="email"
                     required
@@ -184,10 +260,11 @@ export default function SigninPage() {
             {/* Phone input */}
             {loginMethod === "phone" && (
               <div className="animate-[fadeIn_150ms_ease-out]">
-                <label className="block text-[13px] font-semibold text-zinc-700 mb-2">Numéro de téléphone</label>
+                <label htmlFor="signin-phone" className="block text-[13px] font-semibold text-zinc-700 mb-2">Numéro de téléphone</label>
                 <div className="flex items-center gap-2 p-1.5 rounded-2xl border-2 border-gray-100 bg-white focus-within:border-[#FF7A00] focus-within:shadow-[0_0_0_4px_rgba(255,122,0,0.08)] transition-all">
                   <div className="relative shrink-0">
                     <select
+                      aria-label="Indicatif du pays"
                       value={countryCode}
                       onChange={(e) => setCountryCode(e.target.value)}
                       className="appearance-none bg-gray-50 rounded-lg pl-2.5 pr-7 py-2 text-[12px] font-semibold text-zinc-600 cursor-pointer focus:outline-none"
@@ -199,6 +276,7 @@ export default function SigninPage() {
                     <ArrowRight className="w-3 h-3 text-zinc-400 absolute right-2 top-1/2 -translate-y-1/2 rotate-90 pointer-events-none" />
                   </div>
                   <input
+                    id="signin-phone"
                     type="tel"
                     name="phone"
                     required
@@ -216,7 +294,7 @@ export default function SigninPage() {
             {/* Submit */}
             <button
               type="submit"
-              disabled={submitting}
+              disabled={submitting || !ready}
               className="w-full h-12 rounded-xl bg-[#FF7A00] text-white text-[15px] font-bold hover:brightness-110 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-[0_4px_16px_rgba(255,122,0,0.3)] flex items-center justify-center gap-2"
             >
               {submitting ? (
@@ -248,15 +326,15 @@ export default function SigninPage() {
             {/* Signup link */}
             <p className="text-center text-[13px] text-zinc-500 pt-2">
               Pas encore de compte ?{" "}
-              <Link href="/signup" className="text-[#008751] font-semibold hover:underline">Créer un compte</Link>
+              <Link href={signupHref} className="text-[#008751] font-semibold hover:underline">Créer un compte</Link>
             </p>
           </form>
 
           {/* Trust badges */}
           <div className="flex items-center justify-center gap-6 mt-8 pt-6 border-t border-zinc-100">
             {[
-              { icon: "👥", label: "500K+ talents vérifiés" },
-              { icon: "💳", label: "Paiement MoMo sécurisé" },
+              { icon: "👥", label: "Identité vérifiée (KYC)" },
+              { icon: "💳", label: "Paiement sous séquestre" },
             ].map((b, i) => (
               <div key={i} className="flex items-center gap-1.5 text-[11px] text-zinc-400">
                 <span>{b.icon}</span> {b.label}
@@ -266,8 +344,14 @@ export default function SigninPage() {
 
           {/* Footer links */}
           <div className="flex items-center justify-center gap-4 mt-4">
-            {["Confidentialité", "Conditions", "Support"].map((l) => (
-              <Link key={l} href={`/${l.toLowerCase()}`} className="text-[11px] text-zinc-400 hover:text-zinc-600">{l}</Link>
+            {/* Chemins explicites : `/${libellé.toLowerCase()}` produisait /confidentialité, /conditions et
+                /support, trois pages inexistantes (constaté à la vérification des parcours, 2026-09-16). */}
+            {[
+              { label: "Confidentialité", href: "/confidentialite" },
+              { label: "Conditions", href: "/cgu" },
+              { label: "Support", href: "/contact" },
+            ].map((l) => (
+              <Link key={l.href} href={l.href} className="text-[11px] text-zinc-400 hover:text-zinc-600">{l.label}</Link>
             ))}
           </div>
         </div>

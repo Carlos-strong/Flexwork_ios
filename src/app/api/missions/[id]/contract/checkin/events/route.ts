@@ -51,6 +51,18 @@ export async function POST(
     },
   });
 
+  // Audit workflow A-3 : `en_cours` était déclaré dans MissionStatus mais jamais posé —
+  // le cycle sautait de fonds_sous_sequestre à livrable_soumis. Le premier pointage
+  // « arrivée » du PRESTATAIRE est le seul signal réel de démarrage du travail que la
+  // plateforme capte (A12) : il fait avancer la mission, uniquement depuis
+  // fonds_sous_sequestre (le where garantit qu'on ne recule jamais un statut ultérieur).
+  if (parsed.data.type === "arrivee" && userId === contract.providerId) {
+    await prisma.mission.updateMany({
+      where: { id: missionId, status: "fonds_sous_sequestre" },
+      data: { status: "en_cours" },
+    });
+  }
+
   return NextResponse.json(event);
 }
 

@@ -19,9 +19,13 @@ export async function POST(
 
   const requester = await prisma.user.findUnique({ where: { id: requesterId } });
   const isOwner = doc.userId === requesterId;
-  const isAdmin = requester?.isAdmin === true;
-  if (!isOwner && !isAdmin) {
-    return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  // Séparation des pouvoirs (§13) : une pièce d'identité ne s'ouvre qu'au rôle qui instruit les
+  // dossiers. `isAdmin` seul laissait la modération, la médiation, l'éditeur du site — et un
+  // admin sans rôle — lire les documents d'identité que leur écran ne leur montre jamais.
+  const isKycAdmin = requester?.isAdmin === true && requester.adminRole === "kyc";
+  if (!isOwner && !isKycAdmin) {
+    // 404 (pas 403) : un tiers ne doit pas savoir que le document KYC existe.
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
   const token = signKycDocToken(doc.id);

@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { requireAdmin } from "@/lib/adminGuard";
+import { requireAnyAdminRole } from "@/lib/adminGuard";
 
 // File d'attente des médiations ouvertes (Phase 6, US-601/602) — miroir de
 // /api/admin/kyc/queue, manquant jusqu'ici : propose/respond existaient sans aucune liste
 // pour les alimenter depuis le tableau de bord admin.
 export async function GET() {
-  const guard = await requireAdmin();
+  const guard = await requireAnyAdminRole(["mediation", "superviseur"]);
   if ("error" in guard) {
     return NextResponse.json({ error: guard.error }, { status: guard.status });
   }

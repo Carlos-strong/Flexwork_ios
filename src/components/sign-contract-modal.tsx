@@ -31,6 +31,11 @@ interface SignContractModalProps {
   role: "client" | "freelancer";
   onClose: () => void;
   onSigned: () => void;
+  // Modèle Gig (recommandation #3) : endpoint et clé du corps JSON peuvent différer
+  // (commande Gig → POST /api/gigs/orders/[orderId]/sign, clé "orderId"). Défauts = modèle
+  // Mission inchangé.
+  signUrl?: string;
+  bodyIdKey?: string;
 }
 
 type Step = "loading" | "no_cert" | "sign" | "done" | "error";
@@ -42,10 +47,11 @@ export function SignContractModal({
   role,
   onClose,
   onSigned,
+  signUrl = "/api/signature/sign",
+  bodyIdKey = "contractId",
 }: SignContractModalProps) {
   const [step, setStep] = useState<Step>("loading");
   const [error, setError] = useState<string | null>(null);
-  const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [activeCert, setActiveCert] = useState<Certificate | null>(null);
 
   // Formulaire génération certificat
@@ -72,7 +78,6 @@ export function SignContractModal({
       .then((json) => {
         if (json.success) {
           const certs = json.data as Certificate[];
-          setCertificates(certs);
           const active = certs.find((c) => c.status === "ACTIVE") ?? null;
           setActiveCert(active);
           setStep(active ? "sign" : "no_cert");
@@ -112,7 +117,6 @@ export function SignContractModal({
       return;
     }
     const newCert = json.data as Certificate;
-    setCertificates((prev) => [newCert, ...prev]);
     setActiveCert(newCert);
     // Signer directement avec la passphrase déjà saisie
     await doSign(newCert.id, newPassphrase);
@@ -127,10 +131,10 @@ export function SignContractModal({
   async function doSign(certificateId: string, passphrase: string) {
     setError(null);
     setSubmitting(true);
-    const res = await fetch("/api/signature/sign", {
+    const res = await fetch(signUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ contractId, certificateId, passphrase }),
+      body: JSON.stringify({ [bodyIdKey]: contractId, certificateId, passphrase }),
     });
     const json = await res.json().catch(() => ({}));
     if (!res.ok || !json.success) {

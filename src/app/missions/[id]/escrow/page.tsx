@@ -2,24 +2,33 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { fetchDedupe } from "@/lib/fetch-dedupe";
+import { ValidationClientView } from "@/components/validation-client/ValidationClientView";
+import { EscrowAccountPanel } from "@/components/escrow/escrow-account-panel";
+import { AttendancePanel } from "@/components/spot-time/attendance-panel";
+import { SiteManagerCard } from "@/components/validation-client/SiteManagerCard";
+import { releasableBeforeRetention, retentionAmount, totalRetentionAmount } from "@/lib/jalons";
 
-type Mission = { id: string; titre: string; budget: number; currency: string; status: string; isOwner: boolean };
-type Jalon = { id: string; ordre: number; titre: string; montant: number; status: string; revisionCount: number; rejectionReason: string | null };
+type Mission = { id: string; titre: string; budget: number; currency: string; status: string; isOwner: boolean; contractPrice: number | null; escrowHoldStatus: string | null; escrowHoldReference: string | null };
+type Jalon = { id: string; ordre: number; titre: string; montant: number; status: string };
 
-const JALON_STATUS: Record<string, { label: string; color: string }> = {
-  en_attente: { label: "En attente de financement", color: "var(--muted)" },
-  fonds_sous_sequestre: { label: "Fonds sous séquestre", color: "var(--primary)" },
-  livrable_soumis: { label: "Livrable soumis — à vérifier", color: "var(--warning, #b45309)" },
-  valide: { label: "Validé — libération en cours", color: "var(--secondary)" },
-  rejete: { label: "Rejeté — en attente de resoumission", color: "var(--danger)" },
-  libere: { label: "Payé", color: "var(--secondary)" },
-};
+type SplitRow = { titre: string; montant: string };
 
 // Reprend public/flexwork-ui/payment-escrow.html — instruction HOLD au PSP (US-501), puis
 // RELEASE une fois le livrable soumis (US-504). La plateforme ne détient jamais les fonds :
 // c'est une instruction transmise, jamais un mouvement de solde interne.
 // Paiement fractionné (2026-08-06) : si le contrat a des jalons, cette page pilote chaque
-// jalon indépendamment (financer / vérifier / rejeter) au lieu du HOLD/RELEASE unique.
+// jalon indépendamment (financer / scinder). La décision sur un livrable déjà soumis
+// (vérifier/valider/rejeter les preuves) est déléguée à ValidationClientView
+// (src/components/validation-client/ValidationClientView.tsx, 2026-09-03) — composant
+// factorisé (règle R03). La vue plein écran « Validation Client » est désormais /missions/[id]
+// pour le client propriétaire (missions/[id]/validation-client redirige vers elle).
+const NETWORK_ERROR =
+  "Connexion interrompue : vérifiez votre réseau, puis réessayez. Si la demande était déjà partie, elle ne sera pas débitée une seconde fois.";
+const HOLD_PENDING =
+  "Un paiement est déjà en cours d'autorisation : il ne sera pas débité une seconde fois. Terminez-le sur l'écran Mobile Money ou attendez sa confirmation.";
+
 export default function EscrowPage({ params }: { params: { id: string } }) {
   const { id: missionId } = params;
   const router = useRouter();
@@ -27,204 +36,318 @@ export default function EscrowPage({ params }: { params: { id: string } }) {
   const [jalons, setJalons] = useState<Jalon[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState<string | null>(null);
-  const [rejectingId, setRejectingId] = useState<string | null>(null);
-  const [rejectReason, setRejectReason] = useState("");
+  const [splittingId, setSplittingId] = useState<string | null>(null);
+  const [splitRows, setSplitRows] = useState<SplitRow[]>([{ titre: "", montant: "" }, { titre: "", montant: "" }]);
+
+  // Retenue de garantie figée au contrat (mode J4, 0 partout ailleurs). La page annonçait le
+  // montant nominal de chaque jalon sans jamais dire qu'une part en resterait au séquestre :
+  // le client finançait 600 000 en croyant que 600 000 seraient libérés à la validation.
+  const [retentionRate, setRetentionRate] = useState(0);
 
   function reload() {
-    fetch(`/api/missions/${missionId}`).then((r) => (r.ok ? r.json() : null)).then(setMission);
-    fetch(`/api/missions/${missionId}/jalons`).then((r) => (r.ok ? r.json() : { items: [] })).then((d) => setJalons(d.items));
+    fetchDedupe(`/api/missions/${missionId}`).then((r) => (r.ok ? r.json() : null)).then(setMission);
+    fetchDedupe(`/api/missions/${missionId}/jalons`).then((r) => (r.ok ? r.json() : { items: [] })).then((d) => setJalons(d.items ?? []));
+    fetchDedupe(`/api/missions/${missionId}/contract`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((c) => { if (typeof c?.retentionRate === "number") setRetentionRate(c.retentionRate); })
+      .catch(() => {});
   }
 
   useEffect(reload, [missionId]);
+
+  // Coupure réseau (V-03, 2026-11-02) : `fetch` rejette au lieu de répondre. Sans ce filet, le
+  // bouton restait figé sur « Envoi... » sans un mot. La demande a pu partir avant la coupure :
+  // le serveur refuse un second séquestre (`hold_already_requested`), d'où le message.
+  async function postHold(url: string): Promise<Response | null> {
+    try {
+      return await fetch(url, { method: "POST" });
+    } catch {
+      setError(NETWORK_ERROR);
+      return null;
+    }
+  }
 
   async function handleHold(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setSubmitting("whole");
-    const res = await fetch(`/api/missions/${missionId}/escrow/hold`, { method: "POST" });
+    const res = await postHold(`/api/missions/${missionId}/escrow/hold`);
     setSubmitting(null);
+    if (!res) return;
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       setError(
-        data.error === "psp_not_enabled"
+        data.error === "hold_already_requested"
+          ? HOLD_PENDING
+          : data.error === "psp_not_enabled"
           ? "Le montage PSP n'est pas encore activé pour cette zone (prérequis juridique en cours de validation)."
           : data.error === "effective_insurance_required"
             ? "Une assurance effective est requise avant de démarrer cette mission à risque élevé."
-            : "Échec de la mise sous séquestre."
+            : data.error === "site_manager_required"
+              ? "Désignez d'abord le responsable chantier (vérification OPR) : le séquestre ne peut pas être financé sans lui."
+              : "Échec de la mise sous séquestre."
       );
       return;
     }
-    router.push("/dashboard/client");
-  }
-
-  async function handleRelease() {
-    setError(null);
-    const res = await fetch(`/api/missions/${missionId}/escrow/release`, { method: "POST" });
-    if (!res.ok) {
-      setError("Échec de la libération des fonds — vérifiez qu'un livrable a été soumis.");
+    const data = await res.json().catch(() => ({}));
+    // PSP virtuelle en mode console : l'instruction est `pending` — le client autorise le
+    // paiement sur l'écran Mobile Money simulé (puis webhook signé → fonds sous séquestre).
+    if (data.pspRedirect?.reference) {
+      const q = new URLSearchParams({
+        ref: data.pspRedirect.reference,
+        amount: String(data.pspRedirect.amount),
+        currency: data.pspRedirect.currency ?? "XOF",
+        missionId,
+      });
+      router.push(`/psp-sandbox/payer?${q.toString()}`);
       return;
     }
-    router.push("/dashboard/client");
+    router.push("/client/dashboard");
   }
 
   async function holdJalon(jalonId: string) {
     setError(null);
     setSubmitting(jalonId);
-    const res = await fetch(`/api/missions/${missionId}/jalons/${jalonId}/hold`, { method: "POST" });
+    const res = await postHold(`/api/missions/${missionId}/jalons/${jalonId}/hold`);
+    setSubmitting(null);
+    if (!res) return;
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setError(
+        data.error === "hold_already_requested"
+          ? HOLD_PENDING
+          : data.error === "psp_not_enabled"
+          ? "Le montage PSP n'est pas encore activé pour cette zone."
+          : data.error === "effective_insurance_required"
+            ? "Une assurance effective est requise avant de démarrer cette mission à risque élevé."
+            : data.error === "site_manager_required"
+              ? "Désignez d'abord le responsable chantier (vérification OPR) : le séquestre ne peut pas être financé sans lui."
+              : "Échec de la mise sous séquestre de ce jalon."
+      );
+      return;
+    }
+    const data = await res.json().catch(() => ({}));
+    // PSP virtuelle en mode console : redirection vers l'écran d'autorisation Mobile Money.
+    if (data.pspRedirect?.reference) {
+      const q = new URLSearchParams({
+        ref: data.pspRedirect.reference,
+        amount: String(data.pspRedirect.amount),
+        currency: data.pspRedirect.currency ?? "XOF",
+        missionId,
+      });
+      router.push(`/psp-sandbox/payer?${q.toString()}`);
+      return;
+    }
+    reload();
+  }
+
+  function openSplit(jalonId: string) {
+    setSplittingId(jalonId);
+    setSplitRows([{ titre: "", montant: "" }, { titre: "", montant: "" }]);
+  }
+
+  async function submitSplit(jalon: Jalon) {
+    setError(null);
+    const parts = splitRows
+      .filter((r) => r.titre.trim() && Number(r.montant) > 0)
+      .map((r) => ({ titre: r.titre.trim(), montant: Number(r.montant) }));
+    setSubmitting(jalon.id);
+    const res = await fetch(`/api/missions/${missionId}/jalons/${jalon.id}/split`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ parts }),
+    });
     setSubmitting(null);
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       setError(
-        data.error === "psp_not_enabled"
-          ? "Le montage PSP n'est pas encore activé pour cette zone."
-          : data.error === "effective_insurance_required"
-            ? "Une assurance effective est requise avant de démarrer cette mission à risque élevé."
-            : "Échec de la mise sous séquestre de ce jalon."
+        data.error === "jalons_sum_mismatch"
+          ? `La somme des parts doit être exactement égale au montant du jalon (${jalon.montant.toLocaleString("fr-FR")}).`
+          : "Échec de la scission du jalon."
       );
       return;
     }
+    setSplittingId(null);
     reload();
   }
 
-  async function validateJalon(jalonId: string) {
-    setError(null);
-    setSubmitting(jalonId);
-    const res = await fetch(`/api/missions/${missionId}/jalons/${jalonId}/validate`, { method: "POST" });
-    setSubmitting(null);
-    if (!res.ok) {
-      setError("Échec de la validation — vérifiez qu'un livrable a été soumis pour ce jalon.");
-      return;
-    }
-    reload();
-  }
-
-  async function rejectJalon(jalonId: string) {
-    if (!rejectReason.trim()) {
-      setError("Le motif du rejet est obligatoire.");
-      return;
-    }
-    setError(null);
-    setSubmitting(jalonId);
-    const res = await fetch(`/api/missions/${missionId}/jalons/${jalonId}/reject`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rejectionReason: rejectReason }),
-    });
-    setSubmitting(null);
-    if (!res.ok) {
-      setError("Échec du rejet.");
-      return;
-    }
-    setRejectingId(null);
-    setRejectReason("");
-    reload();
-  }
-
-  if (!mission || jalons === null) return <div className="container">Chargement...</div>;
+  if (!mission || jalons === null) return <div className="min-h-screen bg-[#F8FAF9] flex items-center justify-center text-[13px] text-[#64748B]">Chargement...</div>;
 
   const usesJalons = jalons.length > 0;
+  const splitTotal = splitRows.reduce((sum, r) => sum + (Number(r.montant) || 0), 0);
+  const splittingJalon = jalons.find((j) => j.id === splittingId) ?? null;
+  const splitValid = splittingJalon && splitRows.filter((r) => r.titre.trim() && Number(r.montant) > 0).length >= 2 && Math.abs(splitTotal - splittingJalon.montant) < 0.01;
 
   return (
-    <div className="container" style={{ maxWidth: 620 }}>
-      <div className="card">
-        <div className="card-header">
-          <span className="card-title">Paiement sous séquestre</span>
-          <span className="badge badge-info">Phase 5{usesJalons ? " — paiement par jalons" : ""}</span>
+    <div className="min-h-screen bg-[#F8FAF9] text-[#0f172a]">
+      <div className="fluid-doc [--fw:860px] mx-auto px-4 lg:px-0 py-5 space-y-4">
+        <div className="flex items-center gap-1.5 text-[12px] text-[#64748B] flex-wrap">
+          <Link href={`/missions/${missionId}`} className="hover:text-[#0f172a]" style={{ textDecoration: "none" }}>Mission</Link>
+          <span>›</span>
+          <span className="text-[#0f172a] font-medium">Séquestre</span>
         </div>
 
-        <div className="alert alert-info">
-          <strong>Flexwork ne détient jamais les fonds.</strong> Votre paiement est séquestré chez notre prestataire
-          de paiement agréé. Les fonds ne seront libérés au prestataire que sur validation de la livraison{usesJalons ? ", jalon par jalon" : " ou acceptation tacite après 7 jours"}.
-        </div>
+        {/* Vérification OPR : le responsable doit être désigné AVANT de financer — la carte est
+            donc placée au-dessus des gestes de financement. Rien en mode « Moi-même ». */}
+        <SiteManagerCard missionId={missionId} />
 
-        <div style={{ background: "var(--light)", padding: 16, borderRadius: 8, marginBottom: 20 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-            <span>Mission</span><strong>{mission.titre}</strong>
+        <div className="bg-white border border-[#E2E8F0] rounded-xl p-4 lg:p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <h1 className="text-[13px] font-semibold">Paiement sous séquestre</h1>
+            <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-[#F1F5F9] text-[#64748B] text-[11px] font-semibold">Phase 5{usesJalons ? " — paiement par jalons" : ""}</span>
           </div>
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: "1.1rem" }}>
-            <span>Total</span><strong style={{ color: "var(--primary)" }}>{mission.budget.toLocaleString("fr-FR")} {mission.currency}</strong>
+
+          <div className="rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] p-3 text-[12.5px] text-[#1E40AF] leading-relaxed">
+            <strong>Flexwork ne détient jamais les fonds.</strong> Votre paiement est séquestré chez notre prestataire
+            de paiement agréé. Les fonds ne seront libérés au prestataire que sur validation de la livraison{usesJalons ? ", jalon par jalon" : " ou acceptation tacite après 7 jours"}.
           </div>
-        </div>
 
-        {error && <div className="alert alert-danger">{error}</div>}
-
-        {!usesJalons && mission.status === "contrat_signe" && mission.isOwner && (
-          <form onSubmit={handleHold}>
-            <div className="alert alert-warning" style={{ fontSize: "0.85rem" }}>
-              En validant, vous autorisez le PSP agréé à mettre sous séquestre le montant indiqué. Flexwork
-              n&apos;apparaît pas comme bénéficiaire de ce paiement.
+          <div className="rounded-xl bg-[#F8FAF9] border border-[#E2E8F0] p-4 space-y-2">
+            <div className="flex items-center justify-between text-[13px]">
+              <span className="text-[#64748B]">Mission</span><strong className="text-[#0f172a]">{mission.titre}</strong>
             </div>
-            <button type="submit" className="btn btn-primary" style={{ width: "100%", justifyContent: "center" }} disabled={submitting === "whole"}>
-              {submitting === "whole" ? "Envoi..." : "Payer et séquestrer les fonds"}
-            </button>
-          </form>
+            <div className="flex items-center justify-between text-[15px]">
+              <span className="text-[#64748B]">Total</span><strong className="text-[#008751]">{(mission.contractPrice ?? mission.budget).toLocaleString("fr-FR")} {mission.currency}</strong>
+            </div>
+          </div>
+
+          {error && <div className="rounded-xl border border-[#FECACA] bg-[#FEF2F2] p-3 text-[13px] text-[#B91C1C]">{error}</div>}
+
+          {/* Instruction HOLD auto-déclenchée à la contre-signature du client (workflow étape 5) :
+              en attente de confirmation PSP — ne pas proposer un second paiement. */}
+          {!usesJalons && mission.escrowHoldStatus === "pending" && mission.isOwner && (
+            <div className="rounded-xl border border-[#FDE68A] bg-[#FFFBEB] p-3 text-[12.5px] text-[#92400E]">
+              <strong>Instruction de séquestre envoyée.</strong> Le montant ({(mission.contractPrice ?? mission.budget).toLocaleString("fr-FR")} {mission.currency})
+              a été déclenché automatiquement à la signature du contrat — en attente de confirmation du prestataire de paiement.
+              {mission.escrowHoldReference && (
+                <Link
+                  href={`/psp-sandbox/payer?ref=${encodeURIComponent(mission.escrowHoldReference)}&missionId=${mission.id}`}
+                  className="block mt-1.5 text-[12.5px] text-[#008751] font-semibold"
+                  style={{ textDecoration: "none" }}
+                >
+                  Autoriser le paiement (sandbox PSP virtuelle) →
+                </Link>
+              )}
+            </div>
+          )}
+
+          {!usesJalons && mission.status === "contrat_signe" && mission.isOwner && !mission.escrowHoldStatus && (
+            <form onSubmit={handleHold} className="space-y-3">
+              <div className="rounded-xl border border-[#FDE68A] bg-[#FFFBEB] p-3 text-[12.5px] text-[#92400E]">
+                En validant, vous autorisez le PSP agréé à mettre sous séquestre le montant indiqué. Flexwork
+                n&apos;apparaît pas comme bénéficiaire de ce paiement.
+              </div>
+              <button type="submit" disabled={submitting === "whole"} className="w-full h-10 rounded-lg bg-[#008751] text-white text-[13px] font-semibold hover:bg-[#007a49] transition-colors disabled:opacity-50">
+                {submitting === "whole" ? "Envoi..." : "Payer et séquestrer les fonds"}
+              </button>
+            </form>
+          )}
+
+          {!mission.isOwner && <p className="text-[13px] text-[#64748B]">Seul le client peut déclencher les mouvements d&apos;escrow.</p>}
+        </div>
+
+        {/* Financement par jalon (Financer/Scinder) — section distincte : la décision sur un
+            livrable déjà soumis (table Validation Client ci-dessous) ne couvre pas le
+            financement. */}
+        {usesJalons && totalRetentionAmount(jalons, retentionRate) > 0 && (
+          <div className="rounded-xl border border-[#FDE68A] bg-[#FFFBEB] p-3.5 text-[12.5px] text-[#92400E] leading-relaxed">
+            <strong>Retenue de garantie — {Math.round(retentionRate * 100)} % par jalon.</strong>{" "}
+            À la validation de chaque jalon, {Math.round(retentionRate * 100)} % de son montant restent au séquestre.
+            La retenue cumulée, soit {totalRetentionAmount(jalons, retentionRate).toLocaleString("fr-FR")} {mission.currency},
+            est versée au prestataire en une seule fois une fois tous les jalons validés.
+          </div>
         )}
 
-        {!usesJalons && mission.status === "livrable_soumis" && mission.isOwner && (
-          <button className="btn btn-primary" style={{ width: "100%" }} onClick={handleRelease}>
-            Valider le livrable et libérer les fonds
-          </button>
-        )}
-
-        {!usesJalons && !mission.isOwner && <p style={{ color: "var(--muted)" }}>Seul le client peut déclencher les mouvements d&apos;escrow.</p>}
-      </div>
-
-      {usesJalons && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 16 }}>
-          {jalons.map((j) => {
-            const st = JALON_STATUS[j.status] ?? { label: j.status, color: "var(--muted)" };
-            return (
-              <div key={j.id} className="card" style={{ marginBottom: 0 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        {usesJalons && mission.isOwner && jalons.some((j) => j.status === "en_attente") && (
+          <div className="space-y-3">
+            {jalons.filter((j) => j.status === "en_attente").map((j) => (
+              <div key={j.id} className="bg-white border border-[#E2E8F0] rounded-xl p-4 lg:p-5">
+                <div className="flex items-start justify-between">
                   <div>
-                    <strong>Jalon {j.ordre} — {j.titre}</strong>
-                    <div style={{ fontSize: "0.85rem", color: st.color, marginTop: 2 }}>{st.label}</div>
-                    {j.status === "rejete" && j.rejectionReason && (
-                      <div style={{ fontSize: "0.8rem", color: "var(--danger)", marginTop: 2 }}>
-                        Motif du rejet (révision n°{j.revisionCount}) : {j.rejectionReason}
+                    <strong className="text-[13px]">#{j.ordre} — {j.titre}</strong>
+                    <div className="text-[12.5px] mt-0.5 text-[#64748B]">En attente de financement</div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <strong className="text-[#008751] text-[13px]">{j.montant.toLocaleString("fr-FR")} {mission.currency}</strong>
+                    {retentionAmount(j.montant, retentionRate) > 0 && (
+                      <div className="text-[11px] text-[#92400E] mt-0.5 leading-tight max-w-[190px]">
+                        {releasableBeforeRetention(j.montant, retentionRate).toLocaleString("fr-FR")} libérés à la validation,{" "}
+                        {retentionAmount(j.montant, retentionRate).toLocaleString("fr-FR")} retenus en garantie
                       </div>
                     )}
                   </div>
-                  <strong style={{ color: "var(--primary)" }}>{j.montant.toLocaleString("fr-FR")} {mission.currency}</strong>
                 </div>
-
-                {mission.isOwner && j.status === "en_attente" && (
-                  <button className="btn btn-primary" style={{ width: "100%", marginTop: 10 }} disabled={submitting === j.id} onClick={() => holdJalon(j.id)}>
+                <div className="flex gap-2 mt-2.5">
+                  <button disabled={submitting === j.id} onClick={() => holdJalon(j.id)} className="flex-1 h-10 rounded-lg bg-[#008751] text-white text-[13px] font-semibold hover:bg-[#007a49] transition-colors disabled:opacity-50">
                     {submitting === j.id ? "Envoi..." : "Financer ce jalon"}
                   </button>
-                )}
-
-                {mission.isOwner && j.status === "livrable_soumis" && rejectingId !== j.id && (
-                  <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                    <button className="btn btn-primary" style={{ flex: 1 }} disabled={submitting === j.id} onClick={() => validateJalon(j.id)}>
-                      Vérifier et libérer
-                    </button>
-                    <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => { setRejectingId(j.id); setRejectReason(""); }}>
-                      Révision
-                    </button>
-                  </div>
-                )}
-
-                {mission.isOwner && rejectingId === j.id && (
-                  <div style={{ marginTop: 10 }}>
-                    <textarea
-                      className="form-control"
-                      placeholder="Motif du rejet (obligatoire)"
-                      value={rejectReason}
-                      onChange={(e) => setRejectReason(e.target.value)}
-                      style={{ width: "100%", minHeight: 60, marginBottom: 8 }}
-                    />
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <button className="btn btn-danger" style={{ flex: 1 }} disabled={submitting === j.id} onClick={() => rejectJalon(j.id)}>
-                        Confirmer le rejet
-                      </button>
-                      <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => setRejectingId(null)}>Annuler</button>
-                    </div>
-                  </div>
-                )}
+                  <button onClick={() => openSplit(j.id)} className="h-10 px-4 rounded-lg border border-[#E2E8F0] bg-white text-[13px] font-medium hover:bg-[#F8FAF9]">
+                    Scinder
+                  </button>
+                </div>
               </div>
-            );
-          })}
+            ))}
+          </div>
+        )}
+
+        {/* Compte financier du séquestre (2026-09-14) — placé APRÈS les gestes de financement et
+            AVANT la validation : il répond à « où en est mon argent ? », question qui se pose
+            entre le moment où l'on finance et celui où l'on valide. C'est aussi là que le client
+            voit qu'un complément est requis, et peut le verser. */}
+        <EscrowAccountPanel missionId={missionId} />
+
+        {/* Constat des présences — c'est ici, à côté du compte du séquestre, que le client doit
+            le faire : chaque validation y prélève directement. */}
+        <AttendancePanel missionId={missionId} />
+
+        <ValidationClientView missionId={missionId} onMissionChange={(m) => setMission((prev) => (prev ? { ...prev, status: m.status } : prev))} />
+
+        <Link href={`/missions/${missionId}`} className="inline-block text-[#64748B] text-[13px]" style={{ textDecoration: "none" }}>
+          ← Retour au détail de la mission
+        </Link>
+      </div>
+
+      {splittingJalon && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setSplittingId(null)} />
+          <div className="relative w-full max-w-[480px] bg-white border border-[#E2E8F0] rounded-xl p-4 lg:p-5">
+            <h3 className="text-[13px] font-semibold mb-2">Scinder le jalon « {splittingJalon.titre} »</h3>
+            <p className="text-[12.5px] text-[#64748B] mb-3 leading-relaxed">
+              Répartissez le montant de <strong className="text-[#0f172a]">{splittingJalon.montant.toLocaleString("fr-FR")} {mission.currency}</strong> entre
+              au moins 2 sous-jalons. La somme doit rester exactement égale (le total du contrat signé ne change jamais).
+            </p>
+            <div className="space-y-2">
+              {splitRows.map((row, i) => (
+                <div key={i} className="flex gap-2">
+                  <input
+                    type="text" placeholder={`Sous-jalon ${i + 1} — titre`} value={row.titre}
+                    onChange={(e) => setSplitRows((rows) => rows.map((r, j) => (j === i ? { ...r, titre: e.target.value } : r)))}
+                    className="flex-[2] h-9 px-2.5 rounded-lg border border-[#E2E8F0] text-[13px] focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751]"
+                  />
+                  <input
+                    type="number" placeholder="Montant" value={row.montant}
+                    onChange={(e) => setSplitRows((rows) => rows.map((r, j) => (j === i ? { ...r, montant: e.target.value } : r)))}
+                    className="flex-1 h-9 px-2.5 rounded-lg border border-[#E2E8F0] text-[13px] focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751]"
+                  />
+                  {splitRows.length > 2 && (
+                    <button type="button" onClick={() => setSplitRows((rows) => rows.filter((_, j) => j !== i))} className="h-9 px-3 rounded-lg border border-[#E2E8F0] bg-white text-[13px] hover:bg-[#F8FAF9]">×</button>
+                  )}
+                </div>
+              ))}
+            </div>
+            <button type="button" onClick={() => setSplitRows((rows) => [...rows, { titre: "", montant: "" }])} className="mt-2 h-8 px-3 rounded-md border border-[#E2E8F0] bg-white text-[11px] font-medium hover:bg-[#F1F5F9]">
+              + Ajouter une part
+            </button>
+            <p className={`text-[12.5px] mt-2 ${Math.abs(splitTotal - splittingJalon.montant) < 0.01 ? "text-[#008751]" : "text-[#E8112D]"}`}>
+              Total réparti : <span>{splitTotal.toLocaleString("fr-FR")}</span> / <span>{splittingJalon.montant.toLocaleString("fr-FR")}</span>
+            </p>
+            <div className="flex gap-2 mt-3">
+              <button onClick={() => setSplittingId(null)} className="flex-1 h-10 rounded-lg border border-[#E2E8F0] bg-white text-[13px] font-medium hover:bg-[#F8FAF9]">Annuler</button>
+              <button disabled={!splitValid || submitting === splittingJalon.id} onClick={() => submitSplit(splittingJalon)} className="flex-1 h-10 rounded-lg bg-[#008751] text-white text-[13px] font-semibold hover:bg-[#007a49] transition-colors disabled:opacity-50">
+                {submitting === splittingJalon.id ? "Envoi..." : "Confirmer la scission"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

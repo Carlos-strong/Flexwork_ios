@@ -1,70 +1,88 @@
-export default function Hero() {
+import Image from 'next/image'
+import { HeroSearch } from '@/components/afrilance/HeroSearch'
+import { getPlatformStats } from '@/lib/platform-stats'
+import { getPublishedFrontendConfig, parseHeroTitle, resolveSection } from '@/lib/frontend-config'
+import { HERO_TITLE } from '@/lib/frontend-defaults'
+
+// Composant serveur : les compteurs affichés viennent de la base (voir platform-stats.ts).
+// Les chiffres codés en dur qui figuraient ici — « 12 458 talents connectés maintenant »,
+// « 4.9/5 • 2 300+ avis », « 500K+ Talents dans 12 pays » — ont été retirés le 2026-09-09 :
+// aucun n'était calculé, et tous étaient démentis par le contenu réel de la base.
+// Un compteur nul n'est pas affiché du tout ; le bloc bascule alors sur la promesse produit,
+// vraie quel que soit le volume.
+//
+// Mise en page (2026-10) : une seule grande carte photo arrondie, titre blanc sur un voile
+// sombre, recherche à onglets dans un panneau translucide. Les tuiles 2×2 ont disparu ; leurs
+// deux compteurs réels (prestataires vérifiés, note moyenne) sont devenus les pastilles du bas.
+export default async function Hero() {
+  const [stats, config] = await Promise.all([getPlatformStats(), getPublishedFrontendConfig()])
+  const section = resolveSection(config, 'hero')
+  // Le titre et le paragraphe sont éditables ; les pastilles ne le sont pas, parce qu'elles
+  // affichent des compteurs mesurés en base. Rendre un compteur éditable rouvrirait la porte
+  // aux « 12 458 talents connectés maintenant » retirés le 2026-09-09 : un chiffre saisi à la
+  // main est invérifiable par construction.
+  const titleLines = parseHeroTitle(section?.title ?? HERO_TITLE)
+
+  const chips: string[] = [
+    stats.verifiedProviders > 0
+      ? `${stats.verifiedProviders.toLocaleString('fr-FR')} prestataire${stats.verifiedProviders > 1 ? 's' : ''} à identité vérifiée${stats.countries > 0 ? ` dans ${stats.countries} pays` : ''}`
+      : 'Plateforme en cours de lancement',
+    stats.averageRating != null
+      ? `${stats.averageRating.toFixed(1)}/5 de satisfaction • ${stats.reviewCount.toLocaleString('fr-FR')} avis`
+      : 'Paiement sous séquestre, libéré à la validation',
+  ]
+
   return (
-    <section className="relative overflow-hidden bg-gradient-to-br from-orange-50 via-yellow-50 to-green-50 ankarapattern">
-      {/* Decorative shapes */}
-      <div className="absolute top-20 left-10 w-20 h-20 bg-[#FF6B35]/20 rounded-full blur-xl"></div>
-      <div className="absolute bottom-20 right-20 w-32 h-32 bg-[#F7C948]/30 rounded-full blur-xl"></div>
-      <div className="absolute top-1/2 right-[40%] w-3 h-3 bg-[#8B2E86] rotate-45"></div>
-      <div className="absolute top-32 right-32 w-4 h-4 bg-[#1B9C6A] rounded-full"></div>
+    <section className="bg-white pt-4 lg:pt-6">
+      {/* Bloc photo plein écran ; le texte reste centré sur la largeur des autres sections. */}
+      <div className="page-wide">
+        <div className="relative overflow-hidden rounded-2xl lg:rounded-3xl min-h-[520px] lg:min-h-[560px] flex items-end lg:items-center px-5 sm:px-10 lg:px-14">
+          {/* Asset STATIQUE de public/images : next/image en sert une variante redimensionnée.
+              Photo PAYSAGE (1920×1280) : la carte est plus large que haute à partir de la
+              tablette, un portrait y serait recadré au tiers et agrandi au-delà de sa
+              définition. `priority` : c'est l'élément LCP de la page. */}
+          <Image
+            src="/images/lagos_developer_coworking.webp"
+            alt=""
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover object-[70%_center]"
+          />
+          {/* Voile : opaque à gauche (sous le texte), transparent à droite (la photo respire).
+              Sur mobile le texte est en bas, d'où un dégradé vertical. */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/60 to-black/20 lg:bg-gradient-to-r lg:from-black/80 lg:via-black/45 lg:to-transparent" />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16 lg:py-24 grid lg:grid-cols-[1.1fr_0.9fr] gap-8 lg:gap-12 items-center relative">
-        <div>
-          <div className="inline-flex items-center gap-2 bg-white shadow-sm rounded-full px-4 py-2 text-sm font-bold mb-6">
-            <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-            12 458 talents connectés maintenant en Afrique 🌍
-          </div>
-          
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-extrabold leading-[1.05] tracking-tight">
-            Trouve le bon<br/>
-            <span className="bg-gradient-to-r from-[#FF6B35] to-[#FF3E6C] bg-clip-text text-transparent">talent africain,</span><br/>
-            tout de suite ✨
-          </h1>
-          
-          <p className="mt-6 text-lg lg:text-xl text-gray-600 max-w-prose leading-relaxed">
-            Designers, développeurs, monteurs vidéo et voix off du Bénin au Sénégal. Qualité mondiale, prix justes en FCFA.
-          </p>
+          <div className="relative page-inner pt-24 pb-6 sm:py-12">
+            <h1 className="max-w-[660px] text-white text-[36px] leading-[1.04] md:text-[72px] font-semibold">
+              {titleLines.map((line, lineIndex) => (
+                <span key={lineIndex}>
+                  {line.map((part, partIndex) =>
+                    part.highlight ? (
+                      <span key={partIndex} className="text-[#FF8A5C]">{part.text}</span>
+                    ) : (
+                      <span key={partIndex}>{part.text}</span>
+                    )
+                  )}
+                  {lineIndex < titleLines.length - 1 && <br />}
+                </span>
+              ))}
+            </h1>
 
-          <div className="mt-8 flex items-center bg-white rounded-full shadow-xl shadow-orange-100 p-1.5 max-w-lg lg:max-w-xl border border-orange-100">
-            <div className="flex items-center gap-2 flex-1 px-4">
-              <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-              <input placeholder="Essaie 'logo en wax' ou 'site e-commerce'" className="w-full outline-none text-base placeholder:text-gray-400" />
-            </div>
-            <button className="bg-gradient-to-r from-[#FF6B35] to-[#FF3E6C] text-white px-6 py-3 rounded-full font-bold text-sm lg:text-base hover:shadow-lg transition">Rechercher</button>
-          </div>
+            {section?.subtitle && (
+              <p className="mt-4 sm:mt-5 max-w-xl text-base lg:text-lg text-white/85 leading-relaxed">{section.subtitle}</p>
+            )}
 
-          <div className="mt-6 flex flex-wrap gap-2 items-center text-sm">
-            <span className="font-semibold text-gray-500">Populaire :</span>
-            {['Site Vitrine', 'Logo Wax', 'Montage TikTok', 'Voix Off Dioula'].map(t=>(
-              <span key={t} className="px-3 py-1.5 rounded-full bg-white border border-gray-200 hover:border-[#FF6B35] hover:text-[#FF6B35] cursor-pointer transition">{t}</span>
-            ))}
-          </div>
-        </div>
+            <HeroSearch />
 
-        {/* 2x2 Grid */}
-        <div className="grid grid-cols-2 gap-3 lg:gap-4">
-          <div className="space-y-3 lg:space-y-4">
-            <div className="relative rounded-2xl overflow-hidden h-48 sm:h-56 lg:h-64 shadow-xl group">
-              <img src="/images/african_designer_studio.webp" className="w-full h-full object-cover group-hover:scale-105 transition duration-700" alt="Designer" />
-              <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/70 to-transparent p-3">
-                <p className="text-white text-sm font-bold">Aïcha • Design • Cotonou 🇧🇯</p>
-              </div>
-            </div>
-            <div className="rounded-2xl bg-[#0A1931] p-5 text-white h-32 flex flex-col justify-center">
-              <p className="text-3xl font-extrabold">4.9/5</p>
-              <p className="text-sm opacity-80">Satisfaction moyenne • 2 300+ avis</p>
-            </div>
-          </div>
-          <div className="space-y-3 lg:space-y-4 pt-6">
-            <div className="rounded-2xl bg-gradient-to-br from-[#F7C948] to-[#FF6B35] p-5 text-black h-32 flex flex-col justify-between">
-              <p className="font-extrabold leading-tight text-lg">500K+<br/>Talents</p>
-              <p className="text-sm font-medium">dans 12 pays d'Afrique</p>
-            </div>
-            <div className="relative rounded-2xl overflow-hidden h-48 sm:h-56 lg:h-64 shadow-xl group">
-              <img src="/images/lagos_developer_coworking.webp" className="w-full h-full object-cover group-hover:scale-105 transition duration-700" alt="Dev" />
-              <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/70 to-transparent p-3">
-                <p className="text-white text-sm font-bold">Kwame • Code • Lagos 🇳🇬</p>
-              </div>
-            </div>
+            <ul className="mt-5 sm:mt-6 flex flex-wrap gap-2 text-xs sm:text-sm text-white">
+              {chips.map((c) => (
+                <li key={c} className="inline-flex items-center gap-2 rounded-full bg-white/15 backdrop-blur px-3 py-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#4ADE80]" aria-hidden />
+                  {c}
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
       </div>

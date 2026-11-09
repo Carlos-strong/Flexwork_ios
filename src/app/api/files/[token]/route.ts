@@ -49,18 +49,64 @@ export async function GET(
   if (decoded.kind === "mission_attachment") {
     const attachment = await prisma.missionAttachment.findUnique({
       where: { id: decoded.id },
-      include: { mission: { include: { proposals: { where: { providerId: requesterId }, select: { id: true } } } } },
+      include: {
+        mission: {
+          include: {
+            proposals: { where: { providerId: requesterId }, select: { id: true } },
+            contract: { select: { validationMode: true, siteManagerId: true } },
+          },
+        },
+      },
     });
     if (!attachment) return NextResponse.json({ error: "not_found" }, { status: 404 });
 
-    const isParticipant = attachment.mission.clientId === requesterId || attachment.mission.proposals.length > 0;
+    // Le responsable de chantier désigné (mode OPR, 2026-10-01) doit voir les preuves qu'il
+    // vérifie — et seulement celles des missions qui lui sont confiées.
+    const contrat = attachment.mission.contract;
+    const isSiteManager = !!contrat && contrat.validationMode === "opr" && contrat.siteManagerId === requesterId;
+    const isParticipant =
+      attachment.mission.clientId === requesterId || attachment.mission.proposals.length > 0 || isSiteManager;
     if (!isParticipant) {
-      return NextResponse.json({ error: "forbidden" }, { status: 403 });
+      // 404 (pas 403) : un tiers ne doit pas savoir que la pièce jointe existe.
+      return NextResponse.json({ error: "not_found" }, { status: 404 });
     }
 
     const buffer = await readStoredFile(attachment.filePath);
+    // Content-Type réel + affichage inline (2026-09-03) : sans ça, le client ne pouvait pas
+    // RELIRE une preuve dans la modale de validation (image/vidéo/PDF) — "application/
+    // octet-stream" forçait un téléchargement à l'aveugle même pour une simple photo. Même
+    // logique que message_file ci-dessous (mimeType absent → repli attachment, comportement
+    // historique inchangé pour les pièces jointes créées avant ce champ).
+    const inlineType = attachment.mimeType?.startsWith("image/") || attachment.mimeType?.startsWith("video/") || attachment.mimeType === "application/pdf";
+    const disposition = inlineType
+      ? `inline; filename="${encodeURIComponent(attachment.filePath.split("/").pop() ?? "fichier")}"`
+      : `attachment; filename="${encodeURIComponent(attachment.filePath.split("/").pop() ?? "fichier")}"`;
     return new NextResponse(new Uint8Array(buffer), {
-      headers: { "Content-Type": "application/octet-stream" },
+      headers: {
+        "Content-Type": attachment.mimeType ?? "application/octet-stream",
+        "Content-Disposition": disposition,
+      },
+    });
+  }
+
+  // Pièce jointe d'un BROUILLON de mission — la mission n'existe pas encore, il n'y a donc
+  // ni client ni prestataire à comparer : seul celui qui a déposé le fichier peut le relire.
+  // C'est aussi la règle la plus stricte possible, et elle cesse de s'appliquer d'elle-même
+  // à la création, où la ligne devient un MissionAttachment traité juste au-dessus.
+  if (decoded.kind === "mission_draft_attachment") {
+    const draft = await prisma.missionDraftAttachment.findUnique({ where: { id: decoded.id } });
+    // 404 et non 403 pour un tiers : il ne doit pas apprendre que ce fichier existe.
+    if (!draft || draft.uploaderId !== requesterId) {
+      return NextResponse.json({ error: "not_found" }, { status: 404 });
+    }
+
+    const buffer = await readStoredFile(draft.filePath);
+    const inline = draft.mimeType.startsWith("image/") || draft.mimeType === "application/pdf";
+    return new NextResponse(new Uint8Array(buffer), {
+      headers: {
+        "Content-Type": draft.mimeType,
+        "Content-Disposition": `${inline ? "inline" : "attachment"}; filename="${encodeURIComponent(draft.fileName)}"`,
+      },
     });
   }
 
@@ -75,7 +121,8 @@ export async function GET(
 
     const isParticipant = message.mission.clientId === requesterId || message.mission.proposals.length > 0;
     if (!isParticipant) {
-      return NextResponse.json({ error: "forbidden" }, { status: 403 });
+      // 404 (pas 403) : un tiers ne doit pas savoir que le fichier existe.
+      return NextResponse.json({ error: "not_found" }, { status: 404 });
     }
 
     const buffer = await readStoredFile(message.filePath);

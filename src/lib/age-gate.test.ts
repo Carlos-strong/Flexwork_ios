@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isValidMinimumAge, isChantierRole, isChantierProfileAllowed, computeAge, ABSOLUTE_MINIMUM_AGE } from "./age-gate";
+import { isValidMinimumAge, isChantierRole, isMinimumAgeSatisfied, computeAge, ABSOLUTE_MINIMUM_AGE } from "./age-gate";
 
 describe("isValidMinimumAge (A13 — plancher impératif, non administrable)", () => {
   it("accepts the legal floor and above", () => {
@@ -13,7 +13,7 @@ describe("isValidMinimumAge (A13 — plancher impératif, non administrable)", (
   });
 });
 
-describe("isChantierRole", () => {
+describe("isChantierRole (garant, affichage admin — ne gouverne plus l'âge depuis 2026-09-24)", () => {
   it("flags artisan/manoeuvre/expert_btp_autres as chantier roles", () => {
     expect(isChantierRole("artisan")).toBe(true);
     expect(isChantierRole("manoeuvre")).toBe(true);
@@ -26,45 +26,38 @@ describe("isChantierRole", () => {
   });
 });
 
-describe("isChantierProfileAllowed (réévaluation dynamique, jamais un statut figé)", () => {
-  it("never blocks non-chantier roles regardless of age", () => {
-    expect(
-      isChantierProfileAllowed({ role: "client", dateNaissance: new Date("2015-01-01"), minimumAge: null })
-    ).toBe(true);
+// Le seuil ne dit plus QUI est concerné : cette décision appartient à la catégorie du métier
+// (voir age-categorie.test.ts). Ici on ne teste que l'arithmétique de l'âge, y compris les cas
+// qui bloquaient à tort : un âge INCONNU n'est pas un âge insuffisant, il est « non établi ».
+describe("isMinimumAgeSatisfied (réévaluation dynamique, jamais un statut figé)", () => {
+  it("refuses an unknown birth date (KYC not done) — la date n'a pas encore été relevée", () => {
+    expect(isMinimumAgeSatisfied({ dateNaissance: null, minimumAge: null })).toBe(false);
   });
 
-  it("blocks a chantier profile with no verified birth date yet (KYC not done)", () => {
-    expect(isChantierProfileAllowed({ role: "artisan", dateNaissance: null, minimumAge: null })).toBe(false);
-  });
-
-  it("blocks an underage chantier profile against the legal floor", () => {
+  it("blocks an underage person against the legal floor", () => {
     const now = new Date("2026-08-04");
     const dateNaissance = new Date("2010-01-01"); // 16 ans
-    expect(isChantierProfileAllowed({ role: "manoeuvre", dateNaissance, minimumAge: null, now })).toBe(false);
+    expect(isMinimumAgeSatisfied({ dateNaissance, minimumAge: null, now })).toBe(false);
   });
 
-  it("allows a chantier profile exactly at the legal floor", () => {
+  it("allows someone exactly at the legal floor", () => {
     const now = new Date("2026-08-04");
     const dateNaissance = new Date("2008-08-01"); // 18 ans révolus
-    expect(isChantierProfileAllowed({ role: "artisan", dateNaissance, minimumAge: null, now })).toBe(true);
+    expect(isMinimumAgeSatisfied({ dateNaissance, minimumAge: null, now })).toBe(true);
   });
 
   it("applies a stricter country-specific threshold when set (e.g. 21 for heavy machinery)", () => {
     const now = new Date("2026-08-04");
     const dateNaissance = new Date("2007-08-01"); // 19 ans
-    expect(isChantierProfileAllowed({ role: "manoeuvre", dateNaissance, minimumAge: 21, now })).toBe(false);
+    expect(isMinimumAgeSatisfied({ dateNaissance, minimumAge: 21, now })).toBe(false);
   });
 
   it("re-evaluates dynamically: the same person becomes allowed after their birthday", () => {
     const dateNaissance = new Date("2008-08-10");
     const beforeBirthday = new Date("2026-08-04"); // still 17
     const afterBirthday = new Date("2026-08-11"); // just turned 18
-    expect(isChantierProfileAllowed({ role: "artisan", dateNaissance, minimumAge: null, now: beforeBirthday })).toBe(
-      false
-    );
-    expect(isChantierProfileAllowed({ role: "artisan", dateNaissance, minimumAge: null, now: afterBirthday })).toBe(
-      true
-    );
+    expect(isMinimumAgeSatisfied({ dateNaissance, minimumAge: null, now: beforeBirthday })).toBe(false);
+    expect(isMinimumAgeSatisfied({ dateNaissance, minimumAge: null, now: afterBirthday })).toBe(true);
   });
 });
 

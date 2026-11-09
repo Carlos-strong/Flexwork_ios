@@ -1,6 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { currentCallbackUrl } from "@/lib/safe-callback";
+import { BackLink } from "@/components/BackLink";
+
+// Page d'où l'on vient d'habitude : l'onglet Expérience du profil, qui renvoie ici pour
+// l'assurance, les références et l'historique. Un `?returnTo=` sûr (ex. /badge) l'emporte.
+const DEFAULT_BACK = { href: "/profile?tab=experience", label: "Retour à mon profil" };
 
 // Qualifications / Diplômes + Expériences + Personnes ressources + Badge/VAE
 // Aligné sur implementation-skillafrica-securise-v3.md et formulaires-flexwork-tous-profils.html.
@@ -53,9 +59,94 @@ const DIPLOME_TYPES = [
   { value: "AUTRE", label: "Autre" },
 ];
 
+// Sections repliables : chaque titre ouvre/ferme son contenu. Le contenu replié reste monté
+// (attribut `hidden`) pour ne pas perdre une saisie en cours. L'ancre de l'URL
+// (/declarations#qualifications, lien du BadgePanel) ouvre et fait défiler la section visée.
+const SECTION_IDS = ["qualifications", "assurance", "niveau", "experiences", "badge"] as const;
+type SectionId = (typeof SECTION_IDS)[number];
+
+function isSectionId(v: string): v is SectionId {
+  return (SECTION_IDS as readonly string[]).includes(v);
+}
+
+function Section({
+  id,
+  title,
+  badge,
+  open,
+  onToggle,
+  children,
+}: {
+  id: SectionId;
+  title: ReactNode;
+  badge: ReactNode;
+  open: boolean;
+  onToggle: (id: SectionId) => void;
+  children: ReactNode;
+}) {
+  return (
+    <section id={id} className="scroll-mt-6 bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden">
+      <h2>
+        <button
+          type="button"
+          onClick={() => onToggle(id)}
+          aria-expanded={open}
+          aria-controls={`${id}-content`}
+          className={`w-full px-6 py-4 flex items-center gap-3 text-left hover:bg-zinc-50 transition-colors ${
+            open ? "border-b border-zinc-100" : ""
+          }`}
+        >
+          <span className="flex-1 text-[15px] font-bold text-zinc-900">{title}</span>
+          {badge}
+          <svg
+            aria-hidden
+            viewBox="0 0 20 20"
+            className={`h-4 w-4 shrink-0 text-zinc-400 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+          >
+            <path d="M5 7.5l5 5 5-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+      </h2>
+      <div id={`${id}-content`} hidden={!open}>
+        {children}
+      </div>
+    </section>
+  );
+}
+
 const POSTES_BTP = ["Chef de Projet", "Chef de Chantier", "Conducteur de Travaux", "Architecte", "Ingénieur", "Électricien", "Autre"];
 
 export default function DeclarationsPage() {
+  // Par défaut, seule la première section est ouverte ; l'ancre de l'URL l'emporte.
+  const [openSections, setOpenSections] = useState<Set<SectionId>>(() => new Set<SectionId>(["qualifications"]));
+  const toggleSection = useCallback((id: SectionId) => {
+    setOpenSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+  const allOpen = openSections.size === SECTION_IDS.length;
+
+  const [back, setBack] = useState(DEFAULT_BACK);
+  useEffect(() => {
+    const returnTo = currentCallbackUrl("returnTo");
+    if (returnTo) setBack({ href: returnTo, label: "Revenir à la page précédente" });
+  }, []);
+
+  useEffect(() => {
+    function openFromHash() {
+      const target = window.location.hash.slice(1);
+      if (!isSectionId(target)) return;
+      setOpenSections((prev) => new Set(prev).add(target));
+      // Après le rendu : la section dépliée a sa hauteur réelle.
+      requestAnimationFrame(() => document.getElementById(target)?.scrollIntoView({ behavior: "smooth", block: "start" }));
+    }
+    openFromHash();
+    window.addEventListener("hashchange", openFromHash);
+    return () => window.removeEventListener("hashchange", openFromHash);
+  }, []);
   const [insuranceMsg, setInsuranceMsg] = useState<string | null>(null);
   const [qualifMsg, setQualifMsg] = useState<string | null>(null);
   const [expMsg, setExpMsg] = useState<string | null>(null);
@@ -108,14 +199,27 @@ export default function DeclarationsPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ declarationType: "experience", experiences, references: refs }),
     });
-    setXpMsg(res.ok ? "Expériences enregistrées et horodatées." : "Échec de l'enregistrement.");
+    if (res.ok) {
+      setXpMsg("Expériences enregistrées et horodatées.");
+      return;
+    }
+    const data = await res.json().catch(() => ({}));
+    setXpMsg(data.message ?? "Échec de l'enregistrement — vérifiez que chaque expérience porte un poste.");
   }
 
   async function submitBadge(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setBadgeMsg(null);
     const res = await fetch("/api/declarations/badge", { method: "POST" });
-    setBadgeMsg(res.ok ? "Demande de vérification du badge envoyée." : "Échec — complétez toutes les sections.");
+    if (res.ok) {
+      setBadgeMsg("Demande de vérification envoyée — elle sera instruite par un administrateur.");
+      return;
+    }
+    // Le serveur dit ce qui manque (diplôme d'État absent, demande déjà en cours...) : on
+    // affiche SON motif. L'ancien message « Échec — complétez toutes les sections » accusait
+    // le prestataire alors que la route appelée n'existait même pas.
+    const data = await res.json().catch(() => ({}));
+    setBadgeMsg(data.message ?? "La demande n'a pas pu être envoyée.");
   }
 
   async function submitQualifications(e: React.FormEvent<HTMLFormElement>) {
@@ -138,15 +242,19 @@ export default function DeclarationsPage() {
     });
     setQualifMsg(
       res.ok
-        ? "Qualifications enregistrées et horodatées."
-        : "Échec de l'enregistrement."
+        ? `${diplomes.length} qualification(s) enregistrée(s) et horodatée(s).`
+        : "Échec de l'enregistrement — chaque diplôme doit porter un intitulé."
     );
   }
 
   async function submitInsurance(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setInsuranceMsg(null);
-    const formData = new FormData(e.currentTarget);
+    // Capturé avant le await : React remet e.currentTarget à null une fois la phase
+    // synchrone de l'événement terminée — l'appeler après un await levait
+    // "null is not an object" (voir le même correctif sur src/app/profile/page.tsx).
+    const formEl = e.currentTarget;
+    const formData = new FormData(formEl);
     formData.set("declarationType", "insurance");
     const res = await fetch("/api/declarations", {
       method: "POST",
@@ -157,7 +265,7 @@ export default function DeclarationsPage() {
         ? "Déclaration enregistrée et horodatée."
         : "Échec de l'enregistrement."
     );
-    if (res.ok) e.currentTarget.reset();
+    if (res.ok) formEl.reset();
   }
 
   async function submitLevel(e: React.FormEvent<HTMLFormElement>) {
@@ -186,27 +294,64 @@ export default function DeclarationsPage() {
 
   return (
     <div className="min-h-screen bg-zinc-50 py-10 px-4">
-      <div className="mx-auto max-w-[700px] space-y-5">
-        {/* Warning banner */}
-        <div className="bg-[#FEF9C3] border border-[#FCD116] rounded-2xl p-5">
-          <div className="text-[14px] font-bold text-zinc-800">⚠️ Important</div>
-          <p className="text-[13px] text-zinc-600 mt-1">
-            Toutes les informations ci-dessous sont <strong>déclarées par vous</strong>. FlexWork ne les vérifie pas.
-            Vous en garantissez l&apos;exactitude. Le diplôme d&apos;État est le pivot du badge.
-          </p>
+      <div className="mx-auto fluid-form [--fw:700px] space-y-5">
+        {/* En-tête : retour vers la page d'origine, titre, objet de la page. */}
+        <header className="space-y-4">
+          <BackLink href={back.href} label={back.label} />
+          <div>
+            <h1 className="text-[24px] font-bold tracking-tight text-[#0A1931]">Mes déclarations professionnelles</h1>
+            <p className="mt-1 text-[14px] text-zinc-500">
+              Diplômes, assurance, niveau et expériences : les éléments que vous déclarez pour votre profil et votre badge.
+            </p>
+          </div>
+        </header>
+
+        {/* Le seul avertissement de la page : nature déclarative et engagement de responsabilité. */}
+        <div role="note" className="flex gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 sm:p-5">
+          <svg aria-hidden viewBox="0 0 20 20" className="mt-0.5 h-5 w-5 shrink-0 text-amber-600">
+            <path
+              d="M10 3.2l7.4 13.1H2.6L10 3.2zM10 8.2v3.6M10 14.2v.1"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.7"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+          <div className="text-[13px] leading-relaxed text-zinc-700">
+            <p className="font-semibold text-zinc-900">Informations déclarées sous votre responsabilité</p>
+            <p className="mt-1">
+              FlexWork ne vérifie pas ces informations : vous en garantissez l&apos;exactitude. Une déclaration inexacte
+              constitue une fausse déclaration contractuelle — votre compte peut être suspendu sur signalement d&apos;un
+              tiers, et vous assumez l&apos;entière responsabilité civile d&apos;un éventuel dommage.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between pt-1">
+          <p className="text-[12px] font-semibold uppercase tracking-wider text-zinc-400">Sections</p>
+          <button
+            type="button"
+            onClick={() => setOpenSections(allOpen ? new Set() : new Set(SECTION_IDS))}
+            className="text-[13px] font-medium text-[#008751] hover:underline"
+          >
+            {allOpen ? "Tout replier" : "Tout déplier"}
+          </button>
         </div>
 
         {/* Qualifications / Diplômes */}
-        <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden">
-          <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between">
-            <h2 className="text-[15px] font-bold text-zinc-900">Qualifications &amp; Diplômes</h2>
-            <span className="text-[11px] px-2 py-1 rounded-full bg-zinc-100 text-zinc-500 font-medium">Déclaré</span>
-          </div>
+        <Section
+          id="qualifications"
+          title={<>Qualifications &amp; Diplômes</>}
+          badge={<span className="text-[11px] px-2 py-1 rounded-full bg-zinc-100 text-zinc-500 font-medium">Déclaré</span>}
+          open={openSections.has("qualifications")}
+          onToggle={toggleSection}
+        >
           {qualifMsg && <div className="mx-6 mt-4 px-4 py-3 rounded-xl bg-[#f0fdf4] border border-[#bbf7d0] text-[13px] text-[#166534] font-medium">{qualifMsg}</div>}
           <form onSubmit={submitQualifications} className="px-6 py-5 space-y-4">
             {diplomes.map((d) => (
               <div key={d.id} className="border border-zinc-200 rounded-xl p-4 bg-zinc-50/50">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Type de diplôme / certificat <span className="text-[#E8112D]">*</span></label>
                     <select value={d.qualificationName} onChange={(e) => updateDiplome(d.id, "qualificationName", e.target.value)} required className={inputClass}>
@@ -219,7 +364,7 @@ export default function DeclarationsPage() {
                     <input type="number" placeholder="2018" min={1950} max={2026} value={d.year} onChange={(e) => updateDiplome(d.id, "year", e.target.value)} required className={inputClass} />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4 mt-4">
+                <div className="grid sm:grid-cols-2 gap-4 mt-4">
                   <div>
                     <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Lieu d&apos;obtention <span className="text-[#E8112D]">*</span></label>
                     <input type="text" placeholder="Établissement, ville" value={d.location} onChange={(e) => updateDiplome(d.id, "location", e.target.value)} required className={inputClass} />
@@ -253,14 +398,16 @@ export default function DeclarationsPage() {
             </button>
             <button type="submit" className={btnPrimary}>Soumettre les qualifications</button>
           </form>
-        </div>
+        </Section>
 
         {/* Assurance RC Pro */}
-        <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden">
-          <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between">
-            <h2 className="text-[15px] font-bold text-zinc-900">Assurance RC Pro</h2>
-            <span className="text-[11px] px-2 py-1 rounded-full bg-zinc-100 text-zinc-500 font-medium">Déclaré</span>
-          </div>
+        <Section
+          id="assurance"
+          title={<>Assurance RC Pro</>}
+          badge={<span className="text-[11px] px-2 py-1 rounded-full bg-zinc-100 text-zinc-500 font-medium">Déclaré</span>}
+          open={openSections.has("assurance")}
+          onToggle={toggleSection}
+        >
           {insuranceMsg && <div className="mx-6 mt-4 px-4 py-3 rounded-xl bg-[#f0fdf4] border border-[#bbf7d0] text-[13px] text-[#166534] font-medium">{insuranceMsg}</div>}
           <form onSubmit={submitInsurance} className="px-6 py-5 space-y-4">
             <div>
@@ -290,17 +437,19 @@ export default function DeclarationsPage() {
             </div>
             <button type="submit" className={btnPrimary}>Enregistrer la déclaration</button>
           </form>
-        </div>
+        </Section>
 
         {/* Niveau / Expérience */}
-        <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden">
-          <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between">
-            <h2 className="text-[15px] font-bold text-zinc-900">Expérience et niveau professionnel</h2>
-            <span className="text-[11px] px-2 py-1 rounded-full bg-zinc-100 text-zinc-500 font-medium">Auto-déclaré</span>
-          </div>
+        <Section
+          id="niveau"
+          title={<>Expérience et niveau professionnel</>}
+          badge={<span className="text-[11px] px-2 py-1 rounded-full bg-zinc-100 text-zinc-500 font-medium">Auto-déclaré</span>}
+          open={openSections.has("niveau")}
+          onToggle={toggleSection}
+        >
           {expMsg && <div className="mx-6 mt-4 px-4 py-3 rounded-xl bg-[#f0fdf4] border border-[#bbf7d0] text-[13px] text-[#166534] font-medium">{expMsg}</div>}
           <form onSubmit={submitLevel} className="px-6 py-5 space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Niveau auto-déclaré</label>
                 <select name="declaredLevel" defaultValue="debutant" className={inputClass}>
@@ -318,18 +467,20 @@ export default function DeclarationsPage() {
             </div>
             <button type="submit" className={btnPrimary}>Enregistrer</button>
           </form>
-        </div>
+        </Section>
 
         {/* Expériences professionnelles (spec §8, §14, §17, §21) */}
-        <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden">
-          <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between">
-            <h2 className="text-[15px] font-bold text-zinc-900">Expériences professionnelles</h2>
-            <span className="text-[11px] px-2 py-1 rounded-full bg-zinc-100 text-zinc-500 font-medium">Module critique — badge</span>
-          </div>
-          <div className="px-6 py-3 bg-[#f0fdf4] border-b border-[#bbf7d0] text-[12px] text-[#166534]">
-            Seul le statut <code className="bg-[#bbf7d0] px-1 rounded">VALIDATED</code> intervient dans l&apos;attribution du badge.
-            Échantillon de 20 % audité manuellement.
-          </div>
+        <Section
+          id="experiences"
+          title={<>Expériences professionnelles</>}
+          badge={<span className="text-[11px] px-2 py-1 rounded-full bg-zinc-100 text-zinc-500 font-medium">Module critique — badge</span>}
+          open={openSections.has("experiences")}
+          onToggle={toggleSection}
+        >
+          <p className="px-6 pt-4 text-[12px] text-zinc-500">
+            Seules les expériences validées par vos références comptent pour le badge. 20 % des déclarations sont
+            contrôlées manuellement.
+          </p>
           {xpMsg && <div className="mx-6 mt-4 px-4 py-3 rounded-xl bg-[#f0fdf4] border border-[#bbf7d0] text-[13px] text-[#166534] font-medium">{xpMsg}</div>}
           <form onSubmit={submitExperiences} className="px-6 py-5 space-y-5">
             {experiences.map((xp) => {
@@ -351,7 +502,7 @@ export default function DeclarationsPage() {
                   </div>
 
                   {/* Client name + Role */}
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Nom du client / entreprise <span className="text-[#E8112D]">*</span></label>
                       <input type="text" value={xp.clientName} onChange={(e) => updateExperience(xp.id, "clientName", e.target.value)} placeholder="Nom" required className={inputClass} />
@@ -384,7 +535,7 @@ export default function DeclarationsPage() {
                   </div>
 
                   {/* Dates */}
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Période — début</label>
                       <input type="month" value={xp.startDate} onChange={(e) => updateExperience(xp.id, "startDate", e.target.value)} className={inputClass} />
@@ -396,7 +547,7 @@ export default function DeclarationsPage() {
                   </div>
 
                   {/* Livrables + Project URL */}
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Livrables / Réalisation</label>
                       <input type="text" value={xp.livrables} onChange={(e) => updateExperience(xp.id, "livrables", e.target.value)} placeholder="Photos, documents..." className={inputClass} />
@@ -428,11 +579,11 @@ export default function DeclarationsPage() {
                       <div className="text-[12px] font-bold text-[#008751] mb-2">Référent principal (obligatoire)</div>
                       {xpRefs.filter((r) => r.kind === "primary").map((ref) => (
                         <div key={ref.id} className="space-y-2">
-                          <div className="grid grid-cols-2 gap-3">
+                          <div className="grid sm:grid-cols-2 gap-3">
                             <input type="text" value={ref.nom} onChange={(e) => updateRef(ref.id, "nom", e.target.value)} placeholder="Nom" className="h-9 px-3 rounded-lg border border-zinc-200 text-[13px] focus:outline-none focus:ring-1 focus:ring-[#008751]/20" />
                             <input type="text" value={ref.prenom} onChange={(e) => updateRef(ref.id, "prenom", e.target.value)} placeholder="Prénom" className="h-9 px-3 rounded-lg border border-zinc-200 text-[13px] focus:outline-none focus:ring-1 focus:ring-[#008751]/20" />
                           </div>
-                          <div className="grid grid-cols-2 gap-3">
+                          <div className="grid sm:grid-cols-2 gap-3">
                             <input type="tel" value={ref.tel} onChange={(e) => updateRef(ref.id, "tel", e.target.value)} placeholder="+229 XX XX XX XX" className="h-9 px-3 rounded-lg border border-zinc-200 text-[13px] focus:outline-none focus:ring-1 focus:ring-[#008751]/20" />
                             <input type="email" value={ref.email} onChange={(e) => updateRef(ref.id, "email", e.target.value)} placeholder="email (optionnel)" className="h-9 px-3 rounded-lg border border-zinc-200 text-[13px] focus:outline-none focus:ring-1 focus:ring-[#008751]/20" />
                           </div>
@@ -450,7 +601,7 @@ export default function DeclarationsPage() {
                       <div className="text-[12px] font-bold text-zinc-600 mb-2">Référent secondaire (recommandé)</div>
                       {xpRefs.filter((r) => r.kind === "secondary").map((ref) => (
                         <div key={ref.id} className="space-y-2">
-                          <div className="grid grid-cols-2 gap-3">
+                          <div className="grid sm:grid-cols-2 gap-3">
                             <input type="text" value={ref.nom} onChange={(e) => updateRef(ref.id, "nom", e.target.value)} placeholder="Nom" className="h-9 px-3 rounded-lg border border-zinc-200 text-[13px] focus:outline-none focus:ring-1" />
                             <input type="text" value={ref.prenom} onChange={(e) => updateRef(ref.id, "prenom", e.target.value)} placeholder="Prénom" className="h-9 px-3 rounded-lg border border-zinc-200 text-[13px] focus:outline-none focus:ring-1" />
                           </div>
@@ -466,7 +617,7 @@ export default function DeclarationsPage() {
                       <div className="text-[12px] font-bold text-zinc-600 mb-2">Référent croisé (optionnel — client final)</div>
                       {xpRefs.filter((r) => r.kind === "cross").map((ref) => (
                         <div key={ref.id} className="space-y-2">
-                          <div className="grid grid-cols-2 gap-3">
+                          <div className="grid sm:grid-cols-2 gap-3">
                             <input type="text" value={ref.nom} onChange={(e) => updateRef(ref.id, "nom", e.target.value)} placeholder="Nom" className="h-9 px-3 rounded-lg border border-zinc-200 text-[13px] focus:outline-none focus:ring-1" />
                             <input type="text" value={ref.prenom} onChange={(e) => updateRef(ref.id, "prenom", e.target.value)} placeholder="Prénom" className="h-9 px-3 rounded-lg border border-zinc-200 text-[13px] focus:outline-none focus:ring-1" />
                           </div>
@@ -486,17 +637,20 @@ export default function DeclarationsPage() {
             </button>
             <button type="submit" className={btnPrimary}>Soumettre les expériences</button>
           </form>
-        </div>
+        </Section>
 
         {/* Badge & VAE (spec §10, §19, §22) */}
-        <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden">
-          <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between">
-            <h2 className="text-[15px] font-bold text-zinc-900">Badge &amp; VAE</h2>
-            <span className="text-[11px] px-2 py-1 rounded-full bg-[#008751] text-white font-bold">Vérification</span>
-          </div>
-          <div className="px-6 py-3 bg-[#FEF9C3] border-b border-[#FCD116] text-[12px] text-zinc-700">
-            <strong>Règle :</strong> <code className="bg-[#FCD116]/30 px-1 rounded">TEST != PASSED → BADGE NON VÉRIFIÉ</code>, même si KYC, expériences et diplôme sont validés.
-          </div>
+        <Section
+          id="badge"
+          title={<>Badge &amp; VAE</>}
+          badge={<span className="text-[11px] px-2 py-1 rounded-full bg-[#008751] text-white font-bold">Vérification</span>}
+          open={openSections.has("badge")}
+          onToggle={toggleSection}
+        >
+          <p className="px-6 pt-4 text-[12px] text-zinc-500">
+            Le badge n&apos;est accordé qu&apos;après réussite du test, même si l&apos;identité, les expériences et le
+            diplôme sont validés.
+          </p>
           {badgeMsg && <div className="mx-6 mt-4 px-4 py-3 rounded-xl bg-[#f0fdf4] border border-[#bbf7d0] text-[13px] text-[#166534] font-medium">{badgeMsg}</div>}
           <form onSubmit={submitBadge} className="px-6 py-5 space-y-4">
             {/* Matrice badge */}
@@ -525,16 +679,7 @@ export default function DeclarationsPage() {
 
             <button type="submit" className={btnPrimary}>Vérifier le badge</button>
           </form>
-        </div>
-
-        {/* False declaration warning */}
-        <div className="bg-red-50 border border-red-200 rounded-2xl p-5">
-          <div className="text-[14px] font-bold text-red-800">⚠️ Conséquence d&apos;une fausse déclaration</div>
-          <p className="text-[13px] text-zinc-600 mt-1">
-            Toute déclaration inexacte constitue une fausse déclaration contractuelle. Votre compte peut être suspendu
-            sur signalement d&apos;un tiers. En cas de dommage, vous en assumez l&apos;entière responsabilité civile.
-          </p>
-        </div>
+        </Section>
       </div>
     </div>
   );

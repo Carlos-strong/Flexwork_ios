@@ -25,6 +25,10 @@ interface SignatureQRCodeProps {
   keyFingerprint: string;
   signedDataHash: string;
   size?: number;
+  // Endpoint de vérification encodé dans le QR (informatif). Par défaut celui du modèle
+  // Mission ; pour une commande Gig on pointe vers son GET (qui renvoie les signatures
+  // vérifiées). Recommandation #3.
+  verifyPath?: string;
 }
 
 export function SignatureQRCode({
@@ -36,6 +40,7 @@ export function SignatureQRCode({
   keyFingerprint,
   signedDataHash,
   size = 120,
+  verifyPath = "/api/signature/verify",
 }: SignatureQRCodeProps) {
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const roleLabel = role === "client" ? "CLIENT" : "PRESTATAIRE";
@@ -51,7 +56,7 @@ export function SignatureQRCode({
       fingerprint: keyFingerprint,
       hash: signedDataHash,
       method: "RSA-SHA256",
-      verify: "/api/signature/verify",
+      verify: verifyPath,
     });
 
     QRCode.toDataURL(qrPayload, {
@@ -60,7 +65,7 @@ export function SignatureQRCode({
       color: { dark: "#14213D", light: "#FFFFFF" },
       errorCorrectionLevel: "M",
     }).then(setQrDataUrl).catch(() => setQrDataUrl(null));
-  }, [contractId, signatureId, roleLabel, signerName, signedAt, keyFingerprint, signedDataHash, size]);
+  }, [contractId, signatureId, roleLabel, signerName, signedAt, keyFingerprint, signedDataHash, size, verifyPath]);
 
   if (!qrDataUrl) {
     return (
@@ -74,6 +79,10 @@ export function SignatureQRCode({
     <div className="flex flex-col items-center gap-2">
       {/* QR Code */}
       <div className="bg-white p-2 rounded-lg border border-gray-200 shadow-sm">
+        {/* `qrDataUrl` est une data URL générée dans le navigateur : il n'y a aucun fichier à
+            optimiser, et next/image ne sait pas charger un `data:` — le passer à l'optimiseur
+            produirait une erreur au lieu d'une image. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={qrDataUrl}
           alt="QR Code de signature"
