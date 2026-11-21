@@ -55,3 +55,6 @@ next-env.d.ts
 
 # sauvegardes de base (VPS)
 /deploy/backups/
+
+# Pages web enregistrées
+*.webarchive
