@@ -1,14 +1,41 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { randomUUID } from "crypto";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
+import { emitUnfreeze } from "@/lib/escrow";
+import { executeMediationAgreement } from "@/lib/mediation-execution";
+import { notifyUser } from "@/lib/notify";
 
 const schema = z.object({ accept: z.boolean() });
 
-// US-603 (Phase 6) : le client et le prestataire acceptent ou refusent la résolution
-// proposée. Accord des deux parties -> instruction PSP conforme. Refus -> fonds restent
-// gelés, aucune transmission automatique.
+// US-603 (Phase 6) : le client et le prestataire acceptent ou refusent la résolution proposée.
+//
+// Trois correctifs par rapport à la version d'origine (2026-09-11) :
+//
+//  1. Le MONTANT. La route libérait `mission.budget` — le budget PUBLIÉ, alors que tout le
+//     reste du domaine escrow calcule sur `contractPrice` (le prix réellement contracté) et
+//     déduit ce qui est déjà parti. Sur une contre-proposition acceptée à un autre prix, ou sur
+//     un contrat à jalons dont une partie est déjà payée, l'écart se transformait en
+//     sur-paiement. La résolution porte désormais son propre montant (`resolutionAmount`, posé
+//     par l'Admin Médiation), borné par ce qui reste effectivement séquestré.
+//
+//  2. La FIN. Un refus se contentait d'écrire `accepted: false` et s'arrêtait là : la médiation
+//     restait `en_cours` pour toujours, et la mission bloquée en `mediation_ouverte` — statut
+//     qu'aucune route ne quittait. Un refus clôt désormais la médiation sur `no_agreement`.
+//
+//  3. Le RETOUR. À la clôture, quel qu'en soit le sens, la mission retrouve le statut qu'elle
+//     avait avant l'ouverture (`Mediation.previousStatus`) : le cycle de vie reprend là où il
+//     s'était arrêté, au lieu de rester mort.
+//
+//  4. Le DÉGEL (2026-09-14). Cette route notait jusqu'ici qu'elle « ne dégèle pas les fonds au
+//     PSP, le modèle n'ayant pas d'instruction inverse du `freeze` ». C'était une dette réelle :
+//     la mission reprenait son cours à la clôture, mais le gel restait en vigueur, donc plus
+//     aucune libération ne pouvait sortir du séquestre. L'instruction `unfreeze` existe
+//     désormais (voir emitUnfreeze, src/lib/escrow.ts) et les DEUX chemins de clôture — accord
+//     comme désaccord — la transmettent.
+//
+//  5. Le VERSEMENT (2026-11-02). L'exécution de l'accord vit dans src/lib/mediation-execution.ts
+//     et attend, si une part revient au prestataire, que son compte de versement soit vérifié.
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -20,15 +47,20 @@ export async function POST(
   const userId = (session.user as typeof session.user & { id: string }).id;
   const { id } = await params;
 
-  const body = await req.json().catch(() => null);
-  const parsed = schema.safeParse(body);
+  const parsed = schema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ error: "invalid_payload" }, { status: 400 });
   }
 
-  const mediation = await prisma.mediation.findUnique({ where: { id }, include: { contract: { include: { mission: true } } } });
+  const mediation = await prisma.mediation.findUnique({
+    where: { id },
+    include: { contract: { include: { mission: true } } },
+  });
   if (!mediation) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+  if (mediation.outcome !== "en_cours") {
+    return NextResponse.json({ error: "mediation_closed" }, { status: 409 });
   }
 
   const isClient = mediation.contract.clientId === userId;
@@ -36,10 +68,34 @@ export async function POST(
   if (!isClient && !isProvider) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
+
+  // Statut à restaurer : celui d'avant l'ouverture. `fonds_sous_sequestre` en repli pour les
+  // médiations ouvertes avant l'introduction du champ — jamais `mediation_ouverte`, qui
+  // reconduirait le blocage que ce correctif supprime.
+  const restoredStatus = mediation.previousStatus ?? "fonds_sous_sequestre";
+
   if (!parsed.data.accept) {
-    const updated = await prisma.mediation.update({
-      where: { id },
-      data: isClient ? { clientAccepted: false } : { providerAccepted: false },
+    const updated = await prisma.$transaction(async (tx) => {
+      const m = await tx.mediation.update({
+        where: { id },
+        data: {
+          ...(isClient ? { clientAccepted: false } : { providerAccepted: false }),
+          outcome: "no_agreement",
+          closedAt: new Date(),
+        },
+      });
+      await tx.mission.update({
+        where: { id: mediation.contract.missionId },
+        data: { status: restoredStatus },
+      });
+      return m;
+    });
+    // Le litige se referme sans accord : les fonds redeviennent mobilisables. Sans ce dégel,
+    // la mission reprenait son cours mais plus aucune libération ne pouvait sortir — le gel
+    // restait en vigueur pour toujours et `available` restait à zéro.
+    await emitUnfreeze({
+      contractId: mediation.contractId,
+      currency: mediation.contract.mission.currency,
     });
     return NextResponse.json(updated);
   }
@@ -49,21 +105,30 @@ export async function POST(
     data: isClient ? { clientAccepted: true } : { providerAccepted: true },
   });
 
-  if (updated.clientAccepted && updated.providerAccepted) {
-    await prisma.$transaction([
-      prisma.mediation.update({ where: { id }, data: { outcome: "agreement", closedAt: new Date() } }),
-      prisma.pspEscrowOperation.create({
-        data: {
-          contractId: mediation.contractId,
-          pspName: process.env.PSP_NAME ?? "fedapay",
-          pspReference: `mediation_release_${randomUUID()}`,
-          amount: mediation.contract.mission.budget,
-          currency: mediation.contract.mission.currency,
-          instructionType: "release",
-        },
-      }),
-    ]);
+  // Une seule acceptation ne décide rien : on attend l'autre partie.
+  if (!(updated.clientAccepted && updated.providerAccepted)) {
+    return NextResponse.json(updated);
   }
 
-  return NextResponse.json(updated);
+  // ── Accord des deux parties : exécution de la répartition du §24 ─────────────────────────
+  // (src/lib/mediation-execution.ts). Compte de versement du prestataire non vérifié : l'accord
+  // est enregistré mais son exécution attend la vérification du compte, fonds toujours gelés.
+  const execution = await executeMediationAgreement(id);
+  if (!execution.executed) {
+    if (execution.reason === "payout_unverified") {
+      void notifyUser({
+        userId: mediation.contract.providerId,
+        missionId: mediation.contract.missionId,
+        type: "mediation_payout_pending",
+        message: `L'accord de médiation sur « ${mediation.contract.mission.titre} » est conclu. Il sera exécuté dès que votre compte de versement sera vérifié.`,
+      }).catch(() => {});
+    }
+    return NextResponse.json({ ...updated, executionPending: execution.reason });
+  }
+
+  return NextResponse.json({
+    ...execution.mediation,
+    releasedAmount: execution.releasedAmount,
+    refundedAmount: execution.refundedAmount,
+  });
 }

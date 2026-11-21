@@ -18,6 +18,9 @@ async function main() {
 
   // Supprimer les OTP
   await p.otpCode.deleteMany({ where: { user: { email: { contains: "flexwork.test" } } } });
+  // OtpRequestAttempt n'a pas de relation user (voir schema.prisma) — ciblé par
+  // identifiant brut, pas via une jointure comme otpCode ci-dessus.
+  await p.otpRequestAttempt.deleteMany({ where: { identifier: { contains: "flexwork.test" } } });
 
   // Supprimer les utilisateurs
   await p.user.deleteMany({ where: { email: { contains: "flexwork.test" } } });

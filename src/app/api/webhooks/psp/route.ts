@@ -1,23 +1,16 @@
 import { NextResponse } from "next/server";
-import { applyPspWebhookEvent, type PspWebhookPayload } from "@/lib/psp-webhook";
+import { receivePspWebhook } from "@/lib/psp/inbox";
 
 // US-503 (Phase 5) : seule route capable de confirmer un mouvement d'escrow — signature
 // HMAC vérifiée, aucune capture manuelle possible ailleurs dans l'application.
+//
+// Boîte de réception (2026-10-01, src/lib/psp/inbox.ts) : le corps est lu BRUT et consigné après
+// vérification de la signature. En mode `worker` (QUEUE_MODE), la route répond dès la
+// consignation et le worker applique ; en mode `inline`, elle applique dans la foulée et répond
+// le résultat, comme avant. Les refus avant traitement (sans signature, charge illisible,
+// signature fausse) restent consignés au journal.
 export async function POST(req: Request) {
-  const signature = req.headers.get("x-webhook-signature");
-  if (!signature) {
-    return NextResponse.json({ error: "missing_signature" }, { status: 401 });
-  }
-
-  const payload = (await req.json().catch(() => null)) as PspWebhookPayload | null;
-  if (!payload?.pspReference || !payload?.event) {
-    return NextResponse.json({ error: "invalid_payload" }, { status: 400 });
-  }
-
-  const result = await applyPspWebhookEvent(payload, signature);
-  if (!result.ok) {
-    return NextResponse.json({ error: result.error }, { status: 409 });
-  }
-
-  return NextResponse.json({ received: true });
+  const rawBody = await req.text();
+  const { status, body } = await receivePspWebhook(rawBody, req.headers.get("x-webhook-signature"));
+  return NextResponse.json(body, { status });
 }

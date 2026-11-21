@@ -1,6 +1,6 @@
 # Flexwork — État consolidé des décisions
 
-**Date** : 3 août 2026
+**Date d'arbitrage** : 3 août 2026 · **Dernière mise à jour** : 28 septembre 2026 (A16 : secteurs DIGITAL / BTP / SERVICES)
 **Objet** : document de référence unique. Recense l'état des décisions arrêtées, les arbitrages successifs et leurs motifs, les prérequis bloquants, et le statut de chaque document produit.
 **Statut du modèle** : **arbitré** — option A (intermédiaire neutre) retenue le 3 août 2026, voir §6. Reste conditionné aux prérequis juridiques du §5.
 
@@ -14,16 +14,16 @@ Flexwork est une plateforme de mise en relation entre clients et prestataires (5
 
 ### 1.2 Le modèle actuellement retenu
 
-**Intermédiaire pur** (`modele-Flexwork-v3-intermediaire.md`) :
+**Intermédiaire pur** (`modele-skillafrica-v3-Flexwork.md`, nommé `modele-Flexwork-v3-intermediaire.md` dans les échanges de conception) :
 
 | Élément | État |
 |---|---|
-| Vérification effective par la plateforme | **Identité uniquement (KYC)** |
+| Vérification effective par la plateforme | **Identité (KYC)** et **âge minimum légal sur les catégories de métier à risque** (A13, A15) — rien d'autre |
 | Qualifications, assurance, expérience | **Déclarées** par le prestataire, affichées comme non vérifiées |
 | Contrat de prestation | Entre client et prestataire — **plateforme non signataire** |
 | Détention des fonds | **Par un PSP agréé** — jamais par la plateforme |
 | Litige | **Médiation facultative** — la plateforme ne tranche pas |
-| Exception | Domaines à risque physique élevé : assurance effective bloquante |
+| Exceptions au principe d'intermédiaire pur | **Deux** : domaines à risque physique élevé (assurance effective bloquante, A9) et âge minimum légal sur les catégories de métier à risque (A13/A15, sans dérogation) |
 
 ### 1.3 Ce qui n'a jamais changé sur toute la session
 
@@ -193,6 +193,17 @@ Deux précisions importantes :
 
 Elle est encore moins négociable que la première : elle protège des personnes qui ne peuvent pas consentir valablement au risque, et faciliter un travail illégal n'est couvert par aucun argument de neutralité.
 
+### A14 — Le contrôle d'âge porte sur la filière prestataire, jamais sur le compte
+**Décision** : la barrière A13 s'applique à la **filière prestataire** (ce que la personne offre : artisan, manœuvre, expert BTP/Autres), jamais au compte. Un compte à double face (client **et** manœuvre, à venir avec le dual-role) est donc : **jamais soumis** au seuil côté client (hors sujet) et **toujours soumis** côté prestataire (pas d'esquive). En mono-rôle actuel, la filière prestataire == `user.role` — la règle est déjà implémentée telle quelle ; l'arbitrage lève l'ambiguïté pour la bascule dual-role.
+**Motif** : `user.role` est une filière métier, pas une face du marché. Si le contrôle était porté par le compte, un compte à double face échapperait au seuil légal (ou le subirait sans objet côté client) — soit l'inverse exact de l'intention d'A13.
+**Implémentation** : module partagé `src/lib/chantier-age.ts` (`isChantierPrestataireAgeOk`) réutilisé par (1) l'activation du profil (`POST /api/profile` → `profile_below_minimum_age`) et (2) la candidature (`src/lib/candidature-guard.ts` → `age_under_minimum` / `kyc_required_for_age`) — défense en profondeur, un mineur ne peut ni activer son profil chantier ni candidater, même en contournant l'une des deux portes. Réévaluation en direct à chaque appel (jamais un statut figé) : un profil refusé à 17 ans s'active à 18 sans repasser le KYC. *(Déclencheur remplacé par A15 — le principe « jamais sur le compte » demeure.)*
+
+### A15 — Le contrôle d'âge est porté par la catégorie du métier, plus par la filière (2026-09-24)
+**Décision** : la barrière A13 se dresse quand le métier choisi appartient à une **catégorie marquée** par l'administrateur (`Categorie.requiresAgeCheck`, case « barrière d'âge » dans `/backoffice/catalog`). La filière du compte (`User.role`) ne sert plus qu'à choisir le **seuil** dans `country_age_requirements` ; une filière sans règle configurée retombe sur le plancher de 18 ans, jamais sur « pas de contrôle ».
+**Motif** : la filière dit *comment* on exerce, pas *quel travail* on fait. Depuis que « Prestataire indépendant » a remplacé « Expert digital », elle ne délimite plus rien : un électricien pouvait s'y déclarer sans rencontrer le contrôle. La catégorie est aussi l'axe que le client choisit en publiant une mission — les deux côtés se répondent.
+**Installation** : le marqueur est à `false` sur toutes les catégories (migration `20260924120000_categorie_barriere_age`). Désigner les catégories dangereuses est un choix de classification qui revient à l'administrateur ; **tant qu'aucune n'est cochée, la barrière ne se dresse nulle part** — c'est une action de mise en production à ne pas oublier.
+**Implémentation** : module unique `src/lib/age-categorie.ts` (`isCategorieAgeOk`), appelé (1) à l'enregistrement du métier dans le profil (`POST /api/profile` → `profile_below_minimum_age` / `kyc_required_for_age` / `birth_date_missing`) et (2) à la candidature, sur la catégorie de la **mission** visée (`src/lib/candidature-guard.ts` → `age_under_minimum` / `kyc_required_for_age`). Chaque changement du marqueur est journalisé avec justification (`/api/categories`).
+
 ---
 
 ## 3. Architecture contractuelle retenue
@@ -222,6 +233,29 @@ Elle est encore moins négociable que la première : elle protège des personnes
 └──────────────────────────────────────────────────────┘
 ```
 
+
+### A16 — La marketplace est regroupée en trois secteurs : DIGITAL, BTP, SERVICES (2026-09-28)
+**Décision** : chaque catégorie de la taxonomie est rattachée par l'administrateur à un secteur (`Categorie.secteur`, choisi dans `/backoffice/catalog`). La hiérarchie devient **Secteur → Catégorie → Métier → Service**.
+**Ce que le secteur n'est pas** : ce n'est pas la filière. Il décrit le *travail* (il regroupe des catégories) ; la filière (`User.role` : indépendant, entreprise, artisan, manœuvre) décrit la *façon d'exercer*. Un artisan électricien et une entreprise d'électricité relèvent du même secteur. Le secteur ne conditionne aujourd'hui aucune règle (âge, assurance, garant) : c'est un classement d'affichage et de navigation.
+**Installation** : aucune catégorie n'est classée (colonne nullable, migration `20260928120000_categorie_secteur`) — pas de rattachement deviné par libellé. Le backoffice affiche le nombre de catégories encore « non classées » ; tant qu'elles le restent, elles n'apparaissent sous aucun pôle.
+**Implémentation** : `src/lib/secteur.ts` (valeurs, libellés, lecture de la saisie) ; écriture via `/api/categories` (valeur inconnue refusée, changement journalisé) ; lecture publique via `/api/taxonomy`. Classement dans `/backoffice/catalog` par le rôle `frontend` : trois colonnes DIGITAL / BTP / SERVICES, « Ajouter » range ou déplace une catégorie, « ✕ » la retire (elle redevient non classée, rien n'est supprimé). Le superviseur lit sans classer.
+
+**Règle fondamentale — deux dimensions à ne jamais confondre** :
+
+| Dimension | Question | Axe |
+|---|---|---|
+| Taxonomie du travail | *Quel est le besoin du client ?* | Secteur → Catégorie → Métier → Service |
+| Filière professionnelle | *Qui réalise le travail ?* | Prestataire indépendant · Entreprise · Artisan · Manœuvre |
+
+> Le secteur classe la nature du travail. La catégorie, le métier et le service décrivent progressivement la prestation. La filière décrit le type de professionnel qui la réalise. **Le secteur ne détermine à lui seul aucune règle d'éligibilité** — ni garant, ni assurance, ni âge, ni pointage.
+
+Conséquences :
+- La relation secteur ↔ filière est **N × N** : une installation électrique (BTP → Énergie et Électricité → Électricien) peut être réalisée par un artisan comme par une entreprise ; un prestataire indépendant peut relever du Digital comme des Services. Aucune règle « Artisan ⇒ BTP » ni « Digital ⇒ indépendant ».
+- Le secteur d'une mission ou d'un profil n'est **jamais saisi** : il se lit à travers la catégorie (`Mission.categorie.secteur`, `Profile.metier.categorie.secteur`). Une seule source, pas de désaccord possible.
+- `Mission.professionalType` reste une **préférence du client** (le professionnel recherché), pas une barrière : il peut orienter le classement des candidats, pas en exclure.
+- **Cohérence secteur ⇄ professionnel ciblé (2026-09-28)** : une mission du secteur **Digital** ne peut cibler qu'un prestataire indépendant ou une entreprise — pas un artisan ni un manœuvre. BTP et Services admettent les quatre filières ; une catégorie non classée ne restreint rien. Seule exception au principe « le secteur ne porte aucune règle », et elle porte sur la **description de la mission**, pas sur les prestataires : aucun artisan ni manœuvre n'est empêché de candidater à une mission Digital. Table unique dans `src/lib/secteur.ts` (`allowedProfessionalTypes`), appliquée par le formulaire (options filtrées, choix incohérent remis à « Indifférent ») et par `POST /api/missions` (`professional_type_incompatible`).
+- Les règles restent sur leur support propre : risque et assurance sur le **métier**, barrière d'âge sur la **catégorie** (A15), garant sur la **filière** et le compte, mode de contrat (prix fixe / temps) sur la **mission**.
+- Rôle du secteur : navigation (« Que cherchez-vous ? DIGITAL / BTP / SERVICES »), cascade de publication d'une mission, recherche, compteurs de la marketplace, statistiques d'activité.
 ### Répartition des clauses
 
 | Clause | CGU | Contrat de prestation |
@@ -280,7 +314,7 @@ Aucun de ces points ne se résout en développant. Ils déterminent **ce qu'il f
 | **4** | **Assurance à la mission** : existence, taux, statut de distribution | Courtier / assureur | Bloque l'exception risque élevé (A9) |
 | **5** | **Requalification en relation de travail** | Avocat | Contrôler : pas de tarifs imposés, pas de disponibilité obligatoire, pas d'exclusivité |
 | **6** | Validité de la **génération automatique de contrats** entre tiers | Avocat | Forme et signature électronique |
-| **7** | **Protection des données personnelles** : statut de responsable de traitement sur les données de pointage (géolocalisation), obligations et déclaration APDP éventuelle (loi 2009-09) | Avocat / APDP | L'argument d'outil neutre (A12) ne couvre pas cette dimension — sanctions concrètes possibles |
+| **7** | **Protection des données personnelles** : statut de responsable de traitement sur les données de pointage (géolocalisation), obligations et déclaration APDP éventuelle (**référence légale à confirmer** : la loi 2009-09 a été reprise par le Code du numérique béninois, loi 2017-20) | Avocat / APDP | L'argument d'outil neutre (A12) ne couvre pas cette dimension — sanctions concrètes possibles |
 
 ### Vérification terrain, également bloquante
 
@@ -311,7 +345,9 @@ Le concept d'origine était : *« un Upwork vérifié localement, différencié 
 2. **Réalité du marché béninois** — largement informel. Exiger assurance et certification vérifiées fermerait la plateforme à l'essentiel de l'offre potentielle. Une marketplace sans prestataires n'a pas de clients.
 3. **Coût opérationnel récurrent** — chaque diplôme et chaque police à contrôler représente du temps humain permanent, non un développement livré une fois. Charge difficilement soutenable au stade actuel.
 
-### L'exception maintenue — risque physique élevé
+### Les deux exceptions maintenues
+
+#### 1. Risque physique élevé
 
 ```text
 Faible et moyen risque  →  option A pure (déclarations affichées, non vérifiées)
@@ -320,6 +356,20 @@ Risque physique élevé   →  assurance effective exigée, bloquante
 ```
 
 Ce n'est pas une incohérence mais une exception délimitée et assumée, justifiée par la gravité : un accident grave laisserait un client sans recours effectif face à un prestataire insolvable, et la réputation de la plateforme en serait atteinte quelle que soit la qualité de ses CGU.
+
+#### 2. Âge minimum légal sur les catégories de métier à risque (A13, A15)
+
+```text
+Catégories marquées « barrière d'âge » par l'administrateur
+        →  âge vérifié sur la pièce d'identité du KYC
+        →  blocage de la déclaration du métier ET de la candidature, aucune dérogation admin
+        →  plancher 18 ans, jamais administrable en dessous
+```
+
+Cette seconde exception est **moins négociable que la première** : elle protège des personnes qui
+ne peuvent pas consentir valablement au risque, et faciliter un travail illégal n'est couvert par
+aucun argument de neutralité. Elle est portée par la catégorie du travail et jamais par le compte
+(A14, A15), afin qu'aucun compte — double face ou filière mal choisie — ne puisse l'esquiver.
 
 ### Ce qui reste comme différenciation
 
@@ -342,11 +392,12 @@ Les **premiers mois sont les plus risqués pour les clients** : la réputation d
 
 ### Ce dont il faut prendre acte
 
-Aucun modèle ne libère totalement la plateforme de tout engagement. Quatre engagements sont irréductibles, même en option A :
+Aucun modèle ne libère totalement la plateforme de tout engagement. Cinq engagements sont irréductibles, même en option A :
 
 | Engagement | Motif |
 |---|---|
 | Exactitude du KYC | La plateforme le vérifie, donc elle en répond |
+| Exactitude du contrôle d'âge sur filières chantier (A13) | Même raison : la plateforme le vérifie elle-même, sur une donnée qu'elle extrait de la pièce d'identité |
 | Fidélité de l'affichage des déclarations | Affirmer « voici ce que le prestataire a déclaré » engage sur cette fidélité |
 | Fonctionnement du service | Un accès vendu doit fonctionner |
 | Justesse des instructions de paiement au PSP | Une instruction erronée engage |
@@ -357,10 +408,10 @@ Au-delà du droit : **aucune clause ne protège de la réputation.** Ce qui prot
 
 ## 7. Actions recommandées, dans cet ordre
 
-L'arbitrage du positionnement étant tranché (§6), il reste trois étapes avant le développement :
+L'arbitrage du positionnement étant tranché (§6), il reste quatre étapes avant le développement :
 
-1. **Consultation juridique** avec les 6 questions du §5. Une séance apportera plus que dix documents supplémentaires. Y ajouter la question de l'**assurance RC professionnelle de la plateforme elle-même** — c'est la protection la plus efficace et la plus souvent négligée.
-2. **Vérification terrain** sur le taux de couverture assurance dans le vivier réel, pour calibrer la liste des domaines à risque élevé (§6, exception).
+1. **Consultation juridique** avec les 7 questions du §5. Une séance apportera plus que dix documents supplémentaires. Y ajouter la question de l'**assurance RC professionnelle de la plateforme elle-même** — c'est la protection la plus efficace et la plus souvent négligée.
+2. **Vérification terrain** sur le taux de couverture assurance dans le vivier réel, pour calibrer la liste des domaines à risque élevé (§6, exception 1).
 3. **Souscription de la RC professionnelle de la plateforme** avant l'ouverture au public.
 4. **Seulement ensuite** : figer le document d'implémentation à partir de la v3 et développer.
 
@@ -374,9 +425,10 @@ L'arbitrage du positionnement étant tranché (§6), il reste trois étapes avan
 | Document | Rôle |
 |---|---|
 | `etat-consolide-Flexwork.md` | **Ce document — référence unique** |
-| `modele-Flexwork-v3-intermediaire.md` | **Modèle de référence confirmé par l'arbitrage A11** — base du développement |
-| `mission.md` | Module publication de mission — largement indépendant du modèle de badge, reste valable |
-| `cdc-partenaires-certification.md` | Rôle réduit : volet formation optionnelle et sa monétisation (avec A7) |
+| `modele-skillafrica-v3-Flexwork.md` | **Modèle de référence confirmé par l'arbitrage A11** — base du développement |
+| `implementation-skillafrica-securise-v3.md` | Document d'implémentation tiré de la v3 |
+| `mission.md` | Module publication de mission — **absent de ce dépôt**, conservé hors dépôt |
+| `cdc-partenaires-certification.md` | Volet formation optionnelle et sa monétisation (avec A7) — **absent de ce dépôt** |
 
 ### Obsolètes — à archiver, ne pas implémenter
 | Document | Motif |
@@ -398,6 +450,19 @@ L'arbitrage du positionnement étant tranché (§6), il reste trois étapes avan
 ### Recommandation d'archivage
 Créer un dossier `archive/`. L'arbitrage A11 ayant écarté l'option B, ces documents n'ont plus qu'une valeur historique — ils documentent des pistes explorées et les motifs de leur abandon, ce qui reste utile pour ne pas les rejouer.
 
+**Note de vérification (16 septembre 2026)** : les douze documents nommés ci-dessus n'ont **jamais
+été suivis dans ce dépôt**. Le tableau vaut donc comme mémoire des pistes abandonnées, pas comme
+inventaire de fichiers à déplacer, et seuls `modele-skillafrica-v3-Flexwork.md` et
+`implementation-skillafrica-securise-v3.md` y existent réellement.
+
+La ligne « Prototypes HTML » est le seul cas distinct : ceux-là étaient bien suivis.
+`Chronologie-Pages-Publication-Cloture-Vjr.html` et `Flexwork-Integration-Finale-Vjr.html` ont été
+retirés le 16 septembre 2026. Le premier a été porté dans l'application, où il est désormais la
+chronologie de référence (`src/app/chronologie/page.tsx`) ; le second était une maquette
+d'intégration d'ensemble (catalogue, devis, contrat, preuves) dont les sujets sont implémentés,
+sans qu'un écran unique lui corresponde. D'autres maquettes HTML subsistent à la racine, sur
+d'autres sujets que l'affichage du profil visé par cette ligne.
+
 ---
 
 ## 9. Règles de conformité permanentes
@@ -412,10 +477,10 @@ Neuf questions à passer avant toute évolution future. **Toute réponse diverge
 6. La plateforme **tranche-t-elle** un litige de manière opposable ? *(si oui → refuser)*
 7. Un domaine à risque physique élevé peut-il être exercé **sans couverture effective** ? *(si oui → refuser)*
 8. Les données de l'outil de pointage sont-elles utilisées **par la plateforme** pour scorer, classer, sanctionner ou décider ? *(si oui → refuser — voir A12)*
-9. Un profil de filière chantier peut-il être activé **en dessous de l'âge minimum légal** du pays, ou une dérogation est-elle possible ? *(si oui → refuser — voir A13)*
+9. Un métier d'une catégorie à risque peut-il être déclaré, ou une mission de cette catégorie obtenue, **en dessous de l'âge minimum légal** du pays, ou une dérogation est-elle possible ? *(si oui → refuser — voir A13, A15)*
 
 **Règle additionnelle permanente (A7)** : aucune commission sur une certification que la plateforme rend obligatoire.
 
 **Règle additionnelle permanente (A12)** : la plateforme reste aveugle aux données de pointage — elles transitent, elles ne l'informent pas.
 
-**Règle additionnelle permanente (A13)** : le seuil d'âge des filières chantier est administrable par pays mais **jamais en dessous de 18 ans**, sans dérogation possible.
+**Règle additionnelle permanente (A13)** : le seuil d'âge des catégories à risque est administrable par pays mais **jamais en dessous de 18 ans**, sans dérogation possible.

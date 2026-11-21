@@ -1,0 +1,13 @@
+-- A13 — la barrière d'âge est portée par la CATÉGORIE du métier (2026-09-24).
+--
+-- Le contrôle s'évaluait sur la filière du compte (`User.role` : artisan, manœuvre,
+-- expert_btp_autres). La filière dit comment on exerce, pas quel travail on fait : depuis que
+-- « Prestataire indépendant » a remplacé « Expert digital », elle ne délimite plus rien, et un
+-- électricien pouvait s'y déclarer sans jamais rencontrer le contrôle d'âge.
+--
+-- Le marqueur est volontairement posé à FALSE sur TOUTES les catégories : décider lesquelles
+-- exposent à un travail dangereux est un choix de classification qui revient à l'administrateur,
+-- pas une valeur à deviner. La barrière ne se dresse donc nulle part tant qu'il n'a pas coché.
+-- (Même leçon que le palier de risque : un backfill approximatif par correspondance de libellé
+-- avait rendu la règle inerte, la table ne correspondant à presque aucun métier réel.)
+ALTER TABLE "categories" ADD COLUMN "requiresAgeCheck" BOOLEAN NOT NULL DEFAULT false;

@@ -1,0 +1,23 @@
+# SITE_ADDRESS (dans .env.production) :
+#   « :80 »             → HTTP sur l'IP du VPS, tant qu'il n'y a pas de domaine ;
+#   « app.exemple.com » → HTTPS automatique (Let's Encrypt) dès que le DNS pointe vers le VPS.
+{$SITE_ADDRESS}
+
+encode zstd gzip
+
+# Caddy n'accepte aucun X-Forwarded-For venu du client (pas de trusted_proxies) : il pose
+# l'adresse réelle. X-Real-IP est écrasé aussi, l'app lisant l'un puis l'autre.
+reverse_proxy web:3000 {
+	header_up X-Real-IP {remote_host}
+}
+
+header {
+	# HSTS n'a d'effet qu'en HTTPS ; ignoré par les navigateurs en HTTP.
+	Strict-Transport-Security "max-age=31536000; includeSubDomains"
+	-Server
+}
+
+# Pièces justificatives et uploads : bornés par l'app ; on borne aussi ici.
+request_body {
+	max_size 25MB
+}

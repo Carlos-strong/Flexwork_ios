@@ -5,8 +5,13 @@ import type { UserRole } from "@prisma/client";
 // refuser toute valeur inférieure, jamais un simple garde-fou côté UI.
 export const ABSOLUTE_MINIMUM_AGE = 18;
 
-// Rôles concernés par le contrôle d'âge — "filières chantier" au sens d'A13. Les autres
-// rôles (client, expert_digital) ne sont jamais soumis à ce contrôle.
+// Rôles qui déclenchent l'exigence de GARANT (activée compte par compte par l'Admin KYC) et
+// l'affichage « filière chantier » côté administration.
+//
+// ⚠️ Depuis le 2026-09-24, cette liste ne gouverne plus la BARRIÈRE D'ÂGE : celle-ci se
+// déclenche sur la CATÉGORIE du métier (`Categorie.requiresAgeCheck`), parce que la filière dit
+// comment on exerce, pas quel travail on fait. La conserver ici pour le garant et l'affichage
+// est volontaire — ce sont deux règles distinctes qui se trouvaient coïncider.
 export const CHANTIER_ROLES: UserRole[] = ["artisan", "manoeuvre", "expert_btp_autres"];
 
 export function isChantierRole(role: UserRole): boolean {
@@ -31,14 +36,15 @@ export function computeAge(dateNaissance: Date, now: Date = new Date()): number 
 // Le contrôle est TOUJOURS recalculé en direct (jamais un statut figé stocké en base) :
 // « Réévaluation automatique à l'anniversaire — un profil refusé à 17 ans s'active à 18 sans
 // repasser le KYC. » (etat-consolide-Flexwork.md §2, A13).
-export function isChantierProfileAllowed(params: {
-  role: UserRole;
+// La règle « qui est concerné » n'est PAS ici : elle dépend de la catégorie du métier, lue en
+// base (voir `isCategorieAgeOk`). Cette fonction ne répond qu'à une question : une date de
+// naissance connue satisfait-elle le seuil ?
+export function isMinimumAgeSatisfied(params: {
   dateNaissance: Date | null;
-  minimumAge: number | null; // null = aucune règle par pays trouvée -> plancher légal par défaut
+  minimumAge: number | null; // null = aucune règle par pays trouvée -> plancher légal
   now?: Date;
 }): boolean {
-  if (!isChantierRole(params.role)) return true;
-  if (!params.dateNaissance) return false; // KYC (et donc la date de naissance) pas encore vérifié
+  if (!params.dateNaissance) return false; // date non relevée par le KYC
 
   const threshold = params.minimumAge ?? ABSOLUTE_MINIMUM_AGE;
   const age = computeAge(params.dateNaissance, params.now);

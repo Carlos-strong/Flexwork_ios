@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { contractRole } from "@/lib/validation-mode";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 
@@ -19,9 +20,15 @@ export async function GET(
     where: { missionId },
     include: { jalons: { orderBy: { ordre: "asc" } } },
   });
-  if (!contract || (contract.clientId !== userId && contract.providerId !== userId)) {
+  if (!contract || !contractRole(contract, userId)) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
-  return NextResponse.json({ items: contract.jalons });
+  // financingMode/jalonsSequential (règle 18.4/18.8-18.9) — pour que l'UI explique POURQUOI un
+  // jalon `en_attente` reste verrouillé (18.9) et affiche un indicateur de mode de financement.
+  return NextResponse.json({
+    items: contract.jalons,
+    financingMode: contract.financingMode,
+    jalonsSequential: contract.jalonsSequential,
+  });
 }

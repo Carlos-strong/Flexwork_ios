@@ -1,39 +1,428 @@
+import { randomUUID } from "crypto";
+import type { PspOperationStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { verifyWebhookSignatureGeneric } from "@/lib/webhook-signing";
+import { contractPrice, heldBalance, instructOwedPayables, providerPayoutReady, releasedAmounts } from "@/lib/escrow";
+import { IN_FLIGHT_STATUSES } from "@/lib/escrow-instructions";
+import { afterInstructionCommitted } from "@/lib/psp/dispatch";
+import { scheduleFailedPayableRetry } from "@/lib/psp/payable-retry";
+import { MONTANT_EPSILON, releasableBeforeRetention, totalRetentionAmount } from "@/lib/jalons";
 
 export type PspWebhookPayload = {
   pspReference: string;
-  event: "hold_confirmed" | "release_confirmed" | "freeze_confirmed" | "refund_confirmed" | "failed";
+  event:
+    | "hold_confirmed"
+    | "release_confirmed"
+    | "freeze_confirmed"
+    | "unfreeze_confirmed"
+    | "refund_confirmed"
+    | "failed";
 };
 
-export type ApplyResult = { ok: true } | { ok: false; error: string };
+// `replayed` : le même dénouement était déjà enregistré — succès idempotent, aucune écriture. Le
+// distinguer d'une application réelle ne change rien pour l'appelant, mais tout pour le journal :
+// un PSP qui rappelle dix fois la même confirmation est un signal d'intégration à voir.
+export type ApplyResult = { ok: true; replayed?: boolean } | { ok: false; error: string };
+
+export type PspEventChannel = "webhook" | "virtual_console" | "autoconfirm" | "reconciliation";
+
+// Le montant total CONFIRMÉ libéré sur ce jalon (ou, jalonId null, sur ce contrat sans jalon)
+// a-t-il atteint le montant dû ? Financement progressif (règle 18.4) : plusieurs RELEASE
+// partiels peuvent se succéder (un par point d'étape confirmé, voir .../checkpoint) — seul le
+// DERNIER, celui qui fait franchir ce seuil, doit déclencher la clôture (`libere`/`cloturee`).
+// En mode "lump_sum" (défaut), un seul RELEASE est jamais créé, toujours pour le montant
+// plein : ce contrôle est alors trivialement vrai dès sa confirmation, comportement
+// historique inchangé.
+async function isFullyReleased(
+  where: { jalonId: string } | { contractId: string; jalonId: null },
+  montant: number
+): Promise<boolean> {
+  const { confirmed } = await releasedAmounts(where);
+  return confirmed >= montant - MONTANT_EPSILON;
+}
+
+// Marque UN jalon `libere` et clôture la mission (`cloturee`) si c'était le DERNIER jalon du
+// contrat encore non libéré — factorisé (2026-09-08, règle 18.4) pour être appelé aussi bien
+// par le webhook PSP normal (release confirmé) que par POST .../validate quand le financement
+// progressif a déjà libéré 100% du jalon via les points d'étape (aucune nouvelle instruction
+// PSP à transmettre dans ce cas, donc aucun webhook à attendre — voir ce fichier appelant).
+export async function closeJalonFullyReleased(jalonId: string, contractId: string, missionId: string): Promise<void> {
+  await prisma.jalon.update({ where: { id: jalonId }, data: { status: "libere" } });
+
+  // UNE seule lecture : le contrat porte déjà ses jalons, d'où l'on tire à la fois « en
+  // reste-t-il un non libéré ? » et les montants qui composent la retenue. Auparavant un
+  // `count` puis un `findUnique` — deux allers-retours pour deux vues de la même liste.
+  const contract = await prisma.prestationContract.findUnique({
+    where: { id: contractId },
+    select: {
+      retentionRate: true,
+      mission: { select: { currency: true } },
+      jalons: { select: { montant: true, status: true } },
+    },
+  });
+  if (!contract) return;
+  if (contract.jalons.some((j) => j.status !== "libere")) return;
+
+  // Tous les jalons sont libérés. Sans retenue de garantie (cas par défaut, retentionRate 0)
+  // il n'y a plus rien à transmettre : la mission se clôture ici, comportement historique.
+  const retention = totalRetentionAmount(contract.jalons, contract.retentionRate);
+  if (retention <= 0) {
+    await prisma.mission.update({ where: { id: missionId }, data: { status: "cloturee" } });
+    return;
+  }
+
+  await emitRetentionRelease({
+    contractId,
+    missionId,
+    amount: retention,
+    currency: contract.mission.currency,
+    missionStatus: "validee",
+  });
+}
+
+// Libération FINALE de la retenue de garantie (règle 18.10, mode J4) — une seule instruction
+// portant la somme retenue sur tous les jalons, scopée au CONTRAT (jalonId null) puisqu'elle
+// n'appartient à aucun jalon en particulier. La mission passe `validee` (tous les jalons sont
+// payés, le solde de garantie est en vol) et n'atteindra `cloturee` qu'à la confirmation du
+// PSP — jamais de clôture optimiste, même règle que partout ailleurs en Phase 5.
+export async function emitRetentionRelease(args: {
+  contractId: string;
+  missionId: string;
+  amount: number;
+  currency: string;
+  // Statut à poser sur la mission en même temps que l'instruction. "validee" sur le chemin
+  // nominal (tous les jalons payés, la retenue est le dernier mouvement). OMIS sur le chemin de
+  // règlement d'une mission arrêtée (POST /api/admin/contracts/[contractId]/retention/settle) :
+  // une mission en médiation ou interrompue ne doit surtout pas être réétiquetée « validée »
+  // parce qu'on solde son séquestre.
+  missionStatus?: "validee";
+}): Promise<{ emitted: boolean; reason?: "payout_unverified" }> {
+  // ⚠️ Import DYNAMIQUE, volontaire : `src/lib/psp-virtual.ts` importe `applyPspWebhookEvent`
+  // depuis CE fichier (il rejoue le même chemin de vérification signé). Un import statique de
+  // psp-virtual ici fermerait donc le cycle psp-webhook → psp-virtual → psp-webhook. Le charger
+  // au moment de l'appel casse le cycle à l'évaluation des modules sans dupliquer la résolution
+  // du nom de PSP ni la logique d'autoconfirmation.
+  const { virtualPspName } = await import("@/lib/psp-virtual");
+
+  // Garde d'idempotence SOUS VERROU : ce chemin est atteint par le webhook du dernier jalon
+  // libéré, et `closeJalonFullyReleased` est aussi appelable par POST .../validate. Un simple
+  // `findFirst` suivi d'un `create` laissait deux arrivées CONCURRENTES passer toutes les deux
+  // la garde et instruire la retenue deux fois (lecture puis écriture non atomiques). Le
+  // `FOR UPDATE` sur la ligne du contrat sérialise les prétendants : le second attend, relit,
+  // trouve l'opération du premier et s'arrête. `failed` reste exclu — une instruction refusée
+  // par le PSP doit pouvoir être reprise.
+  //
+  // La mise à jour du statut mission est DANS la même transaction : une opération créée sans
+  // son changement de statut laisserait une retenue en vol sur une mission qui ne l'annonce pas.
+  const operation = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM "PrestationContract" WHERE id = ${args.contractId} FOR UPDATE`;
+    const existing = await tx.pspEscrowOperation.findFirst({
+      where: {
+        contractId: args.contractId,
+        instructionType: "retention_release",
+        status: { in: IN_FLIGHT_STATUSES },
+      },
+    });
+    if (existing) return null;
+    // Compte de versement du prestataire non vérifié (2026-11-02) : rien ne part. La retenue
+    // reste au séquestre et sera relancée à la vérification du compte (src/lib/payout-release.ts).
+    if (!(await providerPayoutReady(args.contractId, tx))) return "payout_unverified" as const;
+
+    // Borne de sûreté (défense en profondeur) : ne jamais transmettre plus que ce que notre
+    // registre dit encore séquestré pour ce contrat. Le montant vient des montants de jalons,
+    // le solde des instructions réellement émises — deux chemins indépendants qui doivent
+    // coïncider ; s'ils divergent, la borne empêche que ça devienne un sur-paiement. Lue DANS
+    // la transaction, donc sous le même verrou que l'écriture qu'elle protège : à l'extérieur,
+    // une libération concurrente pouvait changer le solde entre la lecture et l'instruction.
+    const amount = Math.min(args.amount, await heldBalance(args.contractId, tx));
+    if (amount <= 0) return null;
+
+
+    const created = await tx.pspEscrowOperation.create({
+      data: {
+        contractId: args.contractId,
+        pspName: virtualPspName(),
+        pspReference: `retention_release_${randomUUID()}`,
+        amount,
+        currency: args.currency,
+        instructionType: "retention_release",
+      },
+    });
+    if (args.missionStatus) {
+      await tx.mission.update({ where: { id: args.missionId }, data: { status: args.missionStatus } });
+    }
+    return created;
+  });
+  if (operation === "payout_unverified") return { emitted: false, reason: "payout_unverified" };
+  if (!operation) return { emitted: false };
+
+  // Transmission HORS transaction, volontairement : en autoconfirm elle rentre à nouveau dans
+  // `applyPspWebhookEvent`, qui écrit en base. L'appeler à l'intérieur ferait attendre le verrou
+  // `FOR UPDATE` que cette même transaction détient — interblocage garanti.
+  await afterInstructionCommitted(operation);
+  return { emitted: true };
+}
 
 // US-503 (Phase 5) — seule source de confirmation d'un mouvement d'escrow : le webhook
 // signé du PSP. Aucune route admin de confirmation manuelle n'existe côté plateforme — la
 // plateforme n'a jamais détenu les fonds, elle ne fait qu'enregistrer la confirmation reçue.
-export async function applyPspWebhookEvent(payload: PspWebhookPayload, signature: string): Promise<ApplyResult> {
-  if (!verifyWebhookSignatureGeneric(payload, signature)) {
+export async function applyPspWebhookEvent(
+  payload: PspWebhookPayload,
+  signature: string,
+  channel: PspEventChannel = "webhook"
+): Promise<ApplyResult> {
+  // ── Journal des échanges (2026-09-15) ───────────────────────────────────────────────────
+  // Point d'entrée UNIQUE de toute confirmation PSP — webhook réel, console virtuelle,
+  // autoconfirmation : le consigner ici, et seulement ici, garantit qu'aucun message n'échappe au
+  // journal. L'écriture du journal ne peut pas faire échouer le traitement (voir recordPspEvent).
+  const startedAt = Date.now();
+  const signatureValid = verifyWebhookSignatureGeneric(payload, signature);
+  try {
+    const result = await applyPspWebhookEventCore(payload, signature, signatureValid);
+    await recordPspEvent({
+      channel,
+      payload,
+      signatureValid,
+      durationMs: Date.now() - startedAt,
+      outcome: result.ok ? (result.replayed ? "replayed" : "applied") : "rejected",
+      error: result.ok ? null : result.error,
+    });
+    return result;
+  } catch (error) {
+    await recordPspEvent({
+      channel,
+      payload,
+      signatureValid,
+      durationMs: Date.now() - startedAt,
+      outcome: "rejected",
+      error: "internal_error",
+    });
+    throw error;
+  }
+}
+
+/**
+ * Consigne un message reçu du PSP. Ne lève JAMAIS : un journal indisponible ne doit pas empêcher
+ * la confirmation d'un paiement — il serait absurde de refuser l'argent du prestataire parce que
+ * la trace n'a pas pu s'écrire. L'échec est signalé en console, la confirmation suit son cours.
+ */
+export async function recordPspEvent(entry: {
+  channel: PspEventChannel;
+  payload: unknown;
+  signatureValid: boolean;
+  durationMs: number;
+  outcome: "applied" | "replayed" | "rejected";
+  error: string | null;
+}): Promise<void> {
+  try {
+    const body = (entry.payload && typeof entry.payload === "object" ? entry.payload : {}) as Partial<PspWebhookPayload>;
+    const reference = typeof body.pspReference === "string" ? body.pspReference : null;
+    const operation = reference
+      ? await prisma.pspEscrowOperation.findUnique({
+          where: { pspReference: reference },
+          select: { id: true, contractId: true, orderId: true, instructionType: true, amount: true },
+        })
+      : null;
+    await prisma.pspEventLog.create({
+      data: {
+        channel: entry.channel,
+        event: typeof body.event === "string" ? body.event.slice(0, 64) : "unknown",
+        pspReference: reference?.slice(0, 200) ?? null,
+        operationId: operation?.id ?? null,
+        contractId: operation?.contractId ?? null,
+        orderId: operation?.orderId ?? null,
+        instructionType: operation?.instructionType ?? null,
+        amount: operation?.amount ?? null,
+        outcome: entry.outcome,
+        error: entry.error,
+        signatureValid: entry.signatureValid,
+        durationMs: Math.max(0, Math.round(entry.durationMs)),
+        // Charge utile telle que reçue, jamais la signature : le journal sert à diagnostiquer,
+        // pas à rejouer un message.
+        payload: JSON.parse(JSON.stringify(entry.payload ?? null)) ?? {},
+      },
+    });
+  } catch (error) {
+    console.error("[psp-journal] écriture impossible", error);
+  }
+}
+
+// Transition `pending` → dénouement ATOMIQUE (2026-10-01). La garde de statut lue plus haut ne
+// suffit pas : deux livraisons simultanées du même webhook (le PSP réessaie, ou deux workers
+// traitent la boîte de réception) la passaient toutes les deux, puis appliquaient deux fois les
+// effets métier — clôture, instruction de la retenue, réinstruction des créances. La condition
+// `status = pending` portée par l'écriture elle-même fait du premier arrivé le seul gagnant.
+async function settleOperation(
+  id: string,
+  data: { status: PspOperationStatus; pspConfirmedAt?: Date; webhookReference?: string }
+): Promise<boolean> {
+  const { count } = await prisma.pspEscrowOperation.updateMany({ where: { id, status: "pending" }, data });
+  return count === 1;
+}
+
+// Le perdant de la course relit le dénouement posé par le gagnant : même issue → rejeu
+// idempotent, issue contraire → refus, exactement comme s'il était arrivé après.
+async function settledMeanwhile(id: string, outcome: PspOperationStatus): Promise<ApplyResult> {
+  const current = await prisma.pspEscrowOperation.findUnique({ where: { id }, select: { status: true } });
+  if (current?.status === outcome) return { ok: true, replayed: true };
+  return { ok: false, error: "operation_already_settled" };
+}
+
+async function applyPspWebhookEventCore(
+  payload: PspWebhookPayload,
+  signature: string,
+  signatureValid: boolean
+): Promise<ApplyResult> {
+  void signature;
+  if (!signatureValid) {
     return { ok: false, error: "invalid_signature" };
   }
 
   const operation = await prisma.pspEscrowOperation.findUnique({
     where: { pspReference: payload.pspReference },
-    include: { contract: true },
+    include: { contract: { include: { mission: true } } },
   });
   if (!operation) return { ok: false, error: "operation_not_found" };
 
+  // ── Garde de PORTÉE (2026-09-14) ────────────────────────────────────────────────────────
+  // Depuis l'unification des registres, la même table porte aussi les opérations des commandes
+  // Gig. Ce dispatch ne connaît QUE le domaine des contrats de prestation : jalons, retenue de
+  // garantie, financement progressif, médiation, clôture de mission — rien de tout cela n'existe
+  // pour une commande Gig, et lui appliquer ces transitions écrirait n'importe quoi.
+  //
+  // En pratique le cas ne se présente pas : les opérations Gig sont créées CONFIRMÉES et sans
+  // `pspReference` (leur domaine n'a pas de webhook), donc aucune ne peut être retrouvée ici par
+  // référence. C'est précisément pour cela que la garde est explicite plutôt que supposée — une
+  // invariance qu'on ne vérifie pas est une invariance qu'on finit par perdre. Elle narrowe en
+  // outre `contract` à non-nul pour tout ce qui suit, sans un seul `!` dispersé dans le dispatch.
+  if (operation.sourceType !== "mission_contract" || !operation.contract || !operation.contractId) {
+    return { ok: false, error: "operation_out_of_scope" };
+  }
+  const contract = operation.contract;
+  const contractId = operation.contractId;
+
+  // ── Machine à états (règle 18.2) ────────────────────────────────────────────────────────
+  // `pending` → `confirmed` | `failed`, et c'est terminal. Sans ce garde, un évènement rejoué
+  // écrasait le dénouement précédent : un `failed` arrivant APRÈS un `confirmed` remettait
+  // l'opération à `failed`, et comme tous les cumuls excluent `failed` (pour permettre la
+  // reprise d'une instruction refusée), le solde libérable se rouvrait — le montant pouvait
+  // repartir une seconde fois. Un webhook n'est pas fiable en ordre ni en unicité : c'est au
+  // récepteur de l'être.
+  const outcome: PspOperationStatus = payload.event === "failed" ? "failed" : "confirmed";
+  if (operation.status !== "pending") {
+    // Rejeu du MÊME dénouement : idempotent, aucune écriture — les effets métier ont déjà eu
+    // lieu et les rejouer (re-clôturer, ré-émettre) serait pire que de ne rien faire.
+    if (operation.status === outcome) return { ok: true, replayed: true };
+    return { ok: false, error: "operation_already_settled" };
+  }
+
   if (payload.event === "failed") {
-    await prisma.pspEscrowOperation.update({
-      where: { id: operation.id },
+    if (!(await settleOperation(operation.id, { status: "failed" }))) return settledMeanwhile(operation.id, outcome);
+    // Le payable retombe `failed` — mais il reste DÛ : le refus du PSP (solde insuffisant,
+    // indisponibilité) est par nature réessayable, et `emitScopedRelease` réaligne un payable
+    // `failed` sur ce qui reste à verser au tour suivant. C'est la même logique de reprise que
+    // celle appliquée juste en dessous au jalon.
+    await prisma.payable.updateMany({
+      where: { escrowOperationId: operation.id },
       data: { status: "failed" },
+    });
+    // Reprise AUTOMATIQUE, mais seulement là où aucun geste humain ne peut la porter (créance de
+    // présence) — voir src/lib/psp/payable-retry.ts.
+    await scheduleFailedPayableRetry(operation.id);
+    // Reprise (règle 18.5) : une libération refusée laissait le jalon en `valide` — statut
+    // qu'aucune route n'accepte (canDecideDeliverable exige `livrable_soumis`). Le jalon était
+    // donc condamné et ses fonds immobilisés pour toujours, alors qu'un refus PSP (solde
+    // insuffisant, indisponibilité) est par nature réessayable. On le remet dans l'état où le
+    // client peut re-valider. `updateMany` avec garde de statut : un release PARTIEL refusé en
+    // financement progressif laisse le jalon `livrable_soumis`, il n'y a alors rien à défaire.
+    if (operation.jalonId && operation.instructionType === "release") {
+      await prisma.jalon.updateMany({
+        where: { id: operation.jalonId, status: "valide" },
+        data: { status: "livrable_soumis" },
+      });
+    }
+    return { ok: true };
+  }
+
+  if (
+    !(await settleOperation(operation.id, {
+      status: "confirmed",
+      pspConfirmedAt: new Date(),
+      webhookReference: payload.event,
+    }))
+  ) {
+    return settledMeanwhile(operation.id, outcome);
+  }
+
+  // Le payable adossé à cette instruction est PAYÉ. C'est ici, et nulle part ailleurs, que se
+  // referme la distinction que ce modèle apporte : « validé » ne vaut pas « payé », et seule la
+  // confirmation du PSP fait passer de l'un à l'autre. `updateMany` plutôt que `update` : toutes
+  // les instructions ne portent pas de payable (un `hold` ou un `freeze` n'en a pas).
+  await prisma.payable.updateMany({
+    where: { escrowOperationId: operation.id },
+    data: { status: "paid", paidAt: new Date() },
+  });
+
+  // ── Gel et remboursement ────────────────────────────────────────────────────────────────
+  // Branche EXPLICITE, même si elle ne fait rien : ces deux types ne déclenchaient aucune
+  // transition et tombaient silencieusement à travers les branches hold/release ci-dessous,
+  // si bien qu'un remboursement confirmé laissait la mission « fonds sous séquestre » — de
+  // l'argent rendu au client que la plateforme croyait toujours bloqué.
+  //
+  // `freeze` : le gel accompagne l'ouverture d'une médiation, qui a DÉJÀ posé
+  // `mediation_ouverte` sur la mission. Aucune transition supplémentaire n'est due, et c'est
+  // volontaire — la confirmation enregistrée ci-dessus suffit.
+  //
+  // `freeze` / `unfreeze` : aucune transition métier. Le gel accompagne l'ouverture d'une
+  // médiation, qui a DÉJÀ posé `mediation_ouverte` ; sa levée accompagne la clôture, qui a déjà
+  // restauré le statut antérieur. Les deux ne déplacent aucun fonds — la confirmation
+  // enregistrée plus haut suffit, et c'est volontaire.
+  if (operation.instructionType === "freeze" || operation.instructionType === "unfreeze") {
+    return { ok: true };
+  }
+
+  // `refund` : le chemin existe désormais (emitContractRefund, src/lib/escrow.ts) et l'état
+  // dédié que cette branche réclamait a été créé — `remboursee`, précisément pour ne pas
+  // détourner `cloturee` et faire passer un abandon pour une mission menée à terme.
+  //
+  // Deux gardes sur la transition :
+  //   - `mediation_ouverte` est préservé, même règle que `retention_release` ci-dessous :
+  //     rendre son reliquat au client ne tranche pas le litige, la médiation garde la main ;
+  //   - `cloturee` est préservé aussi. Un remboursement peut suivre une mission menée à terme
+  //     (reliquat d'arrondi, jalon annulé après coup) ; la requalifier « remboursée » effacerait
+  //     le fait qu'elle a bien été livrée et payée.
+  //
+  // Le solde restant n'est PAS relu ici pour décider : un remboursement partiel confirmé rend
+  // la mission `remboursee` au même titre qu'un remboursement total. C'est l'intention de
+  // l'instruction qui qualifie la mission, pas le montant — et `emitContractRefund` ne
+  // s'instruit jamais que sur ce qui reste réellement séquestré.
+  if (operation.instructionType === "refund") {
+    await prisma.mission.updateMany({
+      where: {
+        id: contract.missionId,
+        status: { notIn: ["mediation_ouverte", "cloturee"] },
+      },
+      data: { status: "remboursee" },
     });
     return { ok: true };
   }
 
-  await prisma.pspEscrowOperation.update({
-    where: { id: operation.id },
-    data: { status: "confirmed", pspConfirmedAt: new Date(), webhookReference: payload.event },
-  });
+  // Retenue de garantie (règle 18.10) : une seule instruction porte TOUTE la retenue du
+  // contrat, donc aucun seuil à cumuler — sa confirmation clôture la mission, point final.
+  // Branche séparée et placée AVANT le test de scope : cette instruction n'est jamais rattachée
+  // à un jalon, et la confondre avec un `release` contrat (celui de la médiation) est
+  // exactement le défaut que le type dédié supprime.
+  if (operation.instructionType === "retention_release") {
+    // `updateMany` avec garde de statut, pas `update` : cette instruction peut aussi provenir du
+    // règlement d'une mission ARRÊTÉE (route admin de solde de retenue), auquel cas une médiation
+    // est probablement ouverte. Solder le séquestre ne tranche pas le litige — la médiation
+    // garde la main sur l'état de la mission.
+    await prisma.mission.updateMany({
+      where: { id: contract.missionId, status: { not: "mediation_ouverte" } },
+      data: { status: "cloturee" },
+    });
+    return { ok: true };
+  }
 
   // Paiement fractionné (2026-08-06) : une opération scopée à un jalon (jalonId non nul) met
   // à jour CE jalon, pas le statut agrégé de la mission de façon optimiste — la mission ne
@@ -42,17 +431,26 @@ export async function applyPspWebhookEvent(payload: PspWebhookPayload, signature
     if (operation.instructionType === "hold") {
       await prisma.jalon.update({ where: { id: operation.jalonId }, data: { status: "fonds_sous_sequestre" } });
       await prisma.mission.updateMany({
-        where: { id: operation.contract.missionId, status: { notIn: ["fonds_sous_sequestre", "livrable_soumis", "validee", "cloturee"] } },
+        where: { id: contract.missionId, status: { notIn: ["fonds_sous_sequestre", "livrable_soumis", "validee", "cloturee"] } },
         data: { status: "fonds_sous_sequestre" },
       });
+      // Des fonds viennent d'entrer : une créance qui les attendait peut partir (voir contrat).
+      await instructOwedPayables(contractId);
     } else if (operation.instructionType === "release") {
-      await prisma.jalon.update({ where: { id: operation.jalonId }, data: { status: "libere" } });
-      const remaining = await prisma.jalon.count({
-        where: { contractId: operation.contractId, status: { not: "libere" } },
-      });
-      if (remaining === 0) {
-        await prisma.mission.update({ where: { id: operation.contract.missionId }, data: { status: "cloturee" } });
+      const jalon = await prisma.jalon.findUnique({ where: { id: operation.jalonId }, select: { montant: true } });
+      // Retenue de garantie (règle 18.10) : le seuil de clôture d'un jalon est son plafond
+      // LIBÉRABLE, pas son montant — la part retenue ne sera jamais transmise sur ce jalon
+      // (elle part en une instruction finale, voir emitRetentionRelease). Sans retenue
+      // (retentionRate 0) `releasableBeforeRetention` rend le montant plein : seuil inchangé.
+      if (jalon) {
+        const seuil = releasableBeforeRetention(jalon.montant, contract.retentionRate);
+        if (await isFullyReleased({ jalonId: operation.jalonId }, seuil)) {
+          await closeJalonFullyReleased(operation.jalonId, contractId, contract.missionId);
+        }
       }
+      // Sinon : RELEASE partiel (financement progressif) — l'argent bouge, mais le jalon
+      // reste dans son statut actuel (`livrable_soumis`) jusqu'au RELEASE qui complète son
+      // montant. Aucune clôture prématurée sur un simple point d'étape intermédiaire.
     }
     return { ok: true };
   }
@@ -60,15 +458,74 @@ export async function applyPspWebhookEvent(payload: PspWebhookPayload, signature
   // US-502 — comportement historique (contrat sans jalon) : la mission avance dans son cycle
   // seulement à la confirmation, jamais de façon optimiste à l'envoi de l'instruction.
   if (operation.instructionType === "hold") {
-    await prisma.mission.update({
-      where: { id: operation.contract.missionId },
+    // `updateMany` GARDÉ, et non `update` inconditionnel (2026-09-14) : depuis la recharge du
+    // séquestre (§13, src/lib/escrow-recharge.ts), un contrat peut recevoir un SECOND HOLD
+    // alors que la mission est déjà bien plus loin dans son cycle. Écrire `fonds_sous_sequestre`
+    // sans condition la faisait alors RÉGRESSER — un livrable soumis redevenait un séquestre en
+    // attente, et le client perdait le bouton de validation d'un travail déjà rendu.
+    //
+    // Historiquement le cas ne pouvait pas se produire : un contrat n'avait qu'un seul HOLD, et
+    // sa confirmation arrivait forcément au début du cycle. La branche JALON portait déjà cette
+    // garde (voir plus haut), pour la même raison et avec la même liste — c'est la variante
+    // contrat qui ne l'avait jamais eue.
+    await prisma.mission.updateMany({
+      where: {
+        id: contract.missionId,
+        status: { notIn: ["fonds_sous_sequestre", "livrable_soumis", "validee", "cloturee"] },
+      },
       data: { status: "fonds_sous_sequestre" },
     });
+
+    // Granularité `upfront` (§8, mode S1) : ce financement unique couvre TOUS les jalons, qui
+    // n'auront jamais de HOLD à eux. Sans cette bascule ils resteraient `en_attente` — et
+    // `canSubmitJalonDeliverable` n'accepte que `fonds_sous_sequestre` ou `rejete`, si bien
+    // qu'aucun livrable n'aurait pu être soumis sur un contrat pourtant intégralement financé.
+    // C'était le seul véritable obstacle à ce modèle : tout le reste (libérations, payables,
+    // invariant n°4) borne déjà sur le solde du CONTRAT, pas sur celui du jalon.
+    //
+    // `updateMany` gardé sur `en_attente` : un jalon déjà plus avancé (livrable soumis, validé,
+    // libéré) ne doit pas revenir en arrière — même prudence que la garde de statut de mission
+    // juste au-dessus, et pour la même raison (une recharge arrive en cours de route).
+    if (contract.fundingGranularity === "upfront") {
+      await prisma.jalon.updateMany({
+        where: { contractId, status: "en_attente" },
+        data: { status: "fonds_sous_sequestre" },
+      });
+    }
+
+    // Recharge (§13, 2026-09-15) : une créance validée qui attendait des fonds part MAINTENANT,
+    // sans nouveau geste. Avant, la recharge encaissait l'argent du client et la créance restait
+    // `validated` — un relevé de présence déjà validé ne pouvait plus l'être, donc plus rien ne
+    // la relançait. Sur un financement initial il n'y a aucune créance : l'appel ne fait rien.
+    await instructOwedPayables(contractId);
   } else if (operation.instructionType === "release") {
-    await prisma.mission.update({
-      where: { id: operation.contract.missionId },
-      data: { status: "validee" },
-    });
+    // `cloturee` directement, pas `validee` (audit workflow, 2026-09-02) : contrairement à la
+    // branche jalons ci-dessus (qui pose `cloturee` une fois TOUS les jalons `libere`), ce
+    // chemin sans jalon n'avait aucun écrivain vers `cloturee` — un seul RELEASE, donc aucune
+    // condition à attendre, contrairement au cas multi-jalons. La mission restait bloquée en
+    // `validee` indéfiniment : le lien "Donner un avis" (gaté sur `cloturee`) n'apparaissait
+    // jamais, alors que l'API l'acceptait déjà (canReviewAtStatus inclut `validee` — laissé
+    // tel quel, en défense en profondeur si un autre chemin s'arrêtait un jour à `validee`).
+    //
+    // Contrat À JALONS : un `release` scopé contrat n'y est jamais la libération du prix — les
+    // jalons ont chacun leur opération scopée, et la retenue a son propre type. La seule chose
+    // qui atterrit ici est un release de médiation (POST /api/admin/mediations/[id]/respond),
+    // dont le montant n'a aucun rapport avec le prix : il ne doit surtout pas clôturer la
+    // mission en franchissant un seuil qui ne le concerne pas. On enregistre la confirmation
+    // (déjà faite plus haut) et on ne touche à rien d'autre.
+    const jalonCount = await prisma.jalon.count({ where: { contractId: contractId } });
+    if (jalonCount > 0) return { ok: true };
+
+    // Financement progressif (règle 18.4) : plusieurs RELEASE partiels peuvent précéder
+    // celui-ci (un par point d'étape confirmé) — ne clôturer que lorsque le cumul confirmé
+    // atteint le prix du contrat, jamais sur un simple palier intermédiaire.
+    const montant = contractPrice(operation.contract);
+    if (await isFullyReleased({ contractId: contractId, jalonId: null }, montant)) {
+      await prisma.mission.update({
+        where: { id: contract.missionId },
+        data: { status: "cloturee" },
+      });
+    }
   }
 
   return { ok: true };

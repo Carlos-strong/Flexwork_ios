@@ -1,6 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
+import { AlertCircle, CheckCircle2, Clock, FileText, Plus, Search } from "lucide-react";
+import { fetchDedupe } from "@/lib/fetch-dedupe";
+import { weightedJalonsProgress } from "@/lib/jalons";
+import { Badge, FilterChips, MissionCard, PageHero, StatTile } from "@/components/dashboard/proto-ui";
+import { groupProgress } from "@/components/dashboard/MissionGroupCard";
+import { nextAction, PHASE_LABEL, PHASE_TONE, phaseOf, phaseSummary, type MissionAction, type Phase } from "@/lib/mission-phase";
+import { groupAnnonces, type MissionGroup } from "@/lib/annonce-groups";
 
 type ApiMission = {
   id: string;
@@ -9,258 +17,273 @@ type ApiMission = {
   budget: number;
   currency: string;
   domaine?: string;
-  _count?: { proposals: number };
+  delaiJours?: number | null;
+  dateExpiration?: string | null;
+  // Annonce et engagements (2026-11-10).
+  parentMissionId?: string | null;
+  maxCandidatures?: number | null;
+  observedProgress?: number;
+  // Candidatures encore ouvertes (GET /api/missions, 2026-11-11) — « Examiner N candidatures ».
+  openCandidatures?: number;
+  _count?: { proposals: number; engagements?: number };
+  proposals?: { provider: { id: string; firstname: string | null; lastname: string | null; avatarPath: string | null } }[];
+  contract?: {
+    jalons: { status: string; montant: number; observedProgress: number }[];
+    provider: { id: string; firstname: string | null; lastname: string | null; avatarPath: string | null } | null;
+  } | null;
 };
 
-type Mission = {
+
+// PROGRESSION de la liste — avancement GLOBAL de la mission, pondéré par montant sur un
+// contrat à jalons (règle 18.14, voir weightedJalonsProgress), ou observedProgress pour un
+// contrat sans jalon. Sur un contrat à jalons, mission.observedProgress ne reflète jamais
+// l'avancement réel (voir src/lib/psp-webhook.ts) — d'où le repli sur les jalons plutôt que
+// ce champ.
+function progressOf(m: ApiMission): number {
+  const jalons = m.contract?.jalons ?? [];
+  if (jalons.length > 0) {
+    return weightedJalonsProgress(jalons);
+  }
+  return m.observedProgress ?? 0;
+}
+
+
+// Même logique de délai que MissionsSection (prestataire) : J-X depuis dateExpiration,
+// sinon delaiJours.
+function deadlineOf(m: ApiMission): string {
+  // Annonce (2026-11-10) : seule sa date limite de candidature fait foi — son délai
+  // d'exécution (delaiJours) n'est pas une échéance de l'annonce.
+  if (!m.parentMissionId && (m.status === "publiee" || m.status === "annonce_close") && !m.dateExpiration) return "";
+  if (m.status === "annonce_close") return "Close";
+  if (m.dateExpiration) {
+    const days = Math.ceil((new Date(m.dateExpiration).getTime() - Date.now()) / 86400000);
+    if (days <= 0) return "Fermée";
+    if (days === 1) return "Demain";
+    return `J-${days}`;
+  }
+  if (m.delaiJours) return `J-${m.delaiJours}`;
+  return "";
+}
+
+// Sur un contrat à jalons, mission.status ne passe jamais à "livrable_soumis" — seul
+// jalon.status le fait, jalon par jalon (voir src/lib/psp-webhook.ts). Sans ce repli, une
+// mission à jalons restait affichée "En cours" même avec un livrable réellement en attente
+// de vérification.
+function hasPendingJalon(m: ApiMission): boolean {
+  return (m.contract?.jalons.length ?? 0) > 0 && m.contract!.jalons.some((j) => j.status === "livrable_soumis");
+}
+
+
+// ── Suivi et monitoring (2026-11-11) ────────────────────────────────────────────────────────
+// Mes Missions est LA page de suivi des missions du client. Chaque mission publiée (une annonce
+// et ses engagements, src/lib/annonce-groups.ts) y montre sa phase (src/lib/mission-phase.ts),
+// celle de chaque prestataire retenu, et la prochaine action attendue du client, avec son lien.
+
+const FILTERS = ["Toutes", "Actions requises", "Recrutement", "Contrat à signer", "À financer", "En cours", "À valider", "Litige", "Terminées"] as const;
+type Filter = (typeof FILTERS)[number];
+const FILTER_PHASES: Partial<Record<Filter, Phase[]>> = {
+  "Recrutement": ["recrutement"],
+  "Contrat à signer": ["contrat"],
+  "À financer": ["financement"],
+  "En cours": ["en_cours", "garantie"],
+  "À valider": ["a_valider"],
+  "Litige": ["litige"],
+  "Terminées": ["terminee"],
+};
+
+type Row = {
   id: string;
-  title: string;
-  category: string;
-  budget: string;
-  status: string;
-  talent: string;
-  flag: string;
+  titre: string;
+  domaine: string;
+  budget: number;
+  currency: string;
+  phase: Phase;
+  engagementPhases: Phase[];
+  isAnnonce: boolean;
+  places: number;
+  candidatures: number;
   progress: number;
   deadline: string;
-  proposals?: number;
+  action: MissionAction | null;
+  search: string;
 };
 
-const ACTIVE_STATUSES = ["proposition_acceptee", "contrat_genere", "contrat_signe", "fonds_sous_sequestre", "en_cours"];
+function matchesFilter(row: Row, filter: Filter): boolean {
+  if (filter === "Toutes") return true;
+  if (filter === "Actions requises") return row.action !== null;
+  const phases = FILTER_PHASES[filter] ?? [];
+  return [row.phase, ...row.engagementPhases].some((p) => phases.includes(p));
+}
 
-function toDisplay(m: ApiMission): Mission {
-  const proposals = m._count?.proposals ?? 0;
-  let status: string;
-  if (m.status === "publiee" && proposals > 0) status = "Propositions";
-  else if (m.status === "publiee") status = "Ouverte";
-  else if (ACTIVE_STATUSES.includes(m.status)) status = "En cours";
-  else if (m.status === "livrable_soumis") status = "En révision";
-  else if (m.status === "validee" || m.status === "cloturee") status = "Livrée";
-  else if (m.status === "mediation_ouverte") status = "Annulée";
-  else status = "Ouverte";
-
+function toRow(group: MissionGroup<ApiMission>): Row {
+  const m = group.mission;
+  const phase = phaseOf(m.status, hasPendingJalon(m));
+  // Une exécution terminée (ou en retenue de garantie) est à 100 %, même sans jalon renseigné.
+  const progressFor = (x: ApiMission, p: Phase) => (p === "terminee" || p === "garantie" ? 100 : progressOf(x));
+  const engagements = group.engagements.map((e) => {
+    const p = phaseOf(e.status, hasPendingJalon(e));
+    return { id: e.id, phase: p, progress: progressFor(e, p) };
+  });
+  const isAnnonce = !m.parentMissionId && (m.status === "publiee" || m.status === "annonce_close" || engagements.length > 0);
   return {
     id: m.id,
-    title: m.titre,
-    category: m.domaine ?? "",
-    budget: `${m.budget.toLocaleString("fr-FR")} ${m.currency}`,
-    status,
-    talent: "",
-    flag: "",
-    progress: 0,
-    deadline: "",
-    proposals: status === "Propositions" ? proposals : undefined,
+    titre: m.titre,
+    domaine: m.domaine ?? "",
+    budget: m.budget,
+    currency: m.currency,
+    phase,
+    engagementPhases: engagements.map((e) => e.phase),
+    isAnnonce,
+    places: m.maxCandidatures && m.maxCandidatures > 0 ? m.maxCandidatures : 1,
+    candidatures: [m, ...group.engagements].reduce((s, x) => s + (x._count?.proposals ?? 0), 0),
+    progress: groupProgress(progressFor(m, phase), engagements),
+    // Échéance affichée seulement pendant le recrutement (date limite de candidature) : ailleurs,
+    // le délai publié n'est pas une échéance réelle et induisait en erreur.
+    deadline: phase === "recrutement" ? deadlineOf(m) : "",
+    action: nextAction({ id: m.id, phase, pendingCandidatures: m.openCandidatures ?? 0 }, engagements),
+    search: [m.titre, m.domaine ?? "", m.id].join(" ").toLowerCase(),
   };
 }
 
-const STATUS_STYLE: Record<string, string> = {
-  "Ouverte": "bg-[#FFF1E6] text-[#C2410C] border-[#FFD6BA]",
-  "En cours": "bg-[#DBEAFE] text-[#1E40AF] border-[#BFDBFE]",
-  "En révision": "bg-[#FEF9C3] text-[#854D0E] border-[#FDE68A]",
-  "Livrée": "bg-[#DCFCE7] text-[#166534] border-[#BBF7D0]",
-  "Propositions": "bg-[#F3E8FF] text-[#6B21A8] border-[#E9D5FF]",
-  "Annulée": "bg-[#F3F4F6] text-[#4B5563] border-[#E5E7EB]",
-};
-
-const FILTERS = ["Toutes", "Ouvertes", "En cours", "En révision", "Livrées", "Annulées"];
-
-function matchesFilter(mission: Mission, filter: string): boolean {
-  if (filter === "Toutes") return true;
-  if (filter === "Ouvertes") return mission.status === "Ouverte";
-  if (filter === "En cours") return mission.status === "En cours";
-  if (filter === "En révision") return mission.status === "En révision";
-  if (filter === "Livrées") return mission.status === "Livrée";
-  if (filter === "Annulées") return mission.status === "Annulée";
-  return true;
-}
-
 export default function MesMissions() {
-  const [filter, setFilter] = useState("Toutes");
+  const [filter, setFilter] = useState<Filter>("Toutes");
   const [search, setSearch] = useState("");
-  const [view, setView] = useState<"grid" | "list">("grid");
-  const [missions, setMissions] = useState<Mission[]>([]);
+  const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/missions")
+    fetchDedupe("/api/missions")
       .then((r) => (r.ok ? r.json() : { items: [] }))
       .then((d) => {
         if (cancelled) return;
-        setMissions((d.items ?? []).map(toDisplay));
+        setRows(groupAnnonces((d.items ?? []) as ApiMission[]).map(toRow));
         setLoading(false);
       })
       .catch(() => setLoading(false));
     return () => { cancelled = true; };
   }, []);
 
-  const filtered = missions.filter((m) => {
-    if (!(m.title.toLowerCase().includes(search.toLowerCase()) || m.category.toLowerCase().includes(search.toLowerCase()) || m.id.toLowerCase().includes(search.toLowerCase()))) return false;
-    return matchesFilter(m, filter);
-  });
-
-  const counts: Record<string, number> = {
-    "Toutes": missions.length,
-    "Ouvertes": missions.filter((m) => m.status === "Ouverte").length,
-    "En cours": missions.filter((m) => m.status === "En cours").length,
-    "En révision": missions.filter((m) => m.status === "En révision").length,
-    "Livrées": missions.filter((m) => m.status === "Livrée").length,
-    "Annulées": missions.filter((m) => m.status === "Annulée").length,
-  };
+  const q = search.trim().toLowerCase();
+  const filtered = rows.filter((r) => (!q || r.search.includes(q)) && matchesFilter(r, filter));
+  const counts: Record<string, number> = Object.fromEntries(FILTERS.map((f) => [f, rows.filter((r) => matchesFilter(r, f)).length]));
 
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="w-8 h-8 border-[3px] border-[#FF7A00] border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-[3px] border-[#6D28D9] border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="max-w-[1400px] w-full mx-auto space-y-6">
-      <style>{`
-        .scrollbar-none::-webkit-scrollbar { display: none; }
-        .scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
-      `}</style>
-
-      {/* Recherche mobile */}
-      <div className="md:hidden flex items-center bg-white rounded-full px-4 py-2.5 border border-gray-100 shadow-sm text-[13px]">
-        <span className="mr-2">🔍</span>
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Rechercher mission..."
-          className="bg-transparent outline-none w-full placeholder:text-gray-400"
-        />
-      </div>
-
-      {/* Titre + action */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-        <div>
-          <h1 className="text-[28px] font-extrabold leading-none tracking-tight">Mes Missions</h1>
-          <p className="text-[13px] text-gray-500 mt-2">Gère toutes tes missions en un seul endroit — clients & talents afro.</p>
-        </div>
-        <button className="bg-gradient-to-r from-[#FF6B35] to-[#FF3E6C] text-white rounded-full px-5 py-[10px] text-[13px] font-bold shadow-[0_4px_14px_rgba(255,107,53,0.3)] hover:shadow-[0_6px_20px_rgba(255,107,53,0.4)] hover:translate-y-[-1px] transition-all flex items-center justify-center gap-2 shrink-0">
-          <span className="text-[16px]">+</span> Nouvelle mission
-        </button>
-      </div>
-
-      {/* Statistiques */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="bg-white rounded-[16px] p-4 border-l-4 border-gray-800 shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
-          <div className="text-[11px] font-bold tracking-widest text-gray-400 uppercase">Total</div>
-          <div className="text-[24px] font-extrabold mt-1">{counts["Toutes"]}</div>
-          <div className="text-[11px] text-gray-400 mt-1">toutes missions</div>
-        </div>
-        <div className="bg-white rounded-[16px] p-4 border-l-4 border-[#FF6B35] shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
-          <div className="text-[11px] font-bold tracking-widest text-gray-400 uppercase">En cours</div>
-          <div className="text-[24px] font-extrabold mt-1">{counts["En cours"]}</div>
-          <div className="text-[11px] text-[#FF6B35] font-semibold mt-1">• actif maintenant</div>
-        </div>
-        <div className="bg-white rounded-[16px] p-4 border-l-4 border-[#F7C948] shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
-          <div className="text-[11px] font-bold tracking-widest text-gray-400 uppercase">En révision</div>
-          <div className="text-[24px] font-extrabold mt-1">{counts["En révision"]}</div>
-          <div className="text-[11px] text-gray-400 mt-1">en attente validation</div>
-        </div>
-        <div className="bg-white rounded-[16px] p-4 border-l-4 border-[#1B9C6A] shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
-          <div className="text-[11px] font-bold tracking-widest text-gray-400 uppercase">Livrées</div>
-          <div className="text-[24px] font-extrabold mt-1">{counts["Livrées"]}</div>
-          <div className="text-[11px] text-[#1B9C6A] font-semibold mt-1">✓ terminées</div>
-        </div>
-      </div>
-
-      {/* Filtres + bascule grille/liste */}
-      <div className="flex flex-col sm:flex-row gap-3 justify-between">
-        <div className="bg-white rounded-[16px] p-2 flex gap-2 overflow-x-auto scrollbar-none border border-gray-100 shadow-sm">
-          {FILTERS.map((label) => {
-            const active = filter === label;
-            return (
-              <button
-                key={label}
-                onClick={() => setFilter(label)}
-                className={`whitespace-nowrap rounded-full px-4 py-[7px] text-[12px] font-bold transition ${active ? "bg-[#0A1931] text-white shadow" : "bg-[#F8F6F3] text-gray-600 hover:bg-gray-100"}`}
-              >
-                {label} <span className={`ml-1 ${active ? "text-white/70" : "text-gray-400"}`}>{counts[label] ?? 0}</span>
-              </button>
-            );
-          })}
-        </div>
-        <div className="flex items-center gap-2 self-start sm:self-auto">
-          <div className="bg-white rounded-full p-1 flex border border-gray-100 shadow-sm">
-            <button
-              onClick={() => setView("grid")}
-              className={`w-8 h-8 rounded-full flex items-center justify-center text-[13px] transition ${view === "grid" ? "bg-[#0A1931] text-white" : "text-gray-400 hover:text-gray-700"}`}
-              title="Grille"
-            >
-              ⊞
-            </button>
-            <button
-              onClick={() => setView("list")}
-              className={`w-8 h-8 rounded-full flex items-center justify-center text-[13px] transition ${view === "list" ? "bg-[#0A1931] text-white" : "text-gray-400 hover:text-gray-700"}`}
-              title="Liste"
-            >
-              ☰
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Cartes missions */}
-      <div className={view === "grid" ? "grid md:grid-cols-2 lg:grid-cols-3 gap-4" : "flex flex-col gap-3"}>
-        {filtered.map((m) => (
-          <div
-            key={m.id}
-            className={`group bg-white rounded-[20px] p-5 border border-gray-100 hover:shadow-lg hover:border-orange-100 transition-all flex flex-col ${view === "list" ? "sm:flex-row sm:items-center gap-4" : ""}`}
+    <div className="page-width space-y-5">
+      <PageHero
+        kicker="Espace client · Suivi"
+        title="Mes Missions"
+        subtitle="Suivez toutes vos missions : recrutement, contrats, séquestre, livrables et litiges — avec, pour chacune, la prochaine action qui vous attend."
+        actions={
+          <Link
+            href="/missions/new"
+            className="px-4 py-3 rounded-full text-white font-bold flex items-center gap-2 bg-[#4C1D95] hover:bg-[#3B1578] transition"
+            style={{ textDecoration: "none" }}
           >
-            <div className={view === "list" ? "flex-1 min-w-0" : "flex-1"}>
-              <div className="flex justify-between items-start gap-3">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className={`rounded-full px-3 py-1 text-[11px] font-bold border ${STATUS_STYLE[m.status] || "bg-gray-100"}`}>
-                    {m.status === "Propositions" && m.proposals ? `${m.proposals} ${m.status}` : m.status}
-                  </span>
-                  <span className="text-[10px] text-gray-400 font-mono">#{m.id.slice(-6).toUpperCase()}</span>
+            <Plus className="w-5 h-5" aria-hidden /> Nouvelle mission
+          </Link>
+        }
+      />
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
+        <StatTile icon={<FileText />} value={counts["Toutes"]} label="Missions" sub="publiées" />
+        <StatTile icon={<AlertCircle />} value={counts["Actions requises"]} label="Actions requises" sub="vous êtes attendu" onClick={() => setFilter("Actions requises")} />
+        <StatTile icon={<Clock />} value={counts["En cours"]} label="En cours" sub="travail sous séquestre" onClick={() => setFilter("En cours")} />
+        <StatTile icon={<CheckCircle2 />} value={counts["Terminées"]} label="Terminées" sub="clôturées" onClick={() => setFilter("Terminées")} />
+      </div>
+
+      <div className="flex flex-col lg:flex-row lg:items-center gap-3">
+        <div className="flex-1 min-w-0">
+          <FilterChips options={[...FILTERS]} value={filter} onChange={(v) => setFilter(v as Filter)} counts={counts} />
+        </div>
+        <label className="flex items-center bg-white rounded-full px-4 py-2.5 border border-[#E7E2F0] text-[13px] lg:w-[280px] mb-0 focus-within:border-[#4C1D95]">
+          <Search className="w-4 h-4 mr-2 text-[#9A93A8]" aria-hidden />
+          <span className="sr-only">Rechercher une mission</span>
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Rechercher mission..."
+            className="bg-transparent outline-none w-full p-0 placeholder:text-[#9A93A8]"
+          />
+        </label>
+      </div>
+
+      <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-3">
+        {filtered.map((r) => {
+          const retenus = r.engagementPhases.length;
+          const summary = phaseSummary(r.engagementPhases);
+          return (
+            <MissionCard
+              key={r.id}
+              href={`/missions/${r.id}/publique`}
+              title={r.titre}
+              category={r.domaine}
+              deadline={r.deadline || null}
+              badges={
+                <>
+                  <Badge tone={PHASE_TONE[r.phase]}>{PHASE_LABEL[r.phase]}</Badge>
+                  {r.isAnnonce && (
+                    <Badge tone={retenus >= r.places ? "success" : "info"}>
+                      {retenus}/{r.places} retenu{retenus > 1 ? "s" : ""}
+                    </Badge>
+                  )}
+                  <span className="text-[10px] text-[#9A93A8] font-mono self-center">#{r.id.slice(-6).toUpperCase()}</span>
+                </>
+              }
+              amount={`${r.budget.toLocaleString("fr-FR")} ${r.currency === "XOF" ? "FCFA" : r.currency}`}
+              meta={`${r.candidatures} candidature${r.candidatures > 1 ? "s" : ""}`}
+              progress={r.progress}
+              footer={
+                <div className="space-y-2">
+                  {/* Phase de chaque prestataire retenu, résumée (« 1 Contrat à signer · 1 En cours »). */}
+                  {summary.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5" aria-label="Suivi des prestataires retenus">
+                      {summary.map((x) => (
+                        <Badge key={x.phase} tone={PHASE_TONE[x.phase]}>
+                          {PHASE_LABEL[x.phase]} · {x.count}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                  {r.action ? (
+                    <Link
+                      href={r.action.href}
+                      className="flex items-center justify-between gap-2 rounded-xl bg-[#FFF6E3] px-3 py-2 text-[13px] font-bold text-[#B45309] hover:bg-[#FDECC8]"
+                      style={{ textDecoration: "none" }}
+                    >
+                      <span className="flex items-center gap-1.5"><AlertCircle className="w-4 h-4" aria-hidden /> {r.action.label}</span>
+                      <span aria-hidden>→</span>
+                    </Link>
+                  ) : (
+                    <p className="flex items-center gap-1.5 rounded-xl bg-[#F6F5FA] px-3 py-2 text-[13px] text-[#6B6478]">
+                      <CheckCircle2 className="w-4 h-4 text-[#047857]" aria-hidden /> Aucune action requise
+                    </p>
+                  )}
                 </div>
-                {m.deadline && <span className="text-[10px] text-gray-400 font-medium whitespace-nowrap">⏰ {m.deadline}</span>}
-              </div>
-              <h3 className="font-bold text-[14px] mt-3 leading-snug group-hover:text-[#FF6B35] transition-colors line-clamp-2">{m.title}</h3>
-              <div className="text-[12px] text-gray-500 mt-1 flex items-center gap-2">
-                <span>{m.category}</span>
-                <span className="w-1 h-1 bg-gray-300 rounded-full" />
-                <span className="font-bold text-[#0A1931]">{m.budget}</span>
-              </div>
-              {m.talent && (
-                <div className="flex items-center gap-2 mt-4">
-                  <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#FF6B35] to-[#F7C948] flex items-center justify-center text-[11px] font-bold text-white">{m.talent.charAt(0)}</div>
-                  <div className="text-[12px]">
-                    <span className="font-semibold">{m.talent}</span> <span>{m.flag}</span>
-                  </div>
-                </div>
-              )}
-              {m.progress > 0 && (
-                <div className="mt-4">
-                  <div className="flex justify-between text-[10px] font-bold text-gray-400 mb-1">
-                    <span>Progression</span>
-                    <span className="text-[#0A1931]">{m.progress}%</span>
-                  </div>
-                  <div className="h-[6px] bg-gray-100 rounded-full overflow-hidden">
-                    <div className="h-full bg-gradient-to-r from-[#FF6B35] to-[#F7C948] rounded-full transition-all" style={{ width: `${m.progress}%` }} />
-                  </div>
-                </div>
-              )}
-            </div>
-            <div className={`flex gap-2 ${view === "list" ? "sm:w-[140px] shrink-0 mt-2 sm:mt-0" : "mt-auto pt-4"}`}>
-              <button className="flex-1 bg-[#0A1931] hover:bg-black text-white rounded-full py-2 text-[12px] font-bold transition">Voir</button>
-              <button className="bg-[#F8F6F3] hover:bg-gray-100 rounded-full px-3 py-2 text-[12px]">💬</button>
-            </div>
-          </div>
-        ))}
+              }
+              secondary={r.isAnnonce ? { href: `/missions/${r.id}/proposals`, label: "Candidatures" } : null}
+            />
+          );
+        })}
       </div>
 
       {filtered.length === 0 && (
-        <div className="bg-white rounded-[20px] p-12 text-center border border-dashed border-gray-200">
-          <div className="text-[24px] mb-2">🔍</div>
-          <div className="font-bold text-[14px]">Aucune mission trouvée</div>
-          <div className="text-[12px] text-gray-500 mt-1">Essaie un autre filtre ou mot-clé.</div>
-        </div>
+        <p className="p-5 rounded-2xl border border-[#E7E2F0] bg-white text-center text-[14px] text-[#6B6478]">
+          {rows.length === 0 ? "Aucune mission publiée pour l'instant." : "Aucune mission dans ce filtre."}{" "}
+          {(filter !== "Toutes" || search) && (
+            <button type="button" className="font-bold underline text-[#191224]" onClick={() => { setFilter("Toutes"); setSearch(""); }}>
+              Tout afficher
+            </button>
+          )}
+        </p>
       )}
     </div>
   );

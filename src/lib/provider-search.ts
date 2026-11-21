@@ -1,0 +1,126 @@
+import { prisma } from "@/lib/db";
+import type { UserRole } from "@prisma/client";
+// Filières prestataire : source partagée (src/lib/provider-options.ts) — la liste était
+// recopiée à l'identique dans six fichiers.
+import { PROVIDER_ROLES } from "@/lib/provider-options";
+
+// Recherche de prestataires par domaine, rôle, tags, zone et rubrique de la taxonomie.
+// Extraite de la route /api/search/prestataires (2026-10-06) pour que la page /recherche, devenue
+// composant serveur, rende ses résultats dès le premier affichage au lieu de les demander
+// après coup à sa propre API. La route reste l'accès public JSON, sur la même fonction.
+//
+// Modèle v3 : aucune vérification de qualification ne conditionne l'apparition dans les
+// résultats — seul le KYC (identité) est un fait vérifié par la plateforme, tout le reste
+// (déclarations) est affiché tel quel côté profil, pas filtré ici comme un critère de "qualité".
+//
+// Le résultat n'expose PAS l'email des prestataires : la recherche est publique, et un annuaire
+// public d'emails vérifiés est une cible de collecte automatisée. Le contact passe par la
+// plateforme, pas par la page de résultats.
+
+export type ProviderSearchItem = Awaited<ReturnType<typeof searchProviders>>[number];
+
+export async function searchProviders(searchParams: URLSearchParams) {
+  const domaine = searchParams.get("domaine");
+  const role = searchParams.get("role");
+  const tagsParam = searchParams.get("tags");
+  const pays = searchParams.get("pays");   // filtre zone: pays du profil
+
+  const roleFilter: UserRole[] =
+    role && PROVIDER_ROLES.includes(role as UserRole) ? [role as UserRole] : PROVIDER_ROLES;
+
+  const tagsFilter = tagsParam
+    ? tagsParam.split(",").map((t) => t.trim()).filter(Boolean)
+    : null;
+
+  // Filtrage zone : un prestataire est éligible si sa zonePays = pays demandé,
+  // OU s'il n'a pas défini de zonePays (partout), OU si le paramètre pays est absent.
+  //
+  // `domaine` est OPTIONNEL depuis l'ouverture publique : absent, on liste tous les
+  // prestataires vérifiés (c'est le mode « parcourir l'annuaire » de la navbar). Présent, la
+  // correspondance est désormais partielle et insensible à la casse plutôt qu'une égalité
+  // stricte — un visiteur tape « design » dans la navbar, pas la valeur exacte du champ
+  // mainDomain saisie par le prestataire (ex. « Digital. »), et une égalité stricte ne
+  // ramenait donc jamais rien depuis une recherche libre.
+  const profileWhere: Record<string, unknown> = {};
+  let rubriqueMetierIds: string[] | null = null;
+  const and: Record<string, unknown>[] = [];
+  if (domaine) profileWhere.mainDomain = { contains: domaine, mode: "insensitive" };
+  if (tagsFilter && tagsFilter.length > 0) profileWhere.tags = { hasSome: tagsFilter };
+  if (pays) and.push({ OR: [{ zonePays: pays }, { zonePays: null }] });
+
+  // Rubrique de la taxonomie (2026-10-06) — pages Catégorie / Métier de /recherche. Le profil
+  // relève de la rubrique par son `metierId`, OU par son `mainDomain` quand celui-ci porte le
+  // libellé exact d'un de ses métiers : les profils créés avant la cascade n'ont pas d'identifiant.
+  const metierId = searchParams.get("metier");
+  const categorieId = searchParams.get("categorie");
+  if (metierId || categorieId) {
+    const metiers = await prisma.metier.findMany({
+      where: metierId ? { id: metierId } : { categorieId: categorieId! },
+      select: { id: true, libelle: true },
+    });
+    rubriqueMetierIds = metiers.map((m) => m.id);
+    and.push({
+      OR: [
+        { metierId: { in: metiers.map((m) => m.id) } },
+        { mainDomain: { in: metiers.map((m) => m.libelle), mode: "insensitive" } },
+      ],
+    });
+  }
+  if (and.length > 0) profileWhere.AND = and;
+
+  const providers = await prisma.user.findMany({
+    where: {
+      kycStatus: "verifie",
+      // Compte sanctionné (suspendu, banni) : jamais dans les résultats.
+      status: "active",
+      role: { in: roleFilter },
+      profiles: { some: profileWhere },
+    },
+    include: { profiles: true },
+  });
+
+  // Note moyenne réelle par prestataire (Review, suspendu:false) — même agrégat que
+  // /profil/[id] et la carte candidat du tiroir de /missions/[id]/proposals, pour que la
+  // carte de résultat de recherche (profil.png) affiche une vraie note, jamais fabriquée.
+  const providerIds = providers.map((p) => p.id);
+  const reviews = await prisma.review.findMany({
+    where: { targetId: { in: providerIds }, suspendu: false },
+    select: { targetId: true, note: true },
+  });
+  const ratingsByProvider = new Map<string, number[]>();
+  for (const r of reviews) {
+    (ratingsByProvider.get(r.targetId) ?? ratingsByProvider.set(r.targetId, []).get(r.targetId)!).push(r.note);
+  }
+
+  return providers.map((p) => {
+    // Même correspondance partielle que le filtre SQL ci-dessus, sinon un prestataire à
+    // plusieurs profils remonté par `contains` se verrait afficher le profil par défaut
+    // plutôt que celui qui a réellement matché la recherche.
+    const needle = domaine?.toLowerCase();
+    const profile =
+      (rubriqueMetierIds ? p.profiles.find((pf) => pf.metierId && rubriqueMetierIds!.includes(pf.metierId)) : undefined) ??
+      (needle ? p.profiles.find((pf) => pf.mainDomain?.toLowerCase().includes(needle)) : undefined) ??
+      p.profiles.find((pf) => pf.isDefault) ??
+      p.profiles[0];
+    const ratings = ratingsByProvider.get(p.id);
+    return {
+      id: p.id,
+      // Pas d'email : recherche publique — voir l'en-tête de fichier.
+      role: p.role,
+      firstname: p.firstname,
+      lastname: p.lastname,
+      avatarPath: p.avatarPath,
+      country: p.country,
+      mainDomain: profile?.mainDomain,
+      declaredLevel: profile?.declaredLevel,
+      tags: profile?.tags ?? [],
+      tarifUnite: profile?.tarifUnite ?? null,
+      indicativeRate: profile?.indicativeRate ?? null,
+      zonePays: profile?.zonePays ?? null,
+      zoneVille: profile?.zoneVille ?? null,
+      zoneRayonKm: profile?.zoneRayonKm ?? null,
+      averageRating: ratings?.length ? ratings.reduce((s, n) => s + n, 0) / ratings.length : null,
+      reviewCount: ratings?.length ?? 0,
+    };
+  });
+}

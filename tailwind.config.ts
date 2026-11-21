@@ -1,5 +1,21 @@
 import type { Config } from "tailwindcss";
 
+// Neutres lavande du prototype « Marketplace Escrow » (2026-11-11) : zinc, gray et slate
+// pointent sur la même échelle, pour que les ~1 300 classes neutres des pages suivent le thème.
+const ink = {
+  50: "#f6f5fa",
+  100: "#efeaf8",
+  200: "#e7e2f0",
+  300: "#d4cce3",
+  400: "#9a93a8",
+  500: "#6b6478",
+  600: "#574f66",
+  700: "#3f3850",
+  800: "#2a2338",
+  900: "#191224",
+  950: "#120e1c",
+};
+
 const config: Config = {
   darkMode: ["class"],
   content: [
@@ -15,6 +31,29 @@ const config: Config = {
     },
     extend: {
       colors: {
+        zinc: ink,
+        gray: ink,
+        slate: ink,
+        violet: {
+          50: "#f7f3ff",
+          100: "#f0eaff",
+          200: "#ddd6fe",
+          300: "#c4b5fd",
+          400: "#a78bfa",
+          500: "#8b5cf6",
+          600: "#6d28d9",
+          700: "#5b21b6",
+          800: "#4c1d95",
+          900: "#3b1578",
+          950: "#2e1065",
+        },
+        brand: {
+          DEFAULT: "#4c1d95",
+          dark: "#3b1578",
+          soft: "#f0eaff",
+          money: "#047857",
+          "money-soft": "#e7f7ef",
+        },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
@@ -63,7 +102,7 @@ const config: Config = {
         },
       },
       fontFamily: {
-        display: ["var(--font-display)", "Georgia", "serif"],
+        display: ["var(--font-display)", "system-ui", "sans-serif"],
         body: ["var(--font-body)", "-apple-system", "Segoe UI", "sans-serif"],
         mono: ["var(--font-mono)", "ui-monospace", "monospace"],
       },
@@ -71,10 +110,13 @@ const config: Config = {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+        xl: "1rem",
+        "2xl": "1.25rem",
+        "3xl": "1.5rem",
       },
       boxShadow: {
-        card: "0 1px 2px rgba(22,35,62,.04), 0 12px 28px -12px rgba(22,35,62,.16)",
-        pop: "0 4px 10px -2px rgba(22,35,62,.18)",
+        card: "0 1px 2px rgba(25,18,36,.04), 0 12px 28px -14px rgba(76,29,149,.22)",
+        pop: "0 4px 10px -2px rgba(76,29,149,.2)",
       },
     },
   },

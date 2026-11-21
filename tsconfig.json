@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "noUnusedLocals": true,
     "target": "ES2017",
     "lib": [
       "dom",
@@ -34,7 +35,9 @@
     "**/*.tsx",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
-    "**/*.mts"
+    "**/*.mts",
+    ".next-verify/types/**/*.ts",
+    ".next-e2e/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"
