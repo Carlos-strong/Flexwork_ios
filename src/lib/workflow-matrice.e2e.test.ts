@@ -211,6 +211,7 @@ async function publier(cas: Cas, cle: string) {
 async function candidaterEtRetenir(cas: Cas, missionId: string, prestataireId: string) {
   authAs(prestataireId);
   let proposalId: string;
+  let engagementId: string;
   if (cas.type === "QUOTE") {
     const res = await ok(
       await devisPost(postReq({ lineItems: LIGNES_DEVIS, delay: "20 jours", tvaRate: 0, laborCost: 0, financingModeKey: cas.mode }), at(missionId)),
@@ -218,15 +219,17 @@ async function candidaterEtRetenir(cas: Cas, missionId: string, prestataireId: s
     );
     proposalId = (await res.json()).proposalId;
     authAs(ids.client);
-    await ok(await devisValidatePost(postReq(), { params: Promise.resolve({ id: missionId, proposalId }) }), "validation du devis");
+    const v = await ok(await devisValidatePost(postReq(), { params: Promise.resolve({ id: missionId, proposalId }) }), "validation du devis");
+    engagementId = (await v.json()).engagementId;
   } else {
     const corps = cas.type === "RATE" ? { montant: 0, unitRate: TEMPS[cas.mode].rate } : { montant: PRIX_FIXE, financingModeKey: cas.mode };
     const res = await ok(await proposalPost(postReq(corps), at(missionId)), "candidature du prestataire");
     proposalId = (await res.json()).id;
     authAs(ids.client);
-    await ok(await acceptPost(postReq(), { params: Promise.resolve({ id: missionId, proposalId }) }), "acceptation de la candidature");
+    const a = await ok(await acceptPost(postReq(), { params: Promise.resolve({ id: missionId, proposalId }) }), "acceptation de la candidature");
+    engagementId = (await a.json()).engagementId;
   }
-  return proposalId;
+  return { proposalId, engagementId };
 }
 
 async function contratEtSignatures(cas: Cas, missionId: string, prestataireId: string, prestataireCert: string) {
@@ -372,15 +375,16 @@ describe("matrice des parcours : publication → candidature → contrat → pai
         const prestataireCert = await certificat(prestataire.id, `p-${cle}`);
 
         // 1. Client : publication.
-        const missionId = await publier(cas, cle);
-        const publiee = await prisma.mission.findUniqueOrThrow({ where: { id: missionId } });
+        const annonceId = await publier(cas, cle);
+        const publiee = await prisma.mission.findUniqueOrThrow({ where: { id: annonceId } });
         expect(publiee.status).toBe("publiee");
         // Fixe ou jalons n'est jamais posé à la publication ; seul le temps l'est.
         expect(publiee.financingModeKey).toBe(cas.type === "RATE" ? cas.mode : null);
         expect(publiee.validationMode).toBe(cas.opr ? "opr" : "client");
 
         // 2. Prestataire : candidature ou devis — 3. Client : il la retient.
-        const proposalId = await candidaterEtRetenir(cas, missionId, prestataire.id);
+        // La suite se déroule sur l'ENGAGEMENT du prestataire retenu (2026-11-10).
+        const { proposalId, engagementId: missionId } = await candidaterEtRetenir(cas, annonceId, prestataire.id);
         const proposition = await prisma.missionProposal.findUniqueOrThrow({ where: { id: proposalId } });
         if (cas.type !== "RATE") {
           expect((proposition.devisData as { financingModeKey?: string }).financingModeKey).toBe(cas.mode);

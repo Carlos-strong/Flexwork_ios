@@ -81,9 +81,9 @@ export function PendingPublicationsCard() {
   // (vert), simples brouillons publiables (neutre).
   const tone = !canPublish ? "amber" : anyRequested ? "green" : "neutral";
   const TONES = {
-    amber: { box: "border-[#FDE68A] bg-[#FFFBEB]", icon: "bg-[#FEF3C7] text-[#B45309]", title: "text-[#78350F]", text: "text-[#92400E]" },
-    green: { box: "border-[#BBF7D0] bg-[#F0FDF4]", icon: "bg-[#DCFCE7] text-[#15803D]", title: "text-[#14532D]", text: "text-[#166534]" },
-    neutral: { box: "border-gray-100 bg-white", icon: "bg-gray-100 text-zinc-600", title: "text-[#0A1931]", text: "text-zinc-500" },
+    amber: { box: "border-[#FDE68A] bg-[#FFF6E3]", icon: "bg-[#FFF6E3] text-[#B45309]", title: "text-[#78350F]", text: "text-[#92400E]" },
+    green: { box: "border-[#BBF7D0] bg-[#E7F7EF]", icon: "bg-[#E7F7EF] text-[#047857]", title: "text-[#14532D]", text: "text-[#047857]" },
+    neutral: { box: "border-gray-100 bg-white", icon: "bg-gray-100 text-zinc-600", title: "text-[#191224]", text: "text-zinc-500" },
   }[tone];
 
   return (
@@ -126,7 +126,7 @@ export function PendingPublicationsCard() {
               {missions.map((m) => (
                 <li key={m.id} className="flex flex-col gap-2 px-3.5 py-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="min-w-0">
-                    <Link href={`/missions/${m.id}`} className="block truncate text-[13px] font-semibold text-[#0A1931] hover:underline">
+                    <Link href={`/missions/${m.id}`} className="block truncate text-[13px] font-semibold text-[#191224] hover:underline">
                       {m.titre}
                     </Link>
                     <p className="text-[12px] text-zinc-500">
@@ -141,13 +141,13 @@ export function PendingPublicationsCard() {
                       type="button"
                       onClick={() => publish(m.id)}
                       disabled={publishing !== null}
-                      className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full bg-[#008751] px-4 text-[13px] font-semibold text-white transition hover:bg-[#006e43] disabled:opacity-50"
+                      className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full bg-[#4C1D95] px-4 text-[13px] font-semibold text-white transition hover:bg-[#3B1578] disabled:opacity-50"
                     >
                       <Send className="h-3.5 w-3.5" aria-hidden />
                       {publishing === m.id ? "Publication…" : "Publier maintenant"}
                     </button>
                   ) : (
-                    <span className="inline-flex h-7 shrink-0 items-center self-start rounded-full bg-[#FEF3C7] px-3 text-[11px] font-semibold text-[#92400E] sm:self-auto">
+                    <span className="inline-flex h-7 shrink-0 items-center self-start rounded-full bg-[#FFF6E3] px-3 text-[11px] font-semibold text-[#92400E] sm:self-auto">
                       Publication retenue
                     </span>
                   )}
@@ -161,7 +161,7 @@ export function PendingPublicationsCard() {
           {!verified && (
             <Link
               href="/kyc"
-              className="mt-3 inline-flex h-9 items-center rounded-full bg-[#0A1931] px-4 text-[13px] font-semibold text-white transition hover:bg-[#13284a]"
+              className="mt-3 inline-flex h-9 items-center rounded-full bg-[#191224] px-4 text-[13px] font-semibold text-white transition hover:bg-[#13284a]"
               style={{ textDecoration: "none" }}
             >
               {state?.kycStatus === "en_attente" ? "Suivre ma vérification" : "Vérifier mon identité"}

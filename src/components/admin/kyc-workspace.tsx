@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { RefreshCw, Trash2 } from "lucide-react";
 import { CHANTIER_ROLES } from "@/lib/age-gate";
-import { PROVIDER_ROLE_LABELS } from "@/lib/provider-options";
 import { useCanActIn } from "@/components/admin/admin-role-context";
 import { AdminPageHeader, KpiStrip, btnSecondary } from "@/components/admin/admin-ui";
 
@@ -34,13 +33,9 @@ const DOC_LABEL: Record<string, string> = {
   selfie_avec_piece: "Selfie+pièce",
 };
 
-const ROLE_LABEL: Record<string, string> = {
-  // Source unique — voir src/lib/provider-options.ts.
-  ...PROVIDER_ROLE_LABELS,
-};
 
 
-const inputClass = "h-10 px-3 rounded-lg border border-[#E2E0D9] text-[13px] focus:outline-none focus:ring-2 focus:ring-[#2D5BE3]/20 focus:border-[#2D5BE3]";
+const inputClass = "h-10 px-3 rounded-lg border border-[#E7E2F0] text-[13px] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20 focus:border-[#4C1D95]";
 
 
 // Validation KYC — aligné sur formulaires-flexwork-tous-profils.html.
@@ -278,7 +273,7 @@ export function KycWorkspace({ population }: { population: KycPopulation }) {
   const withGarant = visible.filter((item) => item.garantRequired).length;
 
   return (
-    <div className="text-[#1A1916]">
+    <div className="text-[#191224]">
       <div className="space-y-5">
         <AdminPageHeader
           icon="🪪"
@@ -303,29 +298,29 @@ export function KycWorkspace({ population }: { population: KycPopulation }) {
         />
 
         {!canAct && (
-          <div className="rounded-xl border border-[#E2E0D9] bg-white p-3.5 text-[12.5px] text-[#5A5750]">
-            <strong className="text-[#1A1916]">Consultation seule.</strong> L&apos;instruction des dossiers appartient au rôle{" "}
-            <code className="px-1 py-0.5 rounded bg-[#F4F3EF] text-[12px]">kyc</code>.
+          <div className="rounded-xl border border-[#E7E2F0] bg-white p-3.5 text-[12.5px] text-[#6B6478]">
+            <strong className="text-[#191224]">Consultation seule.</strong> L&apos;instruction des dossiers appartient au rôle{" "}
+            <code className="px-1 py-0.5 rounded bg-[#EFEAF8] text-[12px]">kyc</code>.
           </div>
         )}
 
-        <div className="rounded-xl border border-[#E2E0D9] bg-white p-3.5 text-[12.5px] text-[#5A5750] leading-relaxed">
-          <strong className="text-[#1A1916]">Seule vérification effective de Flexwork.</strong> Max 30 validations/heure. Motif obligatoire
+        <div className="rounded-xl border border-[#E7E2F0] bg-white p-3.5 text-[12.5px] text-[#6B6478] leading-relaxed">
+          <strong className="text-[#191224]">Seule vérification effective de Flexwork.</strong> Max 30 validations/heure. Motif obligatoire
           uniquement en cas de rejet. La date de naissance saisie ici est la seule donnée d&apos;âge faisant foi (A13), obligatoire pour
           valider une filière chantier.
-          Les rejets requièrent une <strong className="text-[#1A1916]">double validation</strong>.
+          Les rejets requièrent une <strong className="text-[#191224]">double validation</strong>.
         </div>
 
-        {feedback && <div className="rounded-xl border border-[#FDE68A] bg-[#FFFBEB] p-3 text-[13px] text-[#92400E]">{feedback}</div>}
+        {feedback && <div className="rounded-xl border border-[#FDE68A] bg-[#FFF6E3] p-3 text-[13px] text-[#92400E]">{feedback}</div>}
 
-        <div className="bg-white border border-[#E2E0D9] rounded-xl overflow-hidden">
-          <div className="p-4 lg:p-5 border-b border-[#E2E0D9]">
+        <div className="bg-white border border-[#E7E2F0] rounded-xl overflow-hidden">
+          <div className="p-4 lg:p-5 border-b border-[#E7E2F0]">
             <h3 className="text-[13px] font-semibold">Dossiers en attente ({queue ? visible.length : "…"})</h3>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-[13px]">
               <thead>
-                <tr className="text-[11px] tracking-widest text-[#5A5750] uppercase bg-[#FAFAF8] border-b border-[#E2E0D9]">
+                <tr className="text-[11px] tracking-widest text-[#6B6478] uppercase bg-[#F6F5FA] border-b border-[#E7E2F0]">
                   <th className="text-left py-2.5 px-4 lg:px-5 font-semibold">Utilisateur</th>
                   <th className="text-left py-2.5 px-3 font-semibold">Documents</th>
                   <th className="text-left py-2.5 px-3 font-semibold">Date de naissance (lue sur pièce)</th>
@@ -338,12 +333,12 @@ export function KycWorkspace({ population }: { population: KycPopulation }) {
                 {visible.map((item) => {
                   const allVerified = item.documents.length > 0 && item.documents.every((d) => d.status === "verifie");
                   return (
-                    <tr key={item.userId} className="border-b border-[#F4F3EF] last:border-0">
-                      <td className="py-2.5 px-4 lg:px-5 text-[#5A5750]">{item.email}<br /><span className="text-[11px] text-[#9C9A95]">{item.tel}</span></td>
+                    <tr key={item.userId} className="border-b border-[#EFEAF8] last:border-0">
+                      <td className="py-2.5 px-4 lg:px-5 text-[#6B6478]">{item.email}<br /><span className="text-[11px] text-[#9A93A8]">{item.tel}</span></td>
                       <td className="py-2.5 px-3">
-                        <div className="text-[#5A5750]">{item.documents.map((d) => DOC_LABEL[d.type] ?? d.type).join(" · ")}</div>
+                        <div className="text-[#6B6478]">{item.documents.map((d) => DOC_LABEL[d.type] ?? d.type).join(" · ")}</div>
                         {canAct && (
-                          <button onClick={() => openDocs(item)} className="mt-1.5 h-7 px-3 rounded-md bg-[#2D5BE3] text-white text-[11.5px] font-medium whitespace-nowrap hover:brightness-110">
+                          <button onClick={() => openDocs(item)} className="mt-1.5 h-7 px-3 rounded-full bg-[#4C1D95] text-white text-[11.5px] font-medium whitespace-nowrap hover:brightness-110">
                             Voir les documents
                           </button>
                         )}
@@ -377,13 +372,13 @@ export function KycWorkspace({ population }: { population: KycPopulation }) {
                                 : "Réservé aux filières chantier (artisan, manœuvre, entreprise)"
                             }
                             onClick={() => toggleGarant(item.userId, item.garantRequired)}
-                            className={`inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-[11.5px] font-medium border transition disabled:opacity-60 ${item.garantRequired ? "bg-[#F0FDF4] text-[#166534] border-[#BBF7D0]" : "bg-white text-[#5A5750] border-[#E2E0D9] hover:bg-[#FAFAF8]"} ${!(CHANTIER_ROLES as readonly string[]).includes(item.role) ? "opacity-40 cursor-not-allowed" : ""}`}
+                            className={`inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-[11.5px] font-medium border transition disabled:opacity-60 ${item.garantRequired ? "bg-[#E7F7EF] text-[#047857] border-[#BBF7D0]" : "bg-white text-[#6B6478] border-[#E7E2F0] hover:bg-[#F6F5FA]"} ${!(CHANTIER_ROLES as readonly string[]).includes(item.role) ? "opacity-40 cursor-not-allowed" : ""}`}
                           >
                             {garantBusy === item.userId ? "…" : item.garantRequired ? "● Garant requis ON" : "○ Garant OFF"}
                           </button>
                         ) : (
                           <span
-                            className={`inline-flex items-center h-8 px-3 rounded-md text-[11.5px] font-medium border ${item.garantRequired ? "bg-[#F0FDF4] text-[#166534] border-[#BBF7D0]" : "bg-white text-[#5A5750] border-[#E2E0D9]"}`}
+                            className={`inline-flex items-center h-8 px-3 rounded-md text-[11.5px] font-medium border ${item.garantRequired ? "bg-[#E7F7EF] text-[#047857] border-[#BBF7D0]" : "bg-white text-[#6B6478] border-[#E7E2F0]"}`}
                           >
                             {item.garantRequired ? "● Garant requis" : "○ Garant non requis"}
                           </span>
@@ -396,29 +391,29 @@ export function KycWorkspace({ population }: { population: KycPopulation }) {
                               disabled={!allVerified}
                               title={allVerified ? undefined : "Validez d'abord chaque document individuellement"}
                               onClick={() => decide(item.userId, "verifie")}
-                              className={`h-8 px-3 rounded-md bg-[#1A1916] text-white text-[11.5px] font-medium hover:bg-black ${allVerified ? "" : "opacity-45 cursor-not-allowed"}`}
+                              className={`h-8 px-3 rounded-md bg-[#191224] text-white text-[11.5px] font-medium hover:bg-black ${allVerified ? "" : "opacity-45 cursor-not-allowed"}`}
                             >
                               Valider
                             </button>
-                            <button onClick={() => decide(item.userId, "rejete")} className="h-8 px-3 rounded-md border border-[#E2E0D9] bg-white text-[11.5px] font-medium hover:bg-[#FAFAF8]">
+                            <button onClick={() => decide(item.userId, "rejete")} className="h-8 px-3 rounded-md border border-[#E7E2F0] bg-white text-[11.5px] font-medium hover:bg-[#F6F5FA]">
                               Rejeter
                             </button>
                             <button
                               onClick={() => { setDeleteModal({ userId: item.userId, email: item.email }); setDeleteValues({ confirmEmail: "", justification: "" }); }}
                               title="Supprimer le compte"
-                              className="h-8 w-8 rounded-md border border-[#FECACA] bg-white text-[#DC2626] flex items-center justify-center hover:bg-[#FEF2F2] transition-colors"
+                              className="h-8 w-8 rounded-md border border-[#FECACA] bg-white text-[#B42318] flex items-center justify-center hover:bg-[#FEECEB] transition-colors"
                             >
                               <Trash2 size={14} />
                             </button>
                           </div>
                         ) : (
-                          <span className="text-[12px] text-[#9C9A95]">Consultation</span>
+                          <span className="text-[12px] text-[#9A93A8]">Consultation</span>
                         )}
                       </td>
                     </tr>
                   );
                 })}
-                {queue && visible.length === 0 && <tr><td colSpan={6} className="py-6 px-4 lg:px-5 text-center text-[#9C9A95]">Aucun dossier en attente.</td></tr>}
+                {queue && visible.length === 0 && <tr><td colSpan={6} className="py-6 px-4 lg:px-5 text-center text-[#9A93A8]">Aucun dossier en attente.</td></tr>}
               </tbody>
             </table>
           </div>
@@ -432,7 +427,7 @@ export function KycWorkspace({ population }: { population: KycPopulation }) {
       {viewing && (
         <div
           onClick={() => setViewing(null)}
-          className="fixed inset-0 bg-[#0A1931]/55 flex items-center justify-center p-4 z-[1000]"
+          className="fixed inset-0 bg-[#191224]/55 flex items-center justify-center p-4 z-[1000]"
         >
           <div
             onClick={(e) => e.stopPropagation()}
@@ -440,32 +435,32 @@ export function KycWorkspace({ population }: { population: KycPopulation }) {
           >
             <div className="flex items-start justify-between gap-3 mb-1.5">
               <div>
-                <h2 className="text-[18px] font-bold text-[#0A1931] m-0">Documents KYC — {viewing.email}</h2>
-                <p className="mt-1 text-[12px] text-[#6b7280]">
+                <h2 className="text-[18px] font-bold text-[#191224] m-0">Documents KYC — {viewing.email}</h2>
+                <p className="mt-1 text-[12px] text-[#6B6478]">
                   Visualisez chaque document et validez-le individuellement. L&apos;état du compte est resynchronisé automatiquement.
                 </p>
               </div>
-              <button onClick={() => setViewing(null)} className="w-8 h-8 rounded-lg bg-[#F4F3EF] text-[#374151] text-[16px] hover:bg-[#E2E0D9]">✕</button>
+              <button onClick={() => setViewing(null)} className="w-8 h-8 rounded-lg bg-[#EFEAF8] text-[#374151] text-[16px] hover:bg-[#E7E2F0]">✕</button>
             </div>
 
             {feedback && (
-              <div className={`px-3 py-2 rounded-[10px] mb-3 text-[12px] font-semibold border ${feedback.startsWith("✅") ? "bg-[#f0fdf4] text-[#166534] border-[#bbf7d0]" : "bg-[#fef2f2] text-[#b91c1c] border-[#fecaca]"}`}>{feedback}</div>
+              <div className={`px-3 py-2 rounded-[10px] mb-3 text-[12px] font-semibold border ${feedback.startsWith("✅") ? "bg-[#E7F7EF] text-[#047857] border-[#bbf7d0]" : "bg-[#FEECEB] text-[#B42318] border-[#fecaca]"}`}>{feedback}</div>
             )}
 
-            <label className="block mt-3 mb-1 text-[12px] text-[#6b7280]">
+            <label className="block mt-3 mb-1 text-[12px] text-[#6B6478]">
               Date de naissance (lue sur la pièce — A13, envoyée avec la validation)
             </label>
             <input
               type="date"
               value={viewDateNaissance}
               onChange={(e) => setViewDateNaissance(e.target.value)}
-              className="h-[38px] px-2.5 rounded-lg border border-[#E2E0D9] text-[13px] mb-4"
+              className="h-[38px] px-2.5 rounded-lg border border-[#E7E2F0] text-[13px] mb-4"
             />
 
             {viewDocs === null ? (
-              <p className="text-[13px] text-[#6b7280]">Chargement des documents…</p>
+              <p className="text-[13px] text-[#6B6478]">Chargement des documents…</p>
             ) : viewDocs.length === 0 ? (
-              <p className="text-[13px] text-[#6b7280]">Aucun document déposé pour ce compte.</p>
+              <p className="text-[13px] text-[#6B6478]">Aucun document déposé pour ce compte.</p>
             ) : (
               <div className="grid gap-3.5" style={{ gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))" }}>
                 {viewDocs.map((d) => {
@@ -474,13 +469,13 @@ export function KycWorkspace({ population }: { population: KycPopulation }) {
                   const isVerified = d.status === "verifie";
                   const isRejected = d.status === "rejete";
                   const badgeClass = isVerified
-                    ? "bg-[#DCFCE7] text-[#166534]"
+                    ? "bg-[#E7F7EF] text-[#047857]"
                     : isRejected
-                      ? "bg-[#FEE2E2] text-[#B91C1C]"
+                      ? "bg-[#FEECEB] text-[#B42318]"
                       : "bg-[#FEF9C3] text-[#854D0E]";
                   return (
-                    <div key={d.id} className="border border-[#E2E0D9] rounded-xl overflow-hidden flex flex-col bg-white">
-                      <div className="px-3 py-2.5 border-b border-[#F4F3EF] flex items-center justify-between gap-2">
+                    <div key={d.id} className="border border-[#E7E2F0] rounded-xl overflow-hidden flex flex-col bg-white">
+                      <div className="px-3 py-2.5 border-b border-[#EFEAF8] flex items-center justify-between gap-2">
                         <strong className="text-[12px]">{label}</strong>
                         <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold ${badgeClass}`}>{isVerified ? "Validé" : isRejected ? "Rejeté" : "En attente"}</span>
                       </div>
@@ -489,7 +484,7 @@ export function KycWorkspace({ population }: { population: KycPopulation }) {
                           // eslint-disable-next-line @next/next/no-img-element -- document KYC signé/privé, pas un asset optimisable par next/image
                           <img src={d.url} alt={label} className="max-w-full rounded-lg object-contain" style={{ maxHeight: 170 }} />
                         ) : (
-                          <span className="text-[13px] text-[#2D5BE3] font-semibold">📄 Ouvrir le PDF</span>
+                          <span className="text-[13px] text-[#4C1D95] font-semibold">📄 Ouvrir le PDF</span>
                         )}
                       </div>
                       <div className="p-2.5 flex flex-col gap-2">
@@ -499,16 +494,16 @@ export function KycWorkspace({ population }: { population: KycPopulation }) {
                           value={input}
                           disabled={isVerified}
                           onChange={(e) => { setMissingDocFieldId(null); setDocInputs((prev) => ({ ...prev, [d.id]: e.target.value })); }}
-                          className={`h-[34px] px-2.5 rounded-lg text-[12px] border ${missingDocFieldId === d.id ? "border-2 border-[#DC2626]" : "border-[#E2E0D9]"}`}
+                          className={`h-[34px] px-2.5 rounded-lg text-[12px] border ${missingDocFieldId === d.id ? "border-2 border-[#B42318]" : "border-[#E7E2F0]"}`}
                         />
                         {d.rejectionReason && (
-                          <span className="text-[11px] text-[#DC2626]">Motif précédent : {d.rejectionReason}</span>
+                          <span className="text-[11px] text-[#B42318]">Motif précédent : {d.rejectionReason}</span>
                         )}
                         <div className="flex gap-2">
-                          <button type="button" disabled={isVerified || docBusy === d.id} onClick={() => decideDoc(d.id, "verifie")} className="flex-1 h-8 rounded-md bg-[#1A1916] text-white text-[11.5px] font-medium hover:bg-black disabled:opacity-50">
+                          <button type="button" disabled={isVerified || docBusy === d.id} onClick={() => decideDoc(d.id, "verifie")} className="flex-1 h-8 rounded-md bg-[#191224] text-white text-[11.5px] font-medium hover:bg-black disabled:opacity-50">
                             {docBusy === d.id ? "…" : "Valider"}
                           </button>
-                          <button type="button" disabled={isVerified || docBusy === d.id} onClick={() => decideDoc(d.id, "rejete")} className="flex-1 h-8 rounded-md border border-[#E2E0D9] bg-white text-[11.5px] font-medium hover:bg-[#FAFAF8] disabled:opacity-50">
+                          <button type="button" disabled={isVerified || docBusy === d.id} onClick={() => decideDoc(d.id, "rejete")} className="flex-1 h-8 rounded-md border border-[#E7E2F0] bg-white text-[11.5px] font-medium hover:bg-[#F6F5FA] disabled:opacity-50">
                             {docBusy === d.id ? "…" : "Rejeter"}
                           </button>
                         </div>
@@ -526,12 +521,12 @@ export function KycWorkspace({ population }: { population: KycPopulation }) {
         <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/40 px-4" onClick={() => setDeleteModal(null)}>
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-[15px] font-bold">Supprimer le compte {deleteModal.email} ?</h3>
-            <p className="text-[12.5px] text-[#5A5750]">
-              L&apos;opération est journalisée dans <code className="px-1 py-0.5 rounded bg-[#F4F3EF] text-[12px]">admin_audit_log</code> et
+            <p className="text-[12.5px] text-[#6B6478]">
+              L&apos;opération est journalisée dans <code className="px-1 py-0.5 rounded bg-[#EFEAF8] text-[12px]">admin_audit_log</code> et
               détache le compte de ses missions. Elle est irréversible.
             </p>
             <div>
-              <label htmlFor="del-confirm" className="block text-[12px] font-semibold text-[#5A5750] mb-1">
+              <label htmlFor="del-confirm" className="block text-[12px] font-semibold text-[#6B6478] mb-1">
                 Tapez « {deleteModal.email} » pour confirmer
               </label>
               <input
@@ -544,7 +539,7 @@ export function KycWorkspace({ population }: { population: KycPopulation }) {
               />
             </div>
             <div>
-              <label htmlFor="del-justification" className="block text-[12px] font-semibold text-[#5A5750] mb-1">
+              <label htmlFor="del-justification" className="block text-[12px] font-semibold text-[#6B6478] mb-1">
                 Justification (obligatoire)
               </label>
               <textarea
@@ -552,17 +547,17 @@ export function KycWorkspace({ population }: { population: KycPopulation }) {
                 rows={3}
                 value={deleteValues.justification}
                 onChange={(e) => setDeleteValues((v) => ({ ...v, justification: e.target.value }))}
-                className="w-full px-3 py-2 rounded-lg border border-[#E2E0D9] text-[13px] resize-y focus:outline-none focus:ring-2 focus:ring-[#2D5BE3]/20 focus:border-[#2D5BE3]"
+                className="w-full px-3 py-2 rounded-lg border border-[#E7E2F0] text-[13px] resize-y focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20 focus:border-[#4C1D95]"
               />
             </div>
             <div className="flex gap-2 justify-end">
-              <button onClick={() => setDeleteModal(null)} className="h-9 px-4 rounded-lg border border-[#E2E0D9] text-[13px] font-medium hover:bg-[#FAFAF8]">
+              <button onClick={() => setDeleteModal(null)} className="h-9 px-4 rounded-lg border border-[#E7E2F0] text-[13px] font-medium hover:bg-[#F6F5FA]">
                 Annuler
               </button>
               <button
                 onClick={submitDeleteUser}
                 disabled={deleteValues.confirmEmail.trim() !== deleteModal.email || !deleteValues.justification.trim()}
-                className="h-9 px-4 rounded-lg bg-[#DC2626] text-white text-[13px] font-semibold hover:bg-[#B91C1C] disabled:opacity-50 disabled:cursor-not-allowed"
+                className="h-9 px-4 rounded-lg bg-[#B42318] text-white text-[13px] font-semibold hover:bg-[#B42318] disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Supprimer le compte
               </button>

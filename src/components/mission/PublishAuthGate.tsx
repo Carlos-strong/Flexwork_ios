@@ -57,7 +57,7 @@ export function PublishAuthGate() {
       return;
     }
     if (!value.includes("@") && !value.startsWith("+")) {
-      setError("Saisissez le numéro avec l'indicatif du pays, par exemple +229 97 00 00 00.");
+      setError("Saisissez le numéro avec l'indicatif du pays, par exemple +229 01 97 00 00 00.");
       return;
     }
 
@@ -95,22 +95,22 @@ export function PublishAuthGate() {
   }
 
   return (
-    <main className="min-h-screen bg-[#F8FAF9] flex items-start md:items-center justify-center p-4 pt-8 md:p-8">
+    <main className="min-h-screen bg-[#F6F5FA] flex items-start md:items-center justify-center p-4 pt-8 md:p-8">
       <div className="w-full max-w-[480px]">
         <Link href="/" className="inline-flex items-center gap-2 mb-6">
-          <span className="w-9 h-9 rounded-xl bg-[#FF7A00] flex items-center justify-center text-white font-extrabold text-[14px]">FW</span>
-          <span className="text-[#0A1931] font-extrabold text-[18px] tracking-tight">FlexWork</span>
+          <span className="w-9 h-9 rounded-xl bg-[#6D28D9] flex items-center justify-center text-white font-extrabold text-[14px]">FW</span>
+          <span className="text-[#191224] font-extrabold text-[18px] tracking-tight">FlexWork</span>
         </Link>
 
-        <div className="bg-white border border-[#E2E8F0] rounded-2xl p-6 md:p-8">
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#E6F4EE] text-[#008751] text-[11px] font-semibold">
+        <div className="bg-white border border-[#E7E2F0] rounded-2xl p-6 md:p-8">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#F0EAFF] text-[#4C1D95] text-[11px] font-semibold">
             <UserCheck className="w-3.5 h-3.5" /> Étape préalable
           </span>
-          <h1 className="mt-3 text-[22px] md:text-[24px] font-bold text-[#0A1931] leading-tight">Publier une mission</h1>
+          <h1 className="mt-3 text-[22px] md:text-[24px] font-bold text-[#191224] leading-tight">Publier une mission</h1>
           <p className="mt-2 text-[14px] text-zinc-600 leading-relaxed">
             {invitedName ? (
               <>
-                Pour proposer votre mission à <span className="font-semibold text-[#0A1931]">{invitedName}</span>, identifiez-vous.
+                Pour proposer votre mission à <span className="font-semibold text-[#191224]">{invitedName}</span>, identifiez-vous.
               </>
             ) : (
               <>Pour publier votre mission, identifiez-vous.</>
@@ -136,14 +136,14 @@ export function PublishAuthGate() {
                 onChange={(e) => setIdentifier(e.target.value)}
                 required
                 autoComplete="username"
-                placeholder="koffi@exemple.bj ou +229 97 00 00 00"
-                className="w-full h-11 rounded-xl border border-[#E2E8F0] px-3.5 text-[14px] bg-white focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751]"
+                placeholder="koffi@exemple.bj ou +229 01 97 00 00 00"
+                className="w-full h-11 rounded-xl border border-[#E7E2F0] px-3.5 text-[14px] bg-white focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20 focus:border-[#4C1D95]"
               />
             </div>
             <button
               type="submit"
               disabled={submitting}
-              className="w-full h-11 rounded-xl bg-[#FF7A00] text-white text-[14px] font-bold hover:brightness-110 disabled:opacity-50 flex items-center justify-center gap-2"
+              className="w-full h-11 rounded-xl bg-[#6D28D9] text-white text-[14px] font-bold hover:brightness-110 disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {submitting ? "Vérification…" : (
                 <>
@@ -163,7 +163,7 @@ export function PublishAuthGate() {
 
           <p className="mt-5 text-center text-[13px] text-zinc-500">
             Pas encore de compte ?{" "}
-            <Link href={withCallbackUrl("/signup?nouveau=1", destination)} className="font-semibold text-[#008751] hover:underline">
+            <Link href={withCallbackUrl("/signup?nouveau=1", destination)} className="font-semibold text-[#4C1D95] hover:underline">
               Créer un compte
             </Link>
           </p>

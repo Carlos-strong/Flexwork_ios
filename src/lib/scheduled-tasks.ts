@@ -1,7 +1,11 @@
+import type { ProposalStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { notifyMissionUser } from "@/lib/mission-notify";
+import { closeMissionDrafts } from "@/lib/proposal-drafts-close";
 import { cancelExpiredContract, COUNTER_SIGN_DEADLINE_MS } from "@/lib/contract-expiry";
 import { refundExpiredOrder, PROVIDER_SIGN_DEADLINE_MS } from "@/lib/gig-expiry";
 import { deleteStoredFile } from "@/lib/storage";
+import { PLACE_TAKING_ENGAGEMENT, placesRecherchees, RESERVE_DAYS, reserveUntil } from "@/lib/mission-expiry";
 
 // ---------------------------------------------------------------------------
 // Tâches d'expiration et de purge (2026-10-01) — extraites des routes /api/cron/* pour être
@@ -23,23 +27,129 @@ export async function expireUnsignedContracts(): Promise<{ cancelled: number }> 
   return { cancelled };
 }
 
-// Négociations de devis expirées (mode QUOTE). Basé sur la date d'expiration de la mission, PAS
-// sur le compteur de rounds : le dernier round doit rester utilisable.
-export async function expireDevisNegotiations(): Promise<{ cancelled: number }> {
-  const expired = await prisma.missionProposal.findMany({
-    where: {
-      status: { in: ["preselectionnee", "en_negociation"] },
-      mission: { dateExpiration: { lt: new Date() } },
-    },
-    select: { id: true },
+// Clôture des annonces échues (2026-11-10) — remplace l'annulation des seules négociations de
+// devis expirées. À la date limite de candidature d'une annonce (src/lib/mission-expiry.ts) :
+//   - les candidatures NON RETENUES encore ouvertes (envoyée, en négociation) sont refusées, et
+//     leurs auteurs prévenus — le prestataire est ainsi libéré de l'exclusivité des négociations ;
+//   - les candidatures PRÉSÉLECTIONNÉES (« Shortlister ») ne le sont pas (2026-11-11) : elles
+//     forment la RÉSERVE du client, mobilisable pendant RESERVE_DAYS en cas de désistement d'un
+//     prestataire retenu (src/lib/engagement-withdrawal.ts). Leurs auteurs sont prévenus ; une
+//     présélection ne bloque pas les autres candidatures du prestataire (ACTIVE_NEGOCIATION_STATUSES).
+//     La réserve est libérée par releaseReserves ci-dessous ;
+//   - les candidatures encore en brouillon (KYC en attente) sont retirées ;
+//   - l'annonce passe à `annonce_close`.
+// Les prestataires retenus ne sont pas concernés : leur candidature a rejoint leur engagement
+// (mission enfant, sans date limite). Basé sur la date seule, jamais sur le nombre de rounds ni
+// sur le nombre de prestataires retenus.
+export async function closeExpiredAnnonces(now: Date = new Date()): Promise<{ closed: number; refused: number }> {
+  const annonces = await prisma.mission.findMany({
+    where: { status: "publiee", parentMissionId: null, dateExpiration: { lt: now } },
+    select: { id: true, titre: true },
   });
-  if (expired.length > 0) {
-    await prisma.missionProposal.updateMany({
-      where: { id: { in: expired.map((p) => p.id) } },
-      data: { status: "annulee_definitive" },
+  let closed = 0;
+  let refused = 0;
+  for (const a of annonces) {
+    const open = { missionId: a.id, status: { in: ["envoyee", "en_negociation"] as ProposalStatus[] } };
+    const losers = await prisma.missionProposal.findMany({ where: open, select: { providerId: true } });
+    const reserve = await prisma.missionProposal.findMany({ where: { missionId: a.id, status: "preselectionnee" }, select: { providerId: true } });
+    const res = await prisma.$transaction(async (tx) => {
+      const m = await tx.mission.updateMany({ where: { id: a.id, status: "publiee" }, data: { status: "annonce_close" } });
+      if (m.count === 0) return null; // déjà close par un passage concurrent
+      const r = await tx.missionProposal.updateMany({
+        where: open,
+        data: { status: "refusee", revisionRequestedAt: null, revisionRequestMessage: null },
+      });
+      return r.count;
     });
+    if (res === null) continue;
+    closed += 1;
+    refused += res;
+    await Promise.allSettled([
+      ...losers.map((l) =>
+        notifyMissionUser({
+          missionId: a.id,
+          userId: l.providerId,
+          type: "candidature_refusee",
+          message: `La période de candidature de « ${a.titre} » est terminée : votre candidature n'a pas été retenue.`,
+          email: {
+            subject: `Candidature non retenue — ${a.titre}`,
+            text: `La période de candidature de la mission « ${a.titre} » est terminée et votre candidature n'a pas été retenue. D'autres missions de votre domaine vous attendent sur FlexWork.`,
+          },
+        })
+      ),
+      ...reserve.map((r) =>
+        notifyMissionUser({
+          missionId: a.id,
+          userId: r.providerId,
+          type: "candidature_reserve",
+          message: `« ${a.titre} » : votre candidature est placée en liste de réserve pendant ${RESERVE_DAYS} jours. Le client pourra vous retenir si une place se libère.`,
+          email: {
+            subject: `En liste de réserve — ${a.titre}`,
+            text: `La période de candidature de « ${a.titre} » est terminée. Le client vous a présélectionné : votre candidature reste en réserve pendant ${RESERVE_DAYS} jours et pourra être retenue si un prestataire se désiste. Vous restez libre de candidater à d'autres missions.`,
+          },
+        })
+      ),
+    ]);
+    await closeMissionDrafts(a.id, "expired");
   }
-  return { cancelled: expired.length };
+  return { closed, refused };
+}
+
+// Libération des réserves (2026-11-11) : sur une annonce close, les candidatures présélectionnées
+// en réserve sont refusées — et leurs auteurs prévenus — quand :
+//   - la réserve a expiré (RESERVE_DAYS après la date limite, reserveUntil) ;
+//   - ou toutes les places sont pourvues par des engagements dont le contrat est signé des deux
+//     parties : plus aucun désistement n'est possible (src/lib/engagement-withdrawal.ts).
+export async function releaseReserves(now: Date = new Date()): Promise<{ released: number }> {
+  const annonces = await prisma.mission.findMany({
+    where: { status: "annonce_close", parentMissionId: null, proposals: { some: { status: "preselectionnee" } } },
+    select: {
+      id: true,
+      titre: true,
+      status: true,
+      dateExpiration: true,
+      maxCandidatures: true,
+      engagements: { where: PLACE_TAKING_ENGAGEMENT, select: { contract: { select: { clientSignedAt: true, providerSignedAt: true } } } },
+    },
+  });
+  let released = 0;
+  for (const a of annonces) {
+    const until = reserveUntil(a);
+    const expired = !until || until.getTime() <= now.getTime();
+    const allSigned =
+      a.engagements.length >= placesRecherchees(a) &&
+      a.engagements.every((e) => !!e.contract?.clientSignedAt && !!e.contract?.providerSignedAt);
+    if (!expired && !allSigned) continue;
+    const reserve = await prisma.missionProposal.findMany({ where: { missionId: a.id, status: "preselectionnee" }, select: { providerId: true } });
+    const r = await prisma.missionProposal.updateMany({
+      where: { missionId: a.id, status: "preselectionnee" },
+      data: { status: "refusee", revisionRequestedAt: null, revisionRequestMessage: null },
+    });
+    released += r.count;
+    await Promise.allSettled(
+      reserve.map((p) =>
+        notifyMissionUser({
+          missionId: a.id,
+          userId: p.providerId,
+          type: "candidature_refusee",
+          message: `« ${a.titre} » : la liste de réserve est close, votre candidature n'a pas été retenue.`,
+          email: {
+            subject: `Réserve close — ${a.titre}`,
+            text: `Le client de la mission « ${a.titre} » a pourvu toutes ses places : la liste de réserve est close et votre candidature n'a pas été retenue. Merci pour votre disponibilité.`,
+          },
+        })
+      )
+    );
+  }
+  return { released };
+}
+
+/** Ancien nom de la tâche (`devis-expirations`, route /api/cron/devis-expirations). */
+export async function expireDevisNegotiations(): Promise<{ cancelled: number; closed: number; released: number }> {
+  const { closed, refused } = await closeExpiredAnnonces();
+  // La libération des réserves partage ce passage : même rythme, même route cron, même worker.
+  const { released } = await releaseReserves();
+  return { cancelled: refused, closed, released };
 }
 
 /** Commandes Gig que le prestataire n'a pas signées sous 24 h : annulées et remboursées. */

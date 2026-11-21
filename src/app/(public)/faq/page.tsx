@@ -51,12 +51,12 @@ export default function FaqPage() {
 
       <section className="page-shell [&>*]:max-w-3xl py-12 lg:py-16 space-y-4">
         {FAQ.map((item) => (
-          <details key={item.q} className="group bg-white border border-[#E2E8F0] rounded-2xl open:ring-1 open:ring-[#008751]/20">
-            <summary className="cursor-pointer list-none flex items-center justify-between gap-4 p-5 font-semibold text-[#0f172a]">
+          <details key={item.q} className="group bg-white border border-[#E7E2F0] rounded-2xl open:ring-1 open:ring-[#4C1D95]/20">
+            <summary className="cursor-pointer list-none flex items-center justify-between gap-4 p-5 font-semibold text-[#191224]">
               {item.q}
-              <span className="text-[#008751] transition group-open:rotate-45">＋</span>
+              <span className="text-[#4C1D95] transition group-open:rotate-45">＋</span>
             </summary>
-            <p className="px-5 pb-5 text-sm text-[#64748B] leading-relaxed">{item.a}</p>
+            <p className="px-5 pb-5 text-sm text-[#6B6478] leading-relaxed">{item.a}</p>
           </details>
         ))}
       </section>

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { RiskLevel, Secteur } from "@prisma/client";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
+import { DEFAULT_PUBLICATION_DURATION, openAnnonceWhere, placesRecherchees, publicationExpiry } from "@/lib/mission-expiry";
 import { missionSchema } from "@/lib/validation";
 import { notifyMissionUser } from "@/lib/mission-notify";
 import { announcePublication, publishBlocker } from "@/lib/mission-publish";
@@ -246,7 +247,10 @@ export async function POST(req: Request) {
       siteManagerId,
       tags: parsed.data.tags ?? [],
       maxRevisionRounds: parsed.data.maxRevisionRounds ?? 3,
-      dateExpiration: parsed.data.dateExpiration ?? null,
+      // Date limite de candidature : calculée à la publication, jamais reçue du client
+      // (src/lib/mission-expiry.ts). Un brouillon n'en a pas encore.
+      dureePublicationJours: parsed.data.dureePublicationJours ?? DEFAULT_PUBLICATION_DURATION,
+      dateExpiration: publishNow ? publicationExpiry(new Date(), parsed.data.dureePublicationJours) : null,
       status: publishNow ? "publiee" : "brouillon",
       publicationRequestedAt: kycPending ? new Date() : null,
     },
@@ -342,38 +346,58 @@ export async function GET() {
       // ajouté (2026-09-04) pour la colonne "Freelance" de MesMissions — identité du
       // prestataire engagé sur CE contrat, pas une liste de candidats.
       include: {
-        _count: { select: { proposals: true } },
+        _count: { select: { proposals: true, engagements: { where: { status: { not: "annulee" } } } } },
+        // Prestataire retenu d'un ENGAGEMENT avant que son contrat n'existe (2026-11-10) : sans
+        // lui, la colonne « Freelance » restait vide et des engagements au même titre se
+        // confondaient.
+        proposals: {
+          where: { status: { in: ["acceptee", "devis_valide"] }, mission: { parentMissionId: { not: null } } },
+          select: { provider: { select: { id: true, firstname: true, lastname: true, avatarPath: true } } },
+          take: 1,
+        },
         contract: { select: { jalons: { select: { status: true, montant: true, observedProgress: true } }, provider: { select: { id: true, firstname: true, lastname: true, avatarPath: true } } } },
       },
     });
-    return NextResponse.json({ items: missions });
+    // Candidatures encore OUVERTES par mission (2026-11-11) — action « Examiner N candidatures »
+    // du suivi Mes Missions. `_count.proposals` (total, refusées comprises) reste inchangé : la
+    // pastille « Propositions » de la barre latérale le lit.
+    const open = await prisma.missionProposal.groupBy({
+      by: ["missionId"],
+      where: { missionId: { in: missions.map((m) => m.id) }, status: { in: ["envoyee", "preselectionnee", "en_negociation"] } },
+      _count: { _all: true },
+    });
+    const openBy = new Map(open.map((o) => [o.missionId, o._count._all]));
+    return NextResponse.json({ items: missions.map((m) => ({ ...m, openCandidatures: openBy.get(m.id) ?? 0 })) });
   }
 
   const mainDomain =
     user.profiles.find((p) => p.isDefault)?.mainDomain ?? user.profiles[0]?.mainDomain ?? null;
+  // Annonces OUVERTES seulement (2026-11-10) : une annonce échue reste « publiee » jusqu'au
+  // passage de la tâche de clôture, mais ne reçoit plus de candidature.
   const missions = await prisma.mission.findMany({
-    where: { status: "publiee", ...missionDomainFilter(mainDomain) },
+    where: { ...openAnnonceWhere(), ...missionDomainFilter(mainDomain) },
     include: {
       client: { select: { id: true, firstname: true, lastname: true, country: true, avatarPath: true } },
-      // Candidatures en lice, pour dire au prestataire AVANT qu'il ouvre la mission si le
-      // plafond est atteint. Sans ça, il découvrait la fermeture au moment de soumettre —
-      // après avoir rédigé sa proposition. Mêmes statuts exclus que dans la garde
-      // (`candidature-guard.ts`) : une candidature refusée ou définitivement annulée a
-      // libéré sa place.
-      _count: { select: { proposals: { where: { status: { notIn: ["refusee", "annulee_definitive"] } } } } },
+      // Candidatures en lice (refusées et annulées exclues) et prestataires déjà retenus
+      // (engagements) : la carte affiche « 3 candidatures · 1/2 prestataires retenus ».
+      _count: { select: { proposals: { where: { status: { notIn: ["refusee", "annulee_definitive"] } } }, engagements: { where: { status: { not: "annulee" } } } } },
       proposals: { where: { providerId: userId }, select: { id: true } },
     },
     orderBy: { createdAt: "desc" },
   });
 
-  // Le calcul est fait ici, une fois, plutôt que répété dans chaque écran qui affiche une
-  // liste de missions — et il reprend exactement la règle de la garde, y compris l'exception
-  // du prestataire déjà en lice, qu'un plafond atteint ne concerne pas.
-  const items = missions.map(({ _count, proposals, ...mission }) => ({
-    ...mission,
-    candidaturesCount: _count.proposals,
-    candidaturesClosed:
-      mission.maxCandidatures !== null && proposals.length === 0 && _count.proposals >= mission.maxCandidatures,
-  }));
+  // Le nombre de candidatures n'est plus plafonné (2026-11-10) : seule la date limite ferme
+  // l'annonce. `placesRestantes` informe le prestataire sans rien lui interdire.
+  const items = missions.map(({ _count, proposals, ...mission }) => {
+    const places = placesRecherchees(mission);
+    return {
+      ...mission,
+      candidaturesCount: _count.proposals,
+      placesRecherchees: places,
+      prestatairesRetenus: _count.engagements,
+      placesRestantes: Math.max(0, places - _count.engagements),
+      dejaCandidat: proposals.length > 0,
+    };
+  });
   return NextResponse.json({ items });
 }

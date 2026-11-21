@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { notifyPendingPublications } from "@/lib/mission-publish";
+import { sendPendingApplications } from "@/lib/candidature-submit";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireAdminRole } from "@/lib/adminGuard";
@@ -96,6 +97,9 @@ export async function POST(
   // avant la vérification sont prêtes — il en est prévenu (src/lib/mission-publish.ts).
   if (!wasVerified && user.kycStatus === "verifie") {
     await notifyPendingPublications(userId);
+    // Candidatures retenues faute de KYC : elles partent maintenant au client, sans nouvelle
+    // validation du prestataire (src/lib/candidature-submit.ts).
+    await sendPendingApplications(userId);
   }
 
   // logAdminAction (US-801) exige une justification non vide pour TOUTE action admin — une

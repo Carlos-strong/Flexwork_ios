@@ -106,11 +106,11 @@ export function AdminDashboard() {
       {error && <AdminNotice tone="red">Les indicateurs n’ont pas pu être chargés.</AdminNotice>}
 
       {data === null ? (
-        <div className="flex flex-col overflow-hidden rounded-[16px] border border-[#E2E0D9] bg-white shadow-sm sm:flex-row">
+        <div className="flex flex-col overflow-hidden rounded-[16px] border border-[#E7E2F0] bg-white shadow-sm sm:flex-row">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="flex-1 animate-pulse border-b border-[#E2E0D9] bg-[#FAFAF8] p-4 sm:border-b-0 sm:border-r">
-              <div className="mx-auto mb-2 h-4 w-16 rounded bg-[#E2E0D9]" />
-              <div className="mx-auto h-6 w-12 rounded bg-[#E2E0D9]" />
+            <div key={i} className="flex-1 animate-pulse border-b border-[#E7E2F0] bg-[#F6F5FA] p-4 sm:border-b-0 sm:border-r">
+              <div className="mx-auto mb-2 h-4 w-16 rounded bg-[#E7E2F0]" />
+              <div className="mx-auto h-6 w-12 rounded bg-[#E7E2F0]" />
             </div>
           ))}
         </div>
@@ -125,13 +125,13 @@ export function AdminDashboard() {
               <Link
                 key={m.id}
                 href={m.href}
-                className="rounded-[12px] border border-[#E2E0D9] bg-[#FAFAF8] p-3 transition hover:border-[#C3D1F8] hover:bg-[#EEF2FD]"
+                className="rounded-[12px] border border-[#E7E2F0] bg-[#F6F5FA] p-3 transition hover:border-[#DDD6FE] hover:bg-[#F0EAFF]"
                 style={{ textDecoration: "none" }}
               >
-                <div className="text-[13px] font-semibold text-[#1A1916]">
+                <div className="text-[13px] font-semibold text-[#191224]">
                   {m.icon} {m.label}
                 </div>
-                <div className="mt-0.5 text-[11.5px] leading-snug text-[#5A5750]">{m.hint}</div>
+                <div className="mt-0.5 text-[11.5px] leading-snug text-[#6B6478]">{m.hint}</div>
               </Link>
             ))}
           </div>
@@ -140,7 +140,7 @@ export function AdminDashboard() {
         <AdminCard title="Alertes">
           <div className="space-y-3">
             {data === null ? (
-              <div className="text-[13px] text-[#9C9A95]">Chargement…</div>
+              <div className="text-[13px] text-[#9A93A8]">Chargement…</div>
             ) : alerts.length === 0 ? (
               <AdminNotice tone="green">✅ Aucune alerte en cours</AdminNotice>
             ) : (

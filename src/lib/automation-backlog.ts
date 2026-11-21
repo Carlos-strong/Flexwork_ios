@@ -46,9 +46,8 @@ export async function getAutomationBacklog(now: Date = new Date()): Promise<Auto
     prisma.prestationContract.count({
       where: { providerSignedAt: { not: null, lt: new Date(now.getTime() - COUNTER_SIGN_DEADLINE_MS) }, clientSignedAt: null },
     }),
-    prisma.missionProposal.count({
-      where: { status: { in: ["preselectionnee", "en_negociation"] }, mission: { dateExpiration: { lt: now } } },
-    }),
+    // Annonces échues pas encore closes (closeExpiredAnnonces, 2026-11-10).
+    prisma.mission.count({ where: { status: "publiee", parentMissionId: null, dateExpiration: { lt: now } } }),
     prisma.gigOrder.count({
       where: {
         clientSignedAt: { not: null, lt: new Date(now.getTime() - PROVIDER_SIGN_DEADLINE_MS) },
@@ -75,8 +74,8 @@ export async function getAutomationBacklog(now: Date = new Date()): Promise<Auto
     {
       key: "devis-expirations",
       route: "/api/cron/devis-expirations",
-      label: "Expiration des devis",
-      effect: "Clôt les négociations de devis arrivées à l’échéance de la mission.",
+      label: "Clôture des annonces échues",
+      effect: "Ferme les annonces arrivées à leur date limite de candidature et refuse les candidatures non retenues.",
       schedule: "toutes les 10 min",
       movesMoney: false,
       due: devis,

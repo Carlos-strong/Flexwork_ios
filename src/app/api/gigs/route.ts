@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { kycBlockFor } from "@/lib/kyc-policy";
 import { gigInputSchema, missingVisual } from "@/lib/gig-rules";
 import { serializeGig } from "@/lib/gig-serialize";
+import { personFullName } from "@/lib/person-name";
 
 export const dynamic = "force-dynamic";
 
@@ -63,7 +64,7 @@ export async function GET(req: Request) {
       ordersCount: g._count.orders,
       provider: {
         id: g.provider.id,
-        name: [g.provider.firstname, g.provider.lastname].filter(Boolean).join(" ").trim() || "Prestataire",
+        name: personFullName(g.provider) || "Prestataire",
         avatarUrl: g.provider.avatarPath ? `/api/users/${g.provider.id}/avatar` : null,
       },
     })),

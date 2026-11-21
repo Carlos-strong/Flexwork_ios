@@ -11,6 +11,7 @@ import { isCounterSignExpired, cancelExpiredContract } from "@/lib/contract-expi
 import { notifyMissionParties } from "@/lib/mission-notify";
 import { resolveTimeTerms, type SpotTimeTerms } from "@/lib/spot-time";
 import { kycBlockFor } from "@/lib/kyc-policy";
+import { personFullName } from "@/lib/person-name";
 
 // US-402 (Phase 4) : génère le contrat de prestation à partir de la proposition acceptée.
 // La plateforme n'est jamais signataire — voir la mention obligatoire ci-dessous, testée en
@@ -274,7 +275,7 @@ export async function POST(
       id: mission.client.id,
       email: mission.client.email,
       tel: mission.client.tel,
-      name: [mission.client.firstname, mission.client.lastname].filter(Boolean).join(" ").trim() || null,
+      name: personFullName(mission.client) || null,
       city: mission.client.city,
       country: mission.client.country,
     },
@@ -282,7 +283,7 @@ export async function POST(
       id: proposal.provider.id,
       email: proposal.provider.email,
       tel: proposal.provider.tel,
-      name: [proposal.provider.firstname, proposal.provider.lastname].filter(Boolean).join(" ").trim() || null,
+      name: personFullName(proposal.provider) || null,
       city: proposal.provider.city,
       country: proposal.provider.country,
       role: proposal.provider.role,

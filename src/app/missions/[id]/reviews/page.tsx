@@ -43,6 +43,9 @@ export default function ReviewsPage() {
   // coups. `null` = cet utilisateur n'a personne à noter sur cette mission.
   const [target, setTarget] = useState<{ id: string; nom: string } | null>(null);
   const [note, setNote] = useState(5);
+  // Sous-notes (2026-11-10), proposées au seul client — optionnelles (0 = non renseignée).
+  const [sousNotesOuvertes, setSousNotesOuvertes] = useState(false);
+  const [sub, setSub] = useState({ noteCommunication: 0, noteQualite: 0, noteValeur: 0 });
   const [commentaire, setCommentaire] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -54,6 +57,7 @@ export default function ReviewsPage() {
       const data = await res.json();
       setReviews(data.items);
       setTarget(data.target ?? null);
+      setSousNotesOuvertes(data.sousNotes === true);
     }
   }, [missionId]);
 
@@ -76,7 +80,14 @@ export default function ReviewsPage() {
     const res = await fetch(`/api/missions/${missionId}/reviews`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ targetId: target.id, note, commentaire: commentaire || undefined }),
+      body: JSON.stringify({
+        targetId: target.id,
+        note,
+        commentaire: commentaire || undefined,
+        ...(sousNotesOuvertes
+          ? Object.fromEntries(Object.entries(sub).filter(([, v]) => v > 0))
+          : {}),
+      }),
     });
 
     setSubmitting(false);
@@ -103,37 +114,37 @@ export default function ReviewsPage() {
   const myReview = reviews?.find((r) => r.authorId === userId);
 
   return (
-    <div className="min-h-screen bg-[#F8FAF9] text-[#0f172a]">
+    <div className="min-h-screen bg-[#F6F5FA] text-[#191224]">
       <div className="fluid-form [--fw:640px] mx-auto px-4 lg:px-0 py-5 space-y-4">
-        <div className="flex items-center gap-1.5 text-[12px] text-[#64748B] flex-wrap">
-          <Link href={`/missions/${missionId}`} className="hover:text-[#0f172a]" style={{ textDecoration: "none" }}>Mission</Link>
+        <div className="flex items-center gap-1.5 text-[12px] text-[#6B6478] flex-wrap">
+          <Link href={`/missions/${missionId}`} className="hover:text-[#191224]" style={{ textDecoration: "none" }}>Mission</Link>
           <span>›</span>
-          <span className="text-[#0f172a] font-medium">Avis</span>
+          <span className="text-[#191224] font-medium">Avis</span>
         </div>
 
         <h1 className="text-[18px] font-bold">Avis sur la mission</h1>
 
-        {error && <div className="rounded-xl border border-[#FECACA] bg-[#FEF2F2] p-3 text-[13px] text-[#B91C1C]">{error}</div>}
-        {success && <div className="rounded-xl border border-[#A7F3D0] bg-[#E6F4EE] p-3 text-[13px] text-[#008751]">{success}</div>}
+        {error && <div className="rounded-xl border border-[#FECACA] bg-[#FEECEB] p-3 text-[13px] text-[#B42318]">{error}</div>}
+        {success && <div className="rounded-xl border border-[#A7F3D0] bg-[#E7F7EF] p-3 text-[13px] text-[#047857]">{success}</div>}
 
         {/* ── Avis existants ── */}
         {reviews && reviews.length > 0 && (
-          <div className="bg-white border border-[#E2E8F0] rounded-xl overflow-hidden">
-            <div className="p-4 lg:p-5 border-b border-[#E2E8F0]">
+          <div className="bg-white border border-[#E7E2F0] rounded-xl overflow-hidden">
+            <div className="p-4 lg:p-5 border-b border-[#E7E2F0]">
               <h3 className="text-[13px] font-semibold">{reviews.length} avis</h3>
             </div>
-            <div className="divide-y divide-[#F1F5F9]">
+            <div className="divide-y divide-[#EFEAF8]">
               {reviews.map((r) => (
                 <div key={r.id} className="px-4 lg:px-5 py-3">
                   <div className="flex items-center gap-2.5">
-                    <div className="text-[16px] font-bold text-[#008751]">{r.note}/5</div>
+                    <div className="text-[16px] font-bold text-[#4C1D95]">{r.note}/5</div>
                     <div className="text-[#F7C948] text-[14px] leading-none">
                       {"⭐".repeat(r.note)}
-                      <span className="text-[#E2E8F0]">{"☆".repeat(5 - r.note)}</span>
+                      <span className="text-[#E7E2F0]">{"☆".repeat(5 - r.note)}</span>
                     </div>
-                    <span className="text-[11px] text-[#94A3B8]">{new Date(r.createdAt).toLocaleDateString("fr-FR")}</span>
+                    <span className="text-[11px] text-[#9A93A8]">{new Date(r.createdAt).toLocaleDateString("fr-FR")}</span>
                   </div>
-                  {r.commentaire && <p className="mt-1.5 text-[13px] text-[#475569] leading-relaxed">{r.commentaire}</p>}
+                  {r.commentaire && <p className="mt-1.5 text-[13px] text-[#4A4258] leading-relaxed">{r.commentaire}</p>}
                 </div>
               ))}
             </div>
@@ -142,38 +153,69 @@ export default function ReviewsPage() {
 
         {/* ── Donner un avis ── */}
         {!myReview && target && (
-          <div className="bg-white border border-[#E2E8F0] rounded-xl p-4 lg:p-5">
+          <div className="bg-white border border-[#E7E2F0] rounded-xl p-4 lg:p-5">
             <h3 className="text-[13px] font-semibold mb-3">Noter {target.nom}</h3>
             <form onSubmit={handleSubmit} className="space-y-3">
               <div>
-                <label className="block text-[12px] font-medium text-[#475569] mb-1">Note (1 à 5) <span className="text-[#E8112D]">*</span></label>
+                <label className="block text-[12px] font-medium text-[#4A4258] mb-1">Note (1 à 5) <span className="text-[#B42318]">*</span></label>
                 <div className="flex gap-2">
                   {[1, 2, 3, 4, 5].map((n) => (
                     <button
                       key={n}
                       type="button"
                       onClick={() => setNote(n)}
-                      className={`text-[22px] leading-none px-3 py-1.5 rounded-lg border-2 transition-opacity ${note >= n ? "border-[#F7C948] opacity-100" : "border-[#E2E8F0] opacity-40"}`}
+                      className={`text-[22px] leading-none px-3 py-1.5 rounded-lg border-2 transition-opacity ${note >= n ? "border-[#F7C948] opacity-100" : "border-[#E7E2F0] opacity-40"}`}
                     >
                       ⭐
                     </button>
                   ))}
                 </div>
               </div>
+              {sousNotesOuvertes && (
+                <fieldset className="space-y-2 rounded-lg border border-[#E7E2F0] bg-[#F6F5FA] p-3">
+                  <legend className="px-1 text-[12px] font-medium text-[#4A4258]">Détail (facultatif)</legend>
+                  {(
+                    [
+                      ["noteCommunication", "Communication"],
+                      ["noteQualite", "Qualité du travail livré"],
+                      ["noteValeur", "Rapport qualité-prix"],
+                    ] as const
+                  ).map(([key, label]) => (
+                    <div key={key} className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-[13px] text-[#3F3850]">{label}</span>
+                      <div className="flex gap-1" role="radiogroup" aria-label={label}>
+                        {[1, 2, 3, 4, 5].map((n) => (
+                          <button
+                            key={n}
+                            type="button"
+                            role="radio"
+                            aria-checked={sub[key] === n}
+                            aria-label={`${n} sur 5`}
+                            onClick={() => setSub((s) => ({ ...s, [key]: s[key] === n ? 0 : n }))}
+                            className={`text-[18px] leading-none px-1 transition-opacity ${sub[key] >= n ? "opacity-100" : "opacity-30"}`}
+                          >
+                            ⭐
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </fieldset>
+              )}
               <div>
-                <label className="block text-[12px] font-medium text-[#475569] mb-1">Commentaire</label>
+                <label className="block text-[12px] font-medium text-[#4A4258] mb-1">Commentaire</label>
                 <textarea
                   rows={3}
                   placeholder="Partagez votre expérience..."
                   value={commentaire}
                   onChange={(e) => setCommentaire(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-[#E2E8F0] text-[13px] resize-y focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751]"
+                  className="w-full px-3 py-2 rounded-lg border border-[#E7E2F0] text-[13px] resize-y focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20 focus:border-[#4C1D95]"
                 />
               </div>
               <button
                 type="submit"
                 disabled={submitting}
-                className="h-10 px-5 rounded-lg bg-[#008751] text-white text-[13px] font-semibold hover:bg-[#007a49] transition-colors disabled:opacity-50"
+                className="h-10 px-5 rounded-full bg-[#4C1D95] text-white text-[13px] font-semibold hover:bg-[#3B1578] transition-colors disabled:opacity-50"
               >
                 {submitting ? "Envoi..." : "Publier l'avis"}
               </button>
@@ -181,7 +223,7 @@ export default function ReviewsPage() {
           </div>
         )}
 
-        <Link href={`/missions/${missionId}`} className="inline-block text-[#64748B] text-[13px]" style={{ textDecoration: "none" }}>
+        <Link href={`/missions/${missionId}`} className="inline-block text-[#6B6478] text-[13px]" style={{ textDecoration: "none" }}>
           ← Retour au détail de la mission
         </Link>
       </div>

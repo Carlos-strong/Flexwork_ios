@@ -65,13 +65,13 @@ export default function PagesPage() {
       <PublishBar revision={revision} onPublished={load} />
 
       {feedback && (
-        <div className="bg-[#FEF3C7] border border-[#FDE68A] text-[#92400E] rounded-xl px-4 py-2.5 text-[12px]">
+        <div className="bg-[#FFF6E3] border border-[#FDE68A] text-[#92400E] rounded-xl px-4 py-2.5 text-[12px]">
           {feedback}
         </div>
       )}
 
       {orphans.length > 0 && (
-        <div className="bg-[#FEE2E2] border border-[#FECACA] text-[#B91C1C] rounded-xl px-4 py-2.5 text-[12px]">
+        <div className="bg-[#FEECEB] border border-[#FECACA] text-[#B42318] rounded-xl px-4 py-2.5 text-[12px]">
           {orphans.length} entrée{orphans.length > 1 ? "s" : ""} orpheline{orphans.length > 1 ? "s" : ""} :
           la route correspondante n’existe plus dans l’application. Son référencement est édité pour une
           page que personne ne peut ouvrir.
@@ -79,7 +79,7 @@ export default function PagesPage() {
       )}
 
       {missing.length > 0 && (
-        <div className="bg-white border border-[#E2E0D9] rounded-xl px-4 py-2.5 text-[12px] text-[#5A5750]">
+        <div className="bg-white border border-[#E7E2F0] rounded-xl px-4 py-2.5 text-[12px] text-[#6B6478]">
           {missing.length} route{missing.length > 1 ? "s" : ""} publique{missing.length > 1 ? "s" : ""} sans
           entrée éditable : {missing.map((m) => m.path).join(", ")}. Leur titre reste celui écrit dans le
           code.
@@ -87,7 +87,7 @@ export default function PagesPage() {
       )}
 
       {pages.some((p) => !p.piloted) && (
-        <div className="bg-white border border-[#E2E0D9] rounded-xl px-4 py-2.5 text-[12px] text-[#5A5750]">
+        <div className="bg-white border border-[#E7E2F0] rounded-xl px-4 py-2.5 text-[12px] text-[#6B6478]">
           Les lignes marquées <span className="font-semibold">titre figé</span> gardent le titre écrit
           dans leur code : ce sont des composants client, et un composant client ne peut pas composer
           ses métadonnées. Les y rattacher demanderait un gabarit dédié par route. Leur ligne reste
@@ -95,26 +95,26 @@ export default function PagesPage() {
         </div>
       )}
 
-      <div className="bg-white border border-[#E2E0D9] rounded-xl overflow-hidden">
+      <div className="bg-white border border-[#E7E2F0] rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-[12px]">
-            <thead className="bg-[#FBFCFD] border-b border-[#E2E0D9] text-left">
+            <thead className="bg-[#FBFCFD] border-b border-[#E7E2F0] text-left">
               <tr>
-                <th className="px-4 py-2.5 font-semibold text-[#9C9A95]">Route</th>
-                <th className="px-3 py-2.5 font-semibold text-[#9C9A95]">Titre</th>
-                <th className="px-3 py-2.5 font-semibold text-[#9C9A95]">Description de référencement</th>
-                <th className="px-3 py-2.5 font-semibold text-[#9C9A95]">État</th>
+                <th className="px-4 py-2.5 font-semibold text-[#9A93A8]">Route</th>
+                <th className="px-3 py-2.5 font-semibold text-[#9A93A8]">Titre</th>
+                <th className="px-3 py-2.5 font-semibold text-[#9A93A8]">Description de référencement</th>
+                <th className="px-3 py-2.5 font-semibold text-[#9A93A8]">État</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#E2E0D9]">
+            <tbody className="divide-y divide-[#E7E2F0]">
               {pages.map((page) => (
-                <tr key={page.id} className={page.state === "orpheline" ? "bg-[#FEF2F2]" : ""}>
+                <tr key={page.id} className={page.state === "orpheline" ? "bg-[#FEECEB]" : ""}>
                   <td className="px-4 py-2 font-mono text-[11px] whitespace-nowrap">{page.path}</td>
                   <td className="px-3 py-2">
                     {page.piloted ? (
                       <Cell value={page.title} onSave={(v) => v && patch(page.id, { title: v })} />
                     ) : (
-                      <span className="text-[#9C9A95]">{page.title}</span>
+                      <span className="text-[#9A93A8]">{page.title}</span>
                     )}
                   </td>
                   <td className="px-3 py-2">
@@ -125,16 +125,16 @@ export default function PagesPage() {
                         onSave={(v) => patch(page.id, { seoDescription: v || null })}
                       />
                     ) : (
-                      <span className="text-[#9C9A95]">—</span>
+                      <span className="text-[#9A93A8]">—</span>
                     )}
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap">
                     <StatusBadge status={page.status} />
                     {page.state === "orpheline" && (
-                      <span className="ml-1.5 text-[10px] text-[#B91C1C] font-semibold">orpheline</span>
+                      <span className="ml-1.5 text-[10px] text-[#B42318] font-semibold">orpheline</span>
                     )}
                     {!page.piloted && (
-                      <span className="ml-1.5 text-[10px] text-[#9C9A95]">titre figé</span>
+                      <span className="ml-1.5 text-[10px] text-[#9A93A8]">titre figé</span>
                     )}
                   </td>
                 </tr>
@@ -166,7 +166,7 @@ function Cell({
       onChange={(e) => setDraft(e.target.value)}
       onBlur={commit}
       onKeyDown={(e) => e.key === "Enter" && commit()}
-      className="w-full h-7 px-2 rounded border border-transparent hover:border-[#E2E0D9] focus:border-[#2D5BE3] bg-transparent outline-none"
+      className="w-full h-7 px-2 rounded border border-transparent hover:border-[#E7E2F0] focus:border-[#4C1D95] bg-transparent outline-none"
     />
   );
 }

@@ -6,23 +6,19 @@ import { useRouter } from "next/navigation";
 import DashboardLayout, { CLIENT_NAV, type DashboardUser } from "@/components/dashboard/DashboardLayout";
 import MesMissions from "@/components/dashboard/MesMissions";
 import { PublishedNotice } from "@/components/dashboard/PublishedNotice";
-import { useSidebarBadges } from "@/components/dashboard/useSidebarBadges";
 import { useUserIdentity } from "@/components/user-identity";
 
 const FALLBACK_USER: DashboardUser = {
   initials: "CL",
   name: "Client",
   role: "Cliente",
-  avatarGradient: "from-[#FF7A00] to-[#E8112D]",
+  avatarGradient: "from-[#6D28D9] to-[#B42318]",
 };
 
 export default function ClientMissionsPage() {
   const { data: session, status } = useSession() as { data: { user?: { id?: string } } | null; status: string };
   const router = useRouter();
   const currentUserId = session?.user?.id ?? "";
-  // Badges du sidebar pilotés par les événements réels (messages, propositions, paiements,
-  // missions à action) — même hook que les dashboards prestataires.
-  const badgeCounts = useSidebarBadges("client");
   // Identité réelle (prénom/initiales) — la session JWT ne porte jamais firstname/lastname
   // (voir src/auth.ts) : "Aïcha D." s'affichait pour tout le monde, sans lien avec le
   // compte réellement connecté.
@@ -37,8 +33,8 @@ export default function ClientMissionsPage() {
 
   if (status === "loading") {
     return (
-      <div className="min-h-screen bg-[#FFF8F0] flex items-center justify-center">
-        <div className="w-8 h-8 border-[3px] border-[#FF7A00] border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen bg-[#F6F5FA] flex items-center justify-center">
+        <div className="w-8 h-8 border-[3px] border-[#6D28D9] border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -46,12 +42,9 @@ export default function ClientMissionsPage() {
 
   return (
     <DashboardLayout
-      mode="client"
       user={user}
       navItems={CLIENT_NAV}
       activeNav="missions"
-      onNavChange={() => {}}
-      badgeCounts={badgeCounts}
       title="Tableau de bord / Mes Missions"
     >
       {/* Arrivée juste après une publication (?publiee=<id>). */}

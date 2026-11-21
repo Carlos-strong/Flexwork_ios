@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
+import { personFullName } from "@/lib/person-name";
 
 // Identité complète de l'utilisateur connecté. La session JWT ne porte que id/email/role/
 // isAdmin (voir src/auth.ts) — `session.user.name` en particulier n'est PAS un nom
@@ -24,7 +25,7 @@ export async function GET() {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
-  const fullName = [user.firstname, user.lastname].filter(Boolean).join(" ").trim();
+  const fullName = personFullName(user);
 
   return NextResponse.json({
     firstname: user.firstname,

@@ -11,6 +11,7 @@ import { refreshBadges } from "@/lib/badge-sync";
 import { missionFlow } from "@/lib/mission-flow";
 import { getFinancingMode } from "@/lib/financing-modes";
 import { PaymentModelBadge } from "@/components/financing/payment-model-picker";
+import { announceKycRequired } from "@/components/kyc/KycRequiredBanner";
 
 // Panneau de négociation de devis : affiche l'état de la candidature, le devis courant,
 // l'historique des révisions et les actions du rôle (soumettre/réviser pour le prestataire,
@@ -39,12 +40,12 @@ export function DevisPanel({
   if (!proposal) {
     if (isClient || !canSubmit) return null;
     return (
-      <div className="bg-white border border-[#E2E8F0] rounded-xl p-4 lg:p-5">
+      <div className="bg-white border border-[#E7E2F0] rounded-xl p-4 lg:p-5">
         <h3 className="text-[13px] font-semibold mb-2">Candidater avec un devis</h3>
-        <p className="text-[13px] text-[#64748B] mb-3">
+        <p className="text-[13px] text-[#6B6478] mb-3">
           Préparez votre devis (jalons, délai, message) sur la page dédiée.
         </p>
-        <Link href={`/missions/${missionId}/devis`} className="inline-flex h-10 px-5 rounded-lg bg-[#008751] text-white text-[13px] font-semibold items-center hover:bg-[#007a49] transition-colors" style={{ textDecoration: "none" }}>
+        <Link href={`/missions/${missionId}/devis`} className="inline-flex h-10 px-5 rounded-full bg-[#4C1D95] text-white text-[13px] font-semibold items-center hover:bg-[#3B1578] transition-colors" style={{ textDecoration: "none" }}>
           Soumettre un devis
         </Link>
       </div>
@@ -86,59 +87,59 @@ export function DevisPanel({
 
   return (
     <div className="space-y-4">
-      <div className="bg-white border border-[#E2E8F0] rounded-xl p-4 lg:p-5">
+      <div className="bg-white border border-[#E7E2F0] rounded-xl p-4 lg:p-5">
         <div className="flex items-center justify-between">
           <h3 className="text-[13px] font-semibold">Ma candidature</h3>
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#FEF3C7] text-[#D97706] text-[11px] font-semibold border border-[#FDE68A]">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#FFF6E3] text-[#D97706] text-[11px] font-semibold border border-[#FDE68A]">
             <span className="w-1.5 h-1.5 rounded-full bg-[#D97706]" /> {PROPOSAL_STATUS_LABEL[proposal.status] ?? proposal.status}
           </span>
         </div>
         <div className="mt-4 flex items-center justify-between">
-          <div className="text-[12px] font-medium text-[#0f172a]">Round {proposal.roundActuel}/{maxRounds}</div>
-          <div className="text-[11px] text-[#64748B]">{roundPct}%</div>
+          <div className="text-[12px] font-medium text-[#191224]">Round {proposal.roundActuel}/{maxRounds}</div>
+          <div className="text-[11px] text-[#6B6478]">{roundPct}%</div>
         </div>
-        <div className="mt-2 h-2 w-full bg-[#F1F5F9] rounded-full overflow-hidden">
+        <div className="mt-2 h-2 w-full bg-[#EFEAF8] rounded-full overflow-hidden">
           <div className="h-full bg-[#F59E0B] rounded-full" style={{ width: `${roundPct}%` }} />
         </div>
         <div className="mt-4 flex items-center gap-3">
           {STEPS.map((_, i) => (
             <div key={i} className="flex items-center gap-3 flex-1">
-              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-semibold border shrink-0 ${i <= stepIndex ? "bg-[#0f172a] text-white border-[#0f172a]" : "bg-white text-[#94A3B8] border-[#E2E8F0]"}`}>
+              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-semibold border shrink-0 ${i <= stepIndex ? "bg-[#191224] text-white border-[#191224]" : "bg-white text-[#9A93A8] border-[#E7E2F0]"}`}>
                 {i < stepIndex ? <Check size={14} /> : i + 1}
               </div>
-              {i < STEPS.length - 1 && <div className={`flex-1 h-[2px] ${i < stepIndex ? "bg-[#0f172a]" : "bg-[#F1F5F9]"}`} />}
+              {i < STEPS.length - 1 && <div className={`flex-1 h-[2px] ${i < stepIndex ? "bg-[#191224]" : "bg-[#EFEAF8]"}`} />}
             </div>
           ))}
         </div>
-        <div className="mt-2 grid grid-cols-3 text-[11px] text-[#64748B]">
-          <span className={stepIndex === 0 ? "font-medium text-[#0f172a]" : ""}>{STEPS[0]}</span>
-          <span className={`text-center ${stepIndex === 1 ? "font-medium text-[#0f172a]" : ""}`}>{STEPS[1]}</span>
-          <span className={`text-right ${stepIndex === 2 ? "font-medium text-[#0f172a]" : ""}`}>{STEPS[2]}</span>
+        <div className="mt-2 grid grid-cols-3 text-[11px] text-[#6B6478]">
+          <span className={stepIndex === 0 ? "font-medium text-[#191224]" : ""}>{STEPS[0]}</span>
+          <span className={`text-center ${stepIndex === 1 ? "font-medium text-[#191224]" : ""}`}>{STEPS[1]}</span>
+          <span className={`text-right ${stepIndex === 2 ? "font-medium text-[#191224]" : ""}`}>{STEPS[2]}</span>
         </div>
       </div>
 
       {devis ? (
-        <div className="bg-white border border-[#E2E8F0] rounded-xl overflow-hidden">
-          <div className="p-4 lg:p-5 border-b border-[#E2E8F0] flex items-center justify-between">
+        <div className="bg-white border border-[#E7E2F0] rounded-xl overflow-hidden">
+          <div className="p-4 lg:p-5 border-b border-[#E7E2F0] flex items-center justify-between">
             <h3 className="text-[13px] font-semibold">Devis — Round {proposal.roundActuel}</h3>
-            <span className="text-[11px] text-[#94A3B8]">Read-only • envoyé</span>
+            <span className="text-[11px] text-[#9A93A8]">Read-only • envoyé</span>
           </div>
           <div className="p-4 lg:p-5">
             <DevisDetails devis={devis} currency={currency} />
           </div>
         </div>
       ) : (
-        <p className="text-[13px] text-[#64748B]">Aucun devis soumis pour le moment.</p>
+        <p className="text-[13px] text-[#6B6478]">Aucun devis soumis pour le moment.</p>
       )}
 
       {lastRound && (
-        <div className="rounded-xl border border-[#FDE68A] bg-[#FFFBEB] p-3 text-[12.5px] text-[#92400E]">
+        <div className="rounded-xl border border-[#FDE68A] bg-[#FFF6E3] p-3 text-[12.5px] text-[#92400E]">
           Dernier round. Sans accord, la candidature sera annulée à l&apos;expiration de la mission.
         </div>
       )}
 
       {proposal.revisionRequestedAt && (
-        <div className="rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] p-3 text-[12.5px] text-[#1E40AF]">
+        <div className="rounded-xl border border-[#BFDBFE] bg-[#EAF1FF] p-3 text-[12.5px] text-[#1D4ED8]">
           {isClient ? "Révision demandée" : "Le client a demandé une révision"} le{" "}
           {new Date(proposal.revisionRequestedAt).toLocaleDateString("fr-FR")}
           {proposal.revisionRequestMessage && <> — « {proposal.revisionRequestMessage} »</>}
@@ -147,9 +148,9 @@ export function DevisPanel({
       )}
 
       {canResubmit && (
-        <div className="bg-white border border-[#E2E8F0] rounded-xl p-4 lg:p-5">
+        <div className="bg-white border border-[#E7E2F0] rounded-xl p-4 lg:p-5">
           <h3 className="text-[13px] font-semibold mb-3">{proposal.devisData ? "Réviser le devis" : "Soumettre le devis"}</h3>
-          <Link href={`/missions/${missionId}/devis`} className="inline-flex h-10 px-5 rounded-lg bg-[#008751] text-white text-[13px] font-semibold items-center hover:bg-[#007a49] transition-colors" style={{ textDecoration: "none" }}>
+          <Link href={`/missions/${missionId}/devis`} className="inline-flex h-10 px-5 rounded-full bg-[#4C1D95] text-white text-[13px] font-semibold items-center hover:bg-[#3B1578] transition-colors" style={{ textDecoration: "none" }}>
             {proposal.devisData ? "Réviser mon devis" : "Soumettre mon devis"}
           </Link>
         </div>
@@ -174,18 +175,18 @@ export function DevisDetails({ devis, currency }: { devis: DevisData; currency: 
   return (
     <div>
       {paymentMode && (
-        <div className="mb-3 rounded-lg border border-[#E2E8F0] bg-[#F8FAF9] p-3">
+        <div className="mb-3 rounded-lg border border-[#E7E2F0] bg-[#F6F5FA] p-3">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-[#64748B]">Modèle de paiement</span>
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-[#6B6478]">Modèle de paiement</span>
             <PaymentModelBadge modeKey={paymentMode.key} />
           </div>
-          <p className="text-[12px] text-[#475569] mt-1.5 leading-relaxed">{paymentMode.definition}</p>
+          <p className="text-[12px] text-[#4A4258] mt-1.5 leading-relaxed">{paymentMode.definition}</p>
         </div>
       )}
-      <div className="overflow-x-auto rounded-lg border border-[#E2E8F0]">
+      <div className="overflow-x-auto rounded-lg border border-[#E7E2F0]">
         <table className="w-full text-[13px] border-collapse">
           <thead>
-            <tr className="bg-[#F8FAF9] text-[11px] uppercase tracking-widest text-[#64748B] border-b border-[#E2E8F0]">
+            <tr className="bg-[#F6F5FA] text-[11px] uppercase tracking-widest text-[#6B6478] border-b border-[#E7E2F0]">
               <th className="text-left py-2.5 px-3 font-semibold">Description</th>
               <th className="text-right py-2.5 px-3 font-semibold">Délai</th>
               <th className="text-right py-2.5 px-3 font-semibold">Unité</th>
@@ -195,19 +196,19 @@ export function DevisDetails({ devis, currency }: { devis: DevisData; currency: 
           </thead>
           <tbody>
             {devis.lineItems.map((item, idx) => (
-              <tr key={idx} className="border-b border-[#F1F5F9] last:border-0 hover:bg-[#FBFDFC] transition-colors">
+              <tr key={idx} className="border-b border-[#EFEAF8] last:border-0 hover:bg-[#FBFDFC] transition-colors">
                 <td className="py-2.5 px-3 align-top">
-                  <div className="font-medium text-[#0f172a]">{item.description}</div>
+                  <div className="font-medium text-[#191224]">{item.description}</div>
                 </td>
                 <td className="py-2.5 px-3 text-right align-top">
                   {item.echeance ? (
-                    <span className="inline-flex px-2 py-0.5 rounded-full bg-white border border-[#E2E8F0] text-[11px] text-[#64748B]">{item.echeance}</span>
+                    <span className="inline-flex px-2 py-0.5 rounded-full bg-white border border-[#E7E2F0] text-[11px] text-[#6B6478]">{item.echeance}</span>
                   ) : (
-                    <span className="text-[#CBD5E1]">—</span>
+                    <span className="text-[#D4CCE3]">—</span>
                   )}
                 </td>
-                <td className="py-2.5 px-3 text-right text-[#475569] align-top">{item.quantity} {item.unit}</td>
-                <td className="py-2.5 px-3 text-right text-[#475569] font-mono align-top">
+                <td className="py-2.5 px-3 text-right text-[#4A4258] align-top">{item.quantity} {item.unit}</td>
+                <td className="py-2.5 px-3 text-right text-[#4A4258] font-mono align-top">
                   {item.unitPrice.toLocaleString("fr-FR")} {currency}
                 </td>
                 <td className="py-2.5 px-3 text-right font-medium font-mono align-top">
@@ -223,29 +224,29 @@ export function DevisDetails({ devis, currency }: { devis: DevisData; currency: 
         <div className="w-full sm:w-[280px] space-y-1.5 text-[13px]">
           {devis.laborCost > 0 && (
             <div className="flex justify-between">
-              <span className="text-[#64748B]">Main d&apos;œuvre</span>
+              <span className="text-[#6B6478]">Main d&apos;œuvre</span>
               <span className="font-mono">{devis.laborCost.toLocaleString("fr-FR")} {currency}</span>
             </div>
           )}
           <div className="flex justify-between">
-            <span className="text-[#64748B]">Total HT</span>
+            <span className="text-[#6B6478]">Total HT</span>
             <span className="font-mono">{devis.totalHT.toLocaleString("fr-FR")} {currency}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-[#64748B]">TVA ({devis.tvaRate}%)</span>
+            <span className="text-[#6B6478]">TVA ({devis.tvaRate}%)</span>
             <span className="font-mono">{devis.tva.toLocaleString("fr-FR")} {currency}</span>
           </div>
-          <div className="flex justify-between font-bold text-[15px] text-[#0f172a] border-t border-[#0f172a] pt-2 mt-1">
+          <div className="flex justify-between font-bold text-[15px] text-[#191224] border-t border-[#191224] pt-2 mt-1">
             <span>Total TTC</span>
-            <span className="font-mono text-[#008751]">{devis.totalTTC.toLocaleString("fr-FR")} {currency}</span>
+            <span className="font-mono text-[#047857]">{devis.totalTTC.toLocaleString("fr-FR")} {currency}</span>
           </div>
         </div>
       </div>
 
       {(devis.delay || devis.notes) && (
-        <div className="mt-4 pt-3 border-t border-[#F1F5F9] space-y-1">
-          {devis.delay && <p className="text-[13px] text-[#64748B]">Délai global : {devis.delay}</p>}
-          {devis.notes && <p className="text-[13px] text-[#64748B] whitespace-pre-wrap">Notes : {devis.notes}</p>}
+        <div className="mt-4 pt-3 border-t border-[#EFEAF8] space-y-1">
+          {devis.delay && <p className="text-[13px] text-[#6B6478]">Délai global : {devis.delay}</p>}
+          {devis.notes && <p className="text-[13px] text-[#6B6478] whitespace-pre-wrap">Notes : {devis.notes}</p>}
         </div>
       )}
     </div>
@@ -256,18 +257,24 @@ export function ValidateDevis({
   missionId,
   proposalId,
   onValidated,
+  stayOnPage = false,
 }: {
   missionId: string;
   proposalId: string;
   onValidated?: () => void;
+  /** Reste sur la page (liste des candidatures, 2026-11-11) au lieu d'ouvrir l'étape contrat :
+   *  le prestataire retenu y apparaît avec son bouton « Signature du contrat ». */
+  stayOnPage?: boolean;
 }) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [failure, setFailure] = useState<ActionFailure | null>(null);
 
   async function validate() {
     setPending(true);
     setFeedback(null);
+    setFailure(null);
     const res = await fetch(`/api/missions/${missionId}/proposals/${proposalId}/devis/validate`, {
       method: "POST",
     });
@@ -277,21 +284,27 @@ export function ValidateDevis({
       // génération du contrat, sur la page contrat — même motif que la redirection auto
       // signature 2/2 → séquestre, avec le délai de 1200 ms des autres confirmations pour
       // laisser lire le message avant le bond de page.
+      // Le parcours se poursuit sur l'ENGAGEMENT créé pour ce prestataire (2026-11-10).
+      const { engagementId } = (await res.json().catch(() => ({}))) as { engagementId?: string };
+      if (stayOnPage) {
+        onValidated?.();
+        return;
+      }
       setFeedback("Devis validé — ouverture de l'étape contrat…");
       onValidated?.();
-      setTimeout(() => router.push(`/missions/${missionId}/contract`), 1200);
+      setTimeout(() => router.push(`/missions/${engagementId ?? missionId}/contract`), 1200);
     } else {
-      const d = await res.json().catch(() => ({}));
-      setFeedback(d.error ?? "Échec de la validation.");
+      setFailure(await failureOrBanner(res, "La validation du devis a échoué."));
     }
   }
 
   return (
-    <div className="bg-white border border-[#E2E8F0] rounded-xl p-4 lg:p-5 flex-1">
-      <button onClick={validate} disabled={pending} className="h-10 px-5 rounded-lg bg-[#008751] text-white text-[13px] font-semibold hover:bg-[#007a49] transition-colors disabled:opacity-50">
+    <div className="bg-white border border-[#E7E2F0] rounded-xl p-4 lg:p-5 flex-1">
+      <button onClick={validate} disabled={pending} className="h-10 px-5 rounded-full bg-[#4C1D95] text-white text-[13px] font-semibold hover:bg-[#3B1578] transition-colors disabled:opacity-50">
         {pending ? "Validation..." : "Valider le devis"}
       </button>
-      {feedback && <p className="mt-2 text-[13px] text-[#008751]">{feedback}</p>}
+      {feedback && <p className="mt-2 text-[13px] text-[#4C1D95]">{feedback}</p>}
+      {failure && <ActionFailureNotice failure={failure} />}
     </div>
   );
 }
@@ -313,28 +326,28 @@ export function MissionFlowSteps({ missionId, missionStatus }: { missionId: stri
             <span
               className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11.5px] font-semibold border ${
                 step.current
-                  ? "bg-[#0f172a] text-white border-[#0f172a]"
+                  ? "bg-[#191224] text-white border-[#191224]"
                   : step.done
-                    ? "bg-[#E6F4EE] text-[#008751] border-[#A7F3D0]"
-                    : "bg-white text-[#94A3B8] border-[#E2E8F0]"
+                    ? "bg-[#F0EAFF] text-[#4C1D95] border-[#A7F3D0]"
+                    : "bg-white text-[#9A93A8] border-[#E7E2F0]"
               }`}
             >
-              <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] ${step.done ? "bg-[#008751] text-white" : step.current ? "bg-white text-[#0f172a]" : "bg-[#F1F5F9] text-[#94A3B8]"}`}>
+              <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] ${step.done ? "bg-[#047857] text-white" : step.current ? "bg-white text-[#191224]" : "bg-[#EFEAF8] text-[#9A93A8]"}`}>
                 {step.done ? "✓" : i + 1}
               </span>
               {step.label}
             </span>
-            {i < flow.steps.length - 1 && <span className="text-[#CBD5E1] text-[11px]">→</span>}
+            {i < flow.steps.length - 1 && <span className="text-[#D4CCE3] text-[11px]">→</span>}
           </li>
         ))}
       </ol>
 
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-        <p className="flex-1 text-[12.5px] text-[#64748B] leading-relaxed">{flow.hint}</p>
+        <p className="flex-1 text-[12.5px] text-[#6B6478] leading-relaxed">{flow.hint}</p>
         {flow.cta && (
           <Link
             href={flow.cta.href}
-            className="h-10 px-5 rounded-lg bg-[#008751] text-white text-[13px] font-semibold hover:bg-[#007a49] transition-colors flex items-center justify-center shrink-0"
+            className="h-10 px-5 rounded-full bg-[#4C1D95] text-white text-[13px] font-semibold hover:bg-[#3B1578] transition-colors flex items-center justify-center shrink-0"
             style={{ textDecoration: "none" }}
           >
             {flow.cta.label} →
@@ -384,32 +397,32 @@ export function RequestRevision({
   }
 
   return (
-    <div className="bg-white border border-[#E2E8F0] rounded-xl p-4 lg:p-5 flex-1">
+    <div className="bg-white border border-[#E7E2F0] rounded-xl p-4 lg:p-5 flex-1">
       {open ? (
         <>
-          <label className="text-[12px] font-medium text-[#475569]">Que faut-il changer ? (optionnel)</label>
+          <label className="text-[12px] font-medium text-[#4A4258]">Que faut-il changer ? (optionnel)</label>
           <textarea
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             placeholder="Ex. Revoir le délai, détailler la ligne peinture..."
-            className="mt-1 w-full rounded-lg border border-[#E2E8F0] px-3 py-2 text-[13px]"
+            className="mt-1 w-full rounded-lg border border-[#E7E2F0] px-3 py-2 text-[13px]"
             rows={3}
           />
           <div className="mt-2 flex gap-2">
-            <button onClick={requestRevision} disabled={pending} className="h-9 px-4 rounded-lg border border-[#E2E8F0] bg-white text-[13px] font-medium hover:bg-[#F8FAF9]">
+            <button onClick={requestRevision} disabled={pending} className="h-9 px-4 rounded-lg border border-[#E7E2F0] bg-white text-[13px] font-medium hover:bg-[#F6F5FA]">
               {pending ? "Envoi..." : "Envoyer la demande"}
             </button>
-            <button onClick={() => setOpen(false)} disabled={pending} className="h-9 px-4 rounded-lg border border-[#E2E8F0] bg-white text-[13px] font-medium hover:bg-[#F8FAF9]">
+            <button onClick={() => setOpen(false)} disabled={pending} className="h-9 px-4 rounded-lg border border-[#E7E2F0] bg-white text-[13px] font-medium hover:bg-[#F6F5FA]">
               Annuler
             </button>
           </div>
         </>
       ) : (
-        <button onClick={() => setOpen(true)} className="h-10 px-5 rounded-lg border border-[#E2E8F0] bg-white text-[13px] font-medium hover:bg-[#F8FAF9]">
+        <button onClick={() => setOpen(true)} className="h-10 px-5 rounded-lg border border-[#E7E2F0] bg-white text-[13px] font-medium hover:bg-[#F6F5FA]">
           Demander une révision
         </button>
       )}
-      {feedback && <p className="mt-2 text-[13px] text-[#008751]">{feedback}</p>}
+      {feedback && <p className="mt-2 text-[13px] text-[#4C1D95]">{feedback}</p>}
     </div>
   );
 }
@@ -456,30 +469,30 @@ export function RejectDevis({
   }
 
   return (
-    <div className="bg-white border border-[#E2E8F0] rounded-xl p-4 lg:p-5 flex-1">
+    <div className="bg-white border border-[#E7E2F0] rounded-xl p-4 lg:p-5 flex-1">
       {open ? (
         <>
-          <label className="text-[12px] font-medium text-[#475569]">
-            Motif du rejet <span className="text-red-600">*</span> <span className="font-normal text-[#94A3B8]">obligatoire</span>
+          <label className="text-[12px] font-medium text-[#4A4258]">
+            Motif du rejet <span className="text-red-600">*</span> <span className="font-normal text-[#9A93A8]">obligatoire</span>
           </label>
           <textarea
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             placeholder="Ex. Devis trop élevé, délai incompatible, profil ne correspond pas..."
-            className="mt-1 w-full rounded-lg border border-[#E2E8F0] px-3 py-2 text-[13px]"
+            className="mt-1 w-full rounded-lg border border-[#E7E2F0] px-3 py-2 text-[13px]"
             rows={3}
           />
           <div className="mt-2 flex gap-2">
-            <button onClick={reject} disabled={pending} className="h-9 px-4 rounded-lg bg-[#DC2626] text-white text-[13px] font-medium hover:bg-[#B91C1C] disabled:opacity-50">
+            <button onClick={reject} disabled={pending} className="h-9 px-4 rounded-lg bg-[#B42318] text-white text-[13px] font-medium hover:bg-[#B42318] disabled:opacity-50">
               {pending ? "Envoi..." : "Confirmer le rejet"}
             </button>
-            <button onClick={() => setOpen(false)} disabled={pending} className="h-9 px-4 rounded-lg border border-[#E2E8F0] bg-white text-[13px] font-medium hover:bg-[#F8FAF9]">
+            <button onClick={() => setOpen(false)} disabled={pending} className="h-9 px-4 rounded-lg border border-[#E7E2F0] bg-white text-[13px] font-medium hover:bg-[#F6F5FA]">
               Annuler
             </button>
           </div>
         </>
       ) : (
-        <button onClick={() => setOpen(true)} className="h-10 px-5 rounded-lg border border-[#E2E8F0] bg-white text-[13px] font-medium hover:bg-[#F8FAF9]">
+        <button onClick={() => setOpen(true)} className="h-10 px-5 rounded-lg border border-[#E7E2F0] bg-white text-[13px] font-medium hover:bg-[#F6F5FA]">
           Rejeter
         </button>
       )}
@@ -538,20 +551,20 @@ export function FixedPricePanel({
       <NegotiationTracker status={proposal.status} roundActuel={proposal.roundActuel} maxRounds={maxRounds} />
 
       {devis ? (
-        <div className="bg-white border border-[#E2E8F0] rounded-xl overflow-hidden">
-          <div className="p-4 lg:p-5 border-b border-[#E2E8F0] flex items-center justify-between">
+        <div className="bg-white border border-[#E7E2F0] rounded-xl overflow-hidden">
+          <div className="p-4 lg:p-5 border-b border-[#E7E2F0] flex items-center justify-between">
             <h3 className="text-[13px] font-semibold">Prix proposé — Round {proposal.roundActuel}</h3>
-            <span className="text-[11px] text-[#94A3B8]">Read-only • envoyé</span>
+            <span className="text-[11px] text-[#9A93A8]">Read-only • envoyé</span>
           </div>
           <div className="p-4 lg:p-5">
             <DevisDetails devis={devis} currency={currency} />
             <div className="mt-3">
               {proposal.delaiPropose ? (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#F8FAF9] border border-[#E2E8F0] text-[11.5px] text-[#475569]">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#F6F5FA] border border-[#E7E2F0] text-[11.5px] text-[#4A4258]">
                   ⏱ Délai proposé : <strong>{proposal.delaiPropose} jours</strong>
                 </span>
               ) : (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#F8FAF9] border border-[#E2E8F0] text-[11.5px] text-[#94A3B8]">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#F6F5FA] border border-[#E7E2F0] text-[11.5px] text-[#9A93A8]">
                   Délai non précisé — celui de la mission s&apos;applique
                 </span>
               )}
@@ -559,17 +572,17 @@ export function FixedPricePanel({
           </div>
         </div>
       ) : (
-        <p className="text-[13px] text-[#64748B]">Aucun prix soumis pour le moment.</p>
+        <p className="text-[13px] text-[#6B6478]">Aucun prix soumis pour le moment.</p>
       )}
 
       {lastRound && (
-        <div className="rounded-xl border border-[#FDE68A] bg-[#FFFBEB] p-3 text-[12.5px] text-[#92400E]">
+        <div className="rounded-xl border border-[#FDE68A] bg-[#FFF6E3] p-3 text-[12.5px] text-[#92400E]">
           Dernier round. Sans accord, la candidature sera annulée à l&apos;expiration de la mission.
         </div>
       )}
 
       {proposal.revisionRequestedAt && (
-        <div className="rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] p-3 text-[12.5px] text-[#1E40AF]">
+        <div className="rounded-xl border border-[#BFDBFE] bg-[#EAF1FF] p-3 text-[12.5px] text-[#1D4ED8]">
           {isClient ? "Révision demandée" : "Le client a demandé une révision"} le{" "}
           {new Date(proposal.revisionRequestedAt).toLocaleDateString("fr-FR")}
           {proposal.revisionRequestMessage && <> — « {proposal.revisionRequestMessage} »</>}
@@ -608,34 +621,34 @@ function NegotiationTracker({ status, roundActuel, maxRounds }: { status: string
   const roundPct = isAccepted ? 100 : Math.min(100, Math.round((roundActuel / maxRounds) * 100));
 
   return (
-    <div className="bg-white border border-[#E2E8F0] rounded-xl p-4 lg:p-5">
+    <div className="bg-white border border-[#E7E2F0] rounded-xl p-4 lg:p-5">
       <div className="flex items-center justify-between">
         <h3 className="text-[13px] font-semibold">Ma candidature</h3>
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#FEF3C7] text-[#D97706] text-[11px] font-semibold border border-[#FDE68A]">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#FFF6E3] text-[#D97706] text-[11px] font-semibold border border-[#FDE68A]">
           <span className="w-1.5 h-1.5 rounded-full bg-[#D97706]" /> {PROPOSAL_STATUS_LABEL[status] ?? status}
         </span>
       </div>
       <div className="mt-4 flex items-center justify-between">
-        <div className="text-[12px] font-medium text-[#0f172a]">Round {roundActuel}/{maxRounds}</div>
-        <div className="text-[11px] text-[#64748B]">{roundPct}%</div>
+        <div className="text-[12px] font-medium text-[#191224]">Round {roundActuel}/{maxRounds}</div>
+        <div className="text-[11px] text-[#6B6478]">{roundPct}%</div>
       </div>
-      <div className="mt-2 h-2 w-full bg-[#F1F5F9] rounded-full overflow-hidden">
+      <div className="mt-2 h-2 w-full bg-[#EFEAF8] rounded-full overflow-hidden">
         <div className="h-full bg-[#F59E0B] rounded-full" style={{ width: `${roundPct}%` }} />
       </div>
       <div className="mt-4 flex items-center gap-3">
         {STEPS.map((_, i) => (
           <div key={i} className="flex items-center gap-3 flex-1">
-            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-semibold border shrink-0 ${i <= stepIndex ? "bg-[#0f172a] text-white border-[#0f172a]" : "bg-white text-[#94A3B8] border-[#E2E8F0]"}`}>
+            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-semibold border shrink-0 ${i <= stepIndex ? "bg-[#191224] text-white border-[#191224]" : "bg-white text-[#9A93A8] border-[#E7E2F0]"}`}>
               {i < stepIndex ? <Check size={14} /> : i + 1}
             </div>
-            {i < STEPS.length - 1 && <div className={`flex-1 h-[2px] ${i < stepIndex ? "bg-[#0f172a]" : "bg-[#F1F5F9]"}`} />}
+            {i < STEPS.length - 1 && <div className={`flex-1 h-[2px] ${i < stepIndex ? "bg-[#191224]" : "bg-[#EFEAF8]"}`} />}
           </div>
         ))}
       </div>
-      <div className="mt-2 grid grid-cols-3 text-[11px] text-[#64748B]">
-        <span className={stepIndex === 0 ? "font-medium text-[#0f172a]" : ""}>{STEPS[0]}</span>
-        <span className={`text-center ${stepIndex === 1 ? "font-medium text-[#0f172a]" : ""}`}>{STEPS[1]}</span>
-        <span className={`text-right ${stepIndex === 2 ? "font-medium text-[#0f172a]" : ""}`}>{STEPS[2]}</span>
+      <div className="mt-2 grid grid-cols-3 text-[11px] text-[#6B6478]">
+        <span className={stepIndex === 0 ? "font-medium text-[#191224]" : ""}>{STEPS[0]}</span>
+        <span className={`text-center ${stepIndex === 1 ? "font-medium text-[#191224]" : ""}`}>{STEPS[1]}</span>
+        <span className={`text-right ${stepIndex === 2 ? "font-medium text-[#191224]" : ""}`}>{STEPS[2]}</span>
       </div>
     </div>
   );
@@ -650,37 +663,51 @@ export function AcceptFixedPrice({
   missionId,
   proposalId,
   onAccepted,
+  stayOnPage = false,
 }: {
   missionId: string;
   proposalId: string;
   onAccepted?: () => void;
+  /** Reste sur la page (liste des candidatures, 2026-11-11) au lieu d'ouvrir l'étape contrat :
+   *  le prestataire retenu y apparaît avec son bouton « Signature du contrat ». */
+  stayOnPage?: boolean;
 }) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
 
+  const [failure, setFailure] = useState<ActionFailure | null>(null);
+
   async function accept() {
     setPending(true);
     setFeedback(null);
+    setFailure(null);
     const res = await fetch(`/api/missions/${missionId}/proposals/${proposalId}/accept`, { method: "POST" });
     setPending(false);
     if (res.ok) {
       // Passage de relais (A-4) : même chose que ValidateDevis ci-dessus — l'acceptation
       // était le seul maillon de la chronologie sans orientation vers l'étape suivante.
-      setFeedback("Candidature acceptée — ouverture de l'étape contrat…");
+      // Le parcours se poursuit sur l'ENGAGEMENT créé pour ce prestataire (2026-11-10).
+      const { engagementId } = (await res.json().catch(() => ({}))) as { engagementId?: string };
+      if (stayOnPage) {
+        onAccepted?.();
+        return;
+      }
+      setFeedback("Prestataire retenu — ouverture de l'étape contrat…");
       onAccepted?.();
-      setTimeout(() => router.push(`/missions/${missionId}/contract`), 1200);
+      setTimeout(() => router.push(`/missions/${engagementId ?? missionId}/contract`), 1200);
     } else {
-      setFeedback("Échec de l'acceptation.");
+      setFailure(await failureOrBanner(res, "L'acceptation a échoué. Réessayez."));
     }
   }
 
   return (
-    <div className="bg-white border border-[#E2E8F0] rounded-xl p-4 lg:p-5 flex-1">
-      <button onClick={accept} disabled={pending} className="h-10 px-5 rounded-lg bg-[#008751] text-white text-[13px] font-semibold hover:bg-[#007a49] transition-colors disabled:opacity-50">
+    <div className="bg-white border border-[#E7E2F0] rounded-xl p-4 lg:p-5 flex-1">
+      <button onClick={accept} disabled={pending} className="h-10 px-5 rounded-full bg-[#4C1D95] text-white text-[13px] font-semibold hover:bg-[#3B1578] transition-colors disabled:opacity-50">
         {pending ? "Acceptation..." : "Accepter le prix"}
       </button>
-      {feedback && <p className="mt-2 text-[13px] text-[#008751]">{feedback}</p>}
+      {feedback && <p className="mt-2 text-[13px] text-[#4C1D95]">{feedback}</p>}
+      {failure && <ActionFailureNotice failure={failure} />}
     </div>
   );
 }
@@ -730,41 +757,41 @@ function ResubmitPrice({
   }
 
   return (
-    <div className="bg-white border border-[#E2E8F0] rounded-xl p-4 lg:p-5 space-y-3">
+    <div className="bg-white border border-[#E7E2F0] rounded-xl p-4 lg:p-5 space-y-3">
       <h3 className="text-[13px] font-semibold">Proposer un nouveau prix</h3>
       <div>
-        <label className="block text-[12px] font-medium text-[#475569] mb-1">Nouveau prix *</label>
+        <label className="block text-[12px] font-medium text-[#4A4258] mb-1">Nouveau prix *</label>
         <input
           type="number"
           min={1}
           step={500}
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
-          className="w-full h-10 px-3 rounded-lg border border-[#E2E8F0] text-[13px] focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751]"
+          className="w-full h-10 px-3 rounded-lg border border-[#E7E2F0] text-[13px] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20 focus:border-[#4C1D95]"
         />
       </div>
       <div>
-        <label className="block text-[12px] font-medium text-[#475569] mb-1">Nouveau délai (jours) — optionnel</label>
+        <label className="block text-[12px] font-medium text-[#4A4258] mb-1">Nouveau délai (jours) — optionnel</label>
         <input
           type="number"
           min={1}
           value={delay}
           onChange={(e) => setDelay(e.target.value)}
-          className="w-full h-10 px-3 rounded-lg border border-[#E2E8F0] text-[13px] focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751]"
+          className="w-full h-10 px-3 rounded-lg border border-[#E7E2F0] text-[13px] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20 focus:border-[#4C1D95]"
         />
       </div>
       <div>
-        <label className="block text-[12px] font-medium text-[#475569] mb-1">Message (optionnel)</label>
+        <label className="block text-[12px] font-medium text-[#4A4258] mb-1">Message (optionnel)</label>
         <textarea
           value={message}
           onChange={(e) => setMessage(e.target.value.slice(0, 2000))}
           rows={2}
           placeholder="Précisez ce qui a changé..."
-          className="w-full px-3 py-2 rounded-lg border border-[#E2E8F0] text-[13px] resize-y focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751]"
+          className="w-full px-3 py-2 rounded-lg border border-[#E7E2F0] text-[13px] resize-y focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20 focus:border-[#4C1D95]"
         />
       </div>
       {feedback && <p className="text-[12px] text-red-600">{feedback}</p>}
-      <button onClick={submit} disabled={pending} className="h-10 px-5 rounded-lg bg-[#008751] text-white text-[13px] font-semibold hover:bg-[#007a49] transition-colors disabled:opacity-50">
+      <button onClick={submit} disabled={pending} className="h-10 px-5 rounded-full bg-[#4C1D95] text-white text-[13px] font-semibold hover:bg-[#3B1578] transition-colors disabled:opacity-50">
         {pending ? "Envoi..." : "Envoyer le nouveau prix"}
       </button>
     </div>
@@ -774,23 +801,75 @@ function ResubmitPrice({
 export function Revisions({ revisions }: { revisions: DevisProposalPayload["revisions"] }) {
   if (!revisions?.length) return null;
   return (
-    <div className="bg-white border border-[#E2E8F0] rounded-xl p-4 lg:p-5">
+    <div className="bg-white border border-[#E7E2F0] rounded-xl p-4 lg:p-5">
       <h3 className="text-[13px] font-semibold mb-4">Historique des révisions</h3>
-      <div className="relative pl-6 border-l border-[#E2E8F0] space-y-5">
+      <div className="relative pl-6 border-l border-[#E7E2F0] space-y-5">
         {revisions.map((rev) => (
           <div key={rev.id} className="relative">
-            <div className="absolute -left-[29px] top-1 w-2.5 h-2.5 rounded-full bg-[#008751] border-2 border-white shadow" />
+            <div className="absolute -left-[29px] top-1 w-2.5 h-2.5 rounded-full bg-[#4C1D95] border-2 border-white shadow" />
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
               <span className="text-[13px] font-semibold">Round {rev.roundNumber} — {authorDisplayName(rev.author)}</span>
-              <span className="text-[11px] text-[#94A3B8]">{new Date(rev.createdAt).toLocaleDateString("fr-FR")}</span>
+              <span className="text-[11px] text-[#9A93A8]">{new Date(rev.createdAt).toLocaleDateString("fr-FR")}</span>
             </div>
-            {rev.comment && <p className="mt-1 text-[12px] text-[#475569]">{rev.comment}</p>}
-            <div className="mt-2 inline-flex px-2.5 py-1 rounded-full bg-[#F8FAF9] border border-[#E2E8F0] text-[11px] font-medium">
+            {rev.comment && <p className="mt-1 text-[12px] text-[#4A4258]">{rev.comment}</p>}
+            <div className="mt-2 inline-flex px-2.5 py-1 rounded-full bg-[#F6F5FA] border border-[#E7E2F0] text-[11px] font-medium">
               Total TTC {rev.devisData.totalTTC.toLocaleString("fr-FR")}
             </div>
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+// Refus d'une action client (accepter, valider un devis), 2026-11-10. L'écran affichait
+// « Échec de l'acceptation. » en VERT et sans raison — notamment le 403 KYC, que le client ne
+// pouvait ni comprendre ni lever. On lit désormais le message du serveur et, pour un KYC
+// manquant, on mène à la vérification d'identité (`actionUrl`, src/lib/kyc-policy.ts).
+export type ActionFailure = { message: string; kyc: { status: string | null; url: string } | null };
+
+const ACTION_ERRORS: Record<string, string> = {
+  mission_not_open: "La période de candidature de cette mission est terminée.",
+  proposal_not_acceptable: "Cette candidature n'est plus ouverte : elle a déjà été retenue ou refusée.",
+  places_full: "Vous avez déjà retenu le nombre de prestataires recherchés pour cette mission.",
+  not_in_negotiation: "Ce devis n'est plus en négociation.",
+  no_devis: "Aucun devis n'a encore été soumis.",
+  self_dealing_forbidden: "Vous ne pouvez pas retenir votre propre candidature.",
+};
+
+export async function readActionFailure(res: Response, fallback: string): Promise<ActionFailure> {
+  const d = (await res.json().catch(() => ({}))) as { error?: string; message?: string; kycStatus?: string | null; actionUrl?: string };
+  const kyc = d.error === "kyc_not_verified" ? { status: d.kycStatus ?? null, url: d.actionUrl ?? "/kyc" } : null;
+  return { message: d.message ?? ACTION_ERRORS[d.error ?? ""] ?? fallback, kyc };
+}
+
+// Refus KYC : si la page affiche le bandeau d'identité (KycRequiredBanner), c'est lui qui le
+// présente, en tête de page — rien n'est répété sous le bouton.
+async function failureOrBanner(res: Response, fallback: string): Promise<ActionFailure | null> {
+  const failure = await readActionFailure(res, fallback);
+  return failure.kyc && announceKycRequired() ? null : failure;
+}
+
+export function ActionFailureNotice({ failure }: { failure: ActionFailure }) {
+  return (
+    <div role="alert" className="mt-3 rounded-lg border border-[#FECACA] bg-[#FEECEB] p-3 text-[13px] text-[#B42318]">
+      <p>{failure.message}</p>
+      {failure.kyc && (
+        <>
+          {failure.kyc.status === "en_attente" && (
+            <p className="mt-1 text-[12px] text-[#7F1D1D]">
+              Si vous avez déjà envoyé vos justificatifs, ils sont en cours d&apos;examen : vous pourrez accepter dès leur validation.
+            </p>
+          )}
+          <Link
+            href={failure.kyc.url}
+            className="mt-2 inline-flex h-9 items-center rounded-full bg-[#191224] px-3 text-[12px] font-semibold text-white"
+            style={{ textDecoration: "none" }}
+          >
+            {failure.kyc.status === "rejete" ? "Renvoyer mes justificatifs" : "Vérifier mon identité"}
+          </Link>
+        </>
+      )}
     </div>
   );
 }

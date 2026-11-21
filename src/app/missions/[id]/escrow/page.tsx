@@ -171,7 +171,7 @@ export default function EscrowPage({ params }: { params: { id: string } }) {
     reload();
   }
 
-  if (!mission || jalons === null) return <div className="min-h-screen bg-[#F8FAF9] flex items-center justify-center text-[13px] text-[#64748B]">Chargement...</div>;
+  if (!mission || jalons === null) return <div className="min-h-screen bg-[#F6F5FA] flex items-center justify-center text-[13px] text-[#6B6478]">Chargement...</div>;
 
   const usesJalons = jalons.length > 0;
   const splitTotal = splitRows.reduce((sum, r) => sum + (Number(r.montant) || 0), 0);
@@ -179,50 +179,50 @@ export default function EscrowPage({ params }: { params: { id: string } }) {
   const splitValid = splittingJalon && splitRows.filter((r) => r.titre.trim() && Number(r.montant) > 0).length >= 2 && Math.abs(splitTotal - splittingJalon.montant) < 0.01;
 
   return (
-    <div className="min-h-screen bg-[#F8FAF9] text-[#0f172a]">
+    <div className="min-h-screen bg-[#F6F5FA] text-[#191224]">
       <div className="fluid-doc [--fw:860px] mx-auto px-4 lg:px-0 py-5 space-y-4">
-        <div className="flex items-center gap-1.5 text-[12px] text-[#64748B] flex-wrap">
-          <Link href={`/missions/${missionId}`} className="hover:text-[#0f172a]" style={{ textDecoration: "none" }}>Mission</Link>
+        <div className="flex items-center gap-1.5 text-[12px] text-[#6B6478] flex-wrap">
+          <Link href={`/missions/${missionId}`} className="hover:text-[#191224]" style={{ textDecoration: "none" }}>Mission</Link>
           <span>›</span>
-          <span className="text-[#0f172a] font-medium">Séquestre</span>
+          <span className="text-[#191224] font-medium">Séquestre</span>
         </div>
 
         {/* Vérification OPR : le responsable doit être désigné AVANT de financer — la carte est
             donc placée au-dessus des gestes de financement. Rien en mode « Moi-même ». */}
         <SiteManagerCard missionId={missionId} />
 
-        <div className="bg-white border border-[#E2E8F0] rounded-xl p-4 lg:p-5 space-y-4">
+        <div className="bg-white border border-[#E7E2F0] rounded-xl p-4 lg:p-5 space-y-4">
           <div className="flex items-center justify-between">
             <h1 className="text-[13px] font-semibold">Paiement sous séquestre</h1>
-            <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-[#F1F5F9] text-[#64748B] text-[11px] font-semibold">Phase 5{usesJalons ? " — paiement par jalons" : ""}</span>
+            <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-[#EFEAF8] text-[#6B6478] text-[11px] font-semibold">Phase 5{usesJalons ? " — paiement par jalons" : ""}</span>
           </div>
 
-          <div className="rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] p-3 text-[12.5px] text-[#1E40AF] leading-relaxed">
+          <div className="rounded-xl border border-[#BFDBFE] bg-[#EAF1FF] p-3 text-[12.5px] text-[#1D4ED8] leading-relaxed">
             <strong>Flexwork ne détient jamais les fonds.</strong> Votre paiement est séquestré chez notre prestataire
             de paiement agréé. Les fonds ne seront libérés au prestataire que sur validation de la livraison{usesJalons ? ", jalon par jalon" : " ou acceptation tacite après 7 jours"}.
           </div>
 
-          <div className="rounded-xl bg-[#F8FAF9] border border-[#E2E8F0] p-4 space-y-2">
+          <div className="rounded-xl bg-[#F6F5FA] border border-[#E7E2F0] p-4 space-y-2">
             <div className="flex items-center justify-between text-[13px]">
-              <span className="text-[#64748B]">Mission</span><strong className="text-[#0f172a]">{mission.titre}</strong>
+              <span className="text-[#6B6478]">Mission</span><strong className="text-[#191224]">{mission.titre}</strong>
             </div>
             <div className="flex items-center justify-between text-[15px]">
-              <span className="text-[#64748B]">Total</span><strong className="text-[#008751]">{(mission.contractPrice ?? mission.budget).toLocaleString("fr-FR")} {mission.currency}</strong>
+              <span className="text-[#6B6478]">Total</span><strong className="text-[#047857]">{(mission.contractPrice ?? mission.budget).toLocaleString("fr-FR")} {mission.currency}</strong>
             </div>
           </div>
 
-          {error && <div className="rounded-xl border border-[#FECACA] bg-[#FEF2F2] p-3 text-[13px] text-[#B91C1C]">{error}</div>}
+          {error && <div className="rounded-xl border border-[#FECACA] bg-[#FEECEB] p-3 text-[13px] text-[#B42318]">{error}</div>}
 
           {/* Instruction HOLD auto-déclenchée à la contre-signature du client (workflow étape 5) :
               en attente de confirmation PSP — ne pas proposer un second paiement. */}
           {!usesJalons && mission.escrowHoldStatus === "pending" && mission.isOwner && (
-            <div className="rounded-xl border border-[#FDE68A] bg-[#FFFBEB] p-3 text-[12.5px] text-[#92400E]">
+            <div className="rounded-xl border border-[#FDE68A] bg-[#FFF6E3] p-3 text-[12.5px] text-[#92400E]">
               <strong>Instruction de séquestre envoyée.</strong> Le montant ({(mission.contractPrice ?? mission.budget).toLocaleString("fr-FR")} {mission.currency})
               a été déclenché automatiquement à la signature du contrat — en attente de confirmation du prestataire de paiement.
               {mission.escrowHoldReference && (
                 <Link
                   href={`/psp-sandbox/payer?ref=${encodeURIComponent(mission.escrowHoldReference)}&missionId=${mission.id}`}
-                  className="block mt-1.5 text-[12.5px] text-[#008751] font-semibold"
+                  className="block mt-1.5 text-[12.5px] text-[#4C1D95] font-semibold"
                   style={{ textDecoration: "none" }}
                 >
                   Autoriser le paiement (sandbox PSP virtuelle) →
@@ -233,24 +233,24 @@ export default function EscrowPage({ params }: { params: { id: string } }) {
 
           {!usesJalons && mission.status === "contrat_signe" && mission.isOwner && !mission.escrowHoldStatus && (
             <form onSubmit={handleHold} className="space-y-3">
-              <div className="rounded-xl border border-[#FDE68A] bg-[#FFFBEB] p-3 text-[12.5px] text-[#92400E]">
+              <div className="rounded-xl border border-[#FDE68A] bg-[#FFF6E3] p-3 text-[12.5px] text-[#92400E]">
                 En validant, vous autorisez le PSP agréé à mettre sous séquestre le montant indiqué. Flexwork
                 n&apos;apparaît pas comme bénéficiaire de ce paiement.
               </div>
-              <button type="submit" disabled={submitting === "whole"} className="w-full h-10 rounded-lg bg-[#008751] text-white text-[13px] font-semibold hover:bg-[#007a49] transition-colors disabled:opacity-50">
+              <button type="submit" disabled={submitting === "whole"} className="w-full h-10 rounded-lg bg-[#4C1D95] text-white text-[13px] font-semibold hover:bg-[#3B1578] transition-colors disabled:opacity-50">
                 {submitting === "whole" ? "Envoi..." : "Payer et séquestrer les fonds"}
               </button>
             </form>
           )}
 
-          {!mission.isOwner && <p className="text-[13px] text-[#64748B]">Seul le client peut déclencher les mouvements d&apos;escrow.</p>}
+          {!mission.isOwner && <p className="text-[13px] text-[#6B6478]">Seul le client peut déclencher les mouvements d&apos;escrow.</p>}
         </div>
 
         {/* Financement par jalon (Financer/Scinder) — section distincte : la décision sur un
             livrable déjà soumis (table Validation Client ci-dessous) ne couvre pas le
             financement. */}
         {usesJalons && totalRetentionAmount(jalons, retentionRate) > 0 && (
-          <div className="rounded-xl border border-[#FDE68A] bg-[#FFFBEB] p-3.5 text-[12.5px] text-[#92400E] leading-relaxed">
+          <div className="rounded-xl border border-[#FDE68A] bg-[#FFF6E3] p-3.5 text-[12.5px] text-[#92400E] leading-relaxed">
             <strong>Retenue de garantie — {Math.round(retentionRate * 100)} % par jalon.</strong>{" "}
             À la validation de chaque jalon, {Math.round(retentionRate * 100)} % de son montant restent au séquestre.
             La retenue cumulée, soit {totalRetentionAmount(jalons, retentionRate).toLocaleString("fr-FR")} {mission.currency},
@@ -261,14 +261,14 @@ export default function EscrowPage({ params }: { params: { id: string } }) {
         {usesJalons && mission.isOwner && jalons.some((j) => j.status === "en_attente") && (
           <div className="space-y-3">
             {jalons.filter((j) => j.status === "en_attente").map((j) => (
-              <div key={j.id} className="bg-white border border-[#E2E8F0] rounded-xl p-4 lg:p-5">
+              <div key={j.id} className="bg-white border border-[#E7E2F0] rounded-xl p-4 lg:p-5">
                 <div className="flex items-start justify-between">
                   <div>
                     <strong className="text-[13px]">#{j.ordre} — {j.titre}</strong>
-                    <div className="text-[12.5px] mt-0.5 text-[#64748B]">En attente de financement</div>
+                    <div className="text-[12.5px] mt-0.5 text-[#6B6478]">En attente de financement</div>
                   </div>
                   <div className="text-right shrink-0">
-                    <strong className="text-[#008751] text-[13px]">{j.montant.toLocaleString("fr-FR")} {mission.currency}</strong>
+                    <strong className="text-[#047857] text-[13px]">{j.montant.toLocaleString("fr-FR")} {mission.currency}</strong>
                     {retentionAmount(j.montant, retentionRate) > 0 && (
                       <div className="text-[11px] text-[#92400E] mt-0.5 leading-tight max-w-[190px]">
                         {releasableBeforeRetention(j.montant, retentionRate).toLocaleString("fr-FR")} libérés à la validation,{" "}
@@ -278,10 +278,10 @@ export default function EscrowPage({ params }: { params: { id: string } }) {
                   </div>
                 </div>
                 <div className="flex gap-2 mt-2.5">
-                  <button disabled={submitting === j.id} onClick={() => holdJalon(j.id)} className="flex-1 h-10 rounded-lg bg-[#008751] text-white text-[13px] font-semibold hover:bg-[#007a49] transition-colors disabled:opacity-50">
+                  <button disabled={submitting === j.id} onClick={() => holdJalon(j.id)} className="flex-1 h-10 rounded-lg bg-[#4C1D95] text-white text-[13px] font-semibold hover:bg-[#3B1578] transition-colors disabled:opacity-50">
                     {submitting === j.id ? "Envoi..." : "Financer ce jalon"}
                   </button>
-                  <button onClick={() => openSplit(j.id)} className="h-10 px-4 rounded-lg border border-[#E2E8F0] bg-white text-[13px] font-medium hover:bg-[#F8FAF9]">
+                  <button onClick={() => openSplit(j.id)} className="h-10 px-4 rounded-lg border border-[#E7E2F0] bg-white text-[13px] font-medium hover:bg-[#F6F5FA]">
                     Scinder
                   </button>
                 </div>
@@ -302,7 +302,7 @@ export default function EscrowPage({ params }: { params: { id: string } }) {
 
         <ValidationClientView missionId={missionId} onMissionChange={(m) => setMission((prev) => (prev ? { ...prev, status: m.status } : prev))} />
 
-        <Link href={`/missions/${missionId}`} className="inline-block text-[#64748B] text-[13px]" style={{ textDecoration: "none" }}>
+        <Link href={`/missions/${missionId}`} className="inline-block text-[#6B6478] text-[13px]" style={{ textDecoration: "none" }}>
           ← Retour au détail de la mission
         </Link>
       </div>
@@ -310,10 +310,10 @@ export default function EscrowPage({ params }: { params: { id: string } }) {
       {splittingJalon && (
         <div className="fixed inset-0 z-40 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setSplittingId(null)} />
-          <div className="relative w-full max-w-[480px] bg-white border border-[#E2E8F0] rounded-xl p-4 lg:p-5">
+          <div className="relative w-full max-w-[480px] bg-white border border-[#E7E2F0] rounded-xl p-4 lg:p-5">
             <h3 className="text-[13px] font-semibold mb-2">Scinder le jalon « {splittingJalon.titre} »</h3>
-            <p className="text-[12.5px] text-[#64748B] mb-3 leading-relaxed">
-              Répartissez le montant de <strong className="text-[#0f172a]">{splittingJalon.montant.toLocaleString("fr-FR")} {mission.currency}</strong> entre
+            <p className="text-[12.5px] text-[#6B6478] mb-3 leading-relaxed">
+              Répartissez le montant de <strong className="text-[#191224]">{splittingJalon.montant.toLocaleString("fr-FR")} {mission.currency}</strong> entre
               au moins 2 sous-jalons. La somme doit rester exactement égale (le total du contrat signé ne change jamais).
             </p>
             <div className="space-y-2">
@@ -322,28 +322,28 @@ export default function EscrowPage({ params }: { params: { id: string } }) {
                   <input
                     type="text" placeholder={`Sous-jalon ${i + 1} — titre`} value={row.titre}
                     onChange={(e) => setSplitRows((rows) => rows.map((r, j) => (j === i ? { ...r, titre: e.target.value } : r)))}
-                    className="flex-[2] h-9 px-2.5 rounded-lg border border-[#E2E8F0] text-[13px] focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751]"
+                    className="flex-[2] h-9 px-2.5 rounded-lg border border-[#E7E2F0] text-[13px] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20 focus:border-[#4C1D95]"
                   />
                   <input
                     type="number" placeholder="Montant" value={row.montant}
                     onChange={(e) => setSplitRows((rows) => rows.map((r, j) => (j === i ? { ...r, montant: e.target.value } : r)))}
-                    className="flex-1 h-9 px-2.5 rounded-lg border border-[#E2E8F0] text-[13px] focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751]"
+                    className="flex-1 h-9 px-2.5 rounded-lg border border-[#E7E2F0] text-[13px] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20 focus:border-[#4C1D95]"
                   />
                   {splitRows.length > 2 && (
-                    <button type="button" onClick={() => setSplitRows((rows) => rows.filter((_, j) => j !== i))} className="h-9 px-3 rounded-lg border border-[#E2E8F0] bg-white text-[13px] hover:bg-[#F8FAF9]">×</button>
+                    <button type="button" onClick={() => setSplitRows((rows) => rows.filter((_, j) => j !== i))} className="h-9 px-3 rounded-lg border border-[#E7E2F0] bg-white text-[13px] hover:bg-[#F6F5FA]">×</button>
                   )}
                 </div>
               ))}
             </div>
-            <button type="button" onClick={() => setSplitRows((rows) => [...rows, { titre: "", montant: "" }])} className="mt-2 h-8 px-3 rounded-md border border-[#E2E8F0] bg-white text-[11px] font-medium hover:bg-[#F1F5F9]">
+            <button type="button" onClick={() => setSplitRows((rows) => [...rows, { titre: "", montant: "" }])} className="mt-2 h-8 px-3 rounded-md border border-[#E7E2F0] bg-white text-[11px] font-medium hover:bg-[#EFEAF8]">
               + Ajouter une part
             </button>
-            <p className={`text-[12.5px] mt-2 ${Math.abs(splitTotal - splittingJalon.montant) < 0.01 ? "text-[#008751]" : "text-[#E8112D]"}`}>
+            <p className={`text-[12.5px] mt-2 ${Math.abs(splitTotal - splittingJalon.montant) < 0.01 ? "text-[#047857]" : "text-[#B42318]"}`}>
               Total réparti : <span>{splitTotal.toLocaleString("fr-FR")}</span> / <span>{splittingJalon.montant.toLocaleString("fr-FR")}</span>
             </p>
             <div className="flex gap-2 mt-3">
-              <button onClick={() => setSplittingId(null)} className="flex-1 h-10 rounded-lg border border-[#E2E8F0] bg-white text-[13px] font-medium hover:bg-[#F8FAF9]">Annuler</button>
-              <button disabled={!splitValid || submitting === splittingJalon.id} onClick={() => submitSplit(splittingJalon)} className="flex-1 h-10 rounded-lg bg-[#008751] text-white text-[13px] font-semibold hover:bg-[#007a49] transition-colors disabled:opacity-50">
+              <button onClick={() => setSplittingId(null)} className="flex-1 h-10 rounded-lg border border-[#E7E2F0] bg-white text-[13px] font-medium hover:bg-[#F6F5FA]">Annuler</button>
+              <button disabled={!splitValid || submitting === splittingJalon.id} onClick={() => submitSplit(splittingJalon)} className="flex-1 h-10 rounded-lg bg-[#4C1D95] text-white text-[13px] font-semibold hover:bg-[#3B1578] transition-colors disabled:opacity-50">
                 {submitting === splittingJalon.id ? "Envoi..." : "Confirmer la scission"}
               </button>
             </div>

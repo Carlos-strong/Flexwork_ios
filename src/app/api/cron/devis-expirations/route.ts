@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { expireDevisNegotiations } from "@/lib/scheduled-tasks";
 
-// Annulation temporelle des négociations de devis expirées (mode QUOTE).
+// Clôture des annonces arrivées à leur date limite de candidature (closeExpiredAnnonces, 2026-11-10).
 // Logique dans src/lib/scheduled-tasks.ts, partagée avec le worker (src/worker/index.ts) : cette
 // route reste pour les déploiements qui planifient par cron système (Bearer CRON_SECRET).
 export async function GET(req: Request) {

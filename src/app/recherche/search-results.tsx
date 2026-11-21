@@ -74,7 +74,7 @@ export function SearchResults({
   return (
     <section id="prestataires" className="scroll-mt-24 space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-xl sm:text-[26px] font-semibold leading-tight tracking-tight text-[#0A1931]">
+        <h2 className="text-xl sm:text-[26px] font-semibold leading-tight tracking-tight text-[#191224]">
           {scopeLabel ? (
             <>
               <span className="text-gray-400">Prestataires : </span>
@@ -84,7 +84,7 @@ export function SearchResults({
             "Rechercher un prestataire"
           )}
         </h2>
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-[#008751]/[0.08] px-3 py-1.5 text-[13px] font-medium text-[#00663d]">
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-[#4C1D95]/[0.08] px-3 py-1.5 text-[13px] font-medium text-[#00663d]">
           <ShieldCheck className="w-4 h-4" aria-hidden />
           {results.length} prestataire{results.length > 1 ? "s" : ""} à l&apos;identité vérifiée
         </span>
@@ -96,7 +96,7 @@ export function SearchResults({
           e.preventDefault();
           navigate({ domaine, role });
         }}
-        className="flex flex-col gap-2 rounded-[22px] bg-white p-2 ring-1 ring-black/[0.07] shadow-[0_8px_30px_-12px_rgba(15,23,42,0.15)] transition focus-within:ring-[#008751]/40 sm:flex-row sm:items-center sm:rounded-full"
+        className="flex flex-col gap-2 rounded-[22px] bg-white p-2 ring-1 ring-black/[0.07] shadow-[0_8px_30px_-12px_rgba(15,23,42,0.15)] transition focus-within:ring-[#4C1D95]/40 sm:flex-row sm:items-center sm:rounded-full"
       >
         <label className="flex min-w-0 flex-1 items-center gap-2.5 pl-3">
           <Search className="w-[18px] h-[18px] shrink-0 text-gray-400" aria-hidden />
@@ -106,7 +106,7 @@ export function SearchResults({
             placeholder={scopeLabel ? "Chercher un autre domaine…" : "Domaine (ex : plomberie, design…) — vide pour tout voir"}
             value={domaine}
             onChange={(e) => setDomaine(e.target.value)}
-            className="h-11 w-full min-w-0 border-0 bg-transparent p-0 shadow-none focus:border-0 focus:shadow-none text-[14px] text-[#0A1931] placeholder:text-gray-400 focus:outline-none"
+            className="h-11 w-full min-w-0 border-0 bg-transparent p-0 shadow-none focus:border-0 focus:shadow-none text-[14px] text-[#191224] placeholder:text-gray-400 focus:outline-none"
           />
         </label>
         <span aria-hidden className="hidden h-7 w-px bg-gray-200 sm:block" />
@@ -118,7 +118,7 @@ export function SearchResults({
             setRole(e.target.value);
             navigate({ domaine, role: e.target.value });
           }}
-          className="h-11 rounded-full border-0 bg-gray-50 px-4 focus:border-0 text-[14px] text-[#0A1931] focus:outline-none focus:ring-2 focus:ring-[#008751]/25 sm:w-[210px] sm:bg-transparent"
+          className="h-11 rounded-full border-0 bg-gray-50 px-4 focus:border-0 text-[14px] text-[#191224] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/25 sm:w-[210px] sm:bg-transparent"
         >
           <option value="">Tous les profils</option>
           <option value="expert_digital">Prestataire indépendant</option>
@@ -129,7 +129,7 @@ export function SearchResults({
         <button
           type="submit"
           disabled={pending}
-          className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[#008751] px-6 text-[14px] font-semibold text-white shadow-md shadow-[#008751]/25 transition hover:-translate-y-0.5 hover:bg-[#007a49] disabled:translate-y-0 disabled:opacity-60"
+          className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[#4C1D95] px-6 text-[14px] font-semibold text-white shadow-md shadow-[#4C1D95]/25 transition hover:-translate-y-0.5 hover:bg-[#3B1578] disabled:translate-y-0 disabled:opacity-60"
         >
           {pending ? "Recherche…" : "Rechercher"}
         </button>
@@ -138,7 +138,7 @@ export function SearchResults({
       {urlParams.tags && (
         <div className="flex flex-wrap items-center gap-2 text-[13px] text-gray-600">
           Compétence :
-          <span className="inline-flex items-center gap-2 rounded-full bg-[#0A1931] py-1 pl-3 pr-1 font-medium text-white">
+          <span className="inline-flex items-center gap-2 rounded-full bg-[#191224] py-1 pl-3 pr-1 font-medium text-white">
             {urlParams.tags}
             <Link
               href={withoutTag}
@@ -156,10 +156,10 @@ export function SearchResults({
       <div className={`transition-opacity duration-300 ${pending ? "opacity-50" : ""}`}>
         {results.length === 0 ? (
           <div className="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-[#F2FAF6] via-white to-[#F6F7FB] px-6 py-14 text-center ring-1 ring-black/[0.05]">
-            <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-white text-[#008751] shadow-md ring-1 ring-black/[0.05]">
+            <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-white text-[#4C1D95] shadow-md ring-1 ring-black/[0.05]">
               <UserSearch className="h-6 w-6" aria-hidden />
             </div>
-            <p className="mt-5 text-[17px] font-semibold text-[#0A1931]">
+            <p className="mt-5 text-[17px] font-semibold text-[#191224]">
               {scopeLabel
                 ? `Aucun prestataire vérifié pour « ${scopeLabel} » pour l'instant.`
                 : urlParams.domaine
@@ -171,7 +171,7 @@ export function SearchResults({
             </p>
             <Link
               href="/missions/new"
-              className="group mt-7 inline-flex h-11 items-center gap-2 rounded-full bg-[#008751] px-6 text-[14px] font-semibold text-white shadow-md shadow-[#008751]/25 transition hover:-translate-y-0.5 hover:bg-[#007a49]"
+              className="group mt-7 inline-flex h-11 items-center gap-2 rounded-full bg-[#4C1D95] px-6 text-[14px] font-semibold text-white shadow-md shadow-[#4C1D95]/25 transition hover:-translate-y-0.5 hover:bg-[#3B1578]"
             >
               Publier une mission
               <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" aria-hidden />

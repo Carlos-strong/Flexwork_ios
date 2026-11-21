@@ -19,7 +19,7 @@ export default async function TrustedBy() {
         <div className="flex flex-wrap items-baseline justify-between gap-2 mb-5">
           {section.title && <p className="text-sm font-medium text-gray-500">{section.title}</p>}
           {section.ctaText && (
-            <Link href={section.ctaLink ?? '/confiance'} className="text-sm font-semibold text-[#E85A24] hover:underline">
+            <Link href={section.ctaLink ?? '/confiance'} className="text-sm font-semibold text-[#5B21B6] hover:underline">
               {section.ctaText}
             </Link>
           )}
@@ -27,9 +27,9 @@ export default async function TrustedBy() {
         <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-5">
           {section.items.map((g) => (
             <li key={g.label} className="flex gap-3">
-              <span className="mt-0.5 w-6 h-6 shrink-0 rounded-full bg-[#0A1931] text-white grid place-items-center text-xs" aria-hidden>✓</span>
+              <span className="mt-0.5 w-6 h-6 shrink-0 rounded-full bg-[#191224] text-white grid place-items-center text-xs" aria-hidden>✓</span>
               <div>
-                <p className="font-semibold text-[#0A1931]">{g.label}</p>
+                <p className="font-semibold text-[#191224]">{g.label}</p>
                 {g.sublabel && <p className="text-sm text-gray-500 leading-snug">{g.sublabel}</p>}
               </div>
             </li>

@@ -17,7 +17,7 @@ export function Avatar({
   src,
   initials,
   size = 32,
-  gradient = "from-[#FF7A00] to-[#E8112D]",
+  gradient = "from-[#6D28D9] to-[#B42318]",
   className = "",
 }: {
   src?: string | null;

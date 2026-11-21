@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import { KycRequiredBanner } from "@/components/kyc/KycRequiredBanner";
+import { applicationDeadlineLabel, placesRecherchees } from "@/lib/mission-expiry";
 import { useSession } from "next-auth/react";
 import { Avatar } from "@/components/avatar";
 import { countryFlag } from "@/components/person-card";
@@ -13,8 +15,32 @@ import { canClientRequestRevision } from "@/lib/devis";
 import { candidaturesHrefForRole } from "@/lib/role-dashboard";
 import { fetchDedupe } from "@/lib/fetch-dedupe";
 import { PaymentModelBadge } from "@/components/financing/payment-model-picker";
+import { ProposalCards, WithdrawButton } from "@/components/devis/ProposalCards";
+import { canWithdrawEngagement } from "@/lib/engagement-withdrawal-rules";
 
-type MissionMeta = { budgetType: string | null; maxRevisionRounds: number; status: string; currency: string; titre: string };
+type MissionMeta = {
+  budgetType: string | null;
+  maxRevisionRounds: number;
+  status: string;
+  currency: string;
+  titre: string;
+  delaiJours?: number | null;
+  budget?: number;
+  // Réserve (2026-11-11) : fin de la période où un candidat présélectionné peut être retenu
+  // après la clôture de l'annonce (null si l'annonce n'est pas close).
+  reserveUntil?: string | null;
+  parentMissionId?: string | null;
+  // Annonce (2026-11-10).
+  dateExpiration?: string | null;
+  maxCandidatures?: number | null;
+  contract?: { clientSignedAt: string | null; providerSignedAt: string | null } | null;
+  engagements?: {
+    id: string;
+    status: string;
+    proposals: { provider: { firstname: string | null; lastname: string | null } }[];
+    contract: { clientSignedAt: string | null; providerSignedAt: string | null } | null;
+  }[];
+};
 
 const CONTRACT_TILE_LABEL: Record<string, string> = {
   contrat_genere: "Généré",
@@ -31,12 +57,12 @@ const CONTRACT_TILE_LABEL: Record<string, string> = {
 const CONTRACT_EXISTS_STATUSES = new Set(Object.keys(CONTRACT_TILE_LABEL));
 
 const STATUS_BADGE: Record<string, string> = {
-  envoyee: "bg-[#FEF3C7] text-[#D97706] border border-[#FDE68A]",
-  en_negociation: "bg-[#FEF3C7] text-[#D97706] border border-[#FDE68A]",
-  devis_valide: "bg-[#E6F4EE] text-[#008751] border border-[#A7F3D0]",
-  acceptee: "bg-[#E6F4EE] text-[#008751] border border-[#A7F3D0]",
-  refusee: "bg-[#FEE2E2] text-[#B91C1C] border border-[#FECACA]",
-  annulee_definitive: "bg-[#F1F5F9] text-[#64748B] border border-[#E2E8F0]",
+  envoyee: "bg-[#FFF6E3] text-[#D97706] border border-[#FDE68A]",
+  en_negociation: "bg-[#FFF6E3] text-[#D97706] border border-[#FDE68A]",
+  devis_valide: "bg-[#E7F7EF] text-[#047857] border border-[#A7F3D0]",
+  acceptee: "bg-[#F0EAFF] text-[#4C1D95] border border-[#A7F3D0]",
+  refusee: "bg-[#FEECEB] text-[#B42318] border border-[#FECACA]",
+  annulee_definitive: "bg-[#EFEAF8] text-[#6B6478] border border-[#E7E2F0]",
 };
 
 // Statut affiché en tenant compte de la négociation par révisions (2026-09-09) : tant qu'une
@@ -48,12 +74,17 @@ function statusLabelFor(p: { status: string; revisionRequestedAt: string | null 
   return isRevisionPending(p) ? REVISION_REQUESTED_LABEL : (PROPOSAL_STATUS_LABEL[p.status] ?? p.status);
 }
 function statusBadgeFor(p: { status: string; revisionRequestedAt: string | null }): string {
-  return isRevisionPending(p) ? REVISION_REQUESTED_BADGE : (STATUS_BADGE[p.status] ?? "bg-[#F1F5F9] text-[#64748B]");
+  return isRevisionPending(p) ? REVISION_REQUESTED_BADGE : (STATUS_BADGE[p.status] ?? "bg-[#EFEAF8] text-[#6B6478]");
 }
 
-type FilterId = "all" | "en_negociation" | "devis_valide" | "refusee" | "contrat_signe";
+// « Prestataires retenus » (2026-11-11) : filtre à côté de « Toutes » — les retenus (sur leur
+// engagement) et les candidatures en attente partagent une seule grille de cartes.
+type FilterId = "all" | "retenus" | "favoris" | "en_negociation" | "devis_valide" | "refusee" | "contrat_signe";
 const FILTERS: { id: FilterId; label: string }[] = [
   { id: "all", label: "Toutes" },
+  { id: "retenus", label: "Prestataires retenus" },
+  // Favoris (2026-11-11) : candidats shortlistés — la liste de réserve à la clôture.
+  { id: "favoris", label: "⭐ Favoris" },
   { id: "en_negociation", label: "En négociation" },
   { id: "devis_valide", label: "Devis validé" },
   { id: "refusee", label: "Refusée" },
@@ -62,6 +93,8 @@ const FILTERS: { id: FilterId; label: string }[] = [
 
 function matchesFilter(p: DevisProposalPayload, filter: FilterId, missionStatus: string | undefined): boolean {
   if (filter === "all") return true;
+  if (filter === "retenus") return false; // les retenus viennent de `retained`, pas de cette liste
+  if (filter === "favoris") return p.status === "preselectionnee";
   if (filter === "contrat_signe") return p.status === "devis_valide" && !!missionStatus && CONTRACT_EXISTS_STATUSES.has(missionStatus);
   return p.status === filter;
 }
@@ -71,15 +104,20 @@ function matchesFilter(p: DevisProposalPayload, filter: FilterId, missionStatus:
 // src/components/devis/devis-panel.tsx au-dessus de FixedPricePanel). "en_negociation" y
 // figure depuis l'introduction de la négociation par rounds (2026-08-29, voir POST
 // /api/missions/[id]/proposals) : round 1 reste "envoyee", round 2+ passe par là.
-type FixedFilterId = "all" | "envoyee" | "en_negociation" | "acceptee" | "refusee";
+type FixedFilterId = "all" | "retenus" | "favoris" | "envoyee" | "en_negociation" | "acceptee" | "refusee";
 const FIXED_FILTERS: { id: FixedFilterId; label: string }[] = [
   { id: "all", label: "Toutes" },
+  { id: "retenus", label: "Prestataires retenus" },
+  // Favoris (2026-11-11) : candidats shortlistés — la liste de réserve à la clôture.
+  { id: "favoris", label: "⭐ Favoris" },
   { id: "envoyee", label: "Envoyées" },
   { id: "en_negociation", label: "En négociation" },
   { id: "acceptee", label: "Acceptée" },
   { id: "refusee", label: "Refusées" },
 ];
 function matchesFixedFilter(p: DevisProposalPayload, filter: FixedFilterId): boolean {
+  if (filter === "retenus") return false; // les retenus viennent de `retained`
+  if (filter === "favoris") return p.status === "preselectionnee";
   return filter === "all" || p.status === filter;
 }
 
@@ -109,6 +147,16 @@ export default function ProposalsPage() {
   const isProvider = !!role && role !== "client";
 
   const [proposals, setProposals] = useState<DevisProposalPayload[] | null>(null);
+  // Candidatures retenues, déplacées sur leur engagement (2026-11-11) — client propriétaire.
+  const [retained, setRetained] = useState<DevisProposalPayload[]>([]);
+  // Confirmation affichée après « Accepter le prix » / « Valider le devis » depuis le tiroir
+  // (2026-11-11) : on reste sur la liste, filtrée sur les prestataires retenus.
+  const [notice, setNotice] = useState<string | null>(null);
+  // La page défile dans le conteneur du tableau de bord, pas dans la fenêtre : on amène la
+  // confirmation à l'écran plutôt que de remonter `window`.
+  useEffect(() => {
+    if (notice) document.getElementById("proposals-notice")?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [notice]);
   const [missionMeta, setMissionMeta] = useState<MissionMeta | null>(null);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<FilterId>("all");
@@ -127,6 +175,7 @@ export default function ProposalsPage() {
     if (res.ok) {
       const d = await res.json();
       setProposals(d.items ?? []);
+      setRetained(d.retained ?? []);
       setMissionMeta(d.mission ?? null);
     }
     setLoading(false);
@@ -136,7 +185,7 @@ export default function ProposalsPage() {
     load();
   }, [load]);
 
-  if (loading) return <div className="min-h-screen bg-[#F8FAF9] flex items-center justify-center text-[13px] text-[#64748B]">Chargement...</div>;
+  if (loading) return <div className="min-h-screen bg-[#F6F5FA] flex items-center justify-center text-[13px] text-[#6B6478]">Chargement...</div>;
 
   // ── Mode PRESTATAIRE : même modèle que la vue client, vue « Ma candidature » ──
   // Déviations assumées (règle R03) : une seule candidature (la sienne), statut réel,
@@ -146,31 +195,35 @@ export default function ProposalsPage() {
     const mine = (proposals ?? [])[0] ?? null;
     const backHref = candidaturesHrefForRole(role as Parameters<typeof candidaturesHrefForRole>[0]);
     return (
-      <div className="fluid-doc [--fw:900px] mx-auto px-4 lg:px-6 py-5 space-y-4 text-[#0f172a]">
-        <div className="text-xs text-[#64748B]">
-          <Link href={`/missions/${missionId}`} style={{ textDecoration: "none" }} className="hover:text-[#0f172a]">Mission</Link> › Ma candidature
+      <div className="fluid-doc [--fw:900px] mx-auto px-4 lg:px-6 py-5 space-y-4 text-[#191224]">
+        <div className="text-xs text-[#6B6478]">
+          <Link href={`/missions/${missionId}`} style={{ textDecoration: "none" }} className="hover:text-[#191224]">Mission</Link> › Ma candidature
         </div>
 
         {!missionMeta || proposals === null ? (
-          <div className="bg-white border border-[#E2E8F0] rounded-xl p-10 text-center text-[13px] text-[#64748B]">Chargement…</div>
+          <div className="bg-white border border-[#E7E2F0] rounded-xl p-10 text-center text-[13px] text-[#6B6478]">Chargement…</div>
         ) : !mine ? (
-          <div className="bg-white border border-[#E2E8F0] rounded-xl p-12 text-center">
-            <p className="text-[14px] text-[#64748B]">Vous n&apos;avez pas candidaté à cette mission.</p>
-            <Link href={backHref} className="mt-4 inline-block text-[13px] text-[#008751] font-semibold" style={{ textDecoration: "none" }}>← Retour à mes candidatures</Link>
+          <div className="bg-white border border-[#E7E2F0] rounded-xl p-12 text-center">
+            <p className="text-[14px] text-[#6B6478]">Vous n&apos;avez pas candidaté à cette mission.</p>
+            <Link href={backHref} className="mt-4 inline-block text-[13px] text-[#4C1D95] font-semibold" style={{ textDecoration: "none" }}>← Retour à mes candidatures</Link>
           </div>
         ) : (
           <>
-            <div className="bg-white border border-[#E2E8F0] rounded-xl p-4 lg:p-5">
+            <div className="bg-white border border-[#E7E2F0] rounded-xl p-4 lg:p-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h1 className="text-[18px] lg:text-[20px] font-bold leading-tight">{missionMeta.titre}</h1>
-                  <p className="text-[12px] text-[#64748B] mt-1">
+                  <p className="text-[12px] text-[#6B6478] mt-1">
                     Votre candidature envoyée le {new Date(mine.createdAt).toLocaleDateString("fr-FR")} — suivez la négociation et répondez aux demandes de révision.
                   </p>
                 </div>
                 <span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold ${statusBadgeFor(mine)}`}>{statusLabelFor(mine)}</span>
               </div>
             </div>
+
+            {(mine.status === "acceptee" || mine.status === "devis_valide") && (
+              <ProviderContractPanel missionId={missionId} meta={missionMeta} onChanged={load} />
+            )}
 
             {isQuote ? (
               <DevisPanel missionId={missionId} maxRounds={missionMeta.maxRevisionRounds ?? 3} proposal={mine} isClient={false} onChanged={load} currency={missionMeta.currency} />
@@ -179,7 +232,7 @@ export default function ProposalsPage() {
             )}
 
             <div>
-              <Link href={backHref} className="inline-block text-[#64748B] text-[13px]" style={{ textDecoration: "none" }}>
+              <Link href={backHref} className="inline-block text-[#6B6478] text-[13px]" style={{ textDecoration: "none" }}>
                 ← Retour à mes candidatures
               </Link>
             </div>
@@ -193,133 +246,69 @@ export default function ProposalsPage() {
   const contractLabel = missionMeta ? (CONTRACT_TILE_LABEL[missionMeta.status] ?? "À signer") : "—";
   const currency = missionMeta?.currency ?? "XOF";
   const openProposal = proposals?.find((p) => p.id === openId) ?? null;
+  // Places encore libres sur l'annonce : placesRecherchees (maxCandidatures, 1 par défaut) moins les prestataires
+  // déjà retenus — même règle que retainProposal (src/lib/accept-proposal.ts).
+  const placesLeft = Math.max(0, placesRecherchees({ maxCandidatures: missionMeta?.maxCandidatures ?? null }) - (missionMeta?.engagements?.length ?? 0));
+  const reserveOpen = !!missionMeta?.reserveUntil && new Date(missionMeta.reserveUntil).getTime() > Date.now();
 
   // ── Mode devis (QUOTE) — tableau + tiroir façon Offre-Soumise-Vue-Voir-Devis ──
   if (isQuote) {
     const filtered = (proposals ?? []).filter((p) => matchesFilter(p, filter, missionMeta?.status));
 
     return (
-      <div className="min-h-screen bg-[#F8FAF9] text-[#0f172a]">
+      <div className="min-h-screen bg-[#F6F5FA] text-[#191224]">
         <div className="page-shell py-5 space-y-4">
-          <div className="text-xs text-[#64748B]">
-            <Link href={`/missions/${missionId}`} style={{ textDecoration: "none" }} className="hover:text-[#0f172a]">Mission</Link> › Candidatures
+          <div className="text-xs text-[#6B6478]">
+            <Link href={`/missions/${missionId}`} style={{ textDecoration: "none" }} className="hover:text-[#191224]">Mission</Link> › Candidatures
           </div>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h1 className="text-[20px] lg:text-[24px] font-bold">Offres de candidatures — {proposals?.length ?? 0} reçue{(proposals?.length ?? 0) > 1 ? "s" : ""}</h1>
-              <p className="text-sm text-[#64748B] mt-1">Cliquez sur <b>Voir</b> pour ouvrir l&apos;offre soumise avec le devis détaillé.</p>
-            </div>
-          </div>
+          {/* Retenir un prestataire exige une identité vérifiée : bandeau d'emblée (2026-11-10). */}
+          <KycRequiredBanner enabled={missionMeta?.status === "publiee"} />
+          {notice && (
+            <p id="proposals-notice" role="status" className="flex items-start justify-between gap-3 rounded-2xl border border-[#A7F3D0] bg-[#E7F7EF] px-4 py-3 text-[14px] font-semibold text-[#065F46]">
+              <span>✓ {notice}</span>
+              <button type="button" onClick={() => setNotice(null)} aria-label="Fermer" className="text-[#065F46]/70 hover:text-[#065F46]">✕</button>
+            </p>
+          )}
+          {missionMeta && <MissionHeaderPanel missionId={missionId} meta={missionMeta} />}
+          {/* Maquette « Candidatures reçues » (2026-11-11) : cartes + comparatif. Les filtres
+              existants restent sous l'en-tête ; le tiroir de détail porte les actions. */}
+          <ProposalCards
+            missionId={missionId}
+            proposals={proposals ?? []}
+            visible={filtered}
+            isQuote
+            currency={currency}
+            missionDelaiJours={missionMeta?.delaiJours ?? null}
+            missionOpen={missionMeta?.status === "publiee"}
+            missionBudget={missionMeta?.budget ?? null}
+            placesLeft={placesLeft}
+            retained={retained}
+            showRetained={filter === "all" || filter === "retenus"}
+            reserveOpen={reserveOpen}
+            placesTotal={placesRecherchees({ maxCandidatures: missionMeta?.maxCandidatures ?? null })}
+            statusLabel={statusLabelFor}
+            onOpen={setOpenId}
+            onChanged={load}
+            toolbar={
+              <div className="flex gap-2 overflow-auto" style={{ scrollbarWidth: "none" }}>
+                {FILTERS.map((f) => {
+                  const count = (proposals ?? []).filter((p) => matchesFilter(p, f.id, missionMeta?.status)).length + (f.id === "all" || f.id === "retenus" ? retained.length : 0);
+                  const active = filter === f.id;
+                  return (
+                    <button
+                      key={f.id}
+                      onClick={() => setFilter(f.id)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition ${active ? "bg-[#191224] text-white" : "bg-white border border-[#E7E2F0] text-[#4A4258]"}`}
+                    >
+                      {f.label} ({count})
+                    </button>
+                  );
+                })}
+              </div>
+            }
+          />
 
-
-          {/* Filtres */}
-          <div className="flex gap-2 overflow-auto" style={{ scrollbarWidth: "none" }}>
-            {FILTERS.map((f) => {
-              const count = (proposals ?? []).filter((p) => matchesFilter(p, f.id, missionMeta?.status)).length;
-              const active = filter === f.id;
-              return (
-                <button
-                  key={f.id}
-                  onClick={() => setFilter(f.id)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition ${active ? "bg-[#0f172a] text-white" : "bg-white border border-[#E2E8F0] text-[#475569]"}`}
-                >
-                  {f.label} ({count})
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Table récap (desktop) / cartes (mobile) */}
-          <div className="bg-white border border-[#E2E8F0] rounded-xl overflow-hidden">
-            {filtered.length === 0 ? (
-              <p className="p-6 text-center text-[13px] text-[#64748B]">Aucune candidature dans ce filtre.</p>
-            ) : (
-              <>
-                <div className="hidden lg:block overflow-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="text-[11px] tracking-widest text-[#64748B] uppercase bg-[#F8FAF9] border-b border-[#E2E8F0]">
-                        <th className="text-left py-3 px-4 font-semibold">Artisan</th>
-                        <th className="text-left py-3 px-3 font-semibold">Soumission</th>
-                        <th className="text-right py-3 px-3 font-semibold">Montant TTC</th>
-                        <th className="text-left py-3 px-3 font-semibold">Délai</th>
-                        <th className="text-center py-3 px-3 font-semibold">Paiement</th>
-                        <th className="text-left py-3 px-3 font-semibold">Statut</th>
-                        <th className="text-right py-3 px-4 font-semibold">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filtered.map((p) => {
-                        const initials = authorDisplayName(p.provider).split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2) || "?";
-                        return (
-                          <tr key={p.id} className="border-b border-[#F1F5F9] hover:bg-[#F8FAF9] group last:border-0">
-                            <td className="py-3 px-4">
-                              <div className="flex items-center gap-2.5">
-                                <Avatar src={p.provider.avatarPath ? `/api/users/${p.provider.id}/avatar` : null} initials={initials} size={32} gradient="from-[#0f172a] to-[#334155]" />
-                                <div>
-                                  <div className="font-medium text-[13px] flex items-center gap-1.5">
-                                    {authorDisplayName(p.provider)} {p.provider.country && <span>{countryFlag(p.provider.country)}</span>}
-                                    {p.averageRating != null && (
-                                      <span className="text-[11px] text-[#64748B]"><span className="text-[#F7C948]">★</span> {p.averageRating.toFixed(1)}</span>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="py-3 px-3 text-xs text-[#64748B]">{new Date(p.createdAt).toLocaleDateString("fr-FR")}</td>
-                            <td className="py-3 px-3 text-right font-semibold text-[13px]">{p.devisData ? `${p.devisData.totalTTC.toLocaleString("fr-FR")} ${currency}` : "—"}</td>
-                            <td className="py-3 px-3 text-xs">{p.devisData?.delay ?? "—"}</td>
-                            <td className="py-3 px-3 text-center">
-                              <div className="flex flex-col items-center gap-1">
-                                <PaymentModelBadge modeKey={p.devisData?.financingModeKey} />
-                                <span className="px-2 py-0.5 rounded-full bg-[#F1F5F9] border border-[#E2E8F0] text-[11px]">{p.devisData?.lineItems.length ?? 0} ligne{(p.devisData?.lineItems.length ?? 0) > 1 ? "s" : ""}</span>
-                              </div>
-                            </td>
-                            <td className="py-3 px-3"><span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold ${statusBadgeFor(p)}`}>{statusLabelFor(p)}</span></td>
-                            <td className="py-3 px-4 text-right">
-                              <button onClick={() => setOpenId(p.id)} className="h-8 px-3 rounded-lg bg-[#0f172a] text-white text-xs font-medium opacity-0 group-hover:opacity-100 transition">👁 Voir</button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-                <div className="lg:hidden divide-y divide-[#F1F5F9]">
-                  {filtered.map((p) => {
-                    const initials = authorDisplayName(p.provider).split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2) || "?";
-                    return (
-                      <div key={p.id} className="p-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2.5">
-                            <Avatar src={p.provider.avatarPath ? `/api/users/${p.provider.id}/avatar` : null} initials={initials} size={36} gradient="from-[#0f172a] to-[#334155]" />
-                            <div>
-                              <div className="font-medium text-sm">
-                                {authorDisplayName(p.provider)} {p.provider.country && <span>{countryFlag(p.provider.country)}</span>}
-                                {p.averageRating != null && <span className="text-xs text-[#64748B]"> <span className="text-[#F7C948]">★</span> {p.averageRating.toFixed(1)}</span>}
-                              </div>
-                              <div className="text-[11px] text-[#64748B]">{new Date(p.createdAt).toLocaleDateString("fr-FR")} • {p.devisData?.delay ?? "—"}</div>
-                            </div>
-                          </div>
-                          <span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold ${statusBadgeFor(p)}`}>{statusLabelFor(p)}</span>
-                        </div>
-                        <div className="flex items-center justify-between mt-3">
-                          <div className="text-sm">
-                            <span className="font-bold">{p.devisData ? `${p.devisData.totalTTC.toLocaleString("fr-FR")} ${currency}` : "—"}</span>
-                            <span className="text-xs text-[#64748B] ml-2">{p.devisData?.lineItems.length ?? 0} ligne{(p.devisData?.lineItems.length ?? 0) > 1 ? "s" : ""}</span>
-                            <PaymentModelBadge modeKey={p.devisData?.financingModeKey} className="ml-2" />
-                          </div>
-                          <button onClick={() => setOpenId(p.id)} className="h-9 px-4 rounded-lg bg-[#008751] text-white text-sm font-medium">Voir le devis</button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </>
-            )}
-          </div>
-
-          <Link href={`/missions/${missionId}`} className="inline-block text-[#64748B] text-[13px]" style={{ textDecoration: "none" }}>
+          <Link href={`/missions/${missionId}`} className="inline-block text-[#6B6478] text-[13px]" style={{ textDecoration: "none" }}>
             ← Retour au détail de la mission
           </Link>
         </div>
@@ -328,80 +317,84 @@ export default function ProposalsPage() {
         {openProposal && (
           <div className="fixed inset-0 z-50">
             <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setOpenId(null)} />
-            <div className="absolute right-0 top-0 h-full w-full lg:w-[620px] bg-[#F8FAF9] shadow-2xl flex flex-col">
-              <div className="h-[64px] bg-white border-b border-[#E2E8F0] flex items-center justify-between px-5 shrink-0">
+            <div className="absolute right-0 top-0 h-full w-full lg:w-[620px] bg-[#F6F5FA] shadow-2xl flex flex-col">
+              <div className="h-[64px] bg-white border-b border-[#E7E2F0] flex items-center justify-between px-5 shrink-0">
                 <div className="flex items-center gap-3 min-w-0">
-                  <button onClick={() => setOpenId(null)} className="w-8 h-8 rounded-lg border border-[#E2E8F0] flex items-center justify-center shrink-0">✕</button>
+                  <button onClick={() => setOpenId(null)} className="w-8 h-8 rounded-lg border border-[#E7E2F0] flex items-center justify-center shrink-0">✕</button>
                   <div className="min-w-0">
-                    <div className="text-[11px] tracking-widest text-[#64748B] uppercase font-semibold">Offre soumise</div>
+                    <div className="text-[11px] tracking-widest text-[#6B6478] uppercase font-semibold">Offre soumise</div>
                     <div className="font-semibold text-sm truncate">{authorDisplayName(openProposal.provider)} {openProposal.provider.country && countryFlag(openProposal.provider.country)} — {openProposal.devisData ? `${openProposal.devisData.totalTTC.toLocaleString("fr-FR")} ${currency}` : "—"}</div>
                   </div>
                   <span className={`ml-2 px-2.5 py-1 rounded-full text-[11px] font-semibold shrink-0 ${statusBadgeFor(openProposal)}`}>{statusLabelFor(openProposal)}</span>
                 </div>
                 {openProposal.devisData && (
-                  <button onClick={() => setPreviewOpen(true)} className="h-8 px-3 rounded-lg bg-[#0f172a] text-white text-xs flex items-center gap-1 shrink-0">👁 Aperçu</button>
+                  <button onClick={() => setPreviewOpen(true)} className="h-8 px-3 rounded-full bg-[#191224] text-white text-xs flex items-center gap-1 shrink-0">👁 Aperçu</button>
                 )}
               </div>
 
               <div className="flex-1 overflow-auto">
                 <div className="p-5 space-y-4">
+
+                  {/* Le tiroir recouvre la page : le bandeau d'identité y est repris, au-dessus du bouton. */}
+
+                  <KycRequiredBanner enabled={missionMeta?.status === "publiee"} />
                   {/* Candidat */}
-                  <div className="bg-white border border-[#E2E8F0] rounded-xl p-4">
+                  <div className="bg-white border border-[#E7E2F0] rounded-xl p-4">
                     <div className="flex items-center gap-3">
-                      <Avatar src={openProposal.provider.avatarPath ? `/api/users/${openProposal.provider.id}/avatar` : null} initials={authorDisplayName(openProposal.provider).split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2) || "?"} size={48} gradient="from-[#0f172a] to-[#334155]" />
+                      <Avatar src={openProposal.provider.avatarPath ? `/api/users/${openProposal.provider.id}/avatar` : null} initials={authorDisplayName(openProposal.provider).split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2) || "?"} size={48} gradient="from-[#191224] to-[#3F3850]" />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-semibold text-sm">{authorDisplayName(openProposal.provider)} {openProposal.provider.country && countryFlag(openProposal.provider.country)}</span>
                           {openProposal.averageRating != null && (
-                            <span className="text-xs text-[#64748B]"><span className="text-[#F7C948]">★</span> {openProposal.averageRating.toFixed(1)}</span>
+                            <span className="text-xs text-[#6B6478]"><span className="text-[#F7C948]">★</span> {openProposal.averageRating.toFixed(1)}</span>
                           )}
                         </div>
-                        <div className="text-xs text-[#64748B] mt-0.5">Candidature reçue le {new Date(openProposal.createdAt).toLocaleDateString("fr-FR")} • Round {openProposal.roundActuel}/{missionMeta?.maxRevisionRounds ?? 3}</div>
+                        <div className="text-xs text-[#6B6478] mt-0.5">Candidature reçue le {new Date(openProposal.createdAt).toLocaleDateString("fr-FR")} • Round {openProposal.roundActuel}/{missionMeta?.maxRevisionRounds ?? 3}</div>
                       </div>
-                      <Link href={`/profil/${openProposal.provider.id}?missionId=${missionId}`} className="h-8 px-3 rounded-lg border border-[#E2E8F0] bg-white text-xs font-medium shrink-0" style={{ textDecoration: "none" }}>Voir profil</Link>
+                      <Link href={`/profil/${openProposal.provider.id}?missionId=${missionId}`} className="h-8 px-3 rounded-lg border border-[#E7E2F0] bg-white text-xs font-medium shrink-0" style={{ textDecoration: "none" }}>Voir profil</Link>
                     </div>
                     {openProposal.devisData?.notes && (
-                      <div className="mt-3 text-sm text-[#475569] bg-[#F8FAF9] border border-[#E2E8F0] rounded-lg p-3 leading-relaxed whitespace-pre-wrap">{openProposal.devisData.notes}</div>
+                      <div className="mt-3 text-sm text-[#4A4258] bg-[#F6F5FA] border border-[#E7E2F0] rounded-lg p-3 leading-relaxed whitespace-pre-wrap">{openProposal.devisData.notes}</div>
                     )}
                   </div>
 
                   {/* Devis détaillé */}
                   {openProposal.devisData ? (
-                    <div className="bg-white border border-[#E2E8F0] rounded-xl p-4">
+                    <div className="bg-white border border-[#E7E2F0] rounded-xl p-4">
                       <div className="flex items-center justify-between mb-3">
                         <h3 className="font-semibold text-sm">Devis détaillé</h3>
-                        <span className="text-[11px] text-[#64748B]">Round {openProposal.roundActuel} • max {missionMeta?.maxRevisionRounds ?? 3} rounds</span>
+                        <span className="text-[11px] text-[#6B6478]">Round {openProposal.roundActuel} • max {missionMeta?.maxRevisionRounds ?? 3} rounds</span>
                       </div>
                       <DevisDetails devis={openProposal.devisData} currency={currency} />
-                      <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-[#64748B]">
-                        {openProposal.devisData.delay && <span className="px-2 py-1 rounded-full bg-[#F1F5F9] border border-[#E2E8F0]">Délai {openProposal.devisData.delay}</span>}
-                        <span className="px-2 py-1 rounded-full bg-[#E6F4EE] border border-[#A7F3D0] text-[#008751]">Exclusivité bloquée</span>
+                      <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-[#6B6478]">
+                        {openProposal.devisData.delay && <span className="px-2 py-1 rounded-full bg-[#EFEAF8] border border-[#E7E2F0]">Délai {openProposal.devisData.delay}</span>}
+                        <span className="px-2 py-1 rounded-full bg-[#F0EAFF] border border-[#A7F3D0] text-[#4C1D95]">Exclusivité bloquée</span>
                       </div>
                     </div>
                   ) : (
-                    <p className="text-[13px] text-[#64748B]">Aucun devis soumis pour le moment.</p>
+                    <p className="text-[13px] text-[#6B6478]">Aucun devis soumis pour le moment.</p>
                   )}
 
                   {/* Timeline négociation */}
                   {openProposal.revisions.length > 0 && (
-                    <div className="bg-white border border-[#E2E8F0] rounded-xl p-4">
+                    <div className="bg-white border border-[#E7E2F0] rounded-xl p-4">
                       <h4 className="font-semibold text-sm mb-3">Négociation — Round {openProposal.roundActuel}/{missionMeta?.maxRevisionRounds ?? 3}</h4>
                       <div className="space-y-3">
                         {openProposal.revisions.map((rev) => (
                           <div key={rev.id} className="flex gap-3">
-                            <div className="w-6 h-6 rounded-full bg-[#008751] text-white flex items-center justify-center text-[10px] shrink-0">{rev.roundNumber}</div>
+                            <div className="w-6 h-6 rounded-full bg-[#4C1D95] text-white flex items-center justify-center text-[10px] shrink-0">{rev.roundNumber}</div>
                             <div className="text-xs">
                               <div className="font-medium">Devis soumis par {authorDisplayName(rev.author)}</div>
-                              <div className="text-[#64748B]">{new Date(rev.createdAt).toLocaleString("fr-FR")} • {rev.devisData.lineItems.length} jalons • {rev.devisData.totalTTC.toLocaleString("fr-FR")} {currency} TTC</div>
+                              <div className="text-[#6B6478]">{new Date(rev.createdAt).toLocaleString("fr-FR")} • {rev.devisData.lineItems.length} jalons • {rev.devisData.totalTTC.toLocaleString("fr-FR")} {currency} TTC</div>
                             </div>
                           </div>
                         ))}
                         {openProposal.status === "en_negociation" && (
                           <div className="flex gap-3 opacity-50">
-                            <div className="w-6 h-6 rounded-full border border-[#E2E8F0] flex items-center justify-center text-[10px] shrink-0">•</div>
+                            <div className="w-6 h-6 rounded-full border border-[#E7E2F0] flex items-center justify-center text-[10px] shrink-0">•</div>
                             <div className="text-xs">
                               <div>En attente de votre réponse</div>
-                              <div className="text-[#64748B]">Accepter, proposer une révision, ou rejeter</div>
+                              <div className="text-[#6B6478]">Accepter, proposer une révision, ou rejeter</div>
                             </div>
                           </div>
                         )}
@@ -412,22 +405,32 @@ export default function ProposalsPage() {
                   {/* Pièces jointes — aucun mécanisme d'envoi de fichier avec un devis
                       n'existe (POST /api/missions/[id]/devis n'accepte pas de fichier),
                       état honnête plutôt que des noms inventés. */}
-                  <div className="bg-white border border-[#E2E8F0] rounded-xl p-4">
+                  <div className="bg-white border border-[#E7E2F0] rounded-xl p-4">
                     <h4 className="font-semibold text-sm mb-2">Pièces jointes</h4>
-                    <p className="text-[12px] text-[#94A3B8] italic">Aucune pièce jointe pour ce devis.</p>
+                    <p className="text-[12px] text-[#9A93A8] italic">Aucune pièce jointe pour ce devis.</p>
                   </div>
                 </div>
               </div>
 
               {/* Pied de tiroir */}
               {openProposal.status === "en_negociation" ? (
-                <div className="bg-white border-t border-[#E2E8F0] p-4 flex flex-col sm:flex-row gap-2 shrink-0">
+                <div className="bg-white border-t border-[#E7E2F0] p-4 flex flex-col sm:flex-row gap-2 shrink-0">
                   <RejectDevis missionId={missionId} proposalId={openProposal.id} onRejected={load} />
                   <RequestRevision missionId={missionId} proposalId={openProposal.id} onRequested={load} />
-                  <ValidateDevis missionId={missionId} proposalId={openProposal.id} onValidated={load} />
+                  <ValidateDevis
+                    missionId={missionId}
+                    proposalId={openProposal.id}
+                    stayOnPage
+                    onValidated={() => {
+                      setNotice(`${authorDisplayName(openProposal.provider)} est retenu(e). Signez le contrat depuis sa carte.`);
+                      setFilter("retenus");
+                      setOpenId(null);
+                      load();
+                    }}
+                  />
                 </div>
               ) : (
-                <div className="bg-white border-t border-[#E2E8F0] p-4 shrink-0 text-[13px] text-[#64748B]">
+                <div className="bg-white border-t border-[#E7E2F0] p-4 shrink-0 text-[13px] text-[#6B6478]">
                   {openProposal.status === "refusee" ? (
                     <>Refusé{openProposal.devisRejectionReason && <> — motif : {openProposal.devisRejectionReason}</>}</>
                   ) : openProposal.status === "devis_valide" ? (
@@ -452,11 +455,11 @@ export default function ProposalsPage() {
               <div className="relative">
                 <div className="flex justify-between items-start">
                   <div>
-                    <div className="text-[11px] uppercase tracking-widest text-[#64748B]">Devis</div>
+                    <div className="text-[11px] uppercase tracking-widest text-[#6B6478]">Devis</div>
                     <div className="font-bold text-lg">{authorDisplayName(openProposal.provider)} {openProposal.provider.country && countryFlag(openProposal.provider.country)}</div>
-                    <div className="text-xs text-[#64748B]">Round {openProposal.roundActuel} • {new Date(openProposal.createdAt).toLocaleDateString("fr-FR")}</div>
+                    <div className="text-xs text-[#6B6478]">Round {openProposal.roundActuel} • {new Date(openProposal.createdAt).toLocaleDateString("fr-FR")}</div>
                   </div>
-                  <button onClick={() => setPreviewOpen(false)} className="w-8 h-8 rounded-lg border border-[#E2E8F0]">✕</button>
+                  <button onClick={() => setPreviewOpen(false)} className="w-8 h-8 rounded-lg border border-[#E7E2F0]">✕</button>
                 </div>
                 <div className="mt-6">
                   <DevisDetails devis={openProposal.devisData} currency={currency} />
@@ -473,127 +476,66 @@ export default function ProposalsPage() {
   const fixedFiltered = (proposals ?? []).filter((p) => matchesFixedFilter(p, fixedFilter));
 
   return (
-    <div className="min-h-screen bg-[#F8FAF9] text-[#0f172a]">
+    <div className="min-h-screen bg-[#F6F5FA] text-[#191224]">
       <div className="page-shell py-5 space-y-4">
-        <div className="text-xs text-[#64748B]">
-          <Link href={`/missions/${missionId}`} style={{ textDecoration: "none" }} className="hover:text-[#0f172a]">Mission</Link> › Candidatures
+        <div className="text-xs text-[#6B6478]">
+          <Link href={`/missions/${missionId}`} style={{ textDecoration: "none" }} className="hover:text-[#191224]">Mission</Link> › Candidatures
         </div>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="text-[20px] lg:text-[24px] font-bold">Candidatures reçues — {proposals?.length ?? 0} reçue{(proposals?.length ?? 0) > 1 ? "s" : ""}</h1>
-            <p className="text-sm text-[#64748B] mt-1">
-              {totalOffresEnvoyees > 0 && <>{totalOffresEnvoyees} offre{totalOffresEnvoyees > 1 ? "s" : ""} formelle{totalOffresEnvoyees > 1 ? "s" : ""} envoyée{totalOffresEnvoyees > 1 ? "s" : ""} · </>}
-              Contrat : {contractLabel}. Cliquez sur <b>Voir</b> pour ouvrir la candidature.
-            </p>
-          </div>
-        </div>
+        {/* Retenir un prestataire exige une identité vérifiée : bandeau d'emblée (2026-11-10). */}
+        <KycRequiredBanner enabled={missionMeta?.status === "publiee"} />
+        {notice && (
+          <p id="proposals-notice" role="status" className="flex items-start justify-between gap-3 rounded-2xl border border-[#A7F3D0] bg-[#E7F7EF] px-4 py-3 text-[14px] font-semibold text-[#065F46]">
+            <span>✓ {notice}</span>
+            <button type="button" onClick={() => setNotice(null)} aria-label="Fermer" className="text-[#065F46]/70 hover:text-[#065F46]">✕</button>
+          </p>
+        )}
+        {missionMeta && <MissionHeaderPanel missionId={missionId} meta={missionMeta} />}
+        {/* Maquette « Candidatures reçues » (2026-11-11) : cartes + comparatif. */}
+        {(totalOffresEnvoyees > 0 || (missionMeta && missionMeta.status !== "publiee" && missionMeta.status !== "annonce_close")) && (
+          <p className="text-sm text-[#6B6478]">
+            {totalOffresEnvoyees > 0 && <>{totalOffresEnvoyees} offre{totalOffresEnvoyees > 1 ? "s" : ""} formelle{totalOffresEnvoyees > 1 ? "s" : ""} envoyée{totalOffresEnvoyees > 1 ? "s" : ""}. </>}
+            {/* Une annonce n'a pas de contrat : chaque prestataire retenu a le sien, sur son
+                engagement (2026-11-10). */}
+            {missionMeta && missionMeta.status !== "publiee" && missionMeta.status !== "annonce_close" && <>Contrat : {contractLabel}.</>}
+          </p>
+        )}
+        <ProposalCards
+          missionId={missionId}
+          proposals={proposals ?? []}
+          visible={fixedFiltered}
+          isQuote={false}
+          currency={currency}
+          missionDelaiJours={missionMeta?.delaiJours ?? null}
+          missionOpen={missionMeta?.status === "publiee"}
+          missionBudget={missionMeta?.budget ?? null}
+          placesLeft={placesLeft}
+          retained={retained}
+          showRetained={fixedFilter === "all" || fixedFilter === "retenus"}
+          reserveOpen={reserveOpen}
+          placesTotal={placesRecherchees({ maxCandidatures: missionMeta?.maxCandidatures ?? null })}
+          statusLabel={statusLabelFor}
+          onOpen={setOpenId}
+          onChanged={load}
+          toolbar={
+            <div className="flex gap-2 overflow-auto" style={{ scrollbarWidth: "none" }}>
+              {FIXED_FILTERS.map((f) => {
+                const count = (proposals ?? []).filter((p) => matchesFixedFilter(p, f.id)).length + (f.id === "all" || f.id === "retenus" ? retained.length : 0);
+                const active = fixedFilter === f.id;
+                return (
+                  <button
+                    key={f.id}
+                    onClick={() => setFixedFilter(f.id)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition ${active ? "bg-[#191224] text-white" : "bg-white border border-[#E7E2F0] text-[#4A4258]"}`}
+                  >
+                    {f.label} ({count})
+                  </button>
+                );
+              })}
+            </div>
+          }
+        />
 
-
-        {/* Filtres */}
-        <div className="flex gap-2 overflow-auto" style={{ scrollbarWidth: "none" }}>
-          {FIXED_FILTERS.map((f) => {
-            const count = (proposals ?? []).filter((p) => matchesFixedFilter(p, f.id)).length;
-            const active = fixedFilter === f.id;
-            return (
-              <button
-                key={f.id}
-                onClick={() => setFixedFilter(f.id)}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition ${active ? "bg-[#0f172a] text-white" : "bg-white border border-[#E2E8F0] text-[#475569]"}`}
-              >
-                {f.label} ({count})
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Table récap (desktop) / cartes (mobile) */}
-        <div className="bg-white border border-[#E2E8F0] rounded-xl overflow-hidden">
-          {fixedFiltered.length === 0 ? (
-            <p className="p-6 text-center text-[13px] text-[#64748B]">
-              {proposals?.length === 0 ? "Aucune candidature reçue pour cette mission." : "Aucune candidature dans ce filtre."}
-            </p>
-          ) : (
-            <>
-              <div className="hidden lg:block overflow-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="text-[11px] tracking-widest text-[#64748B] uppercase bg-[#F8FAF9] border-b border-[#E2E8F0]">
-                      <th className="text-left py-3 px-4 font-semibold">Candidat</th>
-                      <th className="text-left py-3 px-3 font-semibold">Soumission</th>
-                      <th className="text-right py-3 px-3 font-semibold">Montant</th>
-                      <th className="text-left py-3 px-3 font-semibold">Message</th>
-                      <th className="text-left py-3 px-3 font-semibold">Statut</th>
-                      <th className="text-right py-3 px-4 font-semibold">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {fixedFiltered.map((p) => {
-                      const initials = authorDisplayName(p.provider).split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2) || "?";
-                      return (
-                        <tr key={p.id} className="border-b border-[#F1F5F9] hover:bg-[#F8FAF9] group last:border-0">
-                          <td className="py-3 px-4">
-                            <div className="flex items-center gap-2.5">
-                              <Avatar src={p.provider.avatarPath ? `/api/users/${p.provider.id}/avatar` : null} initials={initials} size={32} gradient="from-[#0f172a] to-[#334155]" />
-                              <div>
-                                <div className="font-medium text-[13px] flex items-center gap-1.5">
-                                  {authorDisplayName(p.provider)} {p.provider.country && <span>{countryFlag(p.provider.country)}</span>}
-                                  {p.averageRating != null && (
-                                    <span className="text-[11px] text-[#64748B]"><span className="text-[#F7C948]">★</span> {p.averageRating.toFixed(1)}</span>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="py-3 px-3 text-xs text-[#64748B]">{new Date(p.createdAt).toLocaleDateString("fr-FR")}</td>
-                          <td className="py-3 px-3 text-right font-semibold text-[13px]">
-                            {p.montant.toLocaleString("fr-FR")} {currency}
-                            <div className="mt-1"><PaymentModelBadge modeKey={p.devisData?.financingModeKey} /></div>
-                          </td>
-                          <td className="py-3 px-3 text-xs text-[#64748B] max-w-[220px] truncate">{p.message || "—"}</td>
-                          <td className="py-3 px-3"><span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold ${statusBadgeFor(p)}`}>{statusLabelFor(p)}</span></td>
-                          <td className="py-3 px-4 text-right">
-                            <button onClick={() => setOpenId(p.id)} className="h-8 px-3 rounded-lg bg-[#0f172a] text-white text-xs font-medium opacity-0 group-hover:opacity-100 transition">👁 Voir</button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-              <div className="lg:hidden divide-y divide-[#F1F5F9]">
-                {fixedFiltered.map((p) => {
-                  const initials = authorDisplayName(p.provider).split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2) || "?";
-                  return (
-                    <div key={p.id} className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2.5">
-                          <Avatar src={p.provider.avatarPath ? `/api/users/${p.provider.id}/avatar` : null} initials={initials} size={36} gradient="from-[#0f172a] to-[#334155]" />
-                          <div>
-                            <div className="font-medium text-sm">
-                              {authorDisplayName(p.provider)} {p.provider.country && <span>{countryFlag(p.provider.country)}</span>}
-                              {p.averageRating != null && <span className="text-xs text-[#64748B]"> <span className="text-[#F7C948]">★</span> {p.averageRating.toFixed(1)}</span>}
-                            </div>
-                            <div className="text-[11px] text-[#64748B]">{new Date(p.createdAt).toLocaleDateString("fr-FR")}</div>
-                          </div>
-                        </div>
-                        <span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold ${statusBadgeFor(p)}`}>{statusLabelFor(p)}</span>
-                      </div>
-                      <div className="flex items-center justify-between mt-3">
-                        <span className="font-bold text-sm">
-                          {p.montant.toLocaleString("fr-FR")} {currency}
-                          <PaymentModelBadge modeKey={p.devisData?.financingModeKey} className="ml-2" />
-                        </span>
-                        <button onClick={() => setOpenId(p.id)} className="h-9 px-4 rounded-lg bg-[#008751] text-white text-sm font-medium">Voir la candidature</button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </>
-          )}
-        </div>
-
-        <Link href={`/missions/${missionId}`} className="inline-block text-[#64748B] text-[13px]" style={{ textDecoration: "none" }}>
+        <Link href={`/missions/${missionId}`} className="inline-block text-[#6B6478] text-[13px]" style={{ textDecoration: "none" }}>
           ← Retour au détail de la mission
         </Link>
       </div>
@@ -604,12 +546,12 @@ export default function ProposalsPage() {
       {openProposal && (
         <div className="fixed inset-0 z-50">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setOpenId(null)} />
-          <div className="absolute right-0 top-0 h-full w-full lg:w-[620px] bg-[#F8FAF9] shadow-2xl flex flex-col">
-            <div className="h-[64px] bg-white border-b border-[#E2E8F0] flex items-center justify-between px-5 shrink-0">
+          <div className="absolute right-0 top-0 h-full w-full lg:w-[620px] bg-[#F6F5FA] shadow-2xl flex flex-col">
+            <div className="h-[64px] bg-white border-b border-[#E7E2F0] flex items-center justify-between px-5 shrink-0">
               <div className="flex items-center gap-3 min-w-0">
-                <button onClick={() => setOpenId(null)} className="w-8 h-8 rounded-lg border border-[#E2E8F0] flex items-center justify-center shrink-0">✕</button>
+                <button onClick={() => setOpenId(null)} className="w-8 h-8 rounded-lg border border-[#E7E2F0] flex items-center justify-center shrink-0">✕</button>
                 <div className="min-w-0">
-                  <div className="text-[11px] tracking-widest text-[#64748B] uppercase font-semibold">Candidature</div>
+                  <div className="text-[11px] tracking-widest text-[#6B6478] uppercase font-semibold">Candidature</div>
                   <div className="font-semibold text-sm truncate">{authorDisplayName(openProposal.provider)} {openProposal.provider.country && countryFlag(openProposal.provider.country)} — {openProposal.montant.toLocaleString("fr-FR")} {currency}</div>
                 </div>
                 <span className={`ml-2 px-2.5 py-1 rounded-full text-[11px] font-semibold shrink-0 ${statusBadgeFor(openProposal)}`}>{statusLabelFor(openProposal)}</span>
@@ -618,26 +560,30 @@ export default function ProposalsPage() {
 
             <div className="flex-1 overflow-auto">
               <div className="p-5 space-y-4">
+
+                {/* Le tiroir recouvre la page : le bandeau d'identité y est repris, au-dessus du bouton. */}
+
+                <KycRequiredBanner enabled={missionMeta?.status === "publiee"} />
                 {/* Candidat */}
-                <div className="bg-white border border-[#E2E8F0] rounded-xl p-4">
+                <div className="bg-white border border-[#E7E2F0] rounded-xl p-4">
                   <div className="flex items-center gap-3">
-                    <Avatar src={openProposal.provider.avatarPath ? `/api/users/${openProposal.provider.id}/avatar` : null} initials={authorDisplayName(openProposal.provider).split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2) || "?"} size={48} gradient="from-[#0f172a] to-[#334155]" />
+                    <Avatar src={openProposal.provider.avatarPath ? `/api/users/${openProposal.provider.id}/avatar` : null} initials={authorDisplayName(openProposal.provider).split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2) || "?"} size={48} gradient="from-[#191224] to-[#3F3850]" />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-semibold text-sm">{authorDisplayName(openProposal.provider)} {openProposal.provider.country && countryFlag(openProposal.provider.country)}</span>
                         {openProposal.averageRating != null && (
-                          <span className="text-xs text-[#64748B]"><span className="text-[#F7C948]">★</span> {openProposal.averageRating.toFixed(1)}</span>
+                          <span className="text-xs text-[#6B6478]"><span className="text-[#F7C948]">★</span> {openProposal.averageRating.toFixed(1)}</span>
                         )}
                       </div>
-                      <div className="text-xs text-[#64748B] mt-0.5">
+                      <div className="text-xs text-[#6B6478] mt-0.5">
                         Candidature reçue le {new Date(openProposal.createdAt).toLocaleDateString("fr-FR")}
                         {(openProposal.offersSent ?? 0) > 0 && <> • {openProposal.offersSent} offre{(openProposal.offersSent ?? 0) > 1 ? "s" : ""} formelle{(openProposal.offersSent ?? 0) > 1 ? "s" : ""} envoyée{(openProposal.offersSent ?? 0) > 1 ? "s" : ""}</>}
                       </div>
                     </div>
-                    <Link href={`/profil/${openProposal.provider.id}?missionId=${missionId}`} className="h-8 px-3 rounded-lg border border-[#E2E8F0] bg-white text-xs font-medium shrink-0" style={{ textDecoration: "none" }}>Voir profil</Link>
+                    <Link href={`/profil/${openProposal.provider.id}?missionId=${missionId}`} className="h-8 px-3 rounded-lg border border-[#E7E2F0] bg-white text-xs font-medium shrink-0" style={{ textDecoration: "none" }}>Voir profil</Link>
                   </div>
                   {openProposal.message && (
-                    <div className="mt-3 text-sm text-[#475569] bg-[#F8FAF9] border border-[#E2E8F0] rounded-lg p-3 leading-relaxed whitespace-pre-wrap">{openProposal.message}</div>
+                    <div className="mt-3 text-sm text-[#4A4258] bg-[#F6F5FA] border border-[#E7E2F0] rounded-lg p-3 leading-relaxed whitespace-pre-wrap">{openProposal.message}</div>
                   )}
                 </div>
 
@@ -646,17 +592,17 @@ export default function ProposalsPage() {
                     le même round tracker : la négociation prix fixe/taux suit désormais le
                     même modèle par rounds que le devis (voir POST /api/missions/[id]/
                     proposals et FixedPricePanel, src/components/devis/devis-panel.tsx). */}
-                <div className="bg-white border border-[#E2E8F0] rounded-xl p-4">
+                <div className="bg-white border border-[#E7E2F0] rounded-xl p-4">
                   <div className="flex items-center justify-between mb-2">
                     <h3 className="font-semibold text-sm">Montant proposé</h3>
-                    <span className="text-[11px] text-[#64748B]">Round {openProposal.roundActuel} • max {missionMeta?.maxRevisionRounds ?? 3} rounds</span>
+                    <span className="text-[11px] text-[#6B6478]">Round {openProposal.roundActuel} • max {missionMeta?.maxRevisionRounds ?? 3} rounds</span>
                   </div>
-                  <div className="text-[22px] font-bold text-[#008751]">{openProposal.montant.toLocaleString("fr-FR")} {currency}</div>
+                  <div className="text-[22px] font-bold text-[#047857]">{openProposal.montant.toLocaleString("fr-FR")} {currency}</div>
                   <PaymentModelBadge modeKey={openProposal.devisData?.financingModeKey} className="mt-2" />
                 </div>
 
                 {openProposal.revisionRequestedAt && (
-                  <div className="rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] p-3 text-[12.5px] text-[#1E40AF]">
+                  <div className="rounded-xl border border-[#BFDBFE] bg-[#EAF1FF] p-3 text-[12.5px] text-[#1D4ED8]">
                     Révision demandée le {new Date(openProposal.revisionRequestedAt).toLocaleDateString("fr-FR")}
                     {openProposal.revisionRequestMessage && <> — « {openProposal.revisionRequestMessage} »</>}
                     {" "}— en attente d&apos;un nouveau prix du prestataire.
@@ -676,18 +622,28 @@ export default function ProposalsPage() {
                 avant l'introduction de ce modèle de négociation (2026-08-29) n'en ont pas —
                 sans cette garde, le bouton s'affichait quand même et l'API renvoyait 409
                 "cannot_request_revision" au clic, sans qu'aucun message n'explique pourquoi. */}
-            {openProposal.status === "envoyee" || openProposal.status === "en_negociation" ? (
-              <div className="bg-white border-t border-[#E2E8F0] p-4 flex flex-col sm:flex-row gap-2 shrink-0">
+            {openProposal.status === "envoyee" || openProposal.status === "preselectionnee" || openProposal.status === "en_negociation" ? (
+              <div className="bg-white border-t border-[#E7E2F0] p-4 flex flex-col sm:flex-row gap-2 shrink-0">
                 <RejectDevis missionId={missionId} proposalId={openProposal.id} onRejected={load} />
                 {canClientRequestRevision({
                   hasDevis: !!openProposal.devisData,
                   status: openProposal.status as Parameters<typeof canClientRequestRevision>[0]["status"],
                   revisionAlreadyRequested: !!openProposal.revisionRequestedAt,
                 }) && <RequestRevision missionId={missionId} proposalId={openProposal.id} onRequested={load} />}
-                <AcceptFixedPrice missionId={missionId} proposalId={openProposal.id} onAccepted={() => { setOpenId(null); load(); }} />
+                <AcceptFixedPrice
+                  missionId={missionId}
+                  proposalId={openProposal.id}
+                  stayOnPage
+                  onAccepted={() => {
+                    setNotice(`${authorDisplayName(openProposal.provider)} est retenu(e). Signez le contrat depuis sa carte.`);
+                    setFixedFilter("retenus");
+                    setOpenId(null);
+                    load();
+                  }}
+                />
               </div>
             ) : (
-              <div className="bg-white border-t border-[#E2E8F0] p-4 shrink-0 text-[13px] text-[#64748B]">
+              <div className="bg-white border-t border-[#E7E2F0] p-4 shrink-0 text-[13px] text-[#6B6478]">
                 {openProposal.status === "acceptee" ? (
                   /* Même enchaînement qu'en mode devis (voir MissionFlowSteps). */
                   <MissionFlowSteps missionId={missionId} missionStatus={missionMeta?.status} />
@@ -701,6 +657,146 @@ export default function ProposalsPage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// Annonce ouverte ou close : encadré des retenus. Sinon la mission est elle-même dans le
+// parcours contrat (un engagement, ou une mission acceptée avant les annonces) : bouton direct
+// vers sa page de signature.
+function MissionHeaderPanel({ missionId, meta }: { missionId: string; meta: MissionMeta }) {
+  if (meta.status === "publiee" || meta.status === "annonce_close") return <RetainedPanel meta={meta} />;
+  if (meta.status !== "proposition_acceptee" && !CONTRACT_EXISTS_STATUSES.has(meta.status)) return null;
+  const cta = contractCta(meta.contract ?? null);
+  const signed = !!meta.contract?.clientSignedAt && !!meta.contract?.providerSignedAt;
+  return (
+    <div className="flex flex-col gap-3 rounded-xl border border-[#4C1D95]/25 bg-[#4C1D95]/5 p-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="min-w-0">
+        <p className="text-[14px] font-semibold text-[#191224]">
+          {signed ? "Contrat signé par les deux parties" : "Prestataire retenu — étape suivante : le contrat"}
+        </p>
+        <p className="mt-0.5 text-[12.5px] text-[#4A4258]">
+          {!meta.contract
+            ? "Générez le contrat : le prestataire le signera en premier, puis vous contre-signerez."
+            : signed
+              ? "Consultez le contrat et poursuivez avec le séquestre des fonds."
+              : meta.contract.providerSignedAt
+                ? "Le prestataire a signé : c'est à vous de contre-signer."
+                : "Le prestataire signe en premier ; vous pourrez contre-signer ensuite."}
+        </p>
+      </div>
+      <Link
+        href={`/missions/${missionId}/contract`}
+        className={`inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-lg px-4 text-[13px] font-semibold ${
+          cta.primary ? "bg-[#4C1D95] text-white hover:bg-[#00743f]" : "border border-[#D4CCE3] bg-white text-[#191224] hover:bg-[#F6F5FA]"
+        }`}
+        style={{ textDecoration: "none" }}
+      >
+        ✍️ {cta.primary ? cta.label : "Voir le contrat"} →
+      </Link>
+    </div>
+  );
+}
+
+// Vue prestataire, candidature retenue : il signe le contrat EN PREMIER, puis le client.
+function ProviderContractPanel({ missionId, meta, onChanged }: { missionId: string; meta: MissionMeta; onChanged: () => void }) {
+  const c = meta.contract ?? null;
+  const signed = !!c?.clientSignedAt && !!c?.providerSignedAt;
+  const toSign = !!c && !c.providerSignedAt;
+  const title = !c
+    ? "Vous êtes retenu — le client prépare le contrat"
+    : toSign
+      ? "Vous êtes retenu — signez le contrat"
+      : signed
+        ? "Contrat signé par les deux parties"
+        : "Vous avez signé — en attente de la contre-signature du client";
+  const detail = !c
+    ? "Vous serez notifié dès que le contrat sera généré : vous le signerez en premier."
+    : toSign
+      ? "Le contrat est prêt. Vous signez en premier ; le client contre-signera ensuite."
+      : signed
+        ? "Le client va maintenant bloquer les fonds sous séquestre."
+        : "Le client a été notifié de votre signature.";
+  // Désistement (2026-11-11) : tant que le contrat n'est pas signé des deux parties.
+  const withdrawable = canWithdrawEngagement({ parentMissionId: meta.parentMissionId ?? null, status: meta.status, contract: c });
+  return (
+    <div className="space-y-2">
+    <div className="flex flex-col gap-3 rounded-xl border border-[#4C1D95]/25 bg-[#4C1D95]/5 p-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="min-w-0">
+        <p className="text-[14px] font-semibold text-[#191224]">{title}</p>
+        <p className="mt-0.5 text-[12.5px] text-[#4A4258]">{detail}</p>
+      </div>
+      {c && (
+        <Link
+          href={`/missions/${missionId}/contract`}
+          className={`inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-lg px-4 text-[13px] font-semibold ${
+            toSign ? "bg-[#4C1D95] text-white hover:bg-[#00743f]" : "border border-[#D4CCE3] bg-white text-[#191224] hover:bg-[#F6F5FA]"
+          }`}
+          style={{ textDecoration: "none" }}
+        >
+          ✍️ {toSign ? "Signer le contrat" : "Ouvrir le contrat"} →
+        </Link>
+      )}
+    </div>
+      {withdrawable && (
+        <div className="flex justify-end">
+          <WithdrawButton
+            engagementId={missionId}
+            providerName="vous"
+            label="Me désister de cette mission"
+            variant="link"
+            reasonLabel="Motif de votre désistement"
+            hint="Votre engagement sera annulé et le client prévenu : il pourra retenir un autre candidat. Aucun contrat n'est encore signé par les deux parties."
+            onDone={onChanged}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Bouton vers la page contrat d'un engagement (le prestataire signe en premier, puis le client).
+function contractCta(c: { clientSignedAt: string | null; providerSignedAt: string | null } | null): { label: string; primary: boolean } {
+  if (!c) return { label: "Générer et signer le contrat", primary: true };
+  if (c.clientSignedAt && c.providerSignedAt) return { label: "Voir le contrat signé", primary: false };
+  if (c.providerSignedAt) return { label: "Signer le contrat", primary: true };
+  return { label: "Contrat · en attente du prestataire", primary: false };
+}
+
+// Annonce (2026-11-10) : période de candidature, places, et prestataires déjà retenus — chacun
+// avec un lien vers son engagement, où se poursuit son parcours (contrat, séquestre…).
+function RetainedPanel({ meta }: { meta: MissionMeta }) {
+  const places = meta.maxCandidatures && meta.maxCandidatures > 0 ? meta.maxCandidatures : 1;
+  const engagements = meta.engagements ?? [];
+  const deadline = meta.status === "annonce_close" ? "Candidatures closes" : applicationDeadlineLabel(meta.dateExpiration ?? null);
+  const full = engagements.length >= places;
+  const left = places - engagements.length;
+  return (
+    <div className="rounded-xl border border-[#E7E2F0] bg-white p-4">
+      <div className="flex flex-wrap items-center gap-2 text-[12.5px]">
+        {deadline && (
+          <span className="rounded-full border border-[#4C1D95]/25 bg-[#4C1D95]/5 px-2.5 py-1 font-semibold text-[#4C1D95]">🗓 {deadline}</span>
+        )}
+        <span className={`rounded-full border px-2.5 py-1 font-semibold ${full ? "border-[#191224] bg-[#191224] text-white" : "border-[#E7E2F0] bg-[#F6F5FA] text-[#3F3850]"}`}>
+          👥 {engagements.length}/{places} prestataire{places > 1 ? "s" : ""} retenu{engagements.length > 1 ? "s" : ""}
+        </span>
+      </div>
+      <p className="mt-2 text-[12px] text-[#6B6478]">
+        {meta.status === "annonce_close"
+          ? meta.reserveUntil && new Date(meta.reserveUntil).getTime() > Date.now()
+            ? `Candidatures closes. Votre réserve (candidats shortlistés) reste mobilisable jusqu'au ${new Date(meta.reserveUntil).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })} : en cas de désistement, retenez l'un d'eux sans republier.`
+            : "Candidatures closes."
+          : full
+            ? "Vous avez retenu le nombre de prestataires recherchés. Les autres candidatures seront refusées à la clôture de l'annonce."
+            : `Vous pouvez retenir encore ${left} prestataire${left > 1 ? "s" : ""}. Les candidatures non retenues seront refusées à la clôture de l'annonce.`}
+      </p>
+      {meta.status === "publiee" && (
+        <p className="mt-1 text-[12px] text-[#4C1D95]">
+          ⭐ Shortlistez vos favoris : à la clôture, ils formeront votre liste de réserve pour remplacer un prestataire qui se désisterait.
+        </p>
+      )}
+      {/* Les prestataires retenus s'affichent en cartes sous l'en-tête, chacune avec son bouton
+          « Signature du contrat » (ProposalCards, 2026-11-11). */}
     </div>
   );
 }

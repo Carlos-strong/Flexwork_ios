@@ -114,7 +114,10 @@ async function publish(body: Record<string, unknown>) {
   return prisma.mission.findUniqueOrThrow({ where: { id } });
 }
 
-async function applyAndAccept(missionId: string, providerId: string, montant: number) {
+// L'acceptation crée l'ENGAGEMENT du prestataire retenu (2026-11-10) : `mission` est mis à jour
+// en place pour pointer sur lui — la suite (contrat, signatures) s'y déroule.
+async function applyAndAccept(mission: { id: string }, providerId: string, montant: number) {
+  const missionId = mission.id;
   authAs(providerId);
   const p = await expectOk(
     await proposalPost(postReq({ montant, financingModeKey: devisModes.get(missionId) }), at(missionId)),
@@ -122,7 +125,8 @@ async function applyAndAccept(missionId: string, providerId: string, montant: nu
   );
   const proposalId = (await p.json()).id as string;
   authAs(ids.client);
-  await expectOk(await acceptPost(postReq({}), { params: Promise.resolve({ id: missionId, proposalId }) }), "acceptation");
+  const acc = await expectOk(await acceptPost(postReq({}), { params: Promise.resolve({ id: missionId, proposalId }) }), "acceptation");
+  Object.assign(mission, await prisma.mission.findUniqueOrThrow({ where: { id: (await acc.json()).engagementId } }));
 }
 
 /** Contrat généré puis signé par le SEUL prestataire — l'état qu'attend le délai de 48h. */
@@ -263,12 +267,12 @@ describe("X1 — les cinq routes de cron n'obéissent qu'au porteur du secret", 
 describe("X2 — contract-expirations : le client qui ne contre-signe pas libère le prestataire", () => {
   it("48h dépassées → contrat annulé, signature effacée, audit et notifications ; le témoin récent est épargné", async () => {
     const mission = await publish({ titre: `CRON contre-signature ${RUN}`, budgetType: "FIXED", budget: 80_000, financingModeKey: "F2" });
-    await applyAndAccept(mission.id, ids.provider, 80_000);
+    await applyAndAccept(mission, ids.provider, 80_000);
     const contractId = await contractSignedByProviderOnly(mission.id, ids.provider, ids.providerCert);
 
     // Témoin : même situation exactement, mais signée il y a une heure. Il ne doit pas bouger.
     const temoinMission = await publish({ titre: `CRON témoin 48h ${RUN}`, budgetType: "FIXED", budget: 40_000, financingModeKey: "F2" });
-    await applyAndAccept(temoinMission.id, ids.temoinProvider, 40_000);
+    await applyAndAccept(temoinMission, ids.temoinProvider, 40_000);
     const temoinId = await contractSignedByProviderOnly(temoinMission.id, ids.temoinProvider, ids.temoinCert);
 
     // Le temps passe pour l'un seulement : 49h, soit une heure de trop.
@@ -357,7 +361,9 @@ describe("X3 — devis-expirations : la date d'expiration de la mission ferme la
     const { cancelled } = await (await expectOk(await devisExpirationsGet(cronReq()), "balayage des devis")).json();
     expect(cancelled).toBeGreaterThanOrEqual(1);
 
-    expect((await prisma.missionProposal.findUniqueOrThrow({ where: { id: proposalId } })).status).toBe("annulee_definitive");
+    // Annonce échue (2026-11-10) : la candidature non retenue est REFUSÉE, l'annonce close.
+    expect((await prisma.missionProposal.findUniqueOrThrow({ where: { id: proposalId } })).status).toBe("refusee");
+    expect((await prisma.mission.findUniqueOrThrow({ where: { id: mission.id } })).status).toBe("annonce_close");
     expect(
       (await prisma.missionProposal.findUniqueOrThrow({ where: { id: temoinProposalId } })).status,
       "mission encore ouverte : la présélection survit"
@@ -373,7 +379,7 @@ describe("X3 — devis-expirations : la date d'expiration de la mission ferme la
     await expectOk(await devisExpirationsGet(cronReq()), "second balayage");
     expect((await prisma.missionProposal.findUniqueOrThrow({ where: { id: temoinProposalId } })).status).toBe("preselectionnee");
 
-    report.push({ tâche: "devis-expirations", pris: "négociation sur mission expirée", épargné: "présélection sur mission ouverte", effet: "annulee_definitive, prestataire libéré" });
+    report.push({ tâche: "devis-expirations", pris: "négociation sur mission expirée", épargné: "présélection sur mission ouverte", effet: "refusee, annonce close, prestataire libéré" });
   }, LONG);
 });
 

@@ -9,6 +9,7 @@ import { ATTENDANCE_VALIDATION_LABEL, RATE_UNIT_LABEL, type AttendanceValidation
 import { COUNTRIES } from "@/lib/countries";
 import { citiesFor } from "@/lib/cities";
 import { CURRENCIES, DEFAULT_CURRENCY } from "@/lib/currencies";
+import { DEFAULT_PUBLICATION_DURATION, PUBLICATION_DURATIONS, isPublicationDuration } from "@/lib/mission-expiry";
 import {
   MISSION_CAHIER_MAX,
   MISSION_DELAI_MAX,
@@ -166,6 +167,8 @@ const emptyState = {
   attendanceValidation: "" as "" | "totale" | "partielle",
   maxRevisionRounds: "3",
   dateExpiration: "",
+  // Durée de publication (2026-11-10) : période de candidature à compter de la publication.
+  dureePublicationJours: String(DEFAULT_PUBLICATION_DURATION),
   currency: DEFAULT_CURRENCY,
 };
 
@@ -288,6 +291,7 @@ export function MissionWizard() {
       attendanceValidation: draft.attendanceValidation ?? "",
       maxRevisionRounds: draft.maxRevisionRounds || "3",
       dateExpiration: draft.dateExpiration,
+      dureePublicationJours: draft.dureePublicationJours || f.dureePublicationJours,
       currency: draft.currency || f.currency,
     }));
     setTaxonomy({
@@ -428,12 +432,15 @@ export function MissionWizard() {
       if (!isProfessionalTypeAllowed(taxonomy.secteur, form.professionalType)) {
         e.push("Ce type de professionnel ne peut pas être ciblé pour une mission de ce secteur.");
       }
-      // Saisie libre (entier naturel) : vide = illimité ; sinon mêmes bornes que la route.
+      // Saisie libre (entier naturel) : vide = 1 prestataire ; sinon mêmes bornes que la route.
       if (form.maxCandidatures) {
         const n = Number(form.maxCandidatures);
         if (!Number.isInteger(n) || n < 1 || n > MISSION_MAX_CANDIDATURES_MAX) {
-          e.push(`Candidatures souhaitées : un nombre entier entre 1 et ${MISSION_MAX_CANDIDATURES_MAX}, ou vide pour illimité.`);
+          e.push(`Prestataires recherchés : un nombre entier entre 1 et ${MISSION_MAX_CANDIDATURES_MAX}.`);
         }
+      }
+      if (!isPublicationDuration(Number(form.dureePublicationJours))) {
+        e.push("Choisissez la durée de publication de la mission.");
       }
     }
     if (step === 1) {
@@ -526,7 +533,8 @@ export function MissionWizard() {
         timeMaxQuantity: isTimeMode && Number(form.timeMaxQuantity) > 0 ? Number(form.timeMaxQuantity) : undefined,
         attendanceValidation: isTimeMode && form.attendanceValidation ? form.attendanceValidation : undefined,
         maxRevisionRounds: isQuote ? Number(form.maxRevisionRounds || 3) : undefined,
-        dateExpiration: isQuote && form.dateExpiration ? new Date(`${form.dateExpiration}T23:59:59`).toISOString() : undefined,
+        // La date limite de candidature est calculée par le serveur À LA PUBLICATION.
+        dureePublicationJours: Number(form.dureePublicationJours) || DEFAULT_PUBLICATION_DURATION,
         // La devise était choisie à l'écran, pré-remplie depuis le profil, affichée au
         // récapitulatif… et jamais envoyée : la route retombait donc sur « XOF ». Un client
         // réglant en NGN voyait le récapitulatif annoncer NGN et la mission partir en XOF.
@@ -569,9 +577,9 @@ export function MissionWizard() {
 
   // ── Styles partagés ────────────────────────────────────────────────────────────────────
   const inputClass =
-    "w-full h-10 px-3 rounded-xl border border-zinc-200 text-[14px] focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751] transition";
+    "w-full h-10 px-3 rounded-xl border border-zinc-200 text-[14px] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20 focus:border-[#4C1D95] transition";
   const areaClass =
-    "w-full px-3 py-2.5 rounded-xl border border-zinc-200 text-[14px] resize-y focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751] transition";
+    "w-full px-3 py-2.5 rounded-xl border border-zinc-200 text-[14px] resize-y focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20 focus:border-[#4C1D95] transition";
   const labelClass = "block text-[13px] font-semibold text-zinc-700 mb-1.5";
   // Type de professionnel, intercalé dans la cascade juste après le secteur. Mémoïsé : la
   // cascade l'est aussi, et un nœud recréé à chaque frappe dans le titre la ferait se re-rendre.
@@ -610,7 +618,7 @@ export function MissionWizard() {
 
   const card = "bg-white rounded-2xl border border-zinc-200 shadow-sm p-6";
   const btnPrimary =
-    "h-10 px-6 rounded-full bg-[#008751] text-white text-[13px] font-semibold hover:bg-[#006e43] disabled:opacity-50 disabled:cursor-not-allowed transition";
+    "h-10 px-6 rounded-full bg-[#4C1D95] text-white text-[13px] font-semibold hover:bg-[#3B1578] disabled:opacity-50 disabled:cursor-not-allowed transition";
   const btnSecondary =
     "h-10 px-5 rounded-full border border-zinc-200 text-[13px] font-medium hover:bg-zinc-100 disabled:opacity-50 transition";
 
@@ -621,7 +629,7 @@ export function MissionWizard() {
       <div className="min-h-screen bg-zinc-50 py-16 px-4">
         <div className="mx-auto max-w-[560px] text-center">
           <div className="text-5xl mb-4">{isPublished ? "✅" : "📝"}</div>
-          <h1 className="text-[24px] font-bold text-[#0A1931]">
+          <h1 className="text-[24px] font-bold text-[#191224]">
             {isPublished ? "Mission publiée avec succès !" : "Brouillon enregistré"}
           </h1>
           <p className="text-[14px] text-zinc-500 mt-2">
@@ -629,12 +637,9 @@ export function MissionWizard() {
               ? "Votre mission est maintenant visible par les prestataires de ce métier."
               : "Votre mission est enregistrée. Elle ne sera visible qu'une fois publiée."}
           </p>
-          {/* Cette phrase n'est écrite que parce que le plafond est RÉELLEMENT appliqué
-              (checkCandidatureEligibility) : sans mécanisme derrière, elle serait une
-              promesse que le produit ne tient pas. */}
-          {isPublished && form.maxCandidatures && (
+          {isPublished && (
             <p className="text-[14px] text-zinc-700 font-medium mt-1">
-              Vous recevrez jusqu&apos;à {form.maxCandidatures} candidatures.
+              Candidatures ouvertes {form.dureePublicationJours} jours · {placesLabel(form.maxCandidatures)}.
             </p>
           )}
 
@@ -688,15 +693,15 @@ export function MissionWizard() {
           </div>
           <div className="h-2 rounded-full bg-zinc-200 overflow-hidden">
             <div
-              className="h-full rounded-full bg-[#008751] transition-all"
+              className="h-full rounded-full bg-[#4C1D95] transition-all"
               style={{ width: `${((step + 1) / STEPS.length) * 100}%` }}
             />
           </div>
-          <h1 className="text-[22px] font-bold text-[#0A1931] mt-4">{STEPS[step]}</h1>
+          <h1 className="text-[22px] font-bold text-[#191224] mt-4">{STEPS[step]}</h1>
         </div>
 
         {restored && step === 0 && (
-          <div className="px-4 py-3 rounded-xl bg-[#eefaf4] border border-[#008751]/20 text-[13px] text-zinc-700 flex items-center justify-between gap-3">
+          <div className="px-4 py-3 rounded-xl bg-[#F0EAFF] border border-[#4C1D95]/20 text-[13px] text-zinc-700 flex items-center justify-between gap-3">
             <span>Brouillon restauré — vous reprenez où vous en étiez.</span>
             <button
               type="button"
@@ -707,7 +712,7 @@ export function MissionWizard() {
                 setRestored(false);
                 setStep(0);
               }}
-              className="text-[12px] font-semibold text-[#008751] hover:underline shrink-0"
+              className="text-[12px] font-semibold text-[#4C1D95] hover:underline shrink-0"
             >
               Repartir de zéro
             </button>
@@ -715,7 +720,7 @@ export function MissionWizard() {
         )}
 
         {invitation && step === 0 && (
-          <div role="status" className="px-4 py-3 rounded-xl bg-[#eefaf4] border border-[#008751]/20 text-[13px] text-zinc-700">
+          <div role="status" className="px-4 py-3 rounded-xl bg-[#F0EAFF] border border-[#4C1D95]/20 text-[13px] text-zinc-700">
             {taxonomy.metierLabel === invitation.metierLabel ? (
               <>
                 Mission dans le domaine <strong>{invitation.metierLabel}</strong>
@@ -774,7 +779,7 @@ export function MissionWizard() {
 
             <div>
               <label htmlFor="titre" className={labelClass}>
-                Titre de la mission <span className="text-[#E8112D]">*</span>
+                Titre de la mission <span className="text-[#B42318]">*</span>
               </label>
               <input
                 id="titre"
@@ -788,7 +793,7 @@ export function MissionWizard() {
 
             <div>
               <label htmlFor="description" className={labelClass}>
-                Description de la mission <span className="text-[#E8112D]">*</span>
+                Description de la mission <span className="text-[#B42318]">*</span>
               </label>
               <textarea
                 id="description"
@@ -825,7 +830,7 @@ export function MissionWizard() {
 
             <div className="grid md:grid-cols-2 gap-4">
               <div>
-                <label htmlFor="maxCandidatures" className={labelClass}>Candidatures souhaitées</label>
+                <label htmlFor="maxCandidatures" className={labelClass}>Prestataires recherchés</label>
                 <input
                   id="maxCandidatures"
                   type="text"
@@ -834,13 +839,35 @@ export function MissionWizard() {
                   value={form.maxCandidatures}
                   // Entier naturel saisi à la main : tout ce qui n'est pas un chiffre est ignoré.
                   onChange={(e) => set("maxCandidatures", e.target.value.replace(/\D/g, "").replace(/^0+/, "").slice(0, 3))}
-                  placeholder="Illimité"
+                  placeholder="1"
                   className={inputClass}
                 />
-                {/* Le plafond EST appliqué (candidature-guard.ts, 2026-09-23) : l'ancien texte le disait
-                    indicatif et induisait le client en erreur. */}
+                {/* Nombre de prestataires que le client RETIENDRA (2026-11-10), chacun avec son
+                    propre contrat. Ne limite plus les candidatures reçues. */}
                 <p className="text-[11px] text-zinc-400 mt-1">
-                  Nombre entier de 1 à {MISSION_MAX_CANDIDATURES_MAX}, vide = illimité. Au-delà, la mission n&apos;accepte plus de nouvelle candidature.
+                  Combien de prestataires comptez-vous retenir (1 à {MISSION_MAX_CANDIDATURES_MAX}) ? Chacun aura son propre contrat.
+                  Le nombre de candidatures reçues n&apos;est pas limité.
+                </p>
+              </div>
+              <div>
+                <label htmlFor="dureePublicationJours" className={labelClass}>
+                  Durée de publication <span className="text-[#B42318]">*</span>
+                </label>
+                <select
+                  id="dureePublicationJours"
+                  value={form.dureePublicationJours}
+                  onChange={(e) => set("dureePublicationJours", e.target.value)}
+                  className={inputClass}
+                >
+                  {PUBLICATION_DURATIONS.map((d) => (
+                    <option key={d} value={String(d)}>
+                      {d} jours
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-zinc-400 mt-1">
+                  Les candidatures sont reçues pendant cette durée, à compter de la publication. Seule cette date clôt l&apos;annonce ;
+                  les candidatures non retenues sont alors refusées.
                 </p>
               </div>
               <div>
@@ -857,7 +884,7 @@ export function MissionWizard() {
                       aria-pressed={form.urgent === o.value}
                       className={`h-10 px-5 rounded-full text-[13px] font-medium border transition ${
                         form.urgent === o.value
-                          ? "bg-[#FF7A00] border-[#FF7A00] text-white"
+                          ? "bg-[#6D28D9] border-[#6D28D9] text-white"
                           : "bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50"
                       }`}
                     >
@@ -874,7 +901,7 @@ export function MissionWizard() {
         {step === 1 && (
           <div className={`${card} space-y-5`}>
             <div>
-              <span id="mw-mode" className={labelClass}>Type de mission <span className="text-[#E8112D]">*</span></span>
+              <span id="mw-mode" className={labelClass}>Type de mission <span className="text-[#B42318]">*</span></span>
               <div role="group" aria-labelledby="mw-mode" className="grid sm:grid-cols-3 gap-3">
                 {MISSION_MODES.map((m) => (
                   <button
@@ -883,7 +910,7 @@ export function MissionWizard() {
                     onClick={() => set("mode", m.value)}
                     aria-pressed={form.mode === m.value}
                     className={`p-3 rounded-xl border text-left transition ${
-                      form.mode === m.value ? "border-[#008751] bg-[#008751]/[0.04]" : "border-zinc-200 hover:border-zinc-300"
+                      form.mode === m.value ? "border-[#4C1D95] bg-[#4C1D95]/[0.04]" : "border-zinc-200 hover:border-zinc-300"
                     }`}
                   >
                     <span className="block text-[13px] font-semibold text-zinc-800">{m.label}</span>
@@ -914,7 +941,7 @@ export function MissionWizard() {
                   </select>
                 </div>
                 <div>
-                  <label htmlFor="ville" className={labelClass}>Ville <span className="text-[#E8112D]">*</span></label>
+                  <label htmlFor="ville" className={labelClass}>Ville <span className="text-[#B42318]">*</span></label>
                   {/* Liste + saisie libre : le référentiel couvre les villes principales, pas
                       toutes. Une mission à Ouidah doit rester publiable. */}
                   <input
@@ -930,7 +957,7 @@ export function MissionWizard() {
                   </datalist>
                 </div>
                 <div>
-                  <label htmlFor="quartier" className={labelClass}>Quartier <span className="text-[#E8112D]">*</span></label>
+                  <label htmlFor="quartier" className={labelClass}>Quartier <span className="text-[#B42318]">*</span></label>
                   <input id="quartier" value={form.quartier} onChange={(e) => set("quartier", e.target.value)} placeholder="Fidjrossè" className={inputClass} />
                 </div>
               </div>
@@ -942,7 +969,7 @@ export function MissionWizard() {
                 <input id="dateDebut" type="date" value={form.dateDebut} onChange={(e) => set("dateDebut", e.target.value)} className={inputClass} />
               </div>
               <div>
-                <label htmlFor="delaiJours" className={labelClass}>Durée estimée (jours) <span className="text-[#E8112D]">*</span></label>
+                <label htmlFor="delaiJours" className={labelClass}>Durée estimée (jours) <span className="text-[#B42318]">*</span></label>
                 <input id="delaiJours" type="number" min={MISSION_DELAI_MIN} max={MISSION_DELAI_MAX} value={form.delaiJours} onChange={(e) => set("delaiJours", e.target.value)} placeholder="5" className={inputClass} />
               </div>
             </div>
@@ -962,7 +989,7 @@ export function MissionWizard() {
                 Boutons radio : les deux modes s'excluent, une mission n'a qu'un circuit. */}
             {oprAutorise && (
             <fieldset>
-              <legend className={labelClass}>Mode de vérification et de validation <span className="text-[#E8112D]">*</span></legend>
+              <legend className={labelClass}>Mode de vérification et de validation <span className="text-[#B42318]">*</span></legend>
               <div className="grid md:grid-cols-2 gap-2" role="radiogroup">
                 {(Object.keys(VALIDATION_MODE_LABEL) as ValidationMode[]).map((mode) => {
                   const coche = form.validationMode === mode;
@@ -970,7 +997,7 @@ export function MissionWizard() {
                     <label
                       key={mode}
                       className={`flex gap-3 p-3 rounded-xl border cursor-pointer transition ${
-                        coche ? "border-[#008751] bg-[#008751]/[0.04]" : "border-zinc-200 hover:border-zinc-300"
+                        coche ? "border-[#4C1D95] bg-[#4C1D95]/[0.04]" : "border-zinc-200 hover:border-zinc-300"
                       }`}
                     >
                       <input
@@ -979,7 +1006,7 @@ export function MissionWizard() {
                         value={mode}
                         checked={coche}
                         onChange={() => set("validationMode", mode)}
-                        className="mt-0.5 w-4 h-4 accent-[#008751]"
+                        className="mt-0.5 w-4 h-4 accent-[#4C1D95]"
                       />
                       <span>
                         <span className="block text-[13px] font-semibold text-zinc-800">{VALIDATION_MODE_LABEL[mode].label}</span>
@@ -1019,7 +1046,7 @@ export function MissionWizard() {
         {step === 2 && (
           <div className={`${card} space-y-5`}>
             <div>
-              <span id="mw-modele" className={labelClass}>Modèle de contrat <span className="text-[#E8112D]">*</span></span>
+              <span id="mw-modele" className={labelClass}>Modèle de contrat <span className="text-[#B42318]">*</span></span>
               <div role="group" aria-labelledby="mw-modele" className="grid sm:grid-cols-3 gap-3">
                 {BUDGET_TYPES.map((b) => (
                   <button
@@ -1028,7 +1055,7 @@ export function MissionWizard() {
                     onClick={() => set("budgetType", b.value)}
                     aria-pressed={form.budgetType === b.value}
                     className={`p-3 rounded-xl border text-left transition ${
-                      form.budgetType === b.value ? "border-[#008751] bg-[#008751]/[0.04]" : "border-zinc-200 hover:border-zinc-300"
+                      form.budgetType === b.value ? "border-[#047857] bg-[#047857]/[0.04]" : "border-zinc-200 hover:border-zinc-300"
                     }`}
                   >
                     <span className="block text-[13px] font-semibold text-zinc-800">{b.label}</span>
@@ -1052,7 +1079,7 @@ export function MissionWizard() {
                         aria-pressed={form.rateUnit === u.value}
                         className={`h-9 px-4 rounded-full text-[13px] font-medium border transition ${
                           form.rateUnit === u.value
-                            ? "bg-[#008751] border-[#008751] text-white"
+                            ? "bg-[#4C1D95] border-[#4C1D95] text-white"
                             : "bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50"
                         }`}
                       >
@@ -1086,7 +1113,7 @@ export function MissionWizard() {
                     L'outil de pointage horodaté (A12) reste à part : facultatif, après contrat,
                     avec le consentement des deux parties. */}
                 <div>
-                  <span id="mw-pointage" className={labelClass}>Mode de pointage <span className="text-[#E8112D]">*</span></span>
+                  <span id="mw-pointage" className={labelClass}>Mode de pointage <span className="text-[#B42318]">*</span></span>
                   <div role="group" aria-labelledby="mw-pointage" className="grid md:grid-cols-2 gap-2">
                     {(Object.keys(ATTENDANCE_VALIDATION_LABEL) as AttendanceValidation[]).map((rule) => (
                       <button
@@ -1095,7 +1122,7 @@ export function MissionWizard() {
                         onClick={() => set("attendanceValidation", rule)}
                         aria-pressed={form.attendanceValidation === rule}
                         className={`p-3 rounded-xl border text-left transition bg-white ${
-                          form.attendanceValidation === rule ? "border-[#008751] bg-[#008751]/[0.04]" : "border-zinc-200 hover:border-zinc-300"
+                          form.attendanceValidation === rule ? "border-[#4C1D95] bg-[#4C1D95]/[0.04]" : "border-zinc-200 hover:border-zinc-300"
                         }`}
                       >
                         <span className="block text-[13px] font-semibold text-zinc-800">{ATTENDANCE_VALIDATION_LABEL[rule].label}</span>
@@ -1125,10 +1152,6 @@ export function MissionWizard() {
                     <label htmlFor="maxRevisionRounds" className={labelClass}>Tours de négociation</label>
                     <input id="maxRevisionRounds" type="number" min={1} max={20} value={form.maxRevisionRounds} onChange={(e) => set("maxRevisionRounds", e.target.value)} className={inputClass} />
                   </div>
-                  <div>
-                    <label htmlFor="dateExpiration" className={labelClass}>Date limite de devis</label>
-                    <input id="dateExpiration" type="date" value={form.dateExpiration} onChange={(e) => set("dateExpiration", e.target.value)} className={inputClass} />
-                  </div>
                 </div>
                 <p className="text-[11px] text-zinc-500">
                   La fourchette est indicative : elle oriente les propositions sans engager de prix.
@@ -1139,7 +1162,7 @@ export function MissionWizard() {
             {/* Sous-formulaire C — Montant fixe */}
             {form.budgetType === "FIXED" && (
               <div className="p-4 rounded-xl bg-zinc-50 border border-zinc-100">
-                <label htmlFor="amount" className={labelClass}>Montant (XOF) <span className="text-[#E8112D]">*</span></label>
+                <label htmlFor="amount" className={labelClass}>Montant (XOF) <span className="text-[#B42318]">*</span></label>
                 {/* `min` aligné sur `step` : un minimum qui n'est pas un multiple du pas rend
                     la valeur inatteignable pour la validation native du navigateur, et la
                     soumission échouait silencieusement. */}
@@ -1165,12 +1188,12 @@ export function MissionWizard() {
 
             {/* Financement — dérivé pour le taux ; sinon défini par le devis du prestataire. */}
             <div>
-              <span className={labelClass}>Mode de financement {isTimeMode && <span className="text-[#E8112D]">*</span>}</span>
+              <span className={labelClass}>Mode de financement {isTimeMode && <span className="text-[#B42318]">*</span>}</span>
               {isTimeMode ? (
-                <div className="p-4 rounded-xl border border-[#008751] bg-[#008751]/[0.04]">
+                <div className="p-4 rounded-xl border border-[#4C1D95] bg-[#4C1D95]/[0.04]">
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-[13px] font-bold text-zinc-900">{selectedMode?.label ?? derivedTimeMode}</span>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#008751] text-white font-semibold">Déterminé</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#047857] text-white font-semibold">Déterminé</span>
                   </div>
                   <p className="text-[12px] text-zinc-600">
                     Un taux par {unitLabel.one} désigne un seul mode de financement : celui qui sait le payer.
@@ -1225,7 +1248,8 @@ export function MissionWizard() {
                 value={[form.professionalType ? PROFESSIONAL_TYPE_LABELS[form.professionalType] ?? form.professionalType : null, form.level || null].filter(Boolean).join(" — ") || "Indifférent"}
               />
               <Line label="Urgence" value={form.urgent ? "Urgente" : "Normale"} />
-              <Line label="Candidatures" value={form.maxCandidatures || "Illimité"} />
+              <Line label="Prestataires recherchés" value={form.maxCandidatures || "1"} />
+              <Line label="Candidatures" value={`${form.dureePublicationJours} jours à compter de la publication`} />
             </Recap>
 
             <Recap title="Lieu et dates">
@@ -1338,4 +1362,10 @@ function Line({ label, value }: { label: string; value: string }) {
       <dd className="text-zinc-900 font-medium break-words">{value || "—"}</dd>
     </div>
   );
+}
+
+/** « 1 prestataire recherché », « 3 prestataires recherchés ». */
+function placesLabel(v: string): string {
+  const n = Number(v) || 1;
+  return `${n} prestataire${n > 1 ? "s" : ""} recherché${n > 1 ? "s" : ""}`;
 }

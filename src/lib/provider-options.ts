@@ -29,13 +29,6 @@ export type Option<T extends string = string> = { value: T; label: string };
 // condition réelle de son implication. Son modèle d'inscription propre reste à construire.
 export const PROVIDER_ROLES: UserRole[] = ["expert_digital", "expert_btp_autres", "artisan", "manoeuvre"];
 
-// Valeurs littérales de filière, pour les écrans et les routes qui n'acceptent que celles-là.
-export const PROVIDER_ROLE_VALUES = ["expert_digital", "expert_btp_autres", "artisan", "manoeuvre"] as const;
-
-export function isProviderRole(role: string): boolean {
-  return (PROVIDER_ROLES as string[]).includes(role);
-}
-
 // Libellés des filières (2026-09-24). SOURCE UNIQUE : ces libellés étaient recopiés dans une
 // dizaine d'écrans (profil public, admin, recherche, contrat, tableaux de bord), ce qui rendait
 // tout renommage incomplet et provisoire — il suffisait d'un écran oublié, puis d'une nouvelle

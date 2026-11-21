@@ -19,11 +19,6 @@ export async function POST(
     return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
   }
   const userId = (session.user as typeof session.user & { id: string }).id;
-  // Une offre formelle engage le client : identité vérifiée exigée (src/lib/kyc-policy.ts).
-  const kycBlock = await kycBlockFor(userId, "contractualiser");
-  if (kycBlock) {
-    return NextResponse.json(kycBlock, { status: 403 });
-  }
   const { id: missionId, proposalId } = await params;
 
   const mission = await prisma.mission.findUnique({ where: { id: missionId } });
@@ -34,6 +29,12 @@ export async function POST(
   const proposal = await prisma.missionProposal.findUnique({ where: { id: proposalId } });
   if (!proposal || proposal.missionId !== missionId) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+  // Une offre formelle engage le client : identité vérifiée exigée (src/lib/kyc-policy.ts).
+  // Après la propriété de la mission (2026-11-10) : celle d'un autre reste 404, pas 403 KYC.
+  const kycBlock = await kycBlockFor(userId, "contractualiser");
+  if (kycBlock) {
+    return NextResponse.json(kycBlock, { status: 403 });
   }
   // Défense en profondeur (2026-11-09) : candidater à sa propre mission est déjà refusé
   // (POST …/proposals et …/devis) ; une candidature antérieure à ce garde ne doit pas permettre

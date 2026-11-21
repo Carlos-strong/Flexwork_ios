@@ -15,6 +15,8 @@
  */
 
 import { useEffect, useRef, useState } from "react";
+import { parseLatLng } from "@/lib/proof-format";
+import { formatFileSize } from "@/lib/proof-format";
 
 // Les 5 catégories de la maquette, dans son ordre, avec leurs quotas et leurs libellés de
 // bouton. `app` fait le lien avec les catégories réelles de l'API
@@ -56,11 +58,8 @@ export type SubmissionProof = {
 // texte-seules (géolocalisation, note libre) n'ont pas de fichier : on affiche à la place
 // l'information qui EXISTE (précision de la position / « note »), plutôt qu'un faux poids.
 function formatSize(proof: SubmissionProof): string {
-  if (typeof proof.size === "number" && proof.size > 0) {
-    return proof.size >= 1024 * 1024
-      ? `${(proof.size / (1024 * 1024)).toFixed(1)} Mo`
-      : `${Math.max(1, Math.round(proof.size / 1024))} Ko`;
-  }
+  const size = formatFileSize(proof.size);
+  if (size) return size;
   if (proof.category === "geolocation") return "Position GPS";
   return "Note";
 }
@@ -71,13 +70,6 @@ function formatShortDate(iso: string): string {
   return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
-function parseLatLng(note: string | null): { lat: number; lng: number } | null {
-  if (!note) return null;
-  const [latStr, lngStr] = note.split(",");
-  const lat = Number(latStr);
-  const lng = Number(lngStr);
-  return Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : null;
-}
 
 // Libellé d'une preuve — nom de fichier réel, coordonnées lisibles, ou note libre.
 function proofName(proof: SubmissionProof): string {
@@ -215,14 +207,14 @@ export default function ProviderProofSubmissionModal({
           <div className="flex items-center gap-2.5 shrink-0">
             <div className="hidden sm:flex items-center gap-2">
               <div className="relative">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#008751] to-[#FCD116] flex items-center justify-center text-[11px] font-bold text-white">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#4C1D95] to-[#8B5CF6] flex items-center justify-center text-[11px] font-bold text-white">
                   {providerInitials}
                 </div>
                 <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-white" />
               </div>
               <span className="text-[12px] font-medium text-gray-700">{providerName}</span>
             </div>
-            <span className="px-2.5 py-1 rounded-full bg-[#dbeafe] text-[#1e40af] text-[11px] font-semibold">{statusLabel}</span>
+            <span className="px-2.5 py-1 rounded-full bg-[#dbeafe] text-[#1D4ED8] text-[11px] font-semibold">{statusLabel}</span>
             <button
               onClick={onClose}
               className="w-8 h-8 rounded-full bg-gray-50 hover:bg-gray-100 flex items-center justify-center text-gray-500"
@@ -236,7 +228,7 @@ export default function ProviderProofSubmissionModal({
         {/* Corps */}
         <div className="overflow-y-auto flex-1 px-5 sm:px-7 py-5 space-y-7">
           {error && (
-            <div className="rounded-xl border border-[#fecaca] bg-[#fef2f2] p-3 text-[13px] text-[#b91c1c]">{error}</div>
+            <div className="rounded-xl border border-[#fecaca] bg-[#FEECEB] p-3 text-[13px] text-[#B42318]">{error}</div>
           )}
 
           {SUBMISSION_CATEGORIES.map((cat) => {
@@ -328,7 +320,7 @@ export default function ProviderProofSubmissionModal({
                               </div>
                             )}
                             {kind === "geo" && (
-                              <div className="w-full h-full relative bg-[#f3f4f6]">
+                              <div className="w-full h-full relative bg-[#EFEAF8]">
                                 <div className="absolute inset-0 flex items-center justify-center">
                                   <div className="bg-white px-2 py-1 rounded-full shadow text-[10px] font-medium">
                                     📍 {coords ? `${coords.lat.toFixed(4)}N ${coords.lng.toFixed(4)}E` : name}
@@ -355,14 +347,14 @@ export default function ProviderProofSubmissionModal({
                           <div className="flex w-full h-9 border-t border-gray-100 mt-auto">
                             <button
                               onClick={() => setPreviewing(proof)}
-                              className="w-1/2 bg-[#f3f4f6] hover:bg-gray-200 text-gray-700 text-[13px] font-medium flex items-center justify-center gap-1 transition"
+                              className="w-1/2 bg-[#EFEAF8] hover:bg-gray-200 text-gray-700 text-[13px] font-medium flex items-center justify-center gap-1 transition"
                             >
                               <span>👁️</span> Voir
                             </button>
                             <button
                               onClick={() => setDeleting(proof)}
                               disabled={removingId === proof.id}
-                              className="w-1/2 bg-white hover:bg-red-50 text-[#dc2626] text-[13px] font-medium flex items-center justify-center gap-1 border-l border-gray-100 transition disabled:opacity-50"
+                              className="w-1/2 bg-white hover:bg-red-50 text-[#B42318] text-[13px] font-medium flex items-center justify-center gap-1 border-l border-gray-100 transition disabled:opacity-50"
                             >
                               <span>🗑️</span> Supprimer
                             </button>
@@ -399,16 +391,16 @@ export default function ProviderProofSubmissionModal({
                       className="flex-1 flexwork-proof-range"
                       /* La tranche déjà validée par le client reste peinte en vert foncé :
                          elle n'est plus négociable, le curseur ne peut plus y redescendre. */
-                      style={{ background: `linear-gradient(to right, #006b40 ${minProgress}%, #e5e7eb ${minProgress}%)` }}
+                      style={{ background: `linear-gradient(to right, #3B1578 ${minProgress}%, #E7E2F0 ${minProgress}%)` }}
                     />
-                    <span className="text-[18px] font-bold text-[#008751] min-w-[48px] text-right">{declaredProgress}%</span>
+                    <span className="text-[18px] font-bold text-[#4C1D95] min-w-[48px] text-right">{declaredProgress}%</span>
                     <input
                       type="number"
                       min={minProgress}
                       max={100}
                       value={declaredProgress}
                       onChange={(e) => onDeclaredProgressChange(Math.min(100, Math.max(minProgress, parseInt(e.target.value) || 0)))}
-                      className="w-[55px] h-9 border border-gray-200 rounded-lg text-[13px] text-center focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751]"
+                      className="w-[55px] h-9 border border-gray-200 rounded-lg text-[13px] text-center focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20 focus:border-[#4C1D95]"
                     />
                   </div>
                   <div className="flex gap-2 mt-3 flex-wrap">
@@ -422,7 +414,7 @@ export default function ProviderProofSubmissionModal({
                           disabled={belowFloor}
                           title={belowFloor ? `Déjà validé par le client à ${minProgress}% — votre déclaration ne peut plus redescendre` : undefined}
                           onClick={() => onDeclaredProgressChange(value)}
-                          className={`px-3 py-1 rounded-full text-[12px] font-medium border transition ${belowFloor ? "bg-gray-100 text-gray-300 border-gray-200 cursor-not-allowed line-through" : declaredProgress === value ? "bg-[#008751] text-white border-[#008751]" : "bg-white border-gray-200 text-gray-600 hover:border-[#008751] hover:text-[#008751]"}`}
+                          className={`px-3 py-1 rounded-full text-[12px] font-medium border transition ${belowFloor ? "bg-gray-100 text-gray-300 border-gray-200 cursor-not-allowed line-through" : declaredProgress === value ? "bg-[#4C1D95] text-white border-[#4C1D95]" : "bg-white border-gray-200 text-gray-600 hover:border-[#4C1D95] hover:text-[#4C1D95]"}`}
                         >
                           {value}%
                         </button>
@@ -443,7 +435,7 @@ export default function ProviderProofSubmissionModal({
                     value={comment}
                     onChange={(e) => onCommentChange(e.target.value)}
                     placeholder="Ex. Tableau posé ce jour, câblage 50% réalisé, en attente goulottes zone TGBT, besoin accès local technique..."
-                    className="mt-2 w-full border border-gray-200 rounded-xl p-3 text-[13px] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751] resize-none"
+                    className="mt-2 w-full border border-gray-200 rounded-xl p-3 text-[13px] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20 focus:border-[#4C1D95] resize-none"
                   />
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mt-2.5">
                     <div className="flex items-center gap-2 text-[11px] text-gray-500">
@@ -464,7 +456,7 @@ export default function ProviderProofSubmissionModal({
                       type="checkbox"
                       checked={attested}
                       onChange={(e) => onAttestedChange(e.target.checked)}
-                      className="mt-0.5 w-4 h-4 rounded border-gray-300 text-[#008751] focus:ring-[#008751]"
+                      className="mt-0.5 w-4 h-4 rounded border-gray-300 text-[#4C1D95] focus:ring-[#4C1D95]"
                     />
                     <span className="text-[12px] text-gray-600 leading-[16px] group-hover:text-gray-800">
                       J&apos;atteste que les preuves soumises sont réelles et prises sur site
@@ -492,7 +484,7 @@ export default function ProviderProofSubmissionModal({
               disabled={!canSubmit}
               title={submitDisabledReason ?? undefined}
               onClick={() => { showToast(`${count} preuves soumises - En attente validation client`); onSubmit(); }}
-              className={`flex-1 sm:flex-none px-5 py-2.5 rounded-full text-[13px] font-semibold flex items-center justify-center gap-1.5 transition ${canSubmit ? "bg-[#008751] text-white hover:brightness-105 shadow-sm" : "bg-gray-200 text-gray-400 cursor-not-allowed"}`}
+              className={`flex-1 sm:flex-none px-5 py-2.5 rounded-full text-[13px] font-semibold flex items-center justify-center gap-1.5 transition ${canSubmit ? "bg-[#4C1D95] text-white hover:brightness-105 shadow-sm" : "bg-gray-200 text-gray-400 cursor-not-allowed"}`}
             >
               <span>📤</span> {submitting ? "Envoi..." : "Soumettre pour validation"}
             </button>
@@ -552,7 +544,7 @@ export default function ProviderProofSubmissionModal({
                           href={`https://www.google.com/maps?q=${coords.lat},${coords.lng}`}
                           target="_blank"
                           rel="noreferrer"
-                          className="text-[#1e40af] font-medium"
+                          className="text-[#1D4ED8] font-medium"
                         >
                           Google Maps ↗
                         </a>
@@ -608,7 +600,7 @@ export default function ProviderProofSubmissionModal({
               </button>
               <button
                 onClick={() => { onRemove(deleting.id); showToast("Preuve supprimée"); setDeleting(null); }}
-                className="px-4 py-2 rounded-full bg-[#dc2626] text-white text-[13px] font-medium hover:brightness-105"
+                className="px-4 py-2 rounded-full bg-[#B42318] text-white text-[13px] font-medium hover:brightness-105"
               >
                 Supprimer
               </button>
@@ -619,7 +611,7 @@ export default function ProviderProofSubmissionModal({
 
       {/* Toast */}
       {toast && (
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[80] bg-[#008751] text-white text-[13px] font-medium px-4 py-2.5 rounded-full shadow-lg flex items-center gap-2 animate-[slideUp_0.2s_ease]">
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[80] bg-[#4C1D95] text-white text-[13px] font-medium px-4 py-2.5 rounded-full shadow-lg flex items-center gap-2 animate-[slideUp_0.2s_ease]">
           <span>✅</span> {toast}
         </div>
       )}

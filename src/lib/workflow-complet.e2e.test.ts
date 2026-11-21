@@ -188,7 +188,11 @@ async function publish(body: Record<string, unknown>) {
   return prisma.mission.findUniqueOrThrow({ where: { id } });
 }
 
-async function applyAndAccept(missionId: string, proposal: Record<string, unknown>) {
+// L'acceptation crée l'ENGAGEMENT du prestataire retenu (2026-11-10) : la suite du parcours
+// (contrat, séquestre, livrable) s'y déroule. `mission` est mis à jour en place pour pointer
+// sur l'engagement — les tests continuent de lire `mission.id`.
+async function applyAndAccept(mission: { id: string }, proposal: Record<string, unknown>) {
+  const missionId = mission.id;
   authAs(ids.provider);
   const p = await expectOk(
     await proposalPost(postReq({ financingModeKey: devisModes.get(missionId), ...proposal }), at(missionId)),
@@ -196,7 +200,8 @@ async function applyAndAccept(missionId: string, proposal: Record<string, unknow
   );
   const proposalId = (await p.json()).id as string;
   authAs(ids.client);
-  await expectOk(await acceptPost(postReq({}), { params: Promise.resolve({ id: missionId, proposalId }) }), "acceptation");
+  const acc = await expectOk(await acceptPost(postReq({}), { params: Promise.resolve({ id: missionId, proposalId }) }), "acceptation");
+  Object.assign(mission, await prisma.mission.findUniqueOrThrow({ where: { id: (await acc.json()).engagementId } }));
   return proposalId;
 }
 
@@ -341,8 +346,8 @@ afterAll(async () => {
 describe("P1 — F2 : prix fixe, séquestre unique, versement unique", () => {
   it("publication → candidature → contrat → signatures → financement → livraison → versement → clôture", async () => {
     const mission = await publish({ titre: `WF F2 ${RUN}`, budgetType: "FIXED", budget: 120_000, financingModeKey: "F2" });
-    contracts.F2.missionId = mission.id;
-    await applyAndAccept(mission.id, { montant: 120_000, message: "Prix fixe — livraison unique" });
+    await applyAndAccept(mission, { montant: 120_000, message: "Prix fixe — livraison unique" });
+    contracts.F2.missionId = mission.id; // l'engagement (2026-11-10)
     const contractId = await contractAndSignatures(mission.id);
     contracts.F2.contractId = contractId;
     expect(await prisma.jalon.count({ where: { contractId } })).toBe(0);
@@ -370,8 +375,8 @@ describe("P1 — F2 : prix fixe, séquestre unique, versement unique", () => {
 describe("P2 — J4 : jalons + retenue de garantie", () => {
   it("chaque jalon libère 95 %, la retenue cumulée part en une fois à la fin", async () => {
     const mission = await publish({ titre: `WF J4 ${RUN}`, budgetType: "FIXED", budget: 200_000, financingModeKey: "J4" });
-    contracts.J4.missionId = mission.id;
-    await applyAndAccept(mission.id, { montant: 200_000 });
+    await applyAndAccept(mission, { montant: 200_000 });
+    contracts.J4.missionId = mission.id; // l'engagement (2026-11-10)
     const contractId = await contractAndSignatures(mission.id, {
       jalons: [
         { titre: "Gros œuvre", montant: 120_000 },
@@ -421,8 +426,8 @@ describe("P2 — J4 : jalons + retenue de garantie", () => {
 describe("P3 — S1 : forfait à sous-tâches, un seul financement", () => {
   it("150 000 séquestrés une fois, consommés tâche par tâche : 130 000 → 70 000 → 20 000 → 0", async () => {
     const mission = await publish({ titre: `WF S1 ${RUN}`, budgetType: "FIXED", budget: 150_000, financingModeKey: "S1" });
-    contracts.S1.missionId = mission.id;
-    await applyAndAccept(mission.id, { montant: 150_000 });
+    await applyAndAccept(mission, { montant: 150_000 });
+    contracts.S1.missionId = mission.id; // l'engagement (2026-11-10)
     const contractId = await contractAndSignatures(mission.id, {
       jalons: [
         { titre: "Diagnostic", montant: 20_000 },
@@ -472,7 +477,8 @@ describe("P4 — S2J : chantier au temps, de la publication à la clôture", () 
     expect(mission).toMatchObject({ validationMode: "opr", siteManagerId: ids.siteManager });
 
     // Candidature : le prestataire propose 7 000 / jour → plafond du contrat 140 000.
-    await applyAndAccept(mission.id, { montant: 0, unitRate: 7_000 });
+    await applyAndAccept(mission, { montant: 0, unitRate: 7_000 });
+    contracts.S2J.missionId = mission.id; // l'engagement (2026-11-10)
     const contractId = await contractAndSignatures(mission.id);
     contracts.S2J.contractId = contractId;
     expect(await prisma.spotTimeTerms.findUniqueOrThrow({ where: { contractId } })).toMatchObject({
@@ -616,8 +622,8 @@ describe("P4 — S2J : chantier au temps, de la publication à la clôture", () 
 describe("P5 — Médiation : gel, répartition à trois destinations, accord", () => {
   it("100 000 gelés → 60 000 au prestataire, 30 000 au client, 10 000 maintenus bloqués", async () => {
     const mission = await publish({ titre: `WF Médiation ${RUN}`, budgetType: "FIXED", budget: 100_000, financingModeKey: "F2" });
-    contracts.MED.missionId = mission.id;
-    await applyAndAccept(mission.id, { montant: 100_000 });
+    await applyAndAccept(mission, { montant: 100_000 });
+    contracts.MED.missionId = mission.id; // l'engagement (2026-11-10)
     const contractId = await contractAndSignatures(mission.id);
     contracts.MED.contractId = contractId;
     await fundWholeContract(mission.id, contractId);

@@ -40,7 +40,7 @@ type PayoutState = {
 const STATUS_CLASSES: Record<string, string> = {
   non_renseigne: "bg-zinc-100 text-zinc-600",
   en_attente: "bg-amber-100 text-amber-800",
-  verifie: "bg-[#008751]/10 text-[#008751]",
+  verifie: "bg-[#047857]/10 text-[#047857]",
   rejete: "bg-red-100 text-red-700",
 };
 
@@ -57,10 +57,17 @@ export function FinancialKycForm() {
   const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  async function load() {
+  // `isStale` (2026-11-09) : un chargement abandonné ne doit rien écrire. Sans cette garde, la
+  // réponse d'un chargement en double (effet rejoué par React en développement, remontage du
+  // composant) arrivait APRÈS que le formulaire s'est affiché et écrasait ce que l'utilisateur
+  // venait de saisir — opérateur, numéro, titulaire et justificatif revenaient à vide, et le
+  // bouton « Vérifier mon compte » restait inactif. Constaté par le test D-05 sur un serveur lent.
+  async function load(isStale: () => boolean = () => false) {
     const res = await fetch("/api/kyc/payout");
+    if (isStale()) return;
     if (res.ok) {
       const data = (await res.json()) as PayoutState;
+      if (isStale()) return;
       setState(data);
       setOperator(data.operator ?? "");
       setNumber(data.number ?? "");
@@ -71,7 +78,11 @@ export function FinancialKycForm() {
   }
 
   useEffect(() => {
-    void load();
+    let stale = false;
+    void load(() => stale);
+    return () => {
+      stale = true;
+    };
   }, []);
 
   async function uploadProof(e: React.ChangeEvent<HTMLInputElement>) {
@@ -133,7 +144,7 @@ export function FinancialKycForm() {
   }
 
   const inputClass =
-    "w-full h-10 px-3 rounded-xl border border-zinc-200 text-[14px] focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751] transition";
+    "w-full h-10 px-3 rounded-xl border border-zinc-200 text-[14px] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20 focus:border-[#4C1D95] transition";
 
   if (loading) {
     return <div className="rounded-[20px] border border-gray-100 bg-white p-6 text-[13px] text-zinc-500">Chargement...</div>;
@@ -149,7 +160,7 @@ export function FinancialKycForm() {
     <div className="space-y-5">
       <div className="bg-white rounded-[20px] border border-gray-100 p-6">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-[15px] font-semibold text-[#0A1931]">Compte de versement</h2>
+          <h2 className="text-[15px] font-semibold text-[#191224]">Compte de versement</h2>
           <span className={`rounded-full px-3 py-1 text-[12px] font-semibold ${STATUS_CLASSES[status]}`}>
             {PAYOUT_STATUS_LABELS[status]}
           </span>
@@ -187,7 +198,7 @@ export function FinancialKycForm() {
         <form onSubmit={submit} className="mt-5 space-y-4">
           <div>
             <label htmlFor="operator" className="block text-[13px] font-medium text-zinc-700 mb-1.5">
-              Opérateur <span className="text-[#E8112D]">*</span>
+              Opérateur <span className="text-[#B42318]">*</span>
             </label>
             <select id="operator" value={operator} onChange={(e) => setOperator(e.target.value)} className={inputClass} required>
               <option value="">Sélectionner un opérateur</option>
@@ -201,14 +212,14 @@ export function FinancialKycForm() {
 
           <div>
             <label htmlFor="number" className="block text-[13px] font-medium text-zinc-700 mb-1.5">
-              Numéro Mobile Money <span className="text-[#E8112D]">*</span>
+              Numéro Mobile Money <span className="text-[#B42318]">*</span>
             </label>
             <input
               id="number"
               value={number}
               onChange={(e) => setNumber(e.target.value)}
               className={inputClass}
-              placeholder="+229 96 12 34 56"
+              placeholder="+229 01 96 12 34 56"
               required
               minLength={8}
               maxLength={25}
@@ -217,7 +228,7 @@ export function FinancialKycForm() {
 
           <div>
             <label htmlFor="holder" className="block text-[13px] font-medium text-zinc-700 mb-1.5">
-              Titulaire du compte <span className="text-[#E8112D]">*</span>
+              Titulaire du compte <span className="text-[#B42318]">*</span>
             </label>
             <input
               id="holder"
@@ -237,7 +248,7 @@ export function FinancialKycForm() {
 
           <div>
             <span className="block text-[13px] font-medium text-zinc-700 mb-1.5">
-              Justificatif de domicile <span className="text-[#E8112D]">*</span>
+              Justificatif de domicile <span className="text-[#B42318]">*</span>
             </span>
             <input
               ref={fileRef}
@@ -262,7 +273,7 @@ export function FinancialKycForm() {
           <button
             type="submit"
             disabled={submitting || !operator || !number || !holder || !proofId}
-            className="h-10 px-5 rounded-full bg-[#008751] text-white text-[13px] font-semibold hover:bg-[#006e43] transition disabled:opacity-50"
+            className="h-10 px-5 rounded-full bg-[#4C1D95] text-white text-[13px] font-semibold hover:bg-[#3B1578] transition disabled:opacity-50"
           >
             {submitting ? "Envoi..." : editingVerified ? "Soumettre la modification" : "Vérifier mon compte"}
           </button>
@@ -276,7 +287,7 @@ export function FinancialKycForm() {
       </div>
 
       <div className="bg-white rounded-[20px] border border-gray-100 p-6">
-        <h2 className="text-[15px] font-semibold text-[#0A1931]">Pourquoi ces informations</h2>
+        <h2 className="text-[15px] font-semibold text-[#191224]">Pourquoi ces informations</h2>
         <p className="mt-2 text-[13px] text-zinc-600">
           Les paiements passent par Mobile Money — MTN, Moov ou Celtiis. La plateforme ne demande pas d&apos;IBAN : les
           versements sont adressés à l&apos;opérateur, et le compte doit être contrôlé avant le premier paiement.

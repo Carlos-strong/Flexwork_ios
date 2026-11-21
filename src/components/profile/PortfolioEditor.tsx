@@ -159,7 +159,7 @@ export function PortfolioEditor({ profile, onSaved }: { profile: ProviderProfile
           <ul className="mt-3 space-y-1.5">
             {links.map((url) => (
               <li key={url} className="flex items-center justify-between gap-3 rounded-xl bg-zinc-50 px-3 py-2">
-                <a href={url} target="_blank" rel="noopener noreferrer nofollow" className="truncate text-[13px] text-[#008751] hover:underline">
+                <a href={url} target="_blank" rel="noopener noreferrer nofollow" className="truncate text-[13px] text-[#4C1D95] hover:underline">
                   {url}
                 </a>
                 <button
@@ -187,7 +187,7 @@ export function PortfolioEditor({ profile, onSaved }: { profile: ProviderProfile
                 href={portfolioFileUrl(cvUrl)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-xl bg-zinc-50 px-3 py-2 text-[13px] text-[#0A1931] hover:underline"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-zinc-50 px-3 py-2 text-[13px] text-[#191224] hover:underline"
               >
                 📄 {portfolioFileName(cvUrl)}
               </a>

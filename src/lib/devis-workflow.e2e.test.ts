@@ -223,6 +223,8 @@ describe("Workflow « mode devis » (QUOTE) — négociation → contrat → cl�
       params: Promise.resolve({ id: missionId, proposalId }),
     });
     expect(res.status).toBe(200);
+    // Le parcours se poursuit sur l'ENGAGEMENT du prestataire retenu (2026-11-10).
+    missionId = (await res.json()).engagementId;
 
     const proposal = await prisma.missionProposal.findUniqueOrThrow({ where: { id: proposalId } });
     expect(proposal.status).toBe("devis_valide");

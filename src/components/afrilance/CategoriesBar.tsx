@@ -25,7 +25,7 @@ export default async function CategoriesBar() {
             <Link
               key={c.label}
               href={c.href ?? `/recherche?domaine=${encodeURIComponent(c.label)}`}
-              className="flex items-center gap-2 hover:text-[#FF6B35] transition"
+              className="flex items-center gap-2 hover:text-[#6D28D9] transition"
               style={{ textDecoration: 'none' }}
             >
               <span className={`w-2 h-2 rounded-full ${c.color ?? 'bg-gray-300'}`}></span>
@@ -33,7 +33,7 @@ export default async function CategoriesBar() {
             </Link>
           ))}
           {section.ctaText && (
-            <Link href={section.ctaLink ?? '/recherche'} className="ml-auto hidden lg:block text-[#FF6B35] font-bold hover:underline">
+            <Link href={section.ctaLink ?? '/recherche'} className="ml-auto hidden lg:block text-[#6D28D9] font-bold hover:underline">
               {section.ctaText}
             </Link>
           )}

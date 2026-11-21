@@ -9,8 +9,8 @@ import Link from "next/link";
 // src/lib/provider-profile-completion.ts). Il n'est pas recalculé ici : le formulaire
 // /profile affiche le même barème, et deux calculs parallèles finiraient par diverger.
 //
-// Pendant exact de `ClientProfileCompletionCard`, à deux différences près, qui viennent du
-// barème lui-même :
+// Pendant de l'ancienne carte client (devenue le 2026-11-11 un bouton d'en-tête,
+// `ClientProfileCompletionButton`), à deux différences près, qui viennent du barème lui-même :
 //
 //   - la « Répartition » est affichée section par section (20 / 30 / 20 / 15 / 15), parce
 //     qu'une section vaut son poids entier ou rien : la liste dit d'un coup d'œil ce qui est
@@ -55,7 +55,7 @@ const BADGE_NOTICE: Record<
     text: "Le badge s'affiche sur votre profil public.",
     cta: "Voir mon badge",
     tone: "border-emerald-200 bg-emerald-50",
-    dot: "bg-[#008751]",
+    dot: "bg-[#4C1D95]",
   },
   refuse: {
     title: "Badge « Vérifié » : demande refusée",
@@ -94,13 +94,13 @@ function BadgeStatusNotice() {
           className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${n.dot}`}
         />
         <div className="min-w-0">
-          <p className="text-[13px] font-semibold text-[#0A1931]">{n.title}</p>
+          <p className="text-[13px] font-semibold text-[#191224]">{n.title}</p>
           <p className="text-[12px] text-zinc-600">{n.text}</p>
         </div>
       </div>
       <Link
         href="/badge"
-        className="h-9 px-4 shrink-0 self-start sm:self-auto rounded-full bg-white border border-gray-200 text-[13px] font-medium text-[#0A1931] flex items-center hover:bg-gray-50"
+        className="h-9 px-4 shrink-0 self-start sm:self-auto rounded-full bg-white border border-gray-200 text-[13px] font-medium text-[#191224] flex items-center hover:bg-gray-50"
         style={{ textDecoration: "none" }}
       >
         {n.cta}
@@ -149,16 +149,16 @@ export function ProviderProfileCompletionCard() {
     <div className="bg-white rounded-[20px] border border-gray-100 overflow-hidden mb-6">
       <div className="px-5 py-5">
         <div className="flex items-baseline justify-between mb-2">
-          <h3 className="font-semibold text-[15px] text-[#0A1931]">
+          <h3 className="font-semibold text-[15px] text-[#191224]">
             Profil prestataire
           </h3>
-          <span className="text-[15px] font-bold text-[#008751]">
+          <span className="text-[15px] font-bold text-[#4C1D95]">
             {completion.percent} %
           </span>
         </div>
         <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
           <div
-            className="h-full rounded-full bg-[#008751] transition-all"
+            className="h-full rounded-full bg-[#4C1D95] transition-all"
             style={{ width: `${completion.percent}%` }}
           />
         </div>
@@ -180,7 +180,7 @@ export function ProviderProfileCompletionCard() {
                 <span
                   className={
                     section.done
-                      ? "font-semibold text-[#008751]"
+                      ? "font-semibold text-[#4C1D95]"
                       : "text-zinc-400"
                   }
                 >
@@ -202,7 +202,7 @@ export function ProviderProfileCompletionCard() {
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <Link
             href="/profile"
-            className="h-9 px-4 rounded-full bg-[#008751] text-white text-[13px] font-semibold flex items-center hover:brightness-110"
+            className="h-9 px-4 rounded-full bg-[#4C1D95] text-white text-[13px] font-semibold flex items-center hover:brightness-110"
             style={{ textDecoration: "none" }}
           >
             Compléter mon profil

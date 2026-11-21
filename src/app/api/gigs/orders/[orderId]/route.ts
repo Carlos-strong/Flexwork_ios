@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { GigSignatureService } from "@/lib/gig-signature";
 import { isOrderExpired, refundExpiredOrder } from "@/lib/gig-expiry";
+import { personFullName } from "@/lib/person-name";
 
 export const dynamic = "force-dynamic";
 
@@ -78,8 +79,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ orderId
     providerSignedAt: order.providerSignedAt?.toISOString() ?? null,
     refundedAt: order.refundedAt?.toISOString() ?? null,
     createdAt: order.createdAt,
-    client: { id: order.client.id, email: order.client.email, name: [order.client.firstname, order.client.lastname].filter(Boolean).join(" ").trim() || "Client", avatarUrl: order.client.avatarPath ? `/api/users/${order.client.id}/avatar` : null },
-    provider: { id: order.provider.id, email: order.provider.email, name: [order.provider.firstname, order.provider.lastname].filter(Boolean).join(" ").trim() || "Prestataire", avatarUrl: order.provider.avatarPath ? `/api/users/${order.provider.id}/avatar` : null },
+    client: { id: order.client.id, email: order.client.email, name: personFullName(order.client) || "Client", avatarUrl: order.client.avatarPath ? `/api/users/${order.client.id}/avatar` : null },
+    provider: { id: order.provider.id, email: order.provider.email, name: personFullName(order.provider) || "Prestataire", avatarUrl: order.provider.avatarPath ? `/api/users/${order.provider.id}/avatar` : null },
     signatures: verify.signatures,
     escrow: order.escrowOperations.map((op) => ({ instructionType: op.instructionType, status: op.status, amount: op.amount, currency: op.currency })),
   });

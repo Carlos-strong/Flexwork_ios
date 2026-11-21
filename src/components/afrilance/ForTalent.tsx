@@ -15,7 +15,7 @@ export default function ForTalent() {
       {/* Bandeau plein écran : la photo grandit avec l'écran, le texte s'arrête à la largeur
           utile des autres sections (moitié de 1344 px). */}
       <div className="page-wide">
-        <div className="grid lg:grid-cols-2 rounded-2xl lg:rounded-3xl overflow-hidden bg-[#0A1931]">
+        <div className="grid lg:grid-cols-2 rounded-2xl lg:rounded-3xl overflow-hidden bg-[#191224]">
           <div className="relative aspect-[16/10] lg:aspect-auto lg:min-h-[440px]">
             <Image
               src="/images/ankara_video_editor.webp"
@@ -26,14 +26,14 @@ export default function ForTalent() {
             />
           </div>
           <div className="p-6 sm:p-10 lg:p-12 lg:max-w-[42rem] flex flex-col justify-center text-white">
-            <p className="text-sm font-medium uppercase tracking-[0.12em] text-[#FF8A5C]">Pour les prestataires</p>
+            <p className="text-sm font-medium uppercase tracking-[0.12em] text-[#C4B5FD]">Pour les prestataires</p>
             <h2 className="mt-4 text-[30px] md:text-[40px] leading-[1.1] font-semibold">
               Trouvez des missions, soyez payé en toute sécurité
             </h2>
             <ul className="mt-8 space-y-4">
               {POINTS.map((p) => (
                 <li key={p} className="flex gap-3 text-white/85 leading-relaxed">
-                  <span className="mt-1 w-5 h-5 shrink-0 rounded-full bg-[#FF6B35] grid place-items-center text-[10px] text-white" aria-hidden>✓</span>
+                  <span className="mt-1 w-5 h-5 shrink-0 rounded-full bg-[#6D28D9] grid place-items-center text-[10px] text-white" aria-hidden>✓</span>
                   {p}
                 </li>
               ))}
@@ -41,7 +41,7 @@ export default function ForTalent() {
             <div className="mt-10">
               <Link
                 href="/devenir-prestataire"
-                className="inline-block bg-white text-[#0A1931] hover:bg-white/85 px-6 py-3 rounded-lg font-semibold transition"
+                className="inline-block bg-white text-[#191224] hover:bg-white/85 px-6 py-3 rounded-lg font-semibold transition"
                 style={{ textDecoration: 'none' }}
               >
                 Devenir prestataire

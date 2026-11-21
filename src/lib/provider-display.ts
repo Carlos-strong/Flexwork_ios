@@ -5,6 +5,7 @@
 // publique /api/search/prestataires ne renvoie plus d'email du tout.
 
 import { PROVIDER_ROLE_LABELS } from "@/lib/provider-options";
+import { personFullName } from "@/lib/person-name";
 
 export const PROVIDER_ROLE_LABEL: Record<string, string> = {
   // Filières : source unique (src/lib/provider-options.ts).
@@ -20,7 +21,7 @@ export type ProviderIdentity = {
 
 /** Nom affiché. Repli neutre — jamais l'email, qui n'est pas une donnée publique. */
 export function providerDisplayName(p: ProviderIdentity): string {
-  return [p.firstname, p.lastname].filter(Boolean).join(" ") || "Prestataire";
+  return personFullName(p) || "Prestataire";
 }
 
 /** Initiales pour l'avatar de repli, « ? » si aucun nom n'est renseigné. */

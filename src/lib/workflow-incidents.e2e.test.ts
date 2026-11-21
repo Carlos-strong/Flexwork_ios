@@ -161,7 +161,11 @@ async function publish(body: Record<string, unknown>) {
   return prisma.mission.findUniqueOrThrow({ where: { id } });
 }
 
-async function applyAndAccept(missionId: string, proposal: Record<string, unknown>) {
+// L'acceptation crée l'ENGAGEMENT du prestataire retenu (2026-11-10) : la suite du parcours
+// (contrat, séquestre, livrable) s'y déroule. `mission` est mis à jour en place pour pointer
+// sur l'engagement — les tests continuent de lire `mission.id`.
+async function applyAndAccept(mission: { id: string }, proposal: Record<string, unknown>) {
+  const missionId = mission.id;
   authAs(ids.provider);
   const p = await expectOk(
     await proposalPost(postReq({ financingModeKey: devisModes.get(missionId), ...proposal }), at(missionId)),
@@ -169,7 +173,8 @@ async function applyAndAccept(missionId: string, proposal: Record<string, unknow
   );
   const proposalId = (await p.json()).id as string;
   authAs(ids.client);
-  await expectOk(await acceptPost(postReq({}), { params: Promise.resolve({ id: missionId, proposalId }) }), "acceptation");
+  const acc = await expectOk(await acceptPost(postReq({}), { params: Promise.resolve({ id: missionId, proposalId }) }), "acceptation");
+  Object.assign(mission, await prisma.mission.findUniqueOrThrow({ where: { id: (await acc.json()).engagementId } }));
 }
 
 async function contractAndSignatures(missionId: string, body: Record<string, unknown> = {}) {
@@ -306,7 +311,7 @@ afterAll(async () => {
 describe("W1 — J1 prix fixe : un versement refusé par le PSP se reprend", () => {
   it("les jalons saisis sont respectés ; refus → créance due → revalidation → versement", async () => {
     const mission = await publish({ titre: `INC J1 ${RUN}`, budgetType: "FIXED", budget: 90_000, financingModeKey: "J1" });
-    await applyAndAccept(mission.id, { montant: 90_000 });
+    await applyAndAccept(mission, { montant: 90_000 });
     const contractId = await contractAndSignatures(mission.id, {
       jalons: [
         { titre: "Maquettes", montant: 30_000 },
@@ -351,7 +356,7 @@ describe("W1 — J1 prix fixe : un versement refusé par le PSP se reprend", () 
 describe("W2 — J3 prix fixe : le paiement suit les paliers de progression", () => {
   it("50 % confirmé libère la moitié, 100 % libère le reste et clôture", async () => {
     const mission = await publish({ titre: `INC J3 ${RUN}`, budgetType: "FIXED", budget: 120_000, financingModeKey: "J3" });
-    await applyAndAccept(mission.id, { montant: 120_000 });
+    await applyAndAccept(mission, { montant: 120_000 });
     const contractId = await contractAndSignatures(mission.id, { jalons: [{ titre: "Développement", montant: 120_000 }] });
     expect((await prisma.prestationContract.findUniqueOrThrow({ where: { id: contractId } })).financingMode).toBe("progressive");
     const [jalon] = await prisma.jalon.findMany({ where: { contractId } });
@@ -402,7 +407,9 @@ describe("W3 — J1 sur vrai devis : les lignes deviennent les jalons", () => {
       )
     ).json();
     authAs(ids.client);
-    await expectOk(await devisValidatePost(postReq({}), { params: Promise.resolve({ id: mission.id, proposalId: devis.proposalId }) }), "validation du devis");
+    const v = await expectOk(await devisValidatePost(postReq({}), { params: Promise.resolve({ id: mission.id, proposalId: devis.proposalId }) }), "validation du devis");
+    // La suite se déroule sur l'ENGAGEMENT du prestataire retenu (2026-11-10).
+    Object.assign(mission, await prisma.mission.findUniqueOrThrow({ where: { id: (await v.json()).engagementId } }));
 
     // Corps VIDE : le mode choisi à la publication dérive les jalons du devis.
     const contractId = await contractAndSignatures(mission.id, {});
@@ -425,7 +432,7 @@ describe("W3 — J1 sur vrai devis : les lignes deviennent les jalons", () => {
 describe("W4 — S2H : refus PSP, gel, insuffisance, recharge et reprise automatique", () => {
   it("le prestataire est payé de chaque heure constatée, quel que soit l'incident", async () => {
     const mission = await publish({ titre: `INC S2H ${RUN}`, budgetType: "RATE", financingModeKey: "S2H", timeRate: 1_500, timeMaxQuantity: 20 });
-    await applyAndAccept(mission.id, { montant: 0, unitRate: 1_500 });
+    await applyAndAccept(mission, { montant: 0, unitRate: 1_500 });
     const contractId = await contractAndSignatures(mission.id);
     expect(await prisma.spotTimeTerms.findUniqueOrThrow({ where: { contractId } })).toMatchObject({ rateUnit: "hour", rate: 1_500, maxAmount: 30_000 });
     await fundWholeContract(mission.id, contractId);
@@ -514,7 +521,7 @@ describe("W5 — S2M : un mois constaté, puis clôture", () => {
     });
     expect(mission.budget).toBe(750_000);
     expect(mission.attendanceValidation).toBe("totale");
-    await applyAndAccept(mission.id, { montant: 0, unitRate: 240_000 });
+    await applyAndAccept(mission, { montant: 0, unitRate: 240_000 });
     const contractId = await contractAndSignatures(mission.id);
     expect(await prisma.spotTimeTerms.findUniqueOrThrow({ where: { contractId } })).toMatchObject({ rateUnit: "month", maxAmount: 720_000, attendanceValidation: "totale" });
     await fundWholeContract(mission.id, contractId);
@@ -541,7 +548,7 @@ describe("W5 — S2M : un mois constaté, puis clôture", () => {
 describe("W6 — acceptation tacite : le silence du client, passé le délai, paie le prestataire", () => {
   it("livrable soumis, 8 jours sans réponse → versement → clôture", async () => {
     const mission = await publish({ titre: `INC Tacite ${RUN}`, budgetType: "FIXED", budget: 80_000, financingModeKey: "J1" });
-    await applyAndAccept(mission.id, { montant: 80_000 });
+    await applyAndAccept(mission, { montant: 80_000 });
     const contractId = await contractAndSignatures(mission.id, { jalons: [{ titre: "Livraison", montant: 80_000 }] });
     const [jalon] = await prisma.jalon.findMany({ where: { contractId } });
     await fundJalon(mission.id, contractId, jalon.id);
@@ -568,7 +575,7 @@ describe("W6 — acceptation tacite : le silence du client, passé le délai, pa
 describe("W7 — mission arrêtée : les gestes administratifs soldent le séquestre", () => {
   it("J4 interrompu après un jalon : la retenue acquise est soldée au prestataire", async () => {
     const mission = await publish({ titre: `INC J4 arrêt ${RUN}`, budgetType: "FIXED", budget: 200_000, financingModeKey: "J4" });
-    await applyAndAccept(mission.id, { montant: 200_000 });
+    await applyAndAccept(mission, { montant: 200_000 });
     const contractId = await contractAndSignatures(mission.id, {
       jalons: [
         { titre: "Phase 1", montant: 100_000 },
@@ -593,7 +600,7 @@ describe("W7 — mission arrêtée : les gestes administratifs soldent le séque
 
   it("F2 abandonné avant livraison : le séquestre est rendu au client", async () => {
     const mission = await publish({ titre: `INC F2 abandon ${RUN}`, budgetType: "FIXED", budget: 70_000, financingModeKey: "F2" });
-    await applyAndAccept(mission.id, { montant: 70_000 });
+    await applyAndAccept(mission, { montant: 70_000 });
     const contractId = await contractAndSignatures(mission.id);
     await fundWholeContract(mission.id, contractId);
 

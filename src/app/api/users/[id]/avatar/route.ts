@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import path from "path";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
-import type { UserRole } from "@prisma/client";
 import { readStoredFile } from "@/lib/storage";
 import { isPubliclyListed } from "@/lib/profile-visibility";
 

@@ -235,7 +235,12 @@ describe("Workflow contrat + signature + QR (implémentation réelle)", () => {
     const res = await signPost(
       postReq({ contractId, certificateId: providerCertId, passphrase: "mauvaise-passphrase" })
     );
-    expect(res.status).toBe(500);
+    // 400 lisible (2026-11-10) — auparavant 500 avec le message brut d'AES-GCM
+    // « Unsupported state or unable to authenticate data ».
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.code).toBe("invalid_passphrase");
+    expect(body.error).toMatch(/Passphrase incorrecte/);
   });
 
   it("S3 — le prestataire signe (1/2) : contrat non verrouillé", async () => {

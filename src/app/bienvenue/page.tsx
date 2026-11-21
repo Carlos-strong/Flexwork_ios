@@ -79,9 +79,9 @@ export default function BienvenuePage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8FAF9] flex items-center justify-center p-4 md:p-8">
-      <div className="w-full max-w-[820px] bg-white border border-[#E2E8F0] rounded-xl p-6 md:p-8">
-        <h1 className="text-[22px] font-bold text-[#0f172a]">Bienvenue sur FlexWork 👋</h1>
+    <div className="min-h-screen bg-[#F6F5FA] flex items-center justify-center p-4 md:p-8">
+      <div className="w-full max-w-[820px] bg-white border border-[#E7E2F0] rounded-xl p-6 md:p-8">
+        <h1 className="text-[22px] font-bold text-[#191224]">Bienvenue sur FlexWork 👋</h1>
         <p className="mt-1 text-[13px] text-slate-600">
           Comment souhaitez-vous utiliser la plateforme ? Votre compte s&apos;ouvre en client — vous pouvez
           ouvrir l&apos;espace prestataire à tout moment, sans créer de second compte.
@@ -99,18 +99,18 @@ export default function BienvenuePage() {
                 onClick={() => setUsage(u.id)}
                 className={`text-left rounded-xl border p-4 transition ${
                   selected
-                    ? "border-[#008751] bg-[#E6F4EE]/50 ring-2 ring-[#008751]/20"
-                    : "border-[#E2E8F0] bg-white hover:border-slate-300"
+                    ? "border-[#4C1D95] bg-[#F0EAFF]/50 ring-2 ring-[#4C1D95]/20"
+                    : "border-[#E7E2F0] bg-white hover:border-slate-300"
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-[12px] font-semibold text-[#0f172a]">{u.sub}</span>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#0f172a] text-white">{u.badge}</span>
+                  <span className="text-[12px] font-semibold text-[#191224]">{u.sub}</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#191224] text-white">{u.badge}</span>
                 </div>
-                <div className="mt-2 text-[14px] font-semibold text-[#0f172a]">{u.title}</div>
+                <div className="mt-2 text-[14px] font-semibold text-[#191224]">{u.title}</div>
                 <div className="mt-1 text-[11px] text-slate-600">{u.desc}</div>
                 {selected && (
-                  <div className="mt-3 text-[11px] font-medium text-[#008751]">
+                  <div className="mt-3 text-[11px] font-medium text-[#4C1D95]">
                     ✓ Sélectionné — modifiable dans Paramètres
                   </div>
                 )}
@@ -119,20 +119,20 @@ export default function BienvenuePage() {
           })}
         </div>
 
-        <div className="mt-6 rounded-xl bg-[#F8FAF9] border border-[#E2E8F0] p-4 text-[11px] leading-5 text-slate-600">
-          <span className="font-semibold text-[#0f172a]">Vous pourrez changer à tout moment.</span> Un seul compte,
+        <div className="mt-6 rounded-xl bg-[#F6F5FA] border border-[#E7E2F0] p-4 text-[11px] leading-5 text-slate-600">
+          <span className="font-semibold text-[#191224]">Vous pourrez changer à tout moment.</span> Un seul compte,
           jamais deux : votre espace client et votre espace prestataire vivent sur la même identité vérifiée.
         </div>
 
         <div className="mt-6 flex items-center justify-between">
-          <Link href={callbackUrl ?? "/client/dashboard"} className="h-11 px-4 inline-flex items-center rounded-xl border border-[#E2E8F0] text-sm text-slate-700 hover:bg-slate-50">
+          <Link href={callbackUrl ?? "/client/dashboard"} className="h-11 px-4 inline-flex items-center rounded-xl border border-[#E7E2F0] text-sm text-slate-700 hover:bg-slate-50">
             Plus tard
           </Link>
           <button
             type="button"
             disabled={!usage || leaving}
             onClick={() => continueTo(usage!)}
-            className="h-11 px-6 rounded-xl bg-[#008751] text-white text-sm font-semibold hover:bg-[#006e42] transition disabled:opacity-40 disabled:cursor-not-allowed"
+            className="h-11 px-6 rounded-full bg-[#4C1D95] text-white text-sm font-semibold hover:bg-[#3B1578] transition disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {leaving ? "Un instant…" : "Continuer"}
           </button>

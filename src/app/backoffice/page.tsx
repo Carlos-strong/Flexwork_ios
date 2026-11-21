@@ -84,12 +84,12 @@ export default function BackOfficeDashboard() {
             <Link
               key={m.id}
               href={m.href}
-              className="rounded-[12px] border border-[#E2E0D9] bg-[#FAFAF8] p-4 transition hover:border-[#C3D1F8] hover:bg-[#EEF2FD]"
+              className="rounded-[12px] border border-[#E7E2F0] bg-[#F6F5FA] p-4 transition hover:border-[#DDD6FE] hover:bg-[#F0EAFF]"
               style={{ textDecoration: "none" }}
             >
               <div className="text-[22px] leading-none">{m.icon}</div>
-              <div className="mt-2 text-[14px] font-semibold text-[#1A1916]">{m.label}</div>
-              <div className="mt-0.5 text-[12px] leading-snug text-[#5A5750]">{m.hint}</div>
+              <div className="mt-2 text-[14px] font-semibold text-[#191224]">{m.label}</div>
+              <div className="mt-0.5 text-[12px] leading-snug text-[#6B6478]">{m.hint}</div>
             </Link>
           ))}
         </div>

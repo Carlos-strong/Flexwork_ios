@@ -41,17 +41,17 @@ export default function SignalementPage() {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-[#F8FAF9] text-[#0f172a] flex items-center justify-center px-4">
-        <div className="max-w-[560px] w-full bg-white border border-[#E2E8F0] rounded-xl p-8 text-center">
+      <div className="min-h-screen bg-[#F6F5FA] text-[#191224] flex items-center justify-center px-4">
+        <div className="max-w-[560px] w-full bg-white border border-[#E7E2F0] rounded-xl p-8 text-center">
           <div className="text-[48px] mb-4">📩</div>
-          <h1 className="text-[18px] font-bold text-[#008751] mb-2">
+          <h1 className="text-[18px] font-bold text-[#4C1D95] mb-2">
             Signalement envoyé
           </h1>
-          <p className="text-[13px] text-[#64748B] mb-5">
+          <p className="text-[13px] text-[#6B6478] mb-5">
             Votre signalement a été transmis à l&apos;équipe de modération. Il sera examiné
             dans les meilleurs délais. Aucune action automatique n&apos;est déclenchée.
           </p>
-          <Link href="/" className="inline-flex h-10 px-5 rounded-lg bg-[#008751] text-white text-[13px] font-semibold items-center hover:bg-[#007a49]" style={{ textDecoration: "none" }}>
+          <Link href="/" className="inline-flex h-10 px-5 rounded-full bg-[#4C1D95] text-white text-[13px] font-semibold items-center hover:bg-[#3B1578]" style={{ textDecoration: "none" }}>
             Retour à l&apos;accueil
           </Link>
         </div>
@@ -60,28 +60,28 @@ export default function SignalementPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8FAF9] text-[#0f172a]">
+    <div className="min-h-screen bg-[#F6F5FA] text-[#191224]">
       <div className="fluid-form [--fw:560px] mx-auto px-4 py-5 space-y-4">
-        <div className="bg-white border border-[#E2E8F0] rounded-xl p-4 lg:p-5 space-y-4">
+        <div className="bg-white border border-[#E7E2F0] rounded-xl p-4 lg:p-5 space-y-4">
           <h1 className="text-[13px] font-semibold">Signaler un contenu</h1>
 
-          <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAF9] p-3.5 text-[12.5px] text-[#475569] leading-relaxed">
-            <strong className="text-[#0f172a]">Important :</strong> un signalement ouvre une revue manuelle par l&apos;Admin
-            Modération. Il ne déclenche <strong className="text-[#0f172a]">aucune action automatique</strong> (suppression,
+          <div className="rounded-xl border border-[#E7E2F0] bg-[#F6F5FA] p-3.5 text-[12.5px] text-[#4A4258] leading-relaxed">
+            <strong className="text-[#191224]">Important :</strong> un signalement ouvre une revue manuelle par l&apos;Admin
+            Modération. Il ne déclenche <strong className="text-[#191224]">aucune action automatique</strong> (suppression,
             suspension). Chaque signalement est traité individuellement avec justification
             obligatoire (US-306).
           </div>
 
-          {error && <div className="rounded-xl border border-[#FECACA] bg-[#FEF2F2] p-3 text-[13px] text-[#B91C1C]">{error}</div>}
+          {error && <div className="rounded-xl border border-[#FECACA] bg-[#FEECEB] p-3 text-[13px] text-[#B42318]">{error}</div>}
 
           <form onSubmit={handleSubmit} className="space-y-3">
             <div>
-              <label className="block text-[12px] font-medium text-[#475569] mb-1">Type de contenu signalé <span className="text-[#E8112D]">*</span></label>
+              <label className="block text-[12px] font-medium text-[#4A4258] mb-1">Type de contenu signalé <span className="text-[#B42318]">*</span></label>
               <select
                 required
                 value={targetType}
                 onChange={(e) => setTargetType(e.target.value)}
-                className="w-full h-10 px-3 rounded-lg border border-[#E2E8F0] text-[13px] bg-white focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751]"
+                className="w-full h-10 px-3 rounded-lg border border-[#E7E2F0] text-[13px] bg-white focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20 focus:border-[#4C1D95]"
               >
                 <option value="">-- Choisir --</option>
                 <option value="declaration">Déclaration (assurance / qualification)</option>
@@ -92,22 +92,22 @@ export default function SignalementPage() {
             </div>
 
             <div>
-              <label className="block text-[12px] font-medium text-[#475569] mb-1">Identifiant du contenu</label>
+              <label className="block text-[12px] font-medium text-[#4A4258] mb-1">Identifiant du contenu</label>
               <input
                 type="text"
                 placeholder="ID de la déclaration, du profil ou de la mission"
                 value={targetId}
                 onChange={(e) => setTargetId(e.target.value)}
-                className="w-full h-10 px-3 rounded-lg border border-[#E2E8F0] text-[13px] focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751]"
+                className="w-full h-10 px-3 rounded-lg border border-[#E7E2F0] text-[13px] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20 focus:border-[#4C1D95]"
               />
-              <p className="text-[11px] text-[#94A3B8] mt-1">
+              <p className="text-[11px] text-[#9A93A8] mt-1">
                 Optionnel — si vous ne connaissez pas l&apos;identifiant, décrivez le contenu
                 dans le motif.
               </p>
             </div>
 
             <div>
-              <label className="block text-[12px] font-medium text-[#475569] mb-1">Motif du signalement <span className="text-[#E8112D]">*</span></label>
+              <label className="block text-[12px] font-medium text-[#4A4258] mb-1">Motif du signalement <span className="text-[#B42318]">*</span></label>
               <textarea
                 rows={4}
                 required
@@ -115,23 +115,23 @@ export default function SignalementPage() {
                 placeholder="Décrivez précisément pourquoi ce contenu vous semble frauduleux ou inapproprié..."
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-[#E2E8F0] text-[13px] resize-y focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751]"
+                className="w-full px-3 py-2 rounded-lg border border-[#E7E2F0] text-[13px] resize-y focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20 focus:border-[#4C1D95]"
               />
             </div>
 
             <button
               type="submit"
               disabled={submitting}
-              className="w-full h-10 rounded-lg bg-[#DC2626] text-white text-[13px] font-semibold hover:bg-[#B91C1C] transition-colors disabled:opacity-50"
+              className="w-full h-10 rounded-lg bg-[#B42318] text-white text-[13px] font-semibold hover:bg-[#B42318] transition-colors disabled:opacity-50"
             >
               {submitting ? "Envoi..." : "Envoyer le signalement"}
             </button>
           </form>
         </div>
 
-        <div className="bg-[#FEF2F2] border border-[#FECACA] rounded-xl p-4">
+        <div className="bg-[#FEECEB] border border-[#FECACA] rounded-xl p-4">
           <strong className="text-[#991B1B] text-[13px]">⚠️ Usage abusif</strong>
-          <p className="text-[12.5px] text-[#64748B] mt-1.5">
+          <p className="text-[12.5px] text-[#6B6478] mt-1.5">
             Les signalements abusifs ou répétés sans fondement sont tracés et peuvent entraîner
             des restrictions sur votre compte. Utilisez cette fonction de façon responsable.
           </p>

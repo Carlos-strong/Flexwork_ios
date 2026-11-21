@@ -65,12 +65,12 @@ export function PersonCard({
 
   return (
     <div
-      className={`group relative h-full flex flex-col rounded-xl bg-[#F7F7F5] border border-transparent p-5 hover:border-[#FF6B35]/40 hover:bg-white hover:shadow-sm transition ${className}`}
+      className={`group relative h-full flex flex-col rounded-xl bg-[#F6F5FA] border border-transparent p-5 hover:border-[#6D28D9]/40 hover:bg-white hover:shadow-sm transition ${className}`}
     >
-      <span className="self-start rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-[#0A1931] truncate max-w-full">
+      <span className="self-start rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-[#191224] truncate max-w-full">
         {roleLabel}
       </span>
-      <h3 className="mt-3 text-[17px] font-semibold leading-snug text-[#0A1931] group-hover:text-[#E85A24] transition line-clamp-2">
+      <h3 className="mt-3 text-[17px] font-semibold leading-snug text-[#191224] group-hover:text-[#5B21B6] transition line-clamp-2">
         <Link
           href={href}
           className="after:absolute after:inset-0 after:rounded-xl focus-visible:outline-none"
@@ -82,13 +82,13 @@ export function PersonCard({
 
       <div className="mt-3 flex items-center gap-2.5 min-w-0">
         <Avatar src={avatarSrc} initials={initials} size={32} className="shrink-0" />
-        <span className="text-[13px] font-medium text-[#0A1931] truncate">{name}</span>
+        <span className="text-[13px] font-medium text-[#191224] truncate">{name}</span>
         {countryCode && (
           <span role="img" aria-label={country ?? undefined} title={country ?? undefined} className="text-[16px] leading-none shrink-0">
             {countryFlag(countryCode)}
           </span>
         )}
-        <span className="shrink-0 rounded-full bg-[#E8F5EE] px-2 py-0.5 text-[11px] font-semibold text-[#008751]">
+        <span className="shrink-0 rounded-full bg-[#F0EAFF] px-2 py-0.5 text-[11px] font-semibold text-[#4C1D95]">
           ✓ Identité vérifiée
         </span>
       </div>
@@ -106,7 +106,7 @@ export function PersonCard({
       </p>
 
       <div className="mt-auto pt-4 flex items-center justify-between gap-3">
-        <span className="text-[15px] font-semibold text-[#0A1931]">
+        <span className="text-[15px] font-semibold text-[#191224]">
           {priceLabel ? (
             <>
               <span className="text-[12px] font-normal text-gray-500">À partir de </span>
@@ -119,7 +119,7 @@ export function PersonCard({
         <Link
           href={href}
           aria-label={`${ctaLabel} — ${name}`}
-          className="relative z-10 shrink-0 rounded-lg bg-[#FF6B35] hover:bg-[#E85A24] px-4 py-2 text-[13px] font-semibold text-white transition"
+          className="relative z-10 shrink-0 rounded-full bg-[#6D28D9] hover:bg-[#5B21B6] px-4 py-2 text-[13px] font-semibold text-white transition"
           style={{ textDecoration: "none" }}
         >
           {ctaLabel}

@@ -121,7 +121,7 @@ export function QualificationPicker({
             key={value}
             className={`flex h-10 items-center justify-center rounded-full border text-[13px] font-medium cursor-pointer transition-colors ${
               kind === value
-                ? "border-[#0A1931] bg-[#0A1931] text-white"
+                ? "border-[#191224] bg-[#191224] text-white"
                 : "border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50"
             }`}
           >
@@ -229,7 +229,7 @@ export function QualificationPicker({
       <input type="hidden" name="qualificationName" value={qualificationName} />
       {qualificationName && (
         <p className="rounded-xl bg-zinc-50 px-4 py-2.5 text-[13px] text-zinc-600">
-          Intitulé enregistré : <span className="font-semibold text-[#0A1931]">{qualificationName}</span>
+          Intitulé enregistré : <span className="font-semibold text-[#191224]">{qualificationName}</span>
         </p>
       )}
 
@@ -239,7 +239,7 @@ export function QualificationPicker({
           name="isStateIssued"
           checked={stateIssued}
           onChange={(e) => setStateIssued(e.target.checked)}
-          className="accent-[#008751]"
+          className="accent-[#4C1D95]"
         />
         Diplôme d&apos;État
         <span className="text-[12px] text-zinc-400">— à justifier pour le badge « Vérifié »</span>

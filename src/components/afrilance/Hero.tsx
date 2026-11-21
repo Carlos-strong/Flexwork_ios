@@ -59,7 +59,7 @@ export default async function Hero() {
                 <span key={lineIndex}>
                   {line.map((part, partIndex) =>
                     part.highlight ? (
-                      <span key={partIndex} className="text-[#FF8A5C]">{part.text}</span>
+                      <span key={partIndex} className="text-[#C4B5FD]">{part.text}</span>
                     ) : (
                       <span key={partIndex}>{part.text}</span>
                     )

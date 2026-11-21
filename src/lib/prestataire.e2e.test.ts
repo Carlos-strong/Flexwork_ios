@@ -136,8 +136,9 @@ describe("devis détaillé — le prestataire fixe le modèle de paiement", () =
     await expectOk(await devisValidatePost(postReq(), atProposal(missionId, proposal.id)), "validation du devis");
 
     const res = await devis(presta.garde, missionId, { financingModeKey: "F2" });
+    // L'annonce reste ouverte (2026-11-10), mais le prestataire y est déjà retenu.
     expect(res.status).toBe(409);
-    expect(["mission_not_open", "proposal_closed"]).toContain((await res.json()).error);
+    expect((await res.json()).error).toBe("already_applied");
     expect(await modeDuDevis(proposal.id)).toBe("J3");
   });
 
@@ -209,8 +210,10 @@ describe("candidature à prix fixe et au temps", () => {
       expect((proposal.devisData as { financingModeKey?: string }).financingModeKey).toBeUndefined();
 
       authAs(clientId);
-      await expectOk(await acceptPost(postReq(), atProposal(missionId, proposalId)), "acceptation");
-      const contrat = await (await expectOk(await contractPost(postReq(), at(missionId)), "contrat")).json();
+      const acc = await expectOk(await acceptPost(postReq(), atProposal(missionId, proposalId)), "acceptation");
+      // Le contrat se génère sur l'ENGAGEMENT du prestataire retenu (2026-11-10).
+      const engagementId = (await acc.json()).engagementId as string;
+      const contrat = await (await expectOk(await contractPost(postReq(), at(engagementId)), "contrat")).json();
       const termes = await prisma.spotTimeTerms.findUniqueOrThrow({ where: { contractId: contrat.id } });
       expect(termes).toMatchObject({ rateUnit: "day", rate: 8_000, maxAmount: 160_000 });
       expect(await prisma.jalon.count({ where: { contractId: contrat.id } })).toBe(0);
@@ -246,7 +249,8 @@ describe("relevés de présence — le prestataire et lui seul déclare", () => 
   let missionId = "";
   beforeAll(async () => {
     // Contrat au temps signé de la mission « PR Temps » (P-N08), conclu avec presta.temps.
-    missionId = missionIds[5];
+    // Engagement du prestataire retenu sur l'annonce « PR Temps » (2026-11-10).
+    missionId = (await prisma.mission.findFirstOrThrow({ where: { parentMissionId: missionIds[5] } })).id;
     await prisma.prestationContract.update({ where: { missionId }, data: { clientSignedAt: new Date(), providerSignedAt: new Date() } });
   });
 

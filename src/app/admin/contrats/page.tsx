@@ -34,10 +34,10 @@ type ContractRow = {
 };
 
 function signatureLabel(c: ContractRow): { label: string; cls: string } {
-  if (c.signedByClient && c.signedByProvider) return { label: "Signé 2/2", cls: "bg-[#E6F5EE] text-[#1A7A4A]" };
+  if (c.signedByClient && c.signedByProvider) return { label: "Signé 2/2", cls: "bg-[#F0EAFF] text-[#3B1578]" };
   if (c.signedByProvider) return { label: "Prestataire 1/2", cls: "bg-[#FEF9E7] text-[#B45309]" };
   if (c.signedByClient) return { label: "Client 1/2", cls: "bg-[#FEF9E7] text-[#B45309]" };
-  return { label: "Non signé", cls: "bg-[#FAFAF8] text-[#5A5750]" };
+  return { label: "Non signé", cls: "bg-[#F6F5FA] text-[#6B6478]" };
 }
 
 /**
@@ -110,7 +110,7 @@ export default function ContratsPage() {
 
       <AdminCard padded={false}>
         {items === null ? (
-          <div className="p-5 text-[13px] text-[#9C9A95]">Chargement…</div>
+          <div className="p-5 text-[13px] text-[#9A93A8]">Chargement…</div>
         ) : list.length === 0 ? (
           <div className="p-5">
             <AdminEmpty>Aucun contrat ne correspond.</AdminEmpty>
@@ -118,7 +118,7 @@ export default function ContratsPage() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="border-b border-[#E2E0D9] bg-[#FAFAF8]">
+              <thead className="border-b border-[#E7E2F0] bg-[#F6F5FA]">
                 <tr>
                   <th className={tableHead}>Mission</th>
                   <th className={tableHead}>Client</th>
@@ -128,20 +128,20 @@ export default function ContratsPage() {
                   <th className={`${tableHead} text-right`}>Détail</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#E2E0D9]">
+              <tbody className="divide-y divide-[#E7E2F0]">
                 {list.map((c) => {
                   const sig = signatureLabel(c);
                   return (
                     <tr key={c.id}>
                       <td className={tableCell}>
                         <div className="font-medium">{c.mission.titre}</div>
-                        <div className="text-[11px] text-[#9C9A95]">
+                        <div className="text-[11px] text-[#9A93A8]">
                           {c.mission.status} · {c.jalons > 0 ? `${c.jalons} jalon${c.jalons > 1 ? "s" : ""}` : "sans jalon"}
                           {c.openMediation && <span className="ml-1.5 font-semibold text-[#B45309]">· ⚖️ litige</span>}
                         </div>
                       </td>
-                      <td className={`${tableCell} text-[#5A5750]`}>{c.client}</td>
-                      <td className={`${tableCell} text-[#5A5750]`}>{c.provider}</td>
+                      <td className={`${tableCell} text-[#6B6478]`}>{c.client}</td>
+                      <td className={`${tableCell} text-[#6B6478]`}>{c.provider}</td>
                       <td className={tableCell}>
                         <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${sig.cls}`}>{sig.label}</span>
                       </td>
@@ -149,7 +149,7 @@ export default function ContratsPage() {
                         {c.balance ? (
                           <>
                             {formatXof(c.balance.held)}
-                            <div className="text-[11px] text-[#9C9A95]">
+                            <div className="text-[11px] text-[#9A93A8]">
                               sur {formatXof(c.balance.contractual)}
                               {c.balance.fundingPending ? " · financement en attente" : ""}
                             </div>

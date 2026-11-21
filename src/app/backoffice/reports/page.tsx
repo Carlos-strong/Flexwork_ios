@@ -63,13 +63,13 @@ export default function ReportingPage() {
               key={e.dataset}
               href={`/api/admin/reporting/${e.dataset}`}
               download
-              className="flex items-start gap-3 rounded-[12px] border border-[#E2E0D9] bg-[#FAFAF8] p-4 transition hover:border-[#C3D1F8] hover:bg-[#EEF2FD]"
+              className="flex items-start gap-3 rounded-[12px] border border-[#E7E2F0] bg-[#F6F5FA] p-4 transition hover:border-[#DDD6FE] hover:bg-[#F0EAFF]"
               style={{ textDecoration: "none" }}
             >
               <span className="text-[20px] leading-none">{e.icon}</span>
               <span className="min-w-0">
-                <span className="block text-[14px] font-semibold text-[#1A1916]">{e.label} · CSV</span>
-                <span className="mt-0.5 block text-[12px] leading-snug text-[#5A5750]">{e.detail}</span>
+                <span className="block text-[14px] font-semibold text-[#191224]">{e.label} · CSV</span>
+                <span className="mt-0.5 block text-[12px] leading-snug text-[#6B6478]">{e.detail}</span>
               </span>
             </a>
           ))}

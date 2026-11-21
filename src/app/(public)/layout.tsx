@@ -6,15 +6,15 @@ import Link from "next/link";
 // commun, dans le design system Flexwork (#008751, #0A1931, #0f172a/#E2E8F0/#F8FAF9).
 export default function PublicLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-[#F8FAF9] flex flex-col">
+    <div className="min-h-screen bg-[#F6F5FA] flex flex-col">
       <main className="flex-1">{children}</main>
 
-      <footer className="bg-[#0A1931] text-white">
+      <footer className="bg-[#191224] text-white">
         <div className="h-1 w-full bg-gradient-to-r from-[#008751] via-[#FCD116] to-[#E8112D]" />
         <div className="page-shell py-12 lg:py-14 grid grid-cols-2 md:grid-cols-4 gap-8 text-sm">
           <div>
             <p className="font-extrabold text-lg mb-3">
-              Flex<span style={{ color: "#008751" }}>Work</span>
+              Flex<span style={{ color: "#4C1D95" }}>Work</span>
               <span className="ml-1 text-[9px] font-bold tracking-widest bg-white/10 text-white px-1.5 py-0.5 rounded align-middle">
                 BJ
               </span>

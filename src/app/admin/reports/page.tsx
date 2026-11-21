@@ -38,9 +38,9 @@ const TARGET_LABEL: Record<ReportItem["targetType"], string> = {
 };
 
 const STATUS_STYLE: Record<ReportItem["status"], { label: string; cls: string }> = {
-  ouvert: { label: "Ouvert", cls: "border-[#FCD89A] bg-[#FEF3C7] text-[#B45309]" },
-  retenu: { label: "Retenu", cls: "border-[#F5C2BE] bg-[#FDEDEC] text-[#B42318]" },
-  classe: { label: "Classé", cls: "border-[#E2E0D9] bg-[#FAFAF8] text-[#5A5750]" },
+  ouvert: { label: "Ouvert", cls: "border-[#FCD89A] bg-[#FFF6E3] text-[#B45309]" },
+  retenu: { label: "Retenu", cls: "border-[#F5C2BE] bg-[#FEECEB] text-[#B42318]" },
+  classe: { label: "Classé", cls: "border-[#E7E2F0] bg-[#F6F5FA] text-[#6B6478]" },
 };
 
 type Filter = "ouvert" | "retenu" | "classe" | "tous";
@@ -147,7 +147,7 @@ export default function ReportsPage() {
             key={f.id}
             onClick={() => setFilter(f.id)}
             className={`h-9 rounded-full border px-4 text-[13px] font-medium transition ${
-              filter === f.id ? "border-[#2D5BE3] bg-[#EEF2FD] text-[#2D5BE3]" : "border-[#E2E0D9] bg-white text-[#5A5750] hover:bg-[#FAFAF8]"
+              filter === f.id ? "border-[#4C1D95] bg-[#F0EAFF] text-[#4C1D95]" : "border-[#E7E2F0] bg-white text-[#6B6478] hover:bg-[#F6F5FA]"
             }`}
           >
             {f.label}
@@ -157,7 +157,7 @@ export default function ReportsPage() {
 
       <AdminCard padded={false}>
         {items === null ? (
-          <div className="p-5 text-[13px] text-[#9C9A95]">Chargement…</div>
+          <div className="p-5 text-[13px] text-[#9A93A8]">Chargement…</div>
         ) : items.length === 0 ? (
           <div className="p-5">
             <AdminEmpty>Aucun signalement dans cette file.</AdminEmpty>
@@ -165,7 +165,7 @@ export default function ReportsPage() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="border-b border-[#E2E0D9] bg-[#FAFAF8]">
+              <thead className="border-b border-[#E7E2F0] bg-[#F6F5FA]">
                 <tr>
                   <th className={tableHead}>Reçu</th>
                   <th className={tableHead}>Cible</th>
@@ -174,23 +174,23 @@ export default function ReportsPage() {
                   <th className={`${tableHead} text-right`}>{canAct ? "Décision" : ""}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#E2E0D9]">
+              <tbody className="divide-y divide-[#E7E2F0]">
                 {items.map((item) => {
                   const next = followUp(item);
                   return (
                     <tr key={item.id} className="align-top">
                       <td className={`${tableCell} whitespace-nowrap`}>
                         {new Date(item.createdAt).toLocaleDateString("fr-FR")}
-                        <div className="text-[11px] text-[#9C9A95]">{item.reporter?.email ?? "anonyme"}</div>
+                        <div className="text-[11px] text-[#9A93A8]">{item.reporter?.email ?? "anonyme"}</div>
                       </td>
                       <td className={tableCell}>
                         {TARGET_LABEL[item.targetType]}
-                        {item.targetId && <div className="font-mono text-[11px] text-[#9C9A95]">{item.targetId}</div>}
+                        {item.targetId && <div className="font-mono text-[11px] text-[#9A93A8]">{item.targetId}</div>}
                       </td>
                       <td className={`${tableCell} max-w-[420px]`}>
                         <p className="whitespace-pre-line">{item.reason}</p>
                         {item.decisionNote && (
-                          <p className="mt-1.5 rounded-lg bg-[#FAFAF8] px-2.5 py-1.5 text-[12px] text-[#5A5750]">
+                          <p className="mt-1.5 rounded-lg bg-[#F6F5FA] px-2.5 py-1.5 text-[12px] text-[#6B6478]">
                             <strong>{item.handledBy?.email ?? "Modération"}</strong> : {item.decisionNote}
                           </p>
                         )}
@@ -212,7 +212,7 @@ export default function ReportsPage() {
                           </div>
                         )}
                         {canAct && item.status === "retenu" && next && (
-                          <Link href={next.href} className="text-[12.5px] font-semibold text-[#2D5BE3]" style={{ textDecoration: "none" }}>
+                          <Link href={next.href} className="text-[12.5px] font-semibold text-[#4C1D95]" style={{ textDecoration: "none" }}>
                             {next.label}
                           </Link>
                         )}
@@ -228,11 +228,11 @@ export default function ReportsPage() {
 
       {deciding && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4" onClick={() => setDeciding(null)}>
-          <div className="w-full max-w-md rounded-[16px] border border-[#E2E0D9] bg-white p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-md rounded-[16px] border border-[#E7E2F0] bg-white p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-[16px] font-semibold">
               {deciding.status === "retenu" ? "Retenir ce signalement" : "Classer sans suite"}
             </h2>
-            <p className="mt-1 text-[12.5px] text-[#5A5750]">
+            <p className="mt-1 text-[12.5px] text-[#6B6478]">
               {deciding.status === "retenu"
                 ? "Vous consignez que le signalement est fondé. Aucune sanction n’en découle automatiquement."
                 : "Le signalement est clos. La décision ne se réécrit pas."}
@@ -242,7 +242,7 @@ export default function ReportsPage() {
               onChange={(e) => setNote(e.target.value)}
               rows={4}
               placeholder="Motif (10 caractères au moins) — il figure au journal d’audit."
-              className="mt-3 w-full rounded-lg border border-[#E2E0D9] p-3 text-[13px] outline-none focus:border-[#2D5BE3]"
+              className="mt-3 w-full rounded-lg border border-[#E7E2F0] p-3 text-[13px] outline-none focus:border-[#4C1D95]"
             />
             <div className="mt-3 flex justify-end gap-2">
               <button onClick={() => setDeciding(null)} className={btnSecondary}>

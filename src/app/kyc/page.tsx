@@ -168,9 +168,9 @@ export default function KycPage() {
     }
   }
 
-  const inputClass = "w-full h-11 px-4 rounded-xl border border-zinc-200 text-[14px] bg-white focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751] transition";
-  const btnPrimary = "h-11 px-6 rounded-xl bg-[#008751] text-white text-[14px] font-semibold hover:brightness-110 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-[0_4px_12px_rgba(0,135,81,0.25)]";
-  const btnOutline = "h-11 px-6 rounded-xl border border-zinc-200 text-[14px] font-medium text-zinc-600 hover:bg-zinc-50 active:scale-[0.98] transition-all";
+  const inputClass = "w-full h-11 px-4 rounded-xl border border-zinc-200 text-[14px] bg-white focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20 focus:border-[#4C1D95] transition";
+  const btnPrimary = "h-11 px-6 rounded-full bg-[#4C1D95] text-white text-[14px] font-semibold hover:brightness-110 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-[0_4px_12px_rgba(76,29,149,0.25)]";
+  const btnOutline = "h-11 px-6 rounded-full border border-zinc-200 text-[14px] font-medium text-zinc-600 hover:bg-zinc-50 active:scale-[0.98] transition-all";
 
   // Zone de dépôt réutilisée aux étapes 2, 3 et 4 : affiche le nom du fichier choisi dès la
   // sélection, ou — s'il n'y a rien de choisi cette session mais qu'un document existe déjà
@@ -184,20 +184,20 @@ export default function KycPage() {
     return (
       <div className="relative">
         <div className={`${compact ? "p-6" : "p-8"} border-2 border-dashed rounded-2xl text-center cursor-pointer transition-all group ${
-          displayName ? "border-[#008751] bg-[#f0faf5]/50" : "border-zinc-200 hover:border-[#008751] hover:bg-[#f0faf5]/50"
+          displayName ? "border-[#4C1D95] bg-[#F0EAFF]/50" : "border-zinc-200 hover:border-[#4C1D95] hover:bg-[#F0EAFF]/50"
         }`}>
           {displayName ? (
             <>
-              <FileCheck className="w-8 h-8 text-[#008751] mx-auto mb-2" />
-              <p className="text-[13px] text-[#008751] font-semibold truncate px-4">{displayName}</p>
+              <FileCheck className="w-8 h-8 text-[#4C1D95] mx-auto mb-2" />
+              <p className="text-[13px] text-[#4C1D95] font-semibold truncate px-4">{displayName}</p>
               <p className="text-[11px] text-zinc-400 mt-1">
                 {selected ? formatFileSize(selected.size) : "Déjà envoyé"} {usable ? "· ✓ envoyé" : "— cliquez pour changer"}
               </p>
             </>
           ) : (
             <>
-              <Upload className="w-8 h-8 text-zinc-300 group-hover:text-[#008751] mx-auto mb-2" />
-              <p className="text-[13px] text-zinc-500 group-hover:text-[#008751] font-medium">Glisse ton fichier ici</p>
+              <Upload className="w-8 h-8 text-zinc-300 group-hover:text-[#4C1D95] mx-auto mb-2" />
+              <p className="text-[13px] text-zinc-500 group-hover:text-[#4C1D95] font-medium">Glisse ton fichier ici</p>
               <p className="text-[11px] text-zinc-400 mt-1">{hint}</p>
             </>
           )}
@@ -218,7 +218,7 @@ export default function KycPage() {
   if (kycStatus === "loading") {
     return (
       <div className="min-h-screen bg-zinc-50 flex items-center justify-center">
-        <div className="w-8 h-8 border-[3px] border-[#FF7A00] border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-[3px] border-[#6D28D9] border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -226,12 +226,12 @@ export default function KycPage() {
   // ---- Already verified ----
   if (kycStatus === "verifie") {
     return (
-      <div className="min-h-screen bg-[#FFF8F0] flex items-center justify-center p-6">
+      <div className="min-h-screen bg-[#F6F5FA] flex items-center justify-center p-6">
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm max-w-[480px] w-full p-8 text-center">
-          <div className="w-16 h-16 rounded-full bg-[#f0faf5] border-2 border-[#008751] flex items-center justify-center mx-auto mb-4">
-            <BadgeCheck className="w-8 h-8 text-[#008751]" />
+          <div className="w-16 h-16 rounded-full bg-[#F0EAFF] border-2 border-[#4C1D95] flex items-center justify-center mx-auto mb-4">
+            <BadgeCheck className="w-8 h-8 text-[#047857]" />
           </div>
-          <h2 className="text-[18px] font-bold text-[#0A1931] mb-2">Identité vérifiée ✓</h2>
+          <h2 className="text-[18px] font-bold text-[#191224] mb-2">Identité vérifiée ✓</h2>
           <p className="text-[13px] text-zinc-500 mb-6 leading-relaxed">
             Aucune nouvelle soumission n&apos;est nécessaire. Vous pouvez désormais publier une mission ou candidater.
           </p>
@@ -245,19 +245,19 @@ export default function KycPage() {
   // à partir de /api/kyc/documents, pas d'un simple flag local) ----
   if (pendingReview) {
     return (
-      <div className="min-h-screen bg-[#FFF8F0] flex items-center justify-center p-6">
+      <div className="min-h-screen bg-[#F6F5FA] flex items-center justify-center p-6">
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm max-w-[480px] w-full p-8 text-center">
           <div className="w-16 h-16 rounded-full bg-amber-50 border-2 border-amber-400 flex items-center justify-center mx-auto mb-4">
             <Clock className="w-8 h-8 text-amber-500" />
           </div>
-          <h2 className="text-[18px] font-bold text-[#0A1931] mb-2">Dossier en cours de revue</h2>
+          <h2 className="text-[18px] font-bold text-[#191224] mb-2">Dossier en cours de revue</h2>
           <p className="text-[13px] text-zinc-500 mb-6 leading-relaxed">
             Tes 4 documents ont bien été reçus. Un admin les vérifie sous 24h max — tu reçois un SMS et un email dès que c&apos;est fait.
           </p>
           <ul className="text-left space-y-1.5 mb-6">
             {(Object.entries(uploadedDocs) as [DocType, { fileName: string }][]).map(([type, doc]) => (
               <li key={type} className="flex items-center gap-2 text-[12px] text-zinc-600">
-                <Check className="w-3.5 h-3.5 text-[#008751] shrink-0" />
+                <Check className="w-3.5 h-3.5 text-[#4C1D95] shrink-0" />
                 <span className="font-medium text-zinc-700">{DOC_LABELS[type]} :</span>
                 <span className="truncate text-zinc-500">{doc.fileName}</span>
               </li>
@@ -271,7 +271,7 @@ export default function KycPage() {
 
   // ---- Main KYC form ----
   return (
-    <div className="min-h-screen bg-[#FFF8F0]">
+    <div className="min-h-screen bg-[#F6F5FA]">
       {/* Header bar */}
       <div className="bg-white border-b border-gray-100 px-4 md:px-6 h-[56px] flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -281,11 +281,11 @@ export default function KycPage() {
           <div className="flex items-center gap-2 text-[13px]">
             <span className="text-zinc-400">Tableau</span>
             <span className="text-zinc-300">/</span>
-            <span className="font-semibold text-[#0A1931]">Vérification KYC</span>
+            <span className="font-semibold text-[#191224]">Vérification KYC</span>
           </div>
         </div>
         <div className="flex items-center gap-2 text-[12px]">
-          <span className="px-2.5 py-1 rounded-full bg-[#008751]/10 text-[#008751] font-semibold">Étape {step}/4</span>
+          <span className="px-2.5 py-1 rounded-full bg-[#4C1D95]/10 text-[#4C1D95] font-semibold">Étape {step}/4</span>
         </div>
       </div>
 
@@ -297,7 +297,7 @@ export default function KycPage() {
           <div className="flex-1 space-y-6">
             {/* Page title */}
             <div>
-              <h1 className="text-[22px] md:text-[26px] font-bold text-[#0A1931]">Vérification KYC</h1>
+              <h1 className="text-[22px] md:text-[26px] font-bold text-[#191224]">Vérification KYC</h1>
               <p className="text-[13px] text-zinc-500 mt-1">Sécurise ton compte pour débloquer les paiements. 100% confidentiel.</p>
             </div>
 
@@ -322,19 +322,19 @@ export default function KycPage() {
                 const isDone = s.num < step;
                 return (
                   <div key={s.id} className={`flex-1 flex items-center gap-2 md:gap-3 p-3 rounded-xl border-2 transition-all ${
-                    isActive ? "border-[#008751] bg-[#f0faf5]" :
-                    isDone ? "border-[#008751]/30 bg-white" :
+                    isActive ? "border-[#4C1D95] bg-[#F0EAFF]" :
+                    isDone ? "border-[#047857]/30 bg-white" :
                     "border-gray-100 bg-white"
                   }`}>
                     <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 ${
-                      isActive ? "bg-[#008751] text-white" :
-                      isDone ? "bg-[#008751]/20 text-[#008751]" :
+                      isActive ? "bg-[#4C1D95] text-white" :
+                      isDone ? "bg-[#047857]/20 text-[#047857]" :
                       "bg-gray-100 text-zinc-400"
                     }`}>
                       {isDone ? <Check className="w-3.5 h-3.5" /> : s.num}
                     </div>
                     <div className="hidden sm:block min-w-0">
-                      <div className={`text-[12px] font-semibold truncate ${isActive ? "text-[#008751]" : isDone ? "text-zinc-600" : "text-zinc-400"}`}>{s.label}</div>
+                      <div className={`text-[12px] font-semibold truncate ${isActive ? "text-[#047857]" : isDone ? "text-zinc-600" : "text-zinc-400"}`}>{s.label}</div>
                       <div className="text-[10px] text-zinc-400 truncate">{isDone ? "Fait" : isActive ? "En cours" : "À faire"}</div>
                     </div>
                   </div>
@@ -347,8 +347,8 @@ export default function KycPage() {
                 d'étape ou en rechargeant la page. Un document rejeté est signalé en rouge
                 plutôt que compté comme "envoyé". */}
             {Object.keys(uploadedDocs).length > 0 && (
-              <div className="px-4 py-3 rounded-xl bg-[#f0faf5] border border-[#008751]/20">
-                <div className="flex items-center gap-2 text-[12px] font-semibold text-[#008751] mb-2">
+              <div className="px-4 py-3 rounded-xl bg-[#F0EAFF] border border-[#4C1D95]/20">
+                <div className="flex items-center gap-2 text-[12px] font-semibold text-[#4C1D95] mb-2">
                   <BadgeCheck className="w-4 h-4" /> Fichiers téléversés ({Object.keys(uploadedDocs).length})
                 </div>
                 <ul className="space-y-1.5">
@@ -356,7 +356,7 @@ export default function KycPage() {
                     const rejected = doc.status === "rejete";
                     return (
                       <li key={type} className={`flex items-center gap-2 text-[12px] ${rejected ? "text-red-600" : "text-zinc-600"}`}>
-                        {rejected ? <AlertCircle className="w-3.5 h-3.5 shrink-0" /> : <Check className="w-3.5 h-3.5 text-[#008751] shrink-0" />}
+                        {rejected ? <AlertCircle className="w-3.5 h-3.5 shrink-0" /> : <Check className="w-3.5 h-3.5 text-[#4C1D95] shrink-0" />}
                         <span className="font-medium shrink-0">{DOC_LABELS[type]} :</span>
                         <span className="truncate">{doc.fileName}</span>
                         {doc.size != null && <span className="text-zinc-400 shrink-0">({formatFileSize(doc.size)})</span>}
@@ -379,11 +379,11 @@ export default function KycPage() {
             {step === 1 && (
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                 <div className="px-5 md:px-6 py-4 border-b border-gray-50 flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-[#008751]/10 flex items-center justify-center">
-                    <Upload className="w-5 h-5 text-[#008751]" />
+                  <div className="w-10 h-10 rounded-xl bg-[#4C1D95]/10 flex items-center justify-center">
+                    <Upload className="w-5 h-5 text-[#4C1D95]" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-[15px] text-[#0A1931]">Pièce d&apos;identité</h3>
+                    <h3 className="font-semibold text-[15px] text-[#191224]">Pièce d&apos;identité</h3>
                     <p className="text-[12px] text-zinc-400">Étape 1 — Renseignez votre pièce</p>
                   </div>
                 </div>
@@ -401,7 +401,7 @@ export default function KycPage() {
                           onClick={() => setIdType(t.value)}
                           className={`h-11 px-4 rounded-xl border-2 text-[13px] font-semibold transition-all ${
                             idType === t.value
-                              ? "border-[#008751] bg-[#f0faf5] text-[#008751]"
+                              ? "border-[#4C1D95] bg-[#F0EAFF] text-[#4C1D95]"
                               : "border-gray-100 bg-white text-zinc-600 hover:border-gray-200"
                           }`}>
                           {t.label}
@@ -411,7 +411,7 @@ export default function KycPage() {
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div className="sm:col-span-1">
-                      <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Numéro de pièce <span className="text-[#E8112D]">*</span></label>
+                      <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Numéro de pièce <span className="text-[#B42318]">*</span></label>
                       <input type="text" required placeholder="B12345678" value={idNumber} onChange={(e) => setIdNumber(e.target.value)} className={inputClass} />
                     </div>
                     <div>
@@ -437,11 +437,11 @@ export default function KycPage() {
             {step === 2 && (
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                 <div className="px-5 md:px-6 py-4 border-b border-gray-50 flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-[#008751]/10 flex items-center justify-center">
-                    <Upload className="w-5 h-5 text-[#008751]" />
+                  <div className="w-10 h-10 rounded-xl bg-[#4C1D95]/10 flex items-center justify-center">
+                    <Upload className="w-5 h-5 text-[#4C1D95]" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-[15px] text-[#0A1931]">Pièce d&apos;identité — Recto</h3>
+                    <h3 className="font-semibold text-[15px] text-[#191224]">Pièce d&apos;identité — Recto</h3>
                     <p className="text-[12px] text-zinc-400">Étape 2 — Téléversez le recto</p>
                   </div>
                 </div>
@@ -461,11 +461,11 @@ export default function KycPage() {
             {step === 3 && (
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                 <div className="px-5 md:px-6 py-4 border-b border-gray-50 flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-[#008751]/10 flex items-center justify-center">
-                    <Upload className="w-5 h-5 text-[#008751]" />
+                  <div className="w-10 h-10 rounded-xl bg-[#4C1D95]/10 flex items-center justify-center">
+                    <Upload className="w-5 h-5 text-[#4C1D95]" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-[15px] text-[#0A1931]">Pièce d&apos;identité — Verso</h3>
+                    <h3 className="font-semibold text-[15px] text-[#191224]">Pièce d&apos;identité — Verso</h3>
                     <p className="text-[12px] text-zinc-400">Étape 3 — Téléversez le verso</p>
                   </div>
                 </div>
@@ -485,21 +485,21 @@ export default function KycPage() {
             {step === 4 && (
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                 <div className="px-5 md:px-6 py-4 border-b border-gray-50 flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-[#008751]/10 flex items-center justify-center">
-                    <Upload className="w-5 h-5 text-[#008751]" />
+                  <div className="w-10 h-10 rounded-xl bg-[#4C1D95]/10 flex items-center justify-center">
+                    <Upload className="w-5 h-5 text-[#4C1D95]" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-[15px] text-[#0A1931]">Selfie + Pièce</h3>
+                    <h3 className="font-semibold text-[15px] text-[#191224]">Selfie + Pièce</h3>
                     <p className="text-[12px] text-zinc-400">Étape 4 — Vérification faciale</p>
                   </div>
                 </div>
                 <form onSubmit={handleFinalSubmit} className="px-5 md:px-6 py-5 space-y-4">
                   <div>
-                    <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Selfie <span className="text-[#E8112D]">*</span></label>
+                    <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Selfie <span className="text-[#B42318]">*</span></label>
                     {renderDropzone("selfie", "selfie", "image/jpeg,image/png", "Selfie face visible, bon éclairage", true)}
                   </div>
                   <div>
-                    <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Selfie avec pièce d&apos;identité <span className="text-[#E8112D]">*</span></label>
+                    <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Selfie avec pièce d&apos;identité <span className="text-[#B42318]">*</span></label>
                     {renderDropzone("selfie_avec_piece", "selfie_avec_piece", "image/jpeg,image/png", "Selfie + pièce d'identité visible", true)}
                   </div>
                   <div className="flex justify-between gap-3 pt-2">
@@ -520,8 +520,8 @@ export default function KycPage() {
             {/* Pourquoi KYC */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
               <div className="px-5 py-4 border-b border-gray-50">
-                <h4 className="font-semibold text-[14px] text-[#0A1931] flex items-center gap-2">
-                  <Shield className="w-4 h-4 text-[#008751]" /> Pourquoi KYC ?
+                <h4 className="font-semibold text-[14px] text-[#191224] flex items-center gap-2">
+                  <Shield className="w-4 h-4 text-[#4C1D95]" /> Pourquoi KYC ?
                 </h4>
               </div>
               <div className="px-5 py-4 space-y-3">
@@ -533,25 +533,25 @@ export default function KycPage() {
                   <div key={i} className="flex gap-3">
                     <span className="text-lg shrink-0">{item.icon}</span>
                     <div>
-                      <div className="text-[12px] font-semibold text-[#0A1931]">{item.title}</div>
+                      <div className="text-[12px] font-semibold text-[#191224]">{item.title}</div>
                       <div className="text-[11px] text-zinc-400">{item.desc}</div>
                     </div>
                   </div>
                 ))}
               </div>
-              <div className="px-5 py-3 bg-[#f0faf5] border-t border-[#008751]/10 flex items-start gap-3">
-                <Clock className="w-4 h-4 text-[#008751] shrink-0 mt-0.5" />
+              <div className="px-5 py-3 bg-[#F0EAFF] border-t border-[#4C1D95]/10 flex items-start gap-3">
+                <Clock className="w-4 h-4 text-[#4C1D95] shrink-0 mt-0.5" />
                 <div>
-                  <div className="text-[12px] font-semibold text-[#008751]">Délai de traitement</div>
+                  <div className="text-[12px] font-semibold text-[#4C1D95]">Délai de traitement</div>
                   <div className="text-[11px] text-zinc-500">Vérification humaine en 24h max. Tu reçois un SMS + email.</div>
                 </div>
               </div>
             </div>
 
             {/* Passe vérifié */}
-            <div className="bg-[#0A1931] rounded-2xl p-5 text-white">
-              <div className="w-10 h-10 rounded-xl bg-[#FF7A00]/20 flex items-center justify-center mb-3">
-                <BadgeCheck className="w-5 h-5 text-[#FF7A00]" />
+            <div className="bg-[#191224] rounded-2xl p-5 text-white">
+              <div className="w-10 h-10 rounded-xl bg-[#6D28D9]/20 flex items-center justify-center mb-3">
+                <BadgeCheck className="w-5 h-5 text-[#6D28D9]" />
               </div>
               <h4 className="font-semibold text-[14px] mb-2">Passe vérifié = plus de clients</h4>
               <p className="text-[12px] text-white/60 leading-relaxed">
@@ -561,7 +561,7 @@ export default function KycPage() {
 
             {/* Support */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-              <div className="text-[12px] font-semibold text-[#0A1931] mb-2">Besoin d&apos;aide ?</div>
+              <div className="text-[12px] font-semibold text-[#191224] mb-2">Besoin d&apos;aide ?</div>
               <p className="text-[11px] text-zinc-500 leading-relaxed">
                 💬 Chat support en Fon / Wolof / Français — réponse &lt; 5min
               </p>

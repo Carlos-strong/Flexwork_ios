@@ -2,7 +2,7 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Download, FileText, ScrollText } from "lucide-react";
+import { AlertTriangle, Download, FileText, Pencil, ScrollText } from "lucide-react";
 import { fetchDedupe } from "@/lib/fetch-dedupe";
 import { REVISION_REQUESTED_BADGE, REVISION_REQUESTED_LABEL } from "@/lib/proposal-status";
 import {
@@ -13,7 +13,7 @@ import {
 } from "@/lib/devis-contrats";
 
 // Rubrique "Devis & Contrats" — accessible via le bloc sidebar "Documents Contractuels"
-// (voir DashboardSidebar/DashboardLayout), même architecture de vue que OffresSection.tsx /
+// (voir le menu du compte, src/components/ProfileMenu.tsx), même architecture de vue que OffresSection.tsx /
 // CandidaturesSection.tsx (tuiles de stats, chips de filtre, cartes) pour rester cohérent
 // avec le reste du dashboard plutôt que de reproduire littéralement la maquette Sidecar-
 // Devis-Contrats-Signes-Vjr. Un seul composant partagé entre le dashboard client
@@ -36,6 +36,11 @@ type DevisItem = {
   bucket: DevisBucket;
   // Le client a demandé une nouvelle version et le prestataire n'a pas encore resoumis.
   revisionPending?: boolean;
+  // Candidature NON ENVOYÉE au client (retenue faute de KYC, src/lib/proposal-drafts.ts) :
+  // `kind` décide du formulaire à rouvrir, `lastError` dit pourquoi un envoi automatique a échoué.
+  pending?: boolean;
+  kind?: "proposal" | "devis";
+  lastError?: string | null;
   createdAt: string;
 };
 
@@ -61,12 +66,12 @@ type Payload = {
 };
 
 const DEVIS_BUCKET_STYLE: Record<DevisBucket, string> = {
-  brouillon: "bg-[#F1F5F9] text-[#475569] border-[#E2E8F0]",
-  negociation: "bg-[#FEF3C7] text-[#92400E] border-[#FCD34D]",
-  valide: "bg-[#DCFCE7] text-[#166534] border-[#BBF7D0]",
-  rejete: "bg-[#FEE2E2] text-[#B91C1C] border-[#FECACA]",
+  brouillon: "bg-[#EFEAF8] text-[#4A4258] border-[#E7E2F0]",
+  negociation: "bg-[#FFF6E3] text-[#92400E] border-[#FCD34D]",
+  valide: "bg-[#E7F7EF] text-[#047857] border-[#BBF7D0]",
+  rejete: "bg-[#FEECEB] text-[#B42318] border-[#FECACA]",
   // Même neutre gris que le « Clôturé » des contrats : c'est un état terminal, pas une alerte.
-  cloture: "bg-[#F1F5F9] text-[#475569] border-[#E2E8F0]",
+  cloture: "bg-[#EFEAF8] text-[#4A4258] border-[#E7E2F0]",
 };
 // Libellés repris du module partagé (src/lib/devis-contrats.ts) — ils étaient redéfinis ici
 // à l'identique, avec le risque classique de divergence.
@@ -74,7 +79,7 @@ const DEVIS_BUCKET_LABEL = DEVIS_BUCKET_LABEL_SHARED;
 
 const CONTRAT_BUCKET_STYLE: Record<ContratBucket, string> = {
   en_cours: "bg-[#DBEAFE] text-[#1D4ED8] border-[#BFDBFE]",
-  cloture: "bg-[#F1F5F9] text-[#475569] border-[#E2E8F0]",
+  cloture: "bg-[#EFEAF8] text-[#4A4258] border-[#E7E2F0]",
 };
 const CONTRAT_BUCKET_LABEL = CONTRAT_BUCKET_LABEL_SHARED;
 
@@ -105,6 +110,7 @@ function DevisContratsSectionInner({ viewer }: { viewer: "client" | "provider" }
   const filter = searchParams.get("f") ?? "tous";
 
   const [data, setData] = useState<Payload | null>(null);
+  const heldMissionId = searchParams.get("envoi") === "en-attente" ? searchParams.get("mission") : null;
   useEffect(() => {
     fetchDedupe("/api/devis-contrats")
       .then((r) => (r.ok ? r.json() : null))
@@ -149,12 +155,16 @@ function DevisContratsSectionInner({ viewer }: { viewer: "client" | "provider" }
   // /missions/[id]/contract un cran plus tôt dans la chaîne. Renvoyer le prestataire vers son
   // formulaire de chiffrage pour un prix déjà arrêté proposait une action qui n'existe plus.
   const devisHref = (d: DevisItem) => {
+    // Non envoyée : on rouvre son formulaire, pré-rempli, pour la modifier.
+    if (d.pending) return d.kind === "devis" ? `/missions/${d.missionId}/devis` : `/missions/${d.missionId}?candidater=1`;
     if (d.bucket === "valide" || d.bucket === "cloture") return `/missions/${d.missionId}/devis/${d.id}`;
     return viewer === "provider" ? `/missions/${d.missionId}/devis` : `/missions/${d.missionId}`;
   };
 
+  const heldItem = heldMissionId ? (data?.devis.find((d) => d.pending && d.missionId === heldMissionId) ?? null) : null;
+
   // Navigation par URL (?tab=&f=) plutôt que du state local : source unique avec les liens
-  // du sidebar (DashboardSidebar), qui pointent vers ces mêmes query strings.
+  // du menu du compte (ProfileMenu), qui pointent vers ces mêmes query strings.
   function goTo(nextTab: "devis" | "contrats", nextFilter: string) {
     router.replace(`${pathname}?tab=${nextTab}&f=${nextFilter}`);
   }
@@ -162,7 +172,7 @@ function DevisContratsSectionInner({ viewer }: { viewer: "client" | "provider" }
   return (
     <div className="page-width space-y-6">
       <div>
-        <h1 className="text-[28px] font-extrabold leading-none tracking-tight text-[#0A1931]">Devis & Contrats</h1>
+        <h1 className="text-[28px] font-extrabold leading-none tracking-tight text-[#191224]">Devis & Contrats</h1>
         <p className="text-[13px] text-gray-500 mt-2">Tous tes devis en négociation et tes contrats signés, au même endroit.</p>
       </div>
 
@@ -178,7 +188,7 @@ function DevisContratsSectionInner({ viewer }: { viewer: "client" | "provider" }
             <button
               key={t.id}
               onClick={() => goTo(t.id, "tous")}
-              className={`flex items-center gap-1.5 whitespace-nowrap rounded-full px-4 py-[7px] text-[12px] font-bold transition ${active ? "bg-[#0A1931] text-white shadow" : "bg-[#F8F6F3] text-gray-600 hover:bg-gray-100"}`}
+              className={`flex items-center gap-1.5 whitespace-nowrap rounded-full px-4 py-[7px] text-[12px] font-bold transition ${active ? "bg-[#191224] text-white shadow" : "bg-[#F6F5FA] text-gray-600 hover:bg-gray-100"}`}
             >
               <t.Icon className="w-3.5 h-3.5" /> {t.label}
             </button>
@@ -193,13 +203,36 @@ function DevisContratsSectionInner({ viewer }: { viewer: "client" | "provider" }
             <button
               key={f.id}
               onClick={() => goTo(tab, f.id)}
-              className={`whitespace-nowrap rounded-full px-4 py-[7px] text-[12px] font-bold transition ${active ? "bg-[#FF7A00] text-white shadow" : "bg-[#F8F6F3] text-gray-600 hover:bg-gray-100"}`}
+              className={`whitespace-nowrap rounded-full px-4 py-[7px] text-[12px] font-bold transition ${active ? "bg-[#6D28D9] text-white shadow" : "bg-[#F6F5FA] text-gray-600 hover:bg-gray-100"}`}
             >
               {f.label} {typeof f.count === "number" && <span className={active ? "text-white/70" : "text-gray-400"}>{f.count}</span>}
             </button>
           );
         })}
       </div>
+
+      {/* Arrivée depuis « Envoyer ma candidature » sans identité vérifiée (?envoi=en-attente) :
+          la candidature n'est PAS partie chez le client — on le dit en premier, avec la suite. */}
+      {heldItem && (
+        <div role="alert" className="rounded-[16px] border border-amber-300 bg-amber-50 p-4 text-[13px] text-amber-900">
+          <p className="flex items-center gap-2 font-semibold">
+            <AlertTriangle aria-hidden className="w-4 h-4 shrink-0" />
+            Votre candidature à « {heldItem.missionTitre} » n&apos;a pas été envoyée au client.
+          </p>
+          <p className="mt-1.5">
+            Votre identité doit d&apos;abord être vérifiée. La candidature est enregistrée ici, dans vos brouillons : elle
+            partira automatiquement dès la validation de votre identité. Vous pouvez la modifier d&apos;ici là.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Link href={devisHref(heldItem)} className="inline-flex items-center gap-1.5 rounded-full bg-[#191224] px-4 py-2 text-[12px] font-bold text-white hover:bg-black" style={{ textDecoration: "none" }}>
+              <Pencil aria-hidden className="w-3.5 h-3.5" /> Modifier la candidature
+            </Link>
+            <Link href="/kyc" className="inline-flex items-center rounded-full border border-amber-400 bg-white px-4 py-2 text-[12px] font-bold text-amber-900 hover:bg-amber-100" style={{ textDecoration: "none" }}>
+              Vérifier mon identité
+            </Link>
+          </div>
+        </div>
+      )}
 
       {data === null ? (
         <div className="bg-white rounded-[20px] border border-gray-100 p-10 text-center text-[13px] text-gray-400">Chargement…</div>
@@ -209,23 +242,43 @@ function DevisContratsSectionInner({ viewer }: { viewer: "client" | "provider" }
         ) : (
           <div className="flex flex-col gap-3">
             {filteredDevis.map((d) => (
-              <div key={d.id} className="bg-white rounded-[20px] p-5 border border-gray-100 hover:shadow-lg hover:border-orange-100 transition-all flex flex-col sm:flex-row sm:items-center gap-4">
+              <div
+                key={d.id}
+                className={`bg-white rounded-[20px] p-5 border hover:shadow-lg transition-all flex flex-col sm:flex-row sm:items-center gap-4 ${
+                  d.pending && d.missionId === heldMissionId ? "border-amber-300 ring-2 ring-amber-200" : "border-gray-100 hover:border-violet-100"
+                }`}
+              >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     {/* Une révision en attente prime sur le libellé de sous-rubrique : le
                         bucket reste « négociation » (filtres/compteurs inchangés) mais la
                         ligne annonce l'action attendue, comme les autres vues de candidature. */}
-                    <span className={`rounded-full px-3 py-1 text-[11px] font-bold border ${d.revisionPending ? REVISION_REQUESTED_BADGE : DEVIS_BUCKET_STYLE[d.bucket]}`}>
-                      {d.revisionPending ? REVISION_REQUESTED_LABEL : DEVIS_BUCKET_LABEL[d.bucket]}
-                    </span>
-                    <span className="text-[10px] text-gray-400 font-mono">#DEV-{d.id.slice(-6).toUpperCase()}</span>
+                    {d.pending ? (
+                      <span className="rounded-full px-3 py-1 text-[11px] font-bold border bg-amber-50 text-amber-800 border-amber-300">Non envoyée</span>
+                    ) : (
+                      <span className={`rounded-full px-3 py-1 text-[11px] font-bold border ${d.revisionPending ? REVISION_REQUESTED_BADGE : DEVIS_BUCKET_STYLE[d.bucket]}`}>
+                        {d.revisionPending ? REVISION_REQUESTED_LABEL : DEVIS_BUCKET_LABEL[d.bucket]}
+                      </span>
+                    )}
+                    {d.pending ? (
+                      <span className="text-[11px] text-gray-500">{d.kind === "devis" ? "Devis" : "Candidature"}</span>
+                    ) : (
+                      <span className="text-[10px] text-gray-400 font-mono">#DEV-{d.id.slice(-6).toUpperCase()}</span>
+                    )}
                   </div>
                   <h3 className="font-bold text-[14px] mt-2 leading-snug">{d.missionTitre}</h3>
                   <div className="text-[12px] text-gray-500 mt-1 flex items-center gap-2">
                     <span>{viewer === "client" ? "Prestataire" : "Client"} : {d.counterpartName}</span>
                     <span className="w-1 h-1 bg-gray-300 rounded-full shrink-0" />
-                    <span className="font-bold text-[#0A1931] shrink-0">{d.montant.toLocaleString("fr-FR")} {d.currency}</span>
+                    <span className="font-bold text-[#191224] shrink-0">{d.montant.toLocaleString("fr-FR")} {d.currency}</span>
                   </div>
+                  {d.pending && (
+                    <p className="mt-1.5 text-[12px] text-amber-800">
+                      {d.lastError
+                        ? `Envoi automatique refusé : ${d.lastError}. Corrigez-la puis envoyez-la.`
+                        : "Pas encore envoyée au client : elle partira automatiquement dès la vérification de votre identité."}
+                    </p>
+                  )}
                 </div>
                 <div className="shrink-0 flex items-center gap-2">
                   {/* Devis DÉFINITIF (validé, ou clôturé avec la mission) : le chiffrage est
@@ -239,15 +292,21 @@ function DevisContratsSectionInner({ viewer }: { viewer: "client" | "provider" }
                       target="_blank"
                       rel="noopener noreferrer"
                       title="Ouvrir le devis définitif en PDF"
-                      className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white hover:bg-gray-50 px-4 py-2 text-[12px] font-bold text-[#0A1931] transition"
+                      className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white hover:bg-gray-50 px-4 py-2 text-[12px] font-bold text-[#191224] transition"
                       style={{ textDecoration: "none" }}
                     >
                       <Download className="w-3.5 h-3.5" />
                       PDF
                     </a>
                   )}
-                  <Link href={devisHref(d)} className="bg-[#0A1931] hover:bg-black text-white rounded-full px-5 py-2 text-[12px] font-bold transition text-center" style={{ textDecoration: "none" }}>
-                    Voir
+                  <Link href={devisHref(d)} className="inline-flex items-center gap-1.5 bg-[#191224] hover:bg-black text-white rounded-full px-5 py-2 text-[12px] font-bold transition text-center" style={{ textDecoration: "none" }}>
+                    {d.pending ? (
+                      <>
+                        <Pencil aria-hidden className="w-3.5 h-3.5" /> Modifier
+                      </>
+                    ) : (
+                      "Voir"
+                    )}
                   </Link>
                 </div>
               </div>
@@ -259,7 +318,7 @@ function DevisContratsSectionInner({ viewer }: { viewer: "client" | "provider" }
       ) : (
         <div className="flex flex-col gap-3">
           {filteredContrats.map((c) => (
-            <div key={c.id} className="bg-white rounded-[20px] p-5 border border-gray-100 hover:shadow-lg hover:border-orange-100 transition-all flex flex-col sm:flex-row sm:items-center gap-4">
+            <div key={c.id} className="bg-white rounded-[20px] p-5 border border-gray-100 hover:shadow-lg hover:border-violet-100 transition-all flex flex-col sm:flex-row sm:items-center gap-4">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className={`rounded-full px-3 py-1 text-[11px] font-bold border ${CONTRAT_BUCKET_STYLE[c.bucket]}`}>{CONTRAT_BUCKET_LABEL[c.bucket]}</span>
@@ -270,12 +329,12 @@ function DevisContratsSectionInner({ viewer }: { viewer: "client" | "provider" }
                 <div className="text-[12px] text-gray-500 mt-1 flex items-center gap-2 flex-wrap">
                   <span>{viewer === "client" ? "Prestataire" : "Client"} : {c.counterpartName}</span>
                   <span className="w-1 h-1 bg-gray-300 rounded-full shrink-0" />
-                  <span className="font-bold text-[#0A1931] shrink-0">{c.montant.toLocaleString("fr-FR")} {c.currency}</span>
+                  <span className="font-bold text-[#191224] shrink-0">{c.montant.toLocaleString("fr-FR")} {c.currency}</span>
                   <span className="w-1 h-1 bg-gray-300 rounded-full shrink-0" />
                   <span className="font-mono text-[11px] text-gray-400">{c.hash.slice(0, 10)}…</span>
                 </div>
               </div>
-              <Link href={`/missions/${c.missionId}/contract`} className="shrink-0 bg-[#0A1931] hover:bg-black text-white rounded-full px-5 py-2 text-[12px] font-bold transition text-center" style={{ textDecoration: "none" }}>
+              <Link href={`/missions/${c.missionId}/contract`} className="shrink-0 bg-[#191224] hover:bg-black text-white rounded-full px-5 py-2 text-[12px] font-bold transition text-center" style={{ textDecoration: "none" }}>
                 Voir
               </Link>
             </div>
@@ -290,7 +349,7 @@ function EmptyState({ icon, title }: { icon: string; title: string }) {
   return (
     <div className="bg-white rounded-[20px] p-12 text-center border border-dashed border-gray-200">
       <div className="text-[24px] mb-2">{icon}</div>
-      <div className="font-bold text-[14px] text-[#0A1931]">{title}</div>
+      <div className="font-bold text-[14px] text-[#191224]">{title}</div>
     </div>
   );
 }

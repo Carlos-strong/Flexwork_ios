@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { signOut, useSession } from "next-auth/react";
+import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { currentCallbackUrl, withCallbackUrl } from "@/lib/safe-callback";
 import { Mail, Shield, ArrowRight, Users, CreditCard } from "lucide-react";
+import { logout } from "@/lib/logout";
 
 const COUNTRY_CODES = [
   { value: "+229", label: "+229", flag: "🇧🇯" },
@@ -85,21 +86,21 @@ export default function SigninPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#FFF8F0] flex flex-col lg:flex-row">
+    <div className="min-h-screen bg-[#F6F5FA] flex flex-col lg:flex-row">
       {/* ================================================================ */}
       {/* LEFT — Hero / Branding                                             */}
       {/* ================================================================ */}
       {/* Sous lg, le panneau se réduit au logo : l'argumentaire repoussait le formulaire sous la
           ligne de flottaison sur mobile (audit 2026-10-02). */}
-      <div className="lg:w-[45%] xl:w-[42%] bg-[#0A1931] text-white flex flex-col justify-between px-5 py-4 md:px-10 lg:p-12 relative overflow-hidden">
+      <div className="lg:w-[45%] xl:w-[42%] bg-[#191224] text-white flex flex-col justify-between px-5 py-4 md:px-10 lg:p-12 relative overflow-hidden">
         {/* Decorative orbs */}
-        <div className="absolute top-[-15%] right-[-10%] w-[350px] h-[350px] rounded-full bg-[#FF7A00]/8 blur-[100px]" />
-        <div className="absolute bottom-[-10%] left-[-15%] w-[250px] h-[250px] rounded-full bg-[#008751]/8 blur-[80px]" />
+        <div className="absolute top-[-15%] right-[-10%] w-[350px] h-[350px] rounded-full bg-[#6D28D9]/8 blur-[100px]" />
+        <div className="absolute bottom-[-10%] left-[-15%] w-[250px] h-[250px] rounded-full bg-[#4C1D95]/8 blur-[80px]" />
 
         <div className="relative z-10">
           {/* Logo */}
           <div className="flex items-center gap-2 lg:mb-14">
-            <div className="w-10 h-10 rounded-xl bg-[#FF7A00] flex items-center justify-center text-white font-extrabold text-[16px]">FW</div>
+            <div className="w-10 h-10 rounded-xl bg-[#6D28D9] flex items-center justify-center text-white font-extrabold text-[16px]">FW</div>
             <span className="text-white font-extrabold text-[20px] tracking-tight">FlexWork</span>
           </div>
 
@@ -110,7 +111,7 @@ export default function SigninPage() {
           </div>
           <p className="hidden lg:block text-[36px] font-extrabold leading-tight mb-3">
             Talents vérifiés,<br />
-            <span className="text-[#FF7A00]">zéro arnaque</span>
+            <span className="text-[#6D28D9]">zéro arnaque</span>
           </p>
           <p className="hidden lg:block text-white/60 text-[14px] leading-relaxed max-w-[380px]">
             La première plateforme ouest-africaine avec vérification d&apos;identité obligatoire.
@@ -127,7 +128,7 @@ export default function SigninPage() {
             { icon: <Mail className="w-4 h-4" />, value: "OTP", label: "Connexion par code" },
           ].map((s, i) => (
             <div key={i} className="p-3 rounded-xl bg-white/[0.04] border border-white/[0.05]">
-              <div className="text-[#FF7A00] mb-1">{s.icon}</div>
+              <div className="text-[#6D28D9] mb-1">{s.icon}</div>
               <div className="text-[16px] font-bold">{s.value}</div>
               <div className="text-[12px] text-white/60">{s.label}</div>
             </div>
@@ -153,13 +154,13 @@ export default function SigninPage() {
               <span className="text-lg">🇸🇳</span>
               <span className="text-lg">🇨🇮</span>
             </div>
-            <h1 className="text-[24px] md:text-[28px] font-bold text-[#0A1931]">Connexion</h1>
+            <h1 className="text-[24px] md:text-[28px] font-bold text-[#191224]">Connexion</h1>
             <p className="text-[13px] text-zinc-500 mt-1.5">
               {loginMethod === "email"
                 ? "Un code de vérification sera envoyé à votre email."
                 : "Un code de vérification sera envoyé par SMS."}
             </p>
-            <p className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#eefaf4] border border-[#008751]/15 text-[11.5px] text-[#008751] font-semibold">
+            <p className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#F0EAFF] border border-[#4C1D95]/15 text-[11.5px] text-[#4C1D95] font-semibold">
               <Shield className="w-3.5 h-3.5" /> Connexion 100% par code — aucun mot de passe
             </p>
           </div>
@@ -177,8 +178,8 @@ export default function SigninPage() {
               ramenait ensuite dans le tableau de bord de ce compte. On le dit, et on propose
               de continuer ou de se déconnecter vraiment. */}
           {status === "authenticated" && (
-            <div role="status" className="mb-6 rounded-xl border border-[#008751]/25 bg-[#008751]/5 p-4">
-              <p className="text-[14px] text-[#0A1931]">
+            <div role="status" className="mb-6 rounded-xl border border-[#4C1D95]/25 bg-[#4C1D95]/5 p-4">
+              <p className="text-[14px] text-[#191224]">
                 Vous êtes déjà connecté(e)
                 {session?.user?.email ? (
                   <>
@@ -192,13 +193,13 @@ export default function SigninPage() {
                 <button
                   type="button"
                   onClick={() => router.push(currentCallbackUrl() ?? "/dashboard")}
-                  className="h-10 px-4 rounded-full bg-[#008751] text-white text-[13px] font-semibold hover:bg-[#006e43]"
+                  className="h-10 px-4 rounded-full bg-[#4C1D95] text-white text-[13px] font-semibold hover:bg-[#3B1578]"
                 >
                   Continuer
                 </button>
                 <button
                   type="button"
-                  onClick={() => void signOut({ callbackUrl: "/signin" })}
+                  onClick={() => void logout("/signin")}
                   className="h-10 px-4 rounded-full border border-zinc-200 bg-white text-[13px] font-medium text-zinc-700 hover:bg-zinc-50"
                 >
                   Se déconnecter
@@ -213,7 +214,7 @@ export default function SigninPage() {
               onClick={() => setLoginMethod("email")}
               className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-[13px] font-semibold transition-all ${
                 loginMethod === "email"
-                  ? "bg-white text-[#0A1931] shadow-sm"
+                  ? "bg-white text-[#191224] shadow-sm"
                   : "text-zinc-500 hover:text-zinc-700"
               }`}
             >
@@ -224,7 +225,7 @@ export default function SigninPage() {
               onClick={() => setLoginMethod("phone")}
               className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-[13px] font-semibold transition-all ${
                 loginMethod === "phone"
-                  ? "bg-white text-[#0A1931] shadow-sm"
+                  ? "bg-white text-[#191224] shadow-sm"
                   : "text-zinc-500 hover:text-zinc-700"
               }`}
             >
@@ -237,7 +238,7 @@ export default function SigninPage() {
             {loginMethod === "email" && (
               <div className="animate-[fadeIn_150ms_ease-out]">
                 <label htmlFor="signin-email" className="block text-[13px] font-semibold text-zinc-700 mb-2">Adresse email</label>
-                <div className="flex items-center gap-2 p-1.5 rounded-2xl border-2 border-gray-100 bg-white focus-within:border-[#FF7A00] focus-within:shadow-[0_0_0_4px_rgba(255,122,0,0.08)] transition-all">
+                <div className="flex items-center gap-2 p-1.5 rounded-2xl border-2 border-gray-100 bg-white focus-within:border-[#6D28D9] focus-within:shadow-[0_0_0_4px_rgba(109,40,217,0.08)] transition-all">
                   <div className="pl-2.5 shrink-0">
                     <Mail className="w-4 h-4 text-zinc-400" />
                   </div>
@@ -252,7 +253,7 @@ export default function SigninPage() {
                   />
                 </div>
                 <p className="flex items-center gap-1 mt-2 text-[11px] text-zinc-400">
-                  <span className="text-[#008751]">✓</span> Protégé par chiffrement • Aucun spam
+                  <span className="text-[#4C1D95]">✓</span> Protégé par chiffrement • Aucun spam
                 </p>
               </div>
             )}
@@ -261,7 +262,7 @@ export default function SigninPage() {
             {loginMethod === "phone" && (
               <div className="animate-[fadeIn_150ms_ease-out]">
                 <label htmlFor="signin-phone" className="block text-[13px] font-semibold text-zinc-700 mb-2">Numéro de téléphone</label>
-                <div className="flex items-center gap-2 p-1.5 rounded-2xl border-2 border-gray-100 bg-white focus-within:border-[#FF7A00] focus-within:shadow-[0_0_0_4px_rgba(255,122,0,0.08)] transition-all">
+                <div className="flex items-center gap-2 p-1.5 rounded-2xl border-2 border-gray-100 bg-white focus-within:border-[#6D28D9] focus-within:shadow-[0_0_0_4px_rgba(109,40,217,0.08)] transition-all">
                   <div className="relative shrink-0">
                     <select
                       aria-label="Indicatif du pays"
@@ -286,7 +287,7 @@ export default function SigninPage() {
                   />
                 </div>
                 <p className="flex items-center gap-1 mt-2 text-[11px] text-zinc-400">
-                  <span className="text-[#008751]">✓</span> SMS sécurisé • Code à 6 chiffres
+                  <span className="text-[#4C1D95]">✓</span> SMS sécurisé • Code à 6 chiffres
                 </p>
               </div>
             )}
@@ -295,7 +296,7 @@ export default function SigninPage() {
             <button
               type="submit"
               disabled={submitting || !ready}
-              className="w-full h-12 rounded-xl bg-[#FF7A00] text-white text-[15px] font-bold hover:brightness-110 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-[0_4px_16px_rgba(255,122,0,0.3)] flex items-center justify-center gap-2"
+              className="w-full h-12 rounded-xl bg-[#6D28D9] text-white text-[15px] font-bold hover:brightness-110 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-[0_4px_16px_rgba(109,40,217,0.3)] flex items-center justify-center gap-2"
             >
               {submitting ? (
                 "Envoi du code..."
@@ -310,7 +311,7 @@ export default function SigninPage() {
             {/* Divider */}
             <div className="relative my-4">
               <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-zinc-200" /></div>
-              <div className="relative flex justify-center"><span className="px-3 bg-[#FFF8F0] text-[12px] text-zinc-400">Ou continuer avec</span></div>
+              <div className="relative flex justify-center"><span className="px-3 bg-[#F6F5FA] text-[12px] text-zinc-400">Ou continuer avec</span></div>
             </div>
 
             {/* Social buttons */}
@@ -326,7 +327,7 @@ export default function SigninPage() {
             {/* Signup link */}
             <p className="text-center text-[13px] text-zinc-500 pt-2">
               Pas encore de compte ?{" "}
-              <Link href={signupHref} className="text-[#008751] font-semibold hover:underline">Créer un compte</Link>
+              <Link href={signupHref} className="text-[#4C1D95] font-semibold hover:underline">Créer un compte</Link>
             </p>
           </form>
 

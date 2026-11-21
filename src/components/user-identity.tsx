@@ -2,6 +2,8 @@
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { useSession } from "next-auth/react";
+import { initials } from "@/lib/initials";
+import { clientPublicName } from "@/lib/person-name";
 
 // Identité de l'utilisateur connecté, chargée UNE fois au niveau racine puis partagée par
 // contexte. Avant ce fichier, chaque page de rubrique du dashboard re-fetchait son identité
@@ -29,22 +31,12 @@ type MePayload = {
   garantRequired?: boolean;
 };
 
-function initialsOf(firstname?: string | null, lastname?: string | null): string {
-  const a = firstname?.trim().charAt(0) ?? "";
-  const b = lastname?.trim().charAt(0) ?? "";
-  return `${a}${b}`.toUpperCase();
-}
-
 // Nom affiché cohérent avec les anciens summaries (provider → prénom seul, client →
 // prénom + initiale du nom), pour ne pas changer le rendu existant.
 function displayName(role: string | undefined, d: MePayload): string {
   const first = d.firstname?.trim();
   const last = d.lastname?.trim();
-  if (role === "client") {
-    const lastInitial = last?.charAt(0);
-    if (first && lastInitial) return `${first} ${lastInitial}.`;
-    return first || last || "Client";
-  }
+  if (role === "client") return clientPublicName(d);
   return first || last || "Prestataire";
 }
 
@@ -69,7 +61,7 @@ export function UserIdentityProvider({ children }: { children: ReactNode }) {
         setIdentity({
           id: userId,
           name: displayName(role, d),
-          initials: initialsOf(d.firstname, d.lastname) || "U",
+          initials: initials(d.firstname, d.lastname, "U"),
           avatarUrl: d.avatarUrl ?? null,
           garantRequired: d.garantRequired ?? false,
         });

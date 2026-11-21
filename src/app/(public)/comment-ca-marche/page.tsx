@@ -30,14 +30,14 @@ export default function CommentCaMarchePage() {
 
       <section className="page-shell py-12 lg:py-16 space-y-12">
         <div>
-          <h2 className="text-xl lg:text-2xl font-bold text-[#0f172a] mb-6">Côté client</h2>
+          <h2 className="text-xl lg:text-2xl font-bold text-[#191224] mb-6">Côté client</h2>
           <div className="space-y-4">
             {ETAPES_CLIENT.map((e) => (
-              <div key={e.n} className="flex gap-4 bg-white border border-[#E2E8F0] rounded-2xl p-5">
-                <span className="h-10 w-10 shrink-0 rounded-full bg-[#008751] text-white grid place-items-center font-extrabold">{e.n}</span>
+              <div key={e.n} className="flex gap-4 bg-white border border-[#E7E2F0] rounded-2xl p-5">
+                <span className="h-10 w-10 shrink-0 rounded-full bg-[#4C1D95] text-white grid place-items-center font-extrabold">{e.n}</span>
                 <div>
-                  <h3 className="font-bold text-[#0f172a]">{e.t}</h3>
-                  <p className="text-sm text-[#64748B] mt-1 leading-relaxed">{e.d}</p>
+                  <h3 className="font-bold text-[#191224]">{e.t}</h3>
+                  <p className="text-sm text-[#6B6478] mt-1 leading-relaxed">{e.d}</p>
                 </div>
               </div>
             ))}
@@ -45,23 +45,23 @@ export default function CommentCaMarchePage() {
         </div>
 
         <div>
-          <h2 className="text-xl lg:text-2xl font-bold text-[#0f172a] mb-6">Côté prestataire</h2>
+          <h2 className="text-xl lg:text-2xl font-bold text-[#191224] mb-6">Côté prestataire</h2>
           <div className="space-y-4">
             {ETAPES_PRESTATAIRE.map((e) => (
-              <div key={e.n} className="flex gap-4 bg-white border border-[#E2E8F0] rounded-2xl p-5">
-                <span className="h-10 w-10 shrink-0 rounded-full bg-[#0f172a] text-white grid place-items-center font-extrabold">{e.n}</span>
+              <div key={e.n} className="flex gap-4 bg-white border border-[#E7E2F0] rounded-2xl p-5">
+                <span className="h-10 w-10 shrink-0 rounded-full bg-[#191224] text-white grid place-items-center font-extrabold">{e.n}</span>
                 <div>
-                  <h3 className="font-bold text-[#0f172a]">{e.t}</h3>
-                  <p className="text-sm text-[#64748B] mt-1 leading-relaxed">{e.d}</p>
+                  <h3 className="font-bold text-[#191224]">{e.t}</h3>
+                  <p className="text-sm text-[#6B6478] mt-1 leading-relaxed">{e.d}</p>
                 </div>
               </div>
             ))}
           </div>
         </div>
 
-        <div className="bg-[#008751]/5 border border-[#008751]/20 rounded-2xl p-6">
-          <h2 className="font-bold text-[#0f172a] mb-2">En cas de désaccord ?</h2>
-          <p className="text-sm text-[#475569] leading-relaxed">
+        <div className="bg-[#4C1D95]/5 border border-[#4C1D95]/20 rounded-2xl p-6">
+          <h2 className="font-bold text-[#191224] mb-2">En cas de désaccord ?</h2>
+          <p className="text-sm text-[#4A4258] leading-relaxed">
             Le client peut contester dans le délai contractuel : les fonds sont gelés et une <strong>médiation facultative</strong> est
             proposée. Si aucun accord n&apos;est trouvé, les parties saisissent la juridiction compétente — la plateforme ne
             tranche pas.

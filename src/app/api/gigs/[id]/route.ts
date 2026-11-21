@@ -6,6 +6,7 @@ import { kycBlockFor } from "@/lib/kyc-policy";
 import { gigInputSchema, missingVisual } from "@/lib/gig-rules";
 import { serializeGig } from "@/lib/gig-serialize";
 import { deleteStoredFile } from "@/lib/storage";
+import { personFullName } from "@/lib/person-name";
 
 export const dynamic = "force-dynamic";
 
@@ -41,7 +42,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     ordersCount: gig._count.orders,
     provider: {
       id: gig.provider.id,
-      name: [gig.provider.firstname, gig.provider.lastname].filter(Boolean).join(" ").trim() || "Prestataire",
+      name: personFullName(gig.provider) || "Prestataire",
       avatarUrl: gig.provider.avatarPath ? `/api/users/${gig.provider.id}/avatar` : null,
     },
   });

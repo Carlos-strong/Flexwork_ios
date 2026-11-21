@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { contractRole } from "@/lib/validation-mode";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
+import { personFullName } from "@/lib/person-name";
 
 // Historique des REJETS de soumission ("validation partielle" côté rejet, voir .../reject) —
 // pendant de GET .../checkpoints, même restriction d'accès (consultable par les DEUX parties
@@ -40,7 +41,7 @@ export async function GET(
       jalonTitre: r.jalon?.titre ?? null,
       jalonOrdre: r.jalon?.ordre ?? null,
       reason: r.reason,
-      rejectedByName: [r.rejectedBy.firstname, r.rejectedBy.lastname].filter(Boolean).join(" ") || "Client",
+      rejectedByName: personFullName(r.rejectedBy) || "Client",
       createdAt: r.createdAt,
     })),
   });

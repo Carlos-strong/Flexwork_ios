@@ -23,9 +23,9 @@ export default function AProposPage() {
       />
 
       <section className="page-shell py-12 lg:py-16 space-y-10">
-        <div className="bg-white border border-[#E2E8F0] rounded-2xl p-6 lg:p-8">
-          <h2 className="text-xl lg:text-2xl font-bold text-[#0f172a] mb-3">Notre position : un intermédiaire neutre</h2>
-          <p className="text-[15px] text-[#475569] leading-relaxed">
+        <div className="bg-white border border-[#E7E2F0] rounded-2xl p-6 lg:p-8">
+          <h2 className="text-xl lg:text-2xl font-bold text-[#191224] mb-3">Notre position : un intermédiaire neutre</h2>
+          <p className="text-[15px] text-[#4A4258] leading-relaxed">
             FlexWork ne réalise aucun travaux, ne garantit aucun résultat et n&apos;est partie à aucun contrat de
             prestation. Notre rôle est de <strong>mettre en relation</strong>, puis de sécuriser ce qui l&apos;est à notre niveau :
           </p>
@@ -37,26 +37,26 @@ export default function AProposPage() {
               ["Médiation facilitée", "En cas de désaccord, la plateforme propose une médiation facultative ; elle ne tranche pas le litige."],
             ].map(([t, d]) => (
               <li key={t} className="flex gap-3">
-                <span className="mt-1.5 h-2 w-2 rounded-full bg-[#008751] shrink-0" />
-                <span className="text-[15px] text-[#475569]"><strong className="text-[#0f172a]">{t}</strong> — {d}</span>
+                <span className="mt-1.5 h-2 w-2 rounded-full bg-[#4C1D95] shrink-0" />
+                <span className="text-[15px] text-[#4A4258]"><strong className="text-[#191224]">{t}</strong> — {d}</span>
               </li>
             ))}
           </ul>
-          <blockquote className="mt-6 border-l-4 border-[#008751] bg-[#008751]/5 rounded-r-lg p-4 text-[15px] font-medium text-[#0f172a]">
+          <blockquote className="mt-6 border-l-4 border-[#4C1D95] bg-[#4C1D95]/5 rounded-r-lg p-4 text-[15px] font-medium text-[#191224]">
             « Nous savons qui est en face de vous, et votre argent est protégé jusqu&apos;à ce que le travail soit fait. »
           </blockquote>
         </div>
 
         <div>
-          <h2 className="text-xl lg:text-2xl font-bold text-[#0f172a] mb-5">Cinq profils, un seul marché</h2>
+          <h2 className="text-xl lg:text-2xl font-bold text-[#191224] mb-5">Cinq profils, un seul marché</h2>
           <div className="grid sm:grid-cols-2 gap-4">
             {PROFILS.map((p) => (
-              <div key={p.nom} className="bg-white border border-[#E2E8F0] rounded-2xl p-5">
-                <h3 className="font-bold text-[#0f172a] mb-1">{p.nom}</h3>
-                <p className="text-sm text-[#64748B] leading-relaxed">{p.desc}</p>
+              <div key={p.nom} className="bg-white border border-[#E7E2F0] rounded-2xl p-5">
+                <h3 className="font-bold text-[#191224] mb-1">{p.nom}</h3>
+                <p className="text-sm text-[#6B6478] leading-relaxed">{p.desc}</p>
               </div>
             ))}
-            <div className="bg-[#008751] border border-[#008751] rounded-2xl p-5 text-white">
+            <div className="bg-[#4C1D95] border border-[#4C1D95] rounded-2xl p-5 text-white">
               <h3 className="font-bold mb-1">Et vous ?</h3>
               <p className="text-sm text-white/90 leading-relaxed">
                 Créez un compte gratuitement et rejoignez la place de marché — côté client ou côté prestataire.

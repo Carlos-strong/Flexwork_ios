@@ -105,7 +105,7 @@ test.describe("V-01 — mobile 375 px", () => {
 
     await login(page, client);
     await verifierPage(page, "/client/dashboard");
-    await test.step("menu latéral : s'ouvre, tient dans l'écran, se referme", async () => {
+    await test.step("menu de la barre (navigation de l'espace connecté) : s'ouvre, tient dans l'écran, se referme", async () => {
       const fermer = page.getByRole("button", { name: "Fermer le menu" });
       await expect(fermer).toBeHidden();
       await page.getByRole("button", { name: "Ouvrir le menu" }).click();

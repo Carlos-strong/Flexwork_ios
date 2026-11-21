@@ -1,4 +1,5 @@
 import { cache } from "react";
+import { openAnnonceWhere } from "@/lib/mission-expiry";
 import { prisma } from "@/lib/db";
 import type { FrontendConfigItem } from "@/lib/frontend-config";
 import { resolveLandingTarget, type LandingCategorie } from "@/lib/taxonomy-landing";
@@ -124,7 +125,7 @@ export const getLandingActivity = memoizePerRequest(async () => {
           metiers: { select: { id: true, libelle: true, description: true }, orderBy: { libelle: "asc" } },
         },
       }),
-      prisma.mission.groupBy({ by: ["categorieId", "metierId", "domaine"], where: { status: "publiee" }, _count: { _all: true } }),
+      prisma.mission.groupBy({ by: ["categorieId", "metierId", "domaine"], where: openAnnonceWhere(), _count: { _all: true } }),
       prisma.gig.groupBy({ by: ["domaine"], where: { status: "publie" }, _count: { _all: true } }),
     ]);
     const activity: LandingActivity[] = [

@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { applicationDeadlineLabel } from '@/lib/mission-expiry'
 import { countryFlag } from '@/lib/country-flag'
 import { countryName } from '@/lib/world-countries'
 import { getPublishedFrontendConfig, resolveSection } from '@/lib/frontend-config'
@@ -28,28 +29,28 @@ export default async function LatestMissions() {
     <section className="py-12 lg:py-16 bg-white">
       <div className="page-shell">
         {section.subtitle && (
-          <p className="text-sm font-medium uppercase tracking-[0.12em] text-[#E85A24] mb-3">{section.subtitle}</p>
+          <p className="text-sm font-medium uppercase tracking-[0.12em] text-[#5B21B6] mb-3">{section.subtitle}</p>
         )}
         <div className="flex flex-wrap items-end justify-between gap-4 mb-8 lg:mb-10">
-          <h2 className="text-[30px] md:text-[40px] leading-[1.1] font-semibold text-[#0A1931]">
+          <h2 className="text-[30px] md:text-[40px] leading-[1.1] font-semibold text-[#191224]">
             {section.title ?? 'Dernières missions publiées'}
           </h2>
           {missions.length > 0 && section.ctaText && (
-            <Link href={section.ctaLink ?? '/devenir-prestataire'} className="text-base font-semibold text-[#E85A24] hover:underline">
+            <Link href={section.ctaLink ?? '/devenir-prestataire'} className="text-base font-semibold text-[#5B21B6] hover:underline">
               {section.ctaText}
             </Link>
           )}
         </div>
 
         {missions.length === 0 ? (
-          <div className="bg-[#F7F7F5] rounded-2xl p-8 lg:p-12 text-center">
-            <p className="text-xl font-medium text-[#0A1931]">Aucune mission ouverte pour l&apos;instant</p>
+          <div className="bg-[#F6F5FA] rounded-2xl p-8 lg:p-12 text-center">
+            <p className="text-xl font-medium text-[#191224]">Aucune mission ouverte pour l&apos;instant</p>
             <p className="mt-2 text-gray-600 max-w-prose mx-auto">
               Décrivez votre besoin : les prestataires du métier sont prévenus dès la publication.
             </p>
             <Link
               href="/missions/new"
-              className="inline-block mt-6 bg-[#FF6B35] hover:bg-[#E85A24] text-white px-6 py-3 rounded-lg font-semibold transition"
+              className="inline-block mt-6 bg-[#6D28D9] hover:bg-[#5B21B6] text-white px-6 py-3 rounded-full font-semibold transition"
             >
               Publier une mission
             </Link>
@@ -58,17 +59,17 @@ export default async function LatestMissions() {
           <ul className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-5">
             {missions.map((m) => (
               <li key={m.id}>
-                <div className="group relative h-full flex flex-col rounded-xl bg-[#F7F7F5] border border-transparent p-5 hover:border-[#FF6B35]/40 hover:bg-white hover:shadow-sm transition">
+                <div className="group relative h-full flex flex-col rounded-xl bg-[#F6F5FA] border border-transparent p-5 hover:border-[#6D28D9]/40 hover:bg-white hover:shadow-sm transition">
                   <div className="flex items-center gap-2 min-w-0">
-                    <span className="min-w-0 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-[#0A1931] truncate">
+                    <span className="min-w-0 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-[#191224] truncate">
                       {m.icon && <span aria-hidden className="mr-1">{m.icon}</span>}
                       {m.metier}
                     </span>
                     {m.urgent && (
-                      <span className="ml-auto shrink-0 rounded-full bg-[#FFF1EB] px-2 py-0.5 text-[11px] font-semibold text-[#E85A24]">Urgent</span>
+                      <span className="ml-auto shrink-0 rounded-full bg-[#FFF1EB] px-2 py-0.5 text-[11px] font-semibold text-[#5B21B6]">Urgent</span>
                     )}
                   </div>
-                  <h3 className="mt-3 text-[17px] font-semibold leading-snug text-[#0A1931] group-hover:text-[#E85A24] transition line-clamp-2">
+                  <h3 className="mt-3 text-[17px] font-semibold leading-snug text-[#191224] group-hover:text-[#5B21B6] transition line-clamp-2">
                     <Link
                       href={`/missions/${m.id}`}
                       className="after:absolute after:inset-0 after:rounded-xl focus-visible:outline-none"
@@ -83,13 +84,13 @@ export default async function LatestMissions() {
                       publique (E-04) : avatar neutre et « Client » à la place de son nom et de sa
                       photo — son pays et son statut de vérification suffisent à situer la demande. */}
                   <div className="mt-3 flex items-center gap-2.5 min-w-0">
-                    <span className="w-8 h-8 rounded-full bg-[#0A1931] text-white grid place-items-center shrink-0" aria-hidden>
+                    <span className="w-8 h-8 rounded-full bg-[#191224] text-white grid place-items-center shrink-0" aria-hidden>
                       <svg viewBox="0 0 20 20" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round">
                         <circle cx="10" cy="7" r="3.2" />
                         <path d="M3.8 16.5c1.1-3 3.4-4.5 6.2-4.5s5.1 1.5 6.2 4.5" />
                       </svg>
                     </span>
-                    <span className="text-[13px] font-medium text-[#0A1931] truncate">Client</span>
+                    <span className="text-[13px] font-medium text-[#191224] truncate">Client</span>
                     {m.clientCountry && (
                       <span
                         role="img"
@@ -101,7 +102,7 @@ export default async function LatestMissions() {
                       </span>
                     )}
                     {m.clientVerified ? (
-                      <span className="shrink-0 rounded-full bg-[#E8F5EE] px-2 py-0.5 text-[11px] font-semibold text-[#008751]">✓ Vérifié</span>
+                      <span className="shrink-0 rounded-full bg-[#E7F7EF] px-2 py-0.5 text-[11px] font-semibold text-[#047857]">✓ Vérifié</span>
                     ) : (
                       <span className="shrink-0 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800">Identité non vérifiée</span>
                     )}
@@ -114,14 +115,23 @@ export default async function LatestMissions() {
                     {' · '}
                     {m.candidatures} candidature{m.candidatures > 1 ? 's' : ''}
                   </p>
+                  {/* Période de candidature et places (2026-11-10) : jusqu'à quand candidater, et
+                      combien de prestataires le client recherche. */}
+                  <p className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-[12.5px] text-[#4A4258]">
+                    {applicationDeadlineLabel(m.dateExpiration) && <span>🗓 {applicationDeadlineLabel(m.dateExpiration)}</span>}
+                    <span>
+                      👥 {m.placesRecherchees} prestataire{m.placesRecherchees > 1 ? 's' : ''} recherché{m.placesRecherchees > 1 ? 's' : ''}
+                      {m.prestatairesRetenus > 0 ? ` · ${m.prestatairesRetenus} retenu${m.prestatairesRetenus > 1 ? 's' : ''}` : ''}
+                    </span>
+                  </p>
                   {/* « Candidater » à la MÊME place que « Commander » sur les cartes de services
                       (LatestGigs) : en bas à droite, face au montant (2026-11-08). */}
                   <div className="mt-auto pt-4 flex items-center justify-between gap-3">
-                    <span className="text-[15px] font-semibold text-[#0A1931]">{m.budgetLabel}</span>
+                    <span className="text-[15px] font-semibold text-[#191224]">{m.budgetLabel}</span>
                     <Link
                       href={`/missions/${m.id}?candidater=1`}
                       aria-label={`Candidater — ${m.titre}`}
-                      className="relative z-10 shrink-0 rounded-lg bg-[#FF6B35] hover:bg-[#E85A24] px-4 py-2 text-[13px] font-semibold text-white transition"
+                      className="relative z-10 shrink-0 rounded-full bg-[#6D28D9] hover:bg-[#5B21B6] px-4 py-2 text-[13px] font-semibold text-white transition"
                       style={{ textDecoration: 'none' }}
                     >
                       Candidater

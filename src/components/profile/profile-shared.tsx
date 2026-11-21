@@ -56,10 +56,10 @@ export type ProviderIdentity = {
 };
 
 export const inputClass =
-  "w-full h-10 px-3 rounded-xl border border-zinc-200 text-[14px] focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751] transition";
+  "w-full h-10 px-3 rounded-xl border border-zinc-200 text-[14px] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20 focus:border-[#4C1D95] transition";
 export const labelClass = "block text-[14px] font-medium text-zinc-700 mb-1.5";
 export const btnPrimary =
-  "h-10 px-5 rounded-full bg-[#008751] text-white text-[13px] font-semibold hover:bg-[#006e43] transition disabled:opacity-50";
+  "h-10 px-5 rounded-full bg-[#4C1D95] text-white text-[13px] font-semibold hover:bg-[#3B1578] transition disabled:opacity-50";
 export const btnSecondary =
   "h-10 px-5 rounded-full border border-zinc-200 text-[13px] font-medium hover:bg-zinc-100 transition";
 
@@ -147,7 +147,7 @@ export function Field({
   return (
     <div>
       <label htmlFor={htmlFor} className={labelClass}>
-        {label} {required && <span className="text-[#E8112D]">*</span>}
+        {label} {required && <span className="text-[#B42318]">*</span>}
       </label>
       {children}
       {hint && <p className="mt-1.5 text-[12px] leading-snug text-zinc-500">{hint}</p>}
@@ -245,7 +245,7 @@ export function ProfileCard({
     <section className="bg-white rounded-[20px] border border-gray-100 shadow-[0_1px_2px_rgba(10,25,49,0.04)] p-4 sm:p-6">
       <div className="flex items-start justify-between gap-3">
         {/* `!tracking` : `.landing h2` (globals.css) resserre à -0,025em, trop serré à 17 px. */}
-        <h2 className="text-[17px] font-bold leading-snug !tracking-[-0.01em] text-[#0A1931]">{title}</h2>
+        <h2 className="text-[17px] font-bold leading-snug !tracking-[-0.01em] text-[#191224]">{title}</h2>
         {aside}
       </div>
       {description && <p className="mt-1 text-[13px] leading-relaxed text-zinc-500">{description}</p>}

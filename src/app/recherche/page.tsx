@@ -1,11 +1,8 @@
 import type { Metadata } from "next";
 import { cache } from "react";
-import { Plus_Jakarta_Sans } from "next/font/google";
-import Header from "@/components/afrilance/Header";
 import CategoriesBar from "@/components/afrilance/CategoriesBar";
 import Footer from "@/components/afrilance/Footer";
 import { prisma } from "@/lib/db";
-import { getPublishedFrontendConfig, resolveMenu } from "@/lib/frontend-config";
 import { searchProviders } from "@/lib/provider-search";
 import { resolveLandingTarget, type LandingCategorie, type LandingTarget } from "@/lib/taxonomy-landing";
 import { CategoryLanding, type LandingService } from "./category-landing";
@@ -22,12 +19,6 @@ import { SearchResults } from "./search-results";
 // (aucun aller-retour client, aucun « Recherche en cours… »). Le formulaire vit dans
 // SearchResults (client). L'état reste entièrement dans l'URL.
 
-const display = Plus_Jakarta_Sans({
-  subsets: ["latin"],
-  weight: ["500", "600", "700", "800"],
-  variable: "--font-landing-display",
-  display: "swap",
-});
 
 type SearchParams = Record<string, string | string[] | undefined>;
 const param = (sp: SearchParams, key: string) => {
@@ -58,14 +49,14 @@ async function loadTarget(sp: SearchParams): Promise<LandingTarget | null> {
 }
 
 export async function generateMetadata({ searchParams }: { searchParams: SearchParams }): Promise<Metadata> {
-  const [config, target] = await Promise.all([getPublishedFrontendConfig(), loadTarget(searchParams)]);
+  const target = await loadTarget(searchParams);
   if (!target) return { title: "Rechercher un prestataire — FlexWork" };
   const label = target.kind === "metier" ? target.metier.libelle : target.categorie.libelle;
   return { title: `${label} — prestataires vérifiés | FlexWork` };
 }
 
 export default async function SearchPage({ searchParams }: { searchParams: SearchParams }) {
-  const [config, target] = await Promise.all([getPublishedFrontendConfig(), loadTarget(searchParams)]);
+  const target = await loadTarget(searchParams);
 
   const urlParams = {
     domaine: param(searchParams, "domaine"),
@@ -102,8 +93,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Searc
     : null;
 
   return (
-    <main className={`landing min-h-screen bg-white ${display.variable}`}>
-      <Header exploreLinks={resolveMenu(config, "header_explore")} />
+    <main className={`landing min-h-screen bg-white`}>
       <CategoriesBar />
       {/* `key` : une nouvelle requête repart d'un formulaire aligné sur l'URL. La largeur est
           posée par section (CategoryLanding) : le héros est plein écran, le reste centré. */}

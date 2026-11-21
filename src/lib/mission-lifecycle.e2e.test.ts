@@ -184,15 +184,20 @@ describe("Cycle de vie complet d'une mission (création → clôture)", () => {
     expect(proposal.montant).toBe(BUDGET);
   });
 
-  it("E3 — le client accepte la candidature (les autres sont refusées)", async () => {
+  it("E3 — le client retient le prestataire : un engagement est créé, l'annonce reste ouverte", async () => {
     authAs(clientId);
     const res = await acceptPost(postReq({}), {
       params: Promise.resolve({ id: missionId, proposalId }),
     });
     expect(res.status).toBe(200);
+    const annonceId = missionId;
+    // Le parcours se poursuit sur l'ENGAGEMENT du prestataire retenu (2026-11-10).
+    missionId = (await res.json()).engagementId;
+    expect((await prisma.mission.findUniqueOrThrow({ where: { id: annonceId } })).status).toBe("publiee");
 
     const mission = await prisma.mission.findUniqueOrThrow({ where: { id: missionId } });
     expect(mission.status).toBe("proposition_acceptee");
+    expect(mission.parentMissionId).toBe(annonceId);
     const proposal = await prisma.missionProposal.findUniqueOrThrow({ where: { id: proposalId } });
     expect(proposal.status).toBe("acceptee");
   });

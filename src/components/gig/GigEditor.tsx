@@ -37,9 +37,9 @@ import type { GigView } from "@/lib/gig-serialize";
 type PackageDraft = { tier: GigTier; titre: string; description: string; prix: string; delaiJours: string; revisions: string };
 
 const INPUT =
-  "w-full h-10 px-3 rounded-xl border border-zinc-200 bg-white text-[14px] focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751] transition";
+  "w-full h-10 px-3 rounded-xl border border-zinc-200 bg-white text-[14px] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20 focus:border-[#4C1D95] transition";
 const TEXTAREA =
-  "w-full px-3 py-2 rounded-xl border border-zinc-200 bg-white text-[14px] leading-relaxed focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751] transition";
+  "w-full px-3 py-2 rounded-xl border border-zinc-200 bg-white text-[14px] leading-relaxed focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20 focus:border-[#4C1D95] transition";
 const LABEL = "block text-[13px] font-semibold text-zinc-700 mb-1.5";
 
 const PACKAGE_PLACEHOLDERS: Record<GigTier, { titre: string; description: string }> = {
@@ -264,14 +264,14 @@ export function GigEditor({
       {/* Checklist du guide — en tête, sur une ligne qui se replie : l'éditeur vit aussi dans la
           colonne étroite du profil, où une colonne latérale écrasait le formulaire. */}
       <div className="rounded-2xl border border-zinc-200 bg-white p-4">
-        <p className="text-[13px] font-bold text-[#0A1931]">Un service qui se vend</p>
+        <p className="text-[13px] font-bold text-[#191224]">Un service qui se vend</p>
         <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1.5">
           {checklist.map((c) => (
             <li key={c.key} className="flex items-center gap-1.5 text-[13px]">
               <span
                 aria-hidden
                 className={`grid h-4 w-4 shrink-0 place-items-center rounded-full text-[10px] font-bold ${
-                  c.done ? "bg-[#008751] text-white" : "border border-zinc-300 text-transparent"
+                  c.done ? "bg-[#047857] text-white" : "border border-zinc-300 text-transparent"
                 }`}
               >
                 ✓
@@ -289,10 +289,10 @@ export function GigEditor({
         {/* Titre */}
         <div>
           <label htmlFor="gig-titre" className={LABEL}>
-            Titre du service <span className="text-[#E8112D]">*</span>
+            Titre du service <span className="text-[#B42318]">*</span>
           </label>
-          <div className="flex items-center rounded-xl border border-zinc-200 bg-white focus-within:ring-2 focus-within:ring-[#008751]/20 focus-within:border-[#008751]">
-            <span className="pl-3 pr-1 text-[14px] font-semibold text-[#0A1931] whitespace-nowrap">Je vais</span>
+          <div className="flex items-center rounded-xl border border-zinc-200 bg-white focus-within:ring-2 focus-within:ring-[#4C1D95]/20 focus-within:border-[#4C1D95]">
+            <span className="pl-3 pr-1 text-[14px] font-semibold text-[#191224] whitespace-nowrap">Je vais</span>
             <input
               id="gig-titre"
               value={benefice}
@@ -309,7 +309,7 @@ export function GigEditor({
 
         <div>
           <label htmlFor="gig-domaine" className={LABEL}>
-            Domaine <span className="text-[#E8112D]">*</span>
+            Domaine <span className="text-[#B42318]">*</span>
           </label>
           <input id="gig-domaine" value={domaine} onChange={(e) => setDomaine(e.target.value)} maxLength={80} className={INPUT} placeholder="Ex. Design graphique" />
         </div>
@@ -317,13 +317,13 @@ export function GigEditor({
         {/* Formules */}
         <fieldset>
           <legend className={LABEL}>
-            Formules <span className="text-[#E8112D]">*</span>
+            Formules <span className="text-[#B42318]">*</span>
             <span className="ml-1 font-normal text-zinc-500">— trois offres, du prix le plus bas au plus haut</span>
           </legend>
           <div className="grid gap-3 md:grid-cols-3">
             {packages.map((p, i) => (
               <div key={p.tier} className="rounded-2xl border border-zinc-200 bg-zinc-50/60 p-3 space-y-2.5">
-                <p className="text-[12px] font-bold uppercase tracking-wider text-[#008751]">{GIG_TIER_LABELS[p.tier]}</p>
+                <p className="text-[12px] font-bold uppercase tracking-wider text-[#4C1D95]">{GIG_TIER_LABELS[p.tier]}</p>
                 <input
                   aria-label={`Nom de la formule ${GIG_TIER_LABELS[p.tier]}`}
                   value={p.titre}
@@ -389,7 +389,7 @@ export function GigEditor({
         {/* Description */}
         <div>
           <label htmlFor="gig-description" className={LABEL}>
-            Description <span className="text-[#E8112D]">*</span>
+            Description <span className="text-[#B42318]">*</span>
           </label>
           <textarea
             id="gig-description"
@@ -408,7 +408,7 @@ export function GigEditor({
         {/* Visuels : 3 photos au plus (la première = couverture) et/ou une vidéo */}
         <div>
           <p className={LABEL}>
-            Visuels <span className="text-[#E8112D]">*</span>
+            Visuels <span className="text-[#B42318]">*</span>
             <span className="ml-1 font-normal text-zinc-500">
               — jusqu&apos;à {GIG_IMAGES_MAX} photos qui défileront sur votre carte, et/ou une courte vidéo
             </span>
@@ -433,7 +433,7 @@ export function GigEditor({
                       type="button"
                       onClick={() => photoRef.current?.click()}
                       disabled={!isNext || photoBusy}
-                      className="flex aspect-[4/3] w-full flex-col items-center justify-center gap-0.5 rounded-xl border border-dashed border-zinc-300 text-[12px] text-zinc-500 hover:border-[#008751] hover:text-[#008751] disabled:opacity-40 disabled:hover:border-zinc-300 disabled:hover:text-zinc-500 transition"
+                      className="flex aspect-[4/3] w-full flex-col items-center justify-center gap-0.5 rounded-xl border border-dashed border-zinc-300 text-[12px] text-zinc-500 hover:border-[#4C1D95] hover:text-[#4C1D95] disabled:opacity-40 disabled:hover:border-zinc-300 disabled:hover:text-zinc-500 transition"
                     >
                       <span className="text-[18px]" aria-hidden>
                         +
@@ -448,7 +448,7 @@ export function GigEditor({
                   {/* eslint-disable-next-line @next/next/no-img-element -- aperçu local ou route authentifiée */}
                   <img src={src} alt={i === 0 ? "Photo de couverture" : `Photo ${i + 1}`} className="absolute inset-0 h-full w-full object-cover" />
                   {i === 0 && (
-                    <span className="absolute left-1.5 top-1.5 rounded-full bg-[#0A1931]/85 px-2 py-0.5 text-[10px] font-semibold text-white">
+                    <span className="absolute left-1.5 top-1.5 rounded-full bg-[#191224]/85 px-2 py-0.5 text-[10px] font-semibold text-white">
                       Couverture
                     </span>
                   )}
@@ -459,7 +459,7 @@ export function GigEditor({
                         disabled={photoBusy}
                         onClick={() => void makeFirst(i)}
                         aria-label={`Mettre la photo ${i + 1} en couverture`}
-                        className="rounded-full bg-white/90 px-2 py-0.5 text-[10.5px] font-semibold text-[#0A1931] shadow-sm disabled:opacity-50"
+                        className="rounded-full bg-white/90 px-2 py-0.5 text-[10.5px] font-semibold text-[#191224] shadow-sm disabled:opacity-50"
                       >
                         Mettre en premier
                       </button>
@@ -511,7 +511,7 @@ export function GigEditor({
         {/* Mots-clés */}
         <div>
           <label htmlFor="gig-tags" className={LABEL}>
-            Mots-clés <span className="text-[#E8112D]">*</span>
+            Mots-clés <span className="text-[#B42318]">*</span>
             <span className="ml-1 font-normal text-zinc-500">— les mots que vos clients tapent dans la recherche</span>
           </label>
           <div className="flex gap-2">
@@ -541,9 +541,9 @@ export function GigEditor({
           {tags.length > 0 && (
             <ul className="mt-2 flex flex-wrap gap-1.5">
               {tags.map((t) => (
-                <li key={t} className="inline-flex items-center gap-1 rounded-full bg-[#f0faf5] px-2.5 py-1 text-[12px] font-medium text-[#008751]">
+                <li key={t} className="inline-flex items-center gap-1 rounded-full bg-[#F0EAFF] px-2.5 py-1 text-[12px] font-medium text-[#4C1D95]">
                   {t}
-                  <button type="button" aria-label={`Retirer ${t}`} onClick={() => setTags(tags.filter((x) => x !== t))} className="text-[#008751]/70 hover:text-red-600">
+                  <button type="button" aria-label={`Retirer ${t}`} onClick={() => setTags(tags.filter((x) => x !== t))} className="text-[#4C1D95]/70 hover:text-red-600">
                     ×
                   </button>
                 </li>
@@ -564,7 +564,7 @@ export function GigEditor({
             onClick={() => void save(true)}
             disabled={saving || !ready}
             title={ready ? undefined : "Complétez la checklist pour publier."}
-            className="h-10 px-5 rounded-full bg-[#008751] text-white text-[13px] font-semibold hover:bg-[#006e43] disabled:opacity-50 transition"
+            className="h-10 px-5 rounded-full bg-[#4C1D95] text-white text-[13px] font-semibold hover:bg-[#3B1578] disabled:opacity-50 transition"
           >
             {saving ? "Enregistrement…" : gig?.status === "publie" ? "Enregistrer et garder en ligne" : "Publier le service"}
           </button>

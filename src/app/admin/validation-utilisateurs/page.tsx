@@ -155,7 +155,7 @@ export default function ValidationUtilisateursPage() {
         padded={false}
       >
         {garants === null ? (
-          <div className="p-5 text-[13px] text-[#9C9A95]">Chargement…</div>
+          <div className="p-5 text-[13px] text-[#9A93A8]">Chargement…</div>
         ) : garants.length === 0 ? (
           <div className="p-5">
             <AdminEmpty>Aucun garant en attente d’appel.</AdminEmpty>
@@ -163,7 +163,7 @@ export default function ValidationUtilisateursPage() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="border-b border-[#E2E0D9] bg-[#FAFAF8]">
+              <thead className="border-b border-[#E7E2F0] bg-[#F6F5FA]">
                 <tr>
                   <th className={tableHead}>Prestataire</th>
                   <th className={tableHead}>Garant</th>
@@ -171,16 +171,16 @@ export default function ValidationUtilisateursPage() {
                   <th className={`${tableHead} text-right`}>{canAct ? "Résultat de l’appel" : ""}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#E2E0D9]">
+              <tbody className="divide-y divide-[#E7E2F0]">
                 {garants.map((g) => (
                   <tr key={g.id}>
                     <td className={tableCell}>
                       {g.manoeuvre.email}
-                      <div className="text-[11px] text-[#9C9A95]">{g.manoeuvre.tel}</div>
+                      <div className="text-[11px] text-[#9A93A8]">{g.manoeuvre.tel}</div>
                     </td>
                     <td className={tableCell}>
                       {g.nom}
-                      {g.obligatoire && <span className="ml-1.5 text-[10.5px] text-[#9C9A95]">(obligatoire)</span>}
+                      {g.obligatoire && <span className="ml-1.5 text-[10.5px] text-[#9A93A8]">(obligatoire)</span>}
                     </td>
                     <td className={`${tableCell} font-mono text-[12px]`}>{g.tel}</td>
                     <td className={`${tableCell} text-right`}>
@@ -189,14 +189,14 @@ export default function ValidationUtilisateursPage() {
                           <button
                             onClick={() => decideGarant(g.id, "confirme")}
                             disabled={busy === g.id}
-                            className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[#1A7A4A] px-3 text-[12px] font-semibold text-white disabled:opacity-50"
+                            className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[#3B1578] px-3 text-[12px] font-semibold text-white disabled:opacity-50"
                           >
                             <PhoneCall size={13} /> Confirmé
                           </button>
                           <button
                             onClick={() => decideGarant(g.id, "injoignable")}
                             disabled={busy === g.id}
-                            className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#E2E0D9] bg-white px-3 text-[12px] font-medium text-[#5A5750] disabled:opacity-50"
+                            className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#E7E2F0] bg-white px-3 text-[12px] font-medium text-[#6B6478] disabled:opacity-50"
                           >
                             <PhoneOff size={13} /> Injoignable
                           </button>
@@ -218,7 +218,7 @@ export default function ValidationUtilisateursPage() {
         padded={false}
       >
         {accounts === null ? (
-          <div className="p-5 text-[13px] text-[#9C9A95]">Chargement…</div>
+          <div className="p-5 text-[13px] text-[#9A93A8]">Chargement…</div>
         ) : accounts.length === 0 ? (
           <div className="p-5">
             <AdminEmpty>Aucun compte de filière chantier.</AdminEmpty>
@@ -226,7 +226,7 @@ export default function ValidationUtilisateursPage() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="border-b border-[#E2E0D9] bg-[#FAFAF8]">
+              <thead className="border-b border-[#E7E2F0] bg-[#F6F5FA]">
                 <tr>
                   <th className={tableHead}>Compte</th>
                   <th className={tableHead}>Filière</th>
@@ -234,12 +234,12 @@ export default function ValidationUtilisateursPage() {
                   <th className={tableHead}>Garant exigé</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#E2E0D9]">
+              <tbody className="divide-y divide-[#E7E2F0]">
                 {accounts.map((a) => (
                   <tr key={a.userId}>
                     <td className={tableCell}>
                       {a.email}
-                      <div className="text-[11px] text-[#9C9A95]">{a.tel}</div>
+                      <div className="text-[11px] text-[#9A93A8]">{a.tel}</div>
                     </td>
                     <td className={tableCell}>{ROLE_LABEL[a.role] ?? a.role}</td>
                     <td className={tableCell}>{KYC_LABEL[a.kycStatus] ?? a.kycStatus}</td>
@@ -250,17 +250,17 @@ export default function ValidationUtilisateursPage() {
                           disabled={busy === a.userId}
                           className={`inline-flex h-8 items-center rounded-lg border px-3 text-[12px] font-semibold disabled:opacity-50 ${
                             a.garantRequired
-                              ? "border-[#9FD4B4] bg-[#E6F5EE] text-[#1A7A4A]"
-                              : "border-[#E2E0D9] bg-white text-[#5A5750]"
+                              ? "border-[#9FD4B4] bg-[#F0EAFF] text-[#3B1578]"
+                              : "border-[#E7E2F0] bg-white text-[#6B6478]"
                           }`}
                         >
                           {busy === a.userId ? "…" : a.garantRequired ? "● Exigé" : "○ Non exigé"}
                         </button>
                       ) : (
-                        <span className="text-[12.5px] text-[#5A5750]">{a.garantRequired ? "● Exigé" : "○ Non exigé"}</span>
+                        <span className="text-[12.5px] text-[#6B6478]">{a.garantRequired ? "● Exigé" : "○ Non exigé"}</span>
                       )}
                       {a.garantRequired && a.garantRequiredSetAt && (
-                        <div className="mt-1 text-[11px] text-[#9C9A95]">
+                        <div className="mt-1 text-[11px] text-[#9A93A8]">
                           depuis le {new Date(a.garantRequiredSetAt).toLocaleDateString("fr-FR")}
                           {a.garantRequiredSetByEmail ? ` · ${a.garantRequiredSetByEmail}` : ""}
                         </div>

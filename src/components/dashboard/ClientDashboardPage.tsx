@@ -13,21 +13,60 @@ import { Suspense, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { AlertCircle, ArrowLeft, FileText, Plus, ShieldCheck, User } from "lucide-react";
+import { FilterChips, PageHero, PrimaryLink, StatTile } from "@/components/dashboard/proto-ui";
+import { MissionGroupCard, groupProgress, type GroupCardModel } from "@/components/dashboard/MissionGroupCard";
+import { groupAnnonces, groupFilterTags, type MissionGroup } from "@/lib/annonce-groups";
+import { personFullName } from "@/lib/person-name";
+import { weightedJalonsProgress } from "@/lib/jalons";
 import DashboardLayout, { CLIENT_NAV, type DashboardUser } from "@/components/dashboard/DashboardLayout";
 import ClientOffresPanel from "@/components/dashboard/gig/ClientOffresPanel";
 import ClientPropositionsSection from "@/components/dashboard/client/PropositionsSection";
 import ClientPaiementsSection from "@/components/dashboard/client/PaiementsSection";
 import DevisContratsSection from "@/components/dashboard/DevisContratsSection";
-import { ClientProfileCompletionCard } from "@/components/dashboard/ClientProfileCompletionCard";
+import { ClientProfileCompletionButton } from "@/components/dashboard/ClientProfileCompletionCard";
 import { PendingPublicationsCard } from "@/components/dashboard/PendingPublicationsCard";
-import { MISSION_STATUS_STYLE } from "@/lib/mission-status";
-import { useSidebarBadges } from "@/components/dashboard/useSidebarBadges";
 import { fetchDedupe } from "@/lib/fetch-dedupe";
 import { useUserIdentity } from "@/components/user-identity";
 import type { Session } from "next-auth";
 
-type Mission = { id: string; titre: string; status: string; budget: number; currency: string; domaine?: string | null; _count?: { proposals: number }; contract?: { jalons: { status: string }[] } | null };
+type Mission = { id: string; titre: string; status: string; budget: number; currency: string; domaine?: string | null; ville?: string | null; observedProgress?: number; parentMissionId?: string | null; maxCandidatures?: number | null; _count?: { proposals: number }; contract?: { jalons: { status: string; montant: number; observedProgress: number }[] } | null; proposals?: { provider: { firstname: string | null; lastname: string | null } }[] };
+
+// Filtres de la maquette (2026-11-11) : regroupement des statuts réels de Mission.status.
+const FILTERS = ["Toutes", "Publiées", "En cours", "Terminées", "En litige"] as const;
+type Filter = (typeof FILTERS)[number];
+// Une annonce et ses engagements = une carte (src/lib/annonce-groups.ts).
+function toCard(g: MissionGroup<Mission>): GroupCardModel {
+  const m = g.mission;
+  const engagements = g.engagements.map((e) => ({
+    id: e.id,
+    status: e.status,
+    providerName: e.proposals?.[0] ? personFullName(e.proposals[0].provider) || null : null,
+    progress: progressOf(e),
+  }));
+  return {
+    id: m.id,
+    titre: m.titre,
+    domaine: m.domaine ?? "",
+    ville: m.ville ?? null,
+    budget: m.budget,
+    currency: m.currency,
+    status: m.status,
+    candidatures: [m, ...g.engagements].reduce((s, x) => s + (x._count?.proposals ?? 0), 0),
+    places: m.parentMissionId ? null : m.maxCandidatures && m.maxCandidatures > 0 ? m.maxCandidatures : 1,
+    progress: groupProgress(progressOf(m), engagements),
+    toReview: [m, ...g.engagements].some(isEnRevision),
+    engagements,
+  };
+}
+// Progression d'une carte — même règle que Mes Missions (MesMissions.tsx, progressOf).
+function progressOf(m: Mission): number {
+  const jalons = m.contract?.jalons ?? [];
+  if (jalons.length > 0) return weightedJalonsProgress(jalons);
+  if (m.status === "validee" || m.status === "cloturee") return 100;
+  return m.observedProgress ?? 0;
+}
+const CARDS_SHOWN = 6;
 
 // Sur un contrat à jalons, mission.status ne passe jamais à "livrable_soumis" — seul
 // jalon.status le fait, jalon par jalon (voir src/lib/psp-webhook.ts). Sans ce repli, une
@@ -43,29 +82,16 @@ function isEnRevision(m: Mission): boolean {
 // Données réelles du dashboard client (identité + agrégats + missions) renvoyées par
 // /api/dashboard/client-summary — même modèle que provider-summary côté prestataire.
 type ClientSummary = {
-  user: { name: string; initials: string; firstName: string; avatarUrl: string | null };
-  stats: { total: number; active: number; pendingValidations: number; totalProposals: number; budgetSpent: number; closed: number; open: number };
+  user: { name: string; initials: string; firstName: string; fullName?: string; city?: string | null; avatarUrl: string | null };
+  stats: { total: number; active: number; pendingValidations: number; totalProposals: number; budgetSpent: number; closed: number; open: number; inEscrow?: number };
   missions: Mission[];
-  activity: Array<{ id: string; message: string; icon: string; createdAt: string }>;
 };
 
 // Repli pendant le chargement — remplacé par l'identité réelle dès que le summary arrive.
 const USER: DashboardUser = {
   initials: "CL", name: "Cliente", role: "Cliente",
-  avatarGradient: "from-[#FF7A00] to-[#E8112D]",
+  avatarGradient: "from-[#6D28D9] to-[#B42318]",
 };
-
-function timeAgo(iso: string): string {
-  const diffMin = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
-  if (diffMin < 1) return "à l'instant";
-  if (diffMin < 60) return `Il y a ${diffMin} min`;
-  const diffH = Math.floor(diffMin / 60);
-  if (diffH < 24) return `Il y a ${diffH}h`;
-  const diffJ = Math.floor(diffH / 24);
-  if (diffJ === 1) return "Hier";
-  if (diffJ < 7) return `Il y a ${diffJ}j`;
-  return new Date(iso).toLocaleDateString("fr-FR");
-}
 
 const NAV_URLS: Record<string, string> = {
   dashboard: "/client/dashboard",
@@ -94,9 +120,7 @@ export default function ClientDashboardPage({ initialNav = "dashboard" }: { init
   // session JWT) + agrégats + missions, en une seule requête — même modèle que
   // provider-summary côté prestataire.
   const [summary, setSummary] = useState<ClientSummary | null>(null);
-  // Badges du sidebar pilotés par les événements réels (messages non lus, notifications
-  // in-app, propositions reçues, paiements en séquestre) — polling 30s (useSidebarBadges).
-  const badgeCounts = useSidebarBadges("client");
+  const [filter, setFilter] = useState<Filter>("Toutes");
 
   // Retour à la page demandée après connexion (Gig ouvert depuis l'accueil, lien partagé).
   useEffect(() => {
@@ -118,20 +142,21 @@ export default function ClientDashboardPage({ initialNav = "dashboard" }: { init
   // AVANT les retours conditionnels : les hooks doivent rester inconditionnels (rules-of-hooks).
   const identity = useUserIdentity();
 
-  if (status === "loading") return <div className="min-h-screen bg-[#FFF8F0] flex items-center justify-center"><div className="w-8 h-8 border-[3px] border-[#FF7A00] border-t-transparent rounded-full animate-spin" /></div>;
+  if (status === "loading") return <div className="min-h-screen bg-[#F6F5FA] flex items-center justify-center"><div className="w-8 h-8 border-[3px] border-[#6D28D9] border-t-transparent rounded-full animate-spin" /></div>;
   if (status === "unauthenticated") return null;
 
   const user: DashboardUser = identity
-    ? { initials: identity.initials, name: identity.name, role: "Cliente", avatarGradient: "from-[#FF7A00] to-[#E8112D]", avatarUrl: identity.avatarUrl ?? null, id: identity.id }
+    ? { initials: identity.initials, name: identity.name, role: "Cliente", avatarGradient: "from-[#6D28D9] to-[#B42318]", avatarUrl: identity.avatarUrl ?? null, id: identity.id }
     : { ...USER, avatarUrl: null, id: currentUserId };
   const all = summary?.missions ?? [];
   const stats = summary?.stats;
-  const actives = all.filter(m => !["brouillon", "publiee", "cloturee"].includes(m.status));
-  const enCours = actives.length;
   const livraison = all.filter(isEnRevision).length;
+  const groups = groupAnnonces(all);
+  const shown = filter === "Toutes" ? groups : groups.filter(g => (groupFilterTags(g) as string[]).includes(filter));
+  const counts = Object.fromEntries(FILTERS.map(f => [f, f === "Toutes" ? groups.length : groups.filter(g => (groupFilterTags(g) as string[]).includes(f)).length]));
 
   return (
-    <DashboardLayout mode="client" user={user} navItems={CLIENT_NAV} activeNav={nav} onNavChange={goTo} badgeCounts={badgeCounts}
+    <DashboardLayout user={user} navItems={CLIENT_NAV} activeNav={nav}
       title={nav==="propositions"?"Tableau de bord / Propositions":nav==="paiements"?"Tableau de bord / Paiements":nav==="offres"?"Tableau de bord / Offres":nav==="devis-contrats"?"Tableau de bord / Devis & Contrats":"Tableau de bord"}
     >
       {nav==="offres" && <ClientOffresPanel />}
@@ -143,31 +168,61 @@ export default function ClientDashboardPage({ initialNav = "dashboard" }: { init
         <div className="flex items-center gap-3 mb-6">
           <button onClick={()=>goTo("dashboard")} className="w-9 h-9 rounded-full bg-white border border-gray-200 flex items-center justify-center hover:bg-gray-100"><ArrowLeft className="w-4 h-4 text-zinc-600"/></button>
           <div>
-            <h1 className="text-[22px] font-bold text-[#0A1931]">Paiements</h1>
+            <h1 className="text-[22px] font-bold text-[#191224]">Paiements</h1>
             <p className="text-[12px] text-zinc-500 mt-0.5">Suis tes paiements et séquestres.</p>
           </div>
         </div>
         <ClientPaiementsSection />
       </>}
       {nav==="dashboard" && <>
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
-          <div><h1 className="text-[22px] md:text-[26px] font-bold text-[#0A1931]">Bonjour {summary?.user?.firstName ?? ""} 👋</h1><p className="text-[13px] text-zinc-500 mt-1"><span className="text-[#FF7A00]">✦</span> Tu as <span className="font-semibold text-[#FF7A00]">{livraison} livraison{livraison>1?"s":""} à valider</span> • {enCours} mission{enCours>1?"s":""} active{enCours>1?"s":""}</p></div>
-          <div className="flex items-center gap-2"><Link href="/missions/new" className="h-9 px-4 rounded-full bg-[#008751] text-white text-[13px] font-semibold flex items-center hover:brightness-110" style={{textDecoration:"none"}}>+ Mission</Link><Link href="/recherche" className="h-9 px-4 rounded-full bg-white border border-gray-200 text-[13px] font-medium text-zinc-600 hover:bg-gray-50" style={{textDecoration:"none"}}>Trouver un talent</Link></div>
-        </div>
+        {/* Maquette « Vos missions, protégées par l'escrow » (2026-11-11). */}
+        <PageHero
+          kicker={<>Bonjour{summary?.user ? `, ${summary.user.fullName || summary.user.firstName}` : ""}{summary?.user?.city ? ` • ${summary.user.city}` : ""}</>}
+          title={<>Vos missions,<br />protégées par l&apos;escrow.</>}
+          subtitle="Publiez, comparez, contractualisez. Les fonds restent séquestrés jusqu'à validation de chaque jalon."
+          actions={<><ClientProfileCompletionButton /><PrimaryLink href="/missions/new"><Plus className="w-5 h-5" aria-hidden /> Créer une annonce</PrimaryLink></>}
+        />
+        {livraison > 0 && (
+          <Link href="/client/missions" className="mb-4 flex items-center gap-2 rounded-2xl bg-[#FFF6E3] px-4 py-3 text-[13px] font-semibold text-[#B45309]" style={{textDecoration:"none"}}>
+            <AlertCircle className="w-4 h-4 shrink-0" aria-hidden /> {livraison} livraison{livraison>1?"s":""} à valider — les fonds attendent votre décision.
+          </Link>
+        )}
         {/* Publication bloquée par le KYC, puis « Publier maintenant » une fois vérifié.
             Suspense : la carte lit ?publication=kyc via useSearchParams. */}
         <Suspense fallback={null}>
           <PendingPublicationsCard />
         </Suspense>
-        <ClientProfileCompletionCard />
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6">
-          {[{l:"Missions actives",v:stats?String(stats.active):"—",s:stats?`${stats.total} au total`:"",c:"from-[#3B82F6] to-[#3B82F6]"},{l:"Budget dépensé",v:stats?stats.budgetSpent.toLocaleString("fr-FR"):"—",s:"FCFA total",c:"from-[#22C55E] to-[#22C55E]"},{l:"Propositions",v:stats?String(stats.totalProposals):"—",s:"reçues — voir tout →",c:"from-[#8B5CF6] to-[#8B5CF6]",action:()=>goTo("propositions")},{l:"Clôturées",v:stats?String(stats.closed):"—",s:"missions terminées",c:"from-[#EF4444] to-[#EF4444]"}].map(s=><div key={s.l} onClick={s.action} className={`bg-white rounded-[16px] border border-gray-100 p-4 hover:shadow-md transition-shadow relative overflow-hidden ${s.action?"cursor-pointer":""}`}><div className={`absolute top-0 left-0 w-full h-1 bg-gradient-to-r ${s.c}`}/><div className="text-[11px] uppercase tracking-widest text-zinc-400 font-semibold mb-1">{s.l}</div><div className="text-[28px] font-bold text-[#0A1931]">{s.v}</div><div className="text-[12px] text-zinc-400 mt-0.5">{s.s}</div></div>)}
+
+        <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-5">
+          <StatTile icon={<FileText />} value={stats?String(stats.active):"—"} label="Missions actives" />
+          <StatTile icon={<User />} value={stats?String(stats.totalProposals):"—"} label="Candidatures" onClick={()=>goTo("propositions")} />
+          <StatTile icon={<ShieldCheck />} value={stats?`${(stats.inEscrow ?? 0).toLocaleString("fr-FR")} FCFA`:"—"} label="En escrow" />
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
-          <div className="lg:col-span-2"><div className="bg-white rounded-[20px] border border-gray-100 overflow-hidden"><div className="px-5 py-4 border-b border-gray-50 flex items-center justify-between"><h3 className="font-semibold text-[15px] text-[#0A1931]">Mes Missions récentes</h3>{all.length>0&&<button onClick={()=>goTo("missions")} className="min-h-6 text-[12px] font-medium text-[#FF7A00] hover:underline">Voir tout →</button>}</div><div className="divide-y divide-gray-50">{all.length===0?<div className="px-5 py-12 text-center"><div className="text-3xl mb-2">📋</div><p className="text-[13px] text-zinc-500 font-medium">Aucune mission</p><Link href="/missions/new" className="mt-4 inline-flex h-9 px-5 rounded-full bg-[#FF7A00] text-white text-[12px] font-semibold items-center" style={{textDecoration:"none"}}>+ Nouvelle mission</Link></div>:all.slice(0,5).map(m=>{const st=MISSION_STATUS_STYLE[m.status as keyof typeof MISSION_STATUS_STYLE]??MISSION_STATUS_STYLE.brouillon;return /* /missions/[id] et non /contract : une mission brouillon ou publiée n'a pas de contrat — même convention que MesMissions.tsx */ <Link key={m.id} href={`/missions/${m.id}`} className="flex items-center gap-3 px-5 py-4 hover:bg-gray-50/50 transition-colors" style={{textDecoration:"none",color:"inherit"}}><div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#0A1931] to-[#FF7A00] flex items-center justify-center text-white text-[12px] font-bold shrink-0">{m.titre.slice(0,2).toUpperCase()}</div><div className="flex-1 min-w-0"><div className="text-[13px] font-medium text-[#0A1931]">{m.titre}</div><div className="text-[11px] text-zinc-400">{m.budget.toLocaleString("fr-FR")} {m.currency}</div></div><span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold bg-gray-100 text-zinc-600"><span className={`w-1.5 h-1.5 rounded-full ${st.dot}`}/>{st.label}</span></Link>})}</div><div className="px-5 py-3 bg-gray-50/50 border-t border-gray-50 flex items-center gap-4 text-[11px] text-zinc-500"><span>Paiement sécurisé via</span><div className="flex items-center gap-3"><span className="flex items-center gap-1"><span className="w-5 h-5 rounded-full bg-yellow-400 flex items-center justify-center text-[10px] font-bold text-white">M</span>MTN MoMo</span><span className="flex items-center gap-1"><span className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center text-[10px] font-bold text-white">W</span>Wave</span><span className="flex items-center gap-1"><span className="w-5 h-5 rounded-full bg-orange-500 flex items-center justify-center text-[10px] font-bold text-white">O</span>Orange</span></div></div></div></div>
-          <div><div className="bg-white rounded-[20px] border border-gray-100 overflow-hidden mb-4"><div className="px-5 py-4 border-b border-gray-50 flex items-center justify-between"><h3 className="font-semibold text-[14px] text-[#0A1931]">Activité récente</h3></div><div className="px-5 py-4 space-y-3">{!summary?<div className="py-2 text-center text-[12px] text-zinc-400">Chargement…</div>:summary.activity.length===0?<div className="py-2 text-center text-[12px] text-zinc-400">Aucune activité récente.</div>:summary.activity.slice(0,4).map(a=><div key={a.id} className="flex gap-3"><div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0">{a.icon}</div><div><p className="text-[12px] font-medium text-[#0A1931]">{a.message}</p><p className="text-[11px] text-zinc-400">{timeAgo(a.createdAt)}</p></div></div>)}</div></div>
-<div className="mt-4 bg-white rounded-[20px] border border-gray-100 p-4"><div className="flex items-center gap-2 mb-1"><span className="text-green-500 text-lg">🛡️</span><span className="font-semibold text-[13px] text-[#0A1931]">Paiement sécurisé</span></div><p className="text-[12px] text-zinc-500 leading-relaxed">Tes fonds sont bloqués jusqu&apos;à validation. Remboursement garanti.</p></div></div>
-        </div>
+
+        <div className="mb-3"><FilterChips options={[...FILTERS]} value={filter} onChange={(v)=>setFilter(v as Filter)} counts={counts} /></div>
+
+        {!summary ? (
+          <div className="rounded-3xl border border-[#E7E2F0] bg-white px-5 py-12 text-center text-[13px] text-[#9A93A8]">Chargement…</div>
+        ) : all.length===0 ? (
+          <div className="rounded-3xl border border-dashed border-[#D4CCE3] bg-white px-5 py-12 text-center">
+            <FileText className="w-8 h-8 mx-auto text-[#9A93A8]" aria-hidden />
+            <p className="mt-2 text-[14px] text-[#6B6478] font-medium">Aucune mission pour l&apos;instant</p>
+            <Link href="/missions/new" className="mt-4 inline-flex px-5 py-2.5 rounded-full bg-[#4C1D95] text-white text-[13px] font-bold items-center gap-1" style={{textDecoration:"none"}}><Plus className="w-4 h-4" aria-hidden /> Créer une annonce</Link>
+          </div>
+        ) : shown.length===0 ? (
+          <p className="p-5 rounded-2xl border border-[#E7E2F0] bg-white text-center text-[14px] text-[#6B6478]">Aucune mission dans ce filtre. <button type="button" className="font-bold underline text-[#191224]" onClick={()=>setFilter("Toutes")}>Tout afficher</button></p>
+        ) : (
+          <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-3">
+            {/* Une carte par mission publiée ; ses engagements (prestataires retenus) y sont listés. */}
+            {shown.slice(0, CARDS_SHOWN).map(g => <MissionGroupCard key={g.mission.id} m={toCard(g)} />)}
+          </div>
+        )}
+        {shown.length > CARDS_SHOWN && (
+          <div className="mt-3 text-center"><button type="button" onClick={()=>goTo("missions")} className="text-[13px] font-bold text-[#4C1D95] hover:underline">Voir les {counts[filter]} missions →</button></div>
+        )}
+
+        {/* Page volontairement minimale (2026-11-11) : le suivi des candidatures reçues vit sur
+            /client/propositions ; la complétion du profil est un bouton de l'en-tête. */}
       </>}
     </DashboardLayout>
   );

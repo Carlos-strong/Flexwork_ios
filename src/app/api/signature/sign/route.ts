@@ -2,11 +2,12 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { kycBlockFor } from "@/lib/kyc-policy";
-import { SignatureService } from "@/lib/signature";
+import { InvalidPassphraseError, SignatureService } from "@/lib/signature";
 import { requireContractParty } from "@/lib/resource-guard";
 import { counterSignDeadline, cancelExpiredContract } from "@/lib/contract-expiry";
 import { notifyMissionParties } from "@/lib/mission-notify";
 import { requestContractHold } from "@/lib/escrow";
+import { personFullName } from "@/lib/person-name";
 
 export const dynamic = "force-dynamic";
 
@@ -49,10 +50,18 @@ export async function POST(req: Request) {
     // direct pouvait signer dans n'importe quel ordre.
     const order = await prisma.prestationContract.findUnique({
       where: { id: contractId },
-      select: { clientId: true, providerId: true, clientSignedAt: true, providerSignedAt: true },
+      select: { clientId: true, providerId: true, clientSignedAt: true, providerSignedAt: true, mission: { select: { status: true } } },
     });
     if (!order) {
       return NextResponse.json({ error: "not_found" }, { status: 404 });
+    }
+    // Engagement annulé (désistement ou retrait, 2026-11-11, src/lib/engagement-withdrawal.ts) :
+    // son contrat ne peut plus être signé.
+    if (order.mission.status === "annulee") {
+      return NextResponse.json(
+        { error: "engagement_annule", message: "Cet engagement a été annulé (désistement) : le contrat ne peut plus être signé." },
+        { status: 409 }
+      );
     }
     const signerIsClient = userId === order.clientId;
     if (signerIsClient) {
@@ -137,8 +146,6 @@ export async function POST(req: Request) {
       });
     }
 
-    const displayName = (u: { firstname: string | null; lastname: string | null }) =>
-      [u.firstname, u.lastname].filter(Boolean).join(" ").trim() || "L'utilisateur";
 
     if (bothSigned && signedContract) {
       // Workflow étape 5 — la contre-signature du CLIENT (2/2) déclenche le paiement sécurisé :
@@ -203,11 +210,11 @@ export async function POST(req: Request) {
         type: "provider_signed",
         counterpart: {
           userId: signedContract.clientId,
-          message: `${displayName(signedContract.provider)} a signé le contrat — contre-signe sous 48h pour « ${signedContract.mission.titre} »`,
+          message: `${personFullName(signedContract.provider) || "L'utilisateur"} a signé le contrat — contre-signe sous 48h pour « ${signedContract.mission.titre} »`,
           email: {
             subject: "Contre-signature requise sous 48h",
-            text: `${displayName(signedContract.provider)} a signé le contrat pour la mission « ${signedContract.mission.titre} ». Vous disposez de 48h pour contre-signer, sinon le contrat sera annulé sans pénalité.`,
-            html: `<p>${displayName(signedContract.provider)} a signé le contrat pour la mission <strong>${signedContract.mission.titre}</strong>.</p><p>Vous disposez de <strong>48h</strong> pour contre-signer, sinon le contrat sera annulé sans pénalité.</p>`,
+            text: `${personFullName(signedContract.provider) || "L'utilisateur"} a signé le contrat pour la mission « ${signedContract.mission.titre} ». Vous disposez de 48h pour contre-signer, sinon le contrat sera annulé sans pénalité.`,
+            html: `<p>${personFullName(signedContract.provider) || "L'utilisateur"} a signé le contrat pour la mission <strong>${signedContract.mission.titre}</strong>.</p><p>Vous disposez de <strong>48h</strong> pour contre-signer, sinon le contrat sera annulé sans pénalité.</p>`,
           },
         },
         actor: {
@@ -223,6 +230,9 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true, ...result });
   } catch (error) {
+    if (error instanceof InvalidPassphraseError) {
+      return NextResponse.json({ error: error.message, code: "invalid_passphrase" }, { status: 400 });
+    }
     console.error("Error signing contract:", error);
     const message = error instanceof Error ? error.message : "Erreur lors de la signature";
     return NextResponse.json({ error: message }, { status: 500 });

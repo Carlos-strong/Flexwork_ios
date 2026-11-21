@@ -21,6 +21,8 @@
  */
 
 import { useEffect, useRef, useState } from "react";
+import { parseLatLng } from "@/lib/proof-format";
+import { formatFileSize } from "@/lib/proof-format";
 
 // Raisons de rejet — liste et libellés de la maquette, dans son ordre.
 const CLIENT_REJECT_REASONS = [
@@ -79,20 +81,6 @@ const CATEGORY_LABEL: Record<string, string> = {
   other: "Autres",
 };
 
-function formatSize(size: number | null | undefined, fallback: string): string {
-  if (typeof size === "number" && size > 0) {
-    return size >= 1024 * 1024 ? `${(size / (1024 * 1024)).toFixed(1)} Mo` : `${Math.max(1, Math.round(size / 1024))} Ko`;
-  }
-  return fallback;
-}
-
-function parseLatLng(note: string | null): { lat: number; lng: number } | null {
-  if (!note) return null;
-  const [latStr, lngStr] = note.split(",");
-  const lat = Number(latStr);
-  const lng = Number(lngStr);
-  return Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : null;
-}
 
 function proofName(proof: { fileName: string | null; note: string | null }): string {
   if (proof.fileName) return proof.fileName;
@@ -262,12 +250,12 @@ export default function ClientProofValidationModal({
                   <div className="w-7 h-7 rounded-full bg-[#e0e7ff] border-2 border-white flex items-center justify-center text-[11px] font-bold text-[#4338ca]">
                     {clientInitials}
                   </div>
-                  <div className="w-7 h-7 rounded-full bg-[#dcfce7] border-2 border-white flex items-center justify-center text-[11px] font-bold text-[#15803d]">
+                  <div className="w-7 h-7 rounded-full bg-[#E7F7EF] border-2 border-white flex items-center justify-center text-[11px] font-bold text-[#047857]">
                     {providerInitials}
                   </div>
                 </div>
                 <span className="text-[12px] text-gray-500">Client {clientName} • Prestataire {providerName}</span>
-                <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-[#fef3c7] text-[#92400e] border border-[#fde68a]">
+                <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-[#FFF6E3] text-[#92400e] border border-[#fde68a]">
                   {statusLabel}
                 </span>
               </div>
@@ -284,7 +272,7 @@ export default function ClientProofValidationModal({
           {/* Corps */}
           <div className="overflow-y-auto flex-1 px-5 md:px-6 py-5">
             {error && (
-              <div className="mb-4 rounded-xl border border-[#fecaca] bg-[#fef2f2] p-3 text-[13px] text-[#b91c1c]">{error}</div>
+              <div className="mb-4 rounded-xl border border-[#fecaca] bg-[#FEECEB] p-3 text-[13px] text-[#B42318]">{error}</div>
             )}
 
             <div>
@@ -355,30 +343,30 @@ export default function ClientProofValidationModal({
                             )}
                           </div>
                           <div className="absolute top-2 left-2 flex gap-1">
-                            {pending && <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#f3f4f6] text-gray-600 border">En attente</span>}
+                            {pending && <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#EFEAF8] text-gray-600 border">En attente</span>}
                             {validated && (
-                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#dcfce7] text-[#15803d] border border-[#bbf7d0] font-medium">
+                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#E7F7EF] text-[#047857] border border-[#bbf7d0] font-medium">
                                 Validée • 100%
                               </span>
                             )}
                             {rejected && (
-                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#fee2e2] text-[#dc2626] border border-[#fecaca] font-medium">
+                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#FEECEB] text-[#B42318] border border-[#fecaca] font-medium">
                                 Rejetée
                               </span>
                             )}
                           </div>
                           {validated && <div className="absolute bottom-0 left-0 right-0 h-1 bg-[#22c55e]" />}
-                          {rejected && <div className="absolute bottom-0 left-0 right-0 h-1 bg-[#dc2626]" />}
+                          {rejected && <div className="absolute bottom-0 left-0 right-0 h-1 bg-[#B42318]" />}
                         </div>
 
                         <div className="p-2.5">
                           <div className="text-[11px] font-medium text-gray-900 truncate">{name}</div>
                           <div className="text-[10px] text-gray-500">
-                            {formatSize(proof.size, proof.category === "geolocation" ? "Position GPS" : "Note")} •{" "}
+                            {(formatFileSize(proof.size) ?? (proof.category === "geolocation" ? "Position GPS" : "Note"))} •{" "}
                             {CATEGORY_LABEL[proof.category] ?? proof.category}
                           </div>
                           {rejected && proof.rejectionReason && (
-                            <div className="mt-2 text-[10px] bg-[#fef2f2] border border-[#fecaca] rounded-lg p-1.5 text-[#991b1b]">
+                            <div className="mt-2 text-[10px] bg-[#FEECEB] border border-[#fecaca] rounded-lg p-1.5 text-[#991b1b]">
                               <div className="font-medium">{proof.rejectionReason}</div>
                               <div className="text-[10px] line-clamp-2 text-gray-600">{proof.rejectionMotif}</div>
                             </div>
@@ -392,25 +380,25 @@ export default function ClientProofValidationModal({
                                 <button
                                   disabled={busy}
                                   onClick={() => { onValidateProof(proof.id); showToast("Preuve validée"); }}
-                                  className="w-1/2 bg-[#008751] text-white text-[13px] font-medium flex items-center justify-center gap-1 hover:bg-[#007a49] transition disabled:opacity-60"
+                                  className="w-1/2 bg-[#4C1D95] text-white text-[13px] font-medium flex items-center justify-center gap-1 hover:bg-[#3B1578] transition disabled:opacity-60"
                                 >
                                   <span className="text-[12px]">✅</span> Valider
                                 </button>
                                 <button
                                   disabled={busy}
                                   onClick={() => { setRejecting(proof); setRejectForm({ reason: "", motif: "", requestNewProof: false }); }}
-                                  className="w-1/2 bg-white text-[#dc2626] text-[13px] font-medium flex items-center justify-center gap-1 hover:bg-[#fef2f2] transition border-l border-gray-100 disabled:opacity-60"
+                                  className="w-1/2 bg-white text-[#B42318] text-[13px] font-medium flex items-center justify-center gap-1 hover:bg-[#FEECEB] transition border-l border-gray-100 disabled:opacity-60"
                                 >
                                   <span className="text-[12px]">❌</span> Rejeter
                                 </button>
                               </>
                             ) : (
-                              <div className="w-full bg-[#f9fafb] text-gray-500 text-[12px] font-medium flex items-center justify-center">
+                              <div className="w-full bg-[#F6F5FA] text-gray-500 text-[12px] font-medium flex items-center justify-center">
                                 Lot déjà clos
                               </div>
                             )
                           ) : validated ? (
-                            <div className="w-full bg-[#f0fdf4] text-[#15803d] text-[12px] font-medium flex items-center justify-center">
+                            <div className="w-full bg-[#E7F7EF] text-[#047857] text-[12px] font-medium flex items-center justify-center">
                               ✓ Validée à 100%
                             </div>
                           ) : (
@@ -422,7 +410,7 @@ export default function ClientProofValidationModal({
                               >
                                 Annuler rejet
                               </button>
-                              <div className="w-1/2 bg-[#fef2f2] text-[#dc2626] text-[11px] flex items-center justify-center font-medium">Rejetée</div>
+                              <div className="w-1/2 bg-[#FEECEB] text-[#B42318] text-[11px] flex items-center justify-center font-medium">Rejetée</div>
                             </div>
                           )}
                         </div>
@@ -439,10 +427,10 @@ export default function ClientProofValidationModal({
 
                 <div className="mb-5">
                   <label className="text-[13px] font-medium text-gray-700 flex items-center gap-1">
-                    Taux d&apos;exécution constaté sur site <span className="text-[#dc2626]">*</span>
+                    Taux d&apos;exécution constaté sur site <span className="text-[#B42318]">*</span>
                   </label>
                   {progressNotice && (
-                    <p className="mt-1 text-[12px] text-[#1D4ED8] bg-[#EFF6FF] border border-[#BFDBFE] rounded-lg px-2.5 py-1.5">{progressNotice}</p>
+                    <p className="mt-1 text-[12px] text-[#1D4ED8] bg-[#EAF1FF] border border-[#BFDBFE] rounded-lg px-2.5 py-1.5">{progressNotice}</p>
                   )}
                   <div className="mt-3 flex items-center gap-3">
                     <div className="flex-1 relative">
@@ -453,14 +441,14 @@ export default function ClientProofValidationModal({
                         value={observedProgress}
                         disabled={progressReadOnly}
                         onChange={(e) => onObservedProgressChange(Math.max(minProgress, Number(e.target.value)))}
-                        className="w-full h-2 appearance-none bg-[#e5e7eb] rounded-full accent-[#008751] flexwork-constat-range"
+                        className="w-full h-2 appearance-none bg-[#E7E2F0] rounded-full accent-[#4C1D95] flexwork-constat-range"
                         /* La portion déjà acquise reste peinte en vert foncé : elle n'est plus
                            négociable, le curseur ne peut plus y redescendre. */
-                        style={{ background: `linear-gradient(to right, #006b40 ${minProgress}%, #008751 ${minProgress}%, #008751 ${observedProgress}%, #e5e7eb ${observedProgress}%)` }}
+                        style={{ background: `linear-gradient(to right, #3B1578 ${minProgress}%, #4C1D95 ${minProgress}%, #4C1D95 ${observedProgress}%, #E7E2F0 ${observedProgress}%)` }}
                       />
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-[28px] font-bold text-[#008751] leading-none min-w-[64px] text-right">{observedProgress}%</span>
+                      <span className="text-[28px] font-bold text-[#4C1D95] leading-none min-w-[64px] text-right">{observedProgress}%</span>
                       <input
                         type="number"
                         min={minProgress}
@@ -483,7 +471,7 @@ export default function ClientProofValidationModal({
                           disabled={belowFloor}
                           title={belowFloor ? `Déjà validé fermement à ${minProgress}% — le constat ne peut plus redescendre` : undefined}
                           onClick={() => onObservedProgressChange(value)}
-                          className={`text-[11px] px-2.5 py-1 rounded-full border transition ${belowFloor ? "bg-gray-100 text-gray-300 border-gray-200 cursor-not-allowed line-through" : observedProgress === value ? "bg-[#008751] text-white border-[#008751]" : "bg-white text-gray-600 border-gray-200 hover:border-[#008751] hover:text-[#008751]"}`}
+                          className={`text-[11px] px-2.5 py-1 rounded-full border transition ${belowFloor ? "bg-gray-100 text-gray-300 border-gray-200 cursor-not-allowed line-through" : observedProgress === value ? "bg-[#4C1D95] text-white border-[#4C1D95]" : "bg-white text-gray-600 border-gray-200 hover:border-[#4C1D95] hover:text-[#4C1D95]"}`}
                         >
                           {value}%
                         </button>
@@ -504,7 +492,7 @@ export default function ClientProofValidationModal({
                     value={constatText}
                     onChange={(e) => onConstatTextChange(e.target.value)}
                     placeholder="Ex. Visite du 04/09 à 14h - tableau posé, câblage en cours, finitions à prévoir côté local TGBT..."
-                    className="mt-2 w-full border border-gray-200 rounded-xl p-3 text-[13px] resize-none focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751] placeholder:text-gray-400"
+                    className="mt-2 w-full border border-gray-200 rounded-xl p-3 text-[13px] resize-none focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20 focus:border-[#4C1D95] placeholder:text-gray-400"
                   />
                 </div>
 
@@ -542,7 +530,7 @@ export default function ClientProofValidationModal({
                         const name = proofName(proof);
                         return (
                           <div key={proof.id} className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-full pl-1 pr-2 py-1 shadow-sm">
-                            <div className="w-8 h-8 rounded-full bg-[#f3f4f6] flex items-center justify-center text-[10px] font-bold text-gray-600">
+                            <div className="w-8 h-8 rounded-full bg-[#EFEAF8] flex items-center justify-center text-[10px] font-bold text-gray-600">
                               {label[0]}
                             </div>
                             <span className="text-[11px] max-w-[90px] truncate">{name.slice(0, 14)}…</span>
@@ -572,11 +560,11 @@ export default function ClientProofValidationModal({
                     type="checkbox"
                     checked={attested}
                     onChange={(e) => onAttestedChange(e.target.checked)}
-                    className="mt-0.5 w-4 h-4 rounded border-gray-300 text-[#008751] focus:ring-[#008751]"
+                    className="mt-0.5 w-4 h-4 rounded border-gray-300 text-[#4C1D95] focus:ring-[#4C1D95]"
                   />
                   <span className="text-[12px] text-gray-600 leading-[1.4]">
                     J&apos;atteste avoir constaté sur site la réalité des travaux et l&apos;exactitude des informations saisies.{" "}
-                    <span className="text-[#dc2626]">*</span>
+                    <span className="text-[#B42318]">*</span>
                   </span>
                 </label>
               </div>
@@ -584,7 +572,7 @@ export default function ClientProofValidationModal({
           </div>
 
           {/* Pied */}
-          <div className="shrink-0 px-5 md:px-6 py-4 border-t border-gray-200 bg-[#f9fafb] flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div className="shrink-0 px-5 md:px-6 py-4 border-t border-gray-200 bg-[#F6F5FA] flex flex-col md:flex-row md:items-center justify-between gap-3">
             <div className="text-[12px] text-gray-500">
               <div>{appreciated}/{total} preuves appréciées • Taux site {observedProgress}% • {constatProofs.length} preuve(s) constat</div>
               {blockedReason && (
@@ -599,7 +587,7 @@ export default function ClientProofValidationModal({
                 disabled={!canSave}
                 title={blockedReason ?? undefined}
                 onClick={() => { showToast(`Taux ${observedProgress}% et constat enregistrés - prestataire notifié`); onSave(); }}
-                className={`h-9 px-5 rounded-xl text-[13px] font-medium transition ${canSave ? "bg-[#008751] text-white hover:bg-[#007a49]" : "bg-gray-200 text-gray-400 cursor-not-allowed"}`}
+                className={`h-9 px-5 rounded-xl text-[13px] font-medium transition ${canSave ? "bg-[#4C1D95] text-white hover:bg-[#3B1578]" : "bg-gray-200 text-gray-400 cursor-not-allowed"}`}
               >
                 {saving ? "Envoi..." : saveLabel}
               </button>
@@ -620,7 +608,7 @@ export default function ClientProofValidationModal({
                 <select
                   value={rejectForm.reason}
                   onChange={(e) => setRejectForm({ ...rejectForm, reason: e.target.value })}
-                  className="mt-1 w-full h-9 border border-gray-200 rounded-xl px-3 text-[13px] focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751]"
+                  className="mt-1 w-full h-9 border border-gray-200 rounded-xl px-3 text-[13px] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20 focus:border-[#4C1D95]"
                 >
                   <option value="">Sélectionner</option>
                   {CLIENT_REJECT_REASONS.map((reason) => (
@@ -636,10 +624,10 @@ export default function ClientProofValidationModal({
                   onChange={(e) => setRejectForm({ ...rejectForm, motif: e.target.value })}
                   placeholder="Ex. Photo floue..."
                   maxLength={300}
-                  className={`mt-1 w-full border rounded-xl p-2.5 text-[13px] resize-none focus:outline-none focus:ring-2 transition-colors ${rejectForm.motif.length === 0 ? "border-gray-200 focus:ring-[#008751]/20 focus:border-[#008751]" : rejectForm.motif.trim().length < 4 ? "border-[#fecaca] bg-[#fef2f2] focus:ring-[#dc2626]/20 focus:border-[#dc2626]" : "border-[#008751] bg-[#f0fdf4] focus:ring-[#008751]/20 focus:border-[#008751]"}`}
+                  className={`mt-1 w-full border rounded-xl p-2.5 text-[13px] resize-none focus:outline-none focus:ring-2 transition-colors ${rejectForm.motif.length === 0 ? "border-gray-200 focus:ring-[#4C1D95]/20 focus:border-[#4C1D95]" : rejectForm.motif.trim().length < 4 ? "border-[#fecaca] bg-[#FEECEB] focus:ring-[#B42318]/20 focus:border-[#B42318]" : "border-[#4C1D95] bg-[#E7F7EF] focus:ring-[#4C1D95]/20 focus:border-[#4C1D95]"}`}
                 />
                 <div className="mt-1.5 flex justify-between items-center">
-                  <span className={`text-[11px] ${rejectForm.motif.trim().length >= 4 ? "text-[#008751] font-medium" : "text-[#dc2626]"}`}>
+                  <span className={`text-[11px] ${rejectForm.motif.trim().length >= 4 ? "text-[#4C1D95] font-medium" : "text-[#B42318]"}`}>
                     {rejectForm.motif.trim().length >= 4
                       ? `✓ 4 caractères minimum (${rejectForm.motif.length}/300)`
                       : `4 caractères minimum (actuellement ${rejectForm.motif.length}/300)`}
@@ -652,7 +640,7 @@ export default function ClientProofValidationModal({
                   type="checkbox"
                   checked={rejectForm.requestNewProof}
                   onChange={(e) => setRejectForm({ ...rejectForm, requestNewProof: e.target.checked })}
-                  className="w-4 h-4 rounded border-gray-300 text-[#008751]"
+                  className="w-4 h-4 rounded border-gray-300 text-[#4C1D95]"
                 />
                 <span className="text-[12px] text-gray-700">Demander nouvelle preuve</span>
               </label>
@@ -664,7 +652,7 @@ export default function ClientProofValidationModal({
               <button
                 disabled={!rejectForm.reason || rejectForm.motif.trim().length < 4}
                 onClick={submitReject}
-                className={`h-9 px-4 rounded-xl text-[13px] font-medium transition-colors ${!rejectForm.reason || rejectForm.motif.trim().length < 4 ? "bg-gray-200 text-gray-400 cursor-not-allowed" : "bg-[#dc2626] text-white hover:bg-[#b91c1c]"}`}
+                className={`h-9 px-4 rounded-xl text-[13px] font-medium transition-colors ${!rejectForm.reason || rejectForm.motif.trim().length < 4 ? "bg-gray-200 text-gray-400 cursor-not-allowed" : "bg-[#B42318] text-white hover:bg-[#B42318]"}`}
               >
                 Confirmer rejet
               </button>
@@ -720,7 +708,7 @@ export default function ClientProofValidationModal({
                 <button
                   disabled={constatBusyCategory === activeTabDef.category}
                   onClick={() => (activeTabDef.accept ? constatInput.current?.click() : onCaptureGeo())}
-                  className="h-8 px-3 rounded-full bg-[#008751] text-white text-[12px] hover:bg-[#007a49] disabled:opacity-50"
+                  className="h-8 px-3 rounded-full bg-[#4C1D95] text-white text-[12px] hover:bg-[#3B1578] disabled:opacity-50"
                 >
                   {constatBusyCategory === activeTabDef.category ? "Envoi..." : `+ Ajouter ${activeTab}`}
                 </button>
@@ -739,13 +727,13 @@ export default function ClientProofValidationModal({
                     const name = proofName(proof);
                     return (
                       <div key={proof.id} className="border border-gray-200 rounded-xl p-2.5 flex items-center gap-2.5 bg-white">
-                        <div className="w-10 h-10 rounded-lg bg-[#f3f4f6] flex items-center justify-center text-[11px] font-bold">
+                        <div className="w-10 h-10 rounded-lg bg-[#EFEAF8] flex items-center justify-center text-[11px] font-bold">
                           {activeTab[0]}
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="text-[12px] font-medium truncate">{name}</div>
                           <div className="text-[10px] text-gray-500">
-                            {formatSize(proof.size, "Position GPS")} • {activeTab}
+                            {(formatFileSize(proof.size) ?? "Position GPS")} • {activeTab}
                           </div>
                         </div>
                         <div className="flex gap-1">
@@ -768,7 +756,7 @@ export default function ClientProofValidationModal({
                           )}
                           <button
                             onClick={() => onRemoveConstat(proof.id)}
-                            className="h-7 px-2.5 rounded-full bg-[#fef2f2] text-[#dc2626] border border-[#fecaca] text-[11px] hover:bg-[#fee2e2]"
+                            className="h-7 px-2.5 rounded-full bg-[#FEECEB] text-[#B42318] border border-[#fecaca] text-[11px] hover:bg-[#FEECEB]"
                           >
                             Supprimer
                           </button>
@@ -781,7 +769,7 @@ export default function ClientProofValidationModal({
             </div>
 
             <div className="px-5 py-4 border-t border-gray-200 flex justify-end">
-              <button onClick={() => setConstatOpen(false)} className="h-9 px-5 rounded-xl bg-[#008751] text-white text-[13px] hover:bg-[#007a49]">
+              <button onClick={() => setConstatOpen(false)} className="h-9 px-5 rounded-full bg-[#4C1D95] text-white text-[13px] hover:bg-[#3B1578]">
                 Terminé
               </button>
             </div>
@@ -791,7 +779,7 @@ export default function ClientProofValidationModal({
 
       {/* Toast */}
       {toast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] bg-[#008751] text-white px-4 py-2.5 rounded-full text-[13px] font-medium shadow-lg flex items-center gap-2">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] bg-[#4C1D95] text-white px-4 py-2.5 rounded-full text-[13px] font-medium shadow-lg flex items-center gap-2">
           <span>✓</span> {toast}
         </div>
       )}

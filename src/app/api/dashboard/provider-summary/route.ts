@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { openAnnonceWhere } from "@/lib/mission-expiry";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { weightedJalonsProgress } from "@/lib/jalons";
@@ -6,6 +7,8 @@ import { weightedJalonsProgress } from "@/lib/jalons";
 import { PROVIDER_PAYOUT_TYPES } from "@/lib/escrow-instructions";
 import { escrowBalancesFor } from "@/lib/escrow";
 import { missionDomainFilter } from "@/lib/domain-match";
+import { initials } from "@/lib/initials";
+import { clientPublicName } from "@/lib/person-name";
 
 // Agrégation des données réelles pour la vue d'accueil des dashboards prestataire
 // (/dashboard/expert-digital, expert-btp, artisan, manoeuvre) — ces pages affichaient
@@ -44,20 +47,6 @@ const STATUS_PROGRESS: Record<string, number> = {
   livrable_soumis: 90,
 };
 
-function displayName(u: { firstname: string | null; lastname: string | null } | null | undefined): string {
-  if (!u) return "Client";
-  const first = u.firstname?.trim();
-  const lastInitial = u.lastname?.trim()?.charAt(0);
-  if (first && lastInitial) return `${first} ${lastInitial}.`;
-  return first || u.lastname || "Client";
-}
-
-function initialsOf(firstname: string | null, lastname: string | null, fallback: string): string {
-  const a = firstname?.trim()?.charAt(0) ?? "";
-  const b = lastname?.trim()?.charAt(0) ?? "";
-  const initials = `${a}${b}`.toUpperCase();
-  return initials || fallback;
-}
 
 export async function GET() {
   const session = await auth();
@@ -99,7 +88,7 @@ export async function GET() {
       // Missions ouvertes correspondant au domaine — mêmes règles que GET /api/missions
       // pour rester cohérent avec /missions/<role>.
       prisma.mission.findMany({
-        where: { status: "publiee", ...missionDomainFilter(mainDomain) },
+        where: { ...openAnnonceWhere(), ...missionDomainFilter(mainDomain) },
         include: { client: { select: { firstname: true, lastname: true, country: true } } },
         orderBy: { createdAt: "desc" },
         take: 3,
@@ -238,7 +227,7 @@ export async function GET() {
   return NextResponse.json({
     user: {
       name: user.firstname || user.lastname || "Prestataire",
-      initials: initialsOf(user.firstname, user.lastname, "PR"),
+      initials: initials(user.firstname, user.lastname, "PR"),
       // Null si pas de photo : les vues retombent sur les initiales SANS lancer de requête
       // 404 inutile sur /api/users/[id]/avatar (elle cassait le rendu de la navbar + bas de
       // sidebar avec des erreurs console).
@@ -262,7 +251,7 @@ export async function GET() {
       currency: m.currency,
       budgetType: m.budgetType,
       delaiJours: m.delaiJours,
-      client: displayName(m.client),
+      client: clientPublicName(m.client),
       country: m.client?.country ?? null,
     })),
     inProgress: inProgressMissions.map((m) => {
@@ -277,7 +266,7 @@ export async function GET() {
       return {
         id: m.id,
         titre: m.titre,
-        client: displayName(m.client),
+        client: clientPublicName(m.client),
         budget: m.budget,
         currency: m.currency,
         progress,

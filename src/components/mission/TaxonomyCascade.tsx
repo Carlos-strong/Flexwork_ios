@@ -385,7 +385,7 @@ function TaxonomyCascadeImpl({
   const categorieField = (
     <div>
       <label htmlFor="categorieId" className={labelClass}>
-        Catégorie <span className="text-[#E8112D]">*</span>
+        Catégorie <span className="text-[#B42318]">*</span>
       </label>
       <select
         id="categorieId"
@@ -408,7 +408,7 @@ function TaxonomyCascadeImpl({
   const metierField = (
     <div>
       <label htmlFor="metierId" className={labelClass}>
-        Métier <span className="text-[#E8112D]">*</span>
+        Métier <span className="text-[#B42318]">*</span>
       </label>
       <select
         id="metierId"
@@ -451,8 +451,8 @@ function TaxonomyCascadeImpl({
 
       <div>
         <div className="flex items-baseline justify-between mb-1.5">
-          <span id={competencesLabelId} className={`${labelClass} mb-0`}>{competencesLabel} <span className="text-[#E8112D]">*</span></span>
-          <span className={`text-[11px] ${atLimit ? "text-[#FF7A00] font-semibold" : "text-zinc-400"}`}>
+          <span id={competencesLabelId} className={`${labelClass} mb-0`}>{competencesLabel} <span className="text-[#B42318]">*</span></span>
+          <span className={`text-[11px] ${atLimit ? "text-[#6D28D9] font-semibold" : "text-zinc-400"}`}>
             {value.competences.length} / {maxCompetences}
           </span>
         </div>
@@ -492,7 +492,7 @@ function TaxonomyCascadeImpl({
                   title={s.description ?? undefined}
                   className={`h-9 px-4 rounded-full text-[13px] font-medium border transition ${
                     selected
-                      ? "bg-[#008751] border-[#008751] text-white"
+                      ? "bg-[#4C1D95] border-[#4C1D95] text-white"
                       : blocked
                         ? "bg-white border-zinc-100 text-zinc-300 cursor-not-allowed"
                         : "bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50"

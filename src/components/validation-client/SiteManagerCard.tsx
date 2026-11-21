@@ -69,23 +69,23 @@ export function SiteManagerCard({ missionId, className = "" }: { missionId: stri
   if (mode !== "opr") return null;
 
   return (
-    <div className={`bg-white border border-[#E2E8F0] rounded-xl p-4 lg:p-5 ${className}`}>
+    <div className={`bg-white border border-[#E7E2F0] rounded-xl p-4 lg:p-5 ${className}`}>
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div>
           <h2 className="text-[13px] font-semibold">Responsable chantier (OPR)</h2>
-          <p className="text-[12px] text-[#64748B] mt-0.5">
+          <p className="text-[12px] text-[#6B6478] mt-0.5">
             Il vérifie les relevés, preuves et jalons, puis vous les transmet. Vous gardez la validation définitive.
           </p>
         </div>
         {manager && (
-          <span className="text-[12.5px] text-[#0f172a]">
+          <span className="text-[12.5px] text-[#191224]">
             <strong>{manager.name}</strong>
           </span>
         )}
       </div>
 
       {!manager && (
-        <div className="mt-3 rounded-lg border border-[#FDE68A] bg-[#FFFBEB] p-3 text-[12.5px] text-[#92400E] leading-relaxed">
+        <div className="mt-3 rounded-lg border border-[#FDE68A] bg-[#FFF6E3] p-3 text-[12.5px] text-[#92400E] leading-relaxed">
           <strong>Aucun responsable désigné.</strong> Le séquestre ne peut pas être financé et aucune vérification ne
           peut avoir lieu tant qu&apos;il n&apos;est pas désigné.
         </div>
@@ -103,12 +103,12 @@ export function SiteManagerCard({ missionId, className = "" }: { missionId: stri
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder={manager ? "Remplacer : e-mail ou téléphone" : "E-mail ou téléphone du responsable"}
-          className="flex-1 h-9 px-2.5 rounded-lg border border-[#E2E8F0] text-[13px] bg-white focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751]"
+          className="flex-1 h-9 px-2.5 rounded-lg border border-[#E7E2F0] text-[13px] bg-white focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20 focus:border-[#4C1D95]"
         />
         <button
           type="submit"
           disabled={busy || !input.trim()}
-          className="h-9 px-3.5 rounded-lg bg-[#0f172a] text-white text-[12.5px] font-semibold hover:bg-black disabled:opacity-50"
+          className="h-9 px-3.5 rounded-full bg-[#191224] text-white text-[12.5px] font-semibold hover:bg-black disabled:opacity-50"
         >
           {manager ? "Remplacer" : "Désigner"}
         </button>
@@ -117,19 +117,19 @@ export function SiteManagerCard({ missionId, className = "" }: { missionId: stri
             type="button"
             onClick={() => designer(null)}
             disabled={busy}
-            className="h-9 px-3 rounded-lg border border-[#E2E8F0] bg-white text-[12.5px] font-medium hover:bg-[#F8FAF9] disabled:opacity-50"
+            className="h-9 px-3 rounded-lg border border-[#E7E2F0] bg-white text-[12.5px] font-medium hover:bg-[#F6F5FA] disabled:opacity-50"
           >
             Retirer
           </button>
         )}
       </form>
       {manager && (
-        <p className="mt-2 text-[11px] text-[#94A3B8]">
+        <p className="mt-2 text-[11px] text-[#9A93A8]">
           Un remplacement est inscrit au journal du contrat et notifié au prestataire.
         </p>
       )}
-      {error && <p className="mt-2 text-[12px] text-[#B91C1C]">{error}</p>}
-      {notice && <p className="mt-2 text-[12px] text-[#00623A]">{notice}</p>}
+      {error && <p className="mt-2 text-[12px] text-[#B42318]">{error}</p>}
+      {notice && <p className="mt-2 text-[12px] text-[#3B1578]">{notice}</p>}
     </div>
   );
 }

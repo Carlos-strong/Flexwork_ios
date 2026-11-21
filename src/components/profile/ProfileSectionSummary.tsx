@@ -40,7 +40,7 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="grid gap-0.5 sm:grid-cols-[170px_1fr] sm:gap-4 py-2.5 first:pt-0 last:pb-0">
       <dt className="text-[13px] text-zinc-500">{label}</dt>
-      <dd className="min-w-0 text-[14px] text-[#0A1931]">
+      <dd className="min-w-0 text-[14px] text-[#191224]">
         {empty ? <span className="text-zinc-400">Non renseigné</span> : children}
       </dd>
     </div>
@@ -102,7 +102,7 @@ export function ProfileSectionSummary({
               </span>
             )}
             <div className="min-w-0">
-              <p className="truncate text-[15px] font-semibold text-[#0A1931]">{identity?.fullName}</p>
+              <p className="truncate text-[15px] font-semibold text-[#191224]">{identity?.fullName}</p>
               <p className="text-[13px] text-zinc-500">{p.title || "Titre non renseigné"}</p>
             </div>
           </div>
@@ -185,7 +185,7 @@ export function ProfileSectionSummary({
                 <ul className="space-y-0.5">
                   {links.map((u) => (
                     <li key={u} className="truncate">
-                      <a href={u} target="_blank" rel="noopener noreferrer nofollow" className="text-[#008751] hover:underline">
+                      <a href={u} target="_blank" rel="noopener noreferrer nofollow" className="text-[#4C1D95] hover:underline">
                         {u}
                       </a>
                     </li>
@@ -195,7 +195,7 @@ export function ProfileSectionSummary({
             </Row>
             <Row label="CV">
               {p.cvUrl ? (
-                <a href={portfolioFileUrl(p.cvUrl)} target="_blank" rel="noopener noreferrer" className="text-[#008751] hover:underline">
+                <a href={portfolioFileUrl(p.cvUrl)} target="_blank" rel="noopener noreferrer" className="text-[#4C1D95] hover:underline">
                   📄 {portfolioFileName(p.cvUrl)}
                 </a>
               ) : null}
@@ -268,14 +268,14 @@ function ServicesSummary() {
     <ul className="divide-y divide-zinc-100">
       {gigs.map((g) => (
         <li key={g.id} className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
-          <span className="h-10 w-16 shrink-0 overflow-hidden rounded-lg bg-gradient-to-br from-[#0A1931] to-[#1B9C6A]">
+          <span className="h-10 w-16 shrink-0 overflow-hidden rounded-lg bg-gradient-to-br from-[#191224] to-[#4C1D95]">
             {/* eslint-disable-next-line @next/next/no-img-element -- servie par /api/gigs/[id]/images */}
             {g.coverUrl && <img src={g.coverUrl} alt="" className="h-full w-full object-cover" />}
           </span>
-          <span className="min-w-0 flex-1 truncate text-[14px] text-[#0A1931]">{g.titre}</span>
+          <span className="min-w-0 flex-1 truncate text-[14px] text-[#191224]">{g.titre}</span>
           <span
             className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-              g.status === "publie" ? "bg-emerald-50 text-[#008751]" : "bg-zinc-100 text-zinc-600"
+              g.status === "publie" ? "bg-emerald-50 text-[#4C1D95]" : "bg-zinc-100 text-zinc-600"
             }`}
           >
             {STATUS[g.status] ?? g.status}

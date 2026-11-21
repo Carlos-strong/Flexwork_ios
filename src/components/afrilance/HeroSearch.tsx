@@ -27,7 +27,7 @@ export function HeroSearch() {
 
   const tabClass = (t: Tab) =>
     `flex-1 sm:flex-none px-3 sm:px-4 py-2 sm:py-2.5 text-sm font-medium rounded-lg transition ${
-      tab === t ? 'bg-white text-[#0A1931]' : 'text-white/80 hover:text-white'
+      tab === t ? 'bg-white text-[#191224]' : 'text-white/80 hover:text-white'
     }`
 
   return (
@@ -50,9 +50,9 @@ export function HeroSearch() {
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Un métier — ex. « plomberie »"
               aria-label="Rechercher un prestataire"
-              className="w-full min-w-0 !border-0 !p-0 !shadow-none outline-none text-base text-[#0A1931] placeholder:text-gray-400"
+              className="w-full min-w-0 !border-0 !p-0 !shadow-none outline-none text-base text-[#191224] placeholder:text-gray-400"
             />
-            <button type="submit" className="shrink-0 bg-[#FF6B35] hover:bg-[#E85A24] text-white px-4 sm:px-5 py-3 rounded-lg font-semibold text-sm lg:text-base transition">
+            <button type="submit" className="shrink-0 bg-[#6D28D9] hover:bg-[#5B21B6] text-white px-4 sm:px-5 py-3 rounded-full font-semibold text-sm lg:text-base transition">
               Rechercher
             </button>
           </form>
@@ -61,7 +61,7 @@ export function HeroSearch() {
               <Link
                 key={t}
                 href={`/recherche?domaine=${encodeURIComponent(t)}`}
-                className="px-3 py-1 rounded-full border border-white/30 text-white/90 hover:bg-white hover:text-[#0A1931] transition"
+                className="px-3 py-1 rounded-full border border-white/30 text-white/90 hover:bg-white hover:text-[#191224] transition"
                 style={{ textDecoration: 'none' }}
               >
                 {t}
@@ -76,7 +76,7 @@ export function HeroSearch() {
           </p>
           <Link
             href="/devenir-prestataire"
-            className="shrink-0 text-center bg-[#FF6B35] hover:bg-[#E85A24] text-white px-5 py-3 rounded-lg font-semibold text-sm lg:text-base transition"
+            className="shrink-0 text-center bg-[#6D28D9] hover:bg-[#5B21B6] text-white px-5 py-3 rounded-full font-semibold text-sm lg:text-base transition"
             style={{ textDecoration: 'none' }}
           >
             Devenir prestataire

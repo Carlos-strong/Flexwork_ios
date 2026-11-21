@@ -12,6 +12,8 @@
 //
 // C'est ce découpage qui rend le §9 vérifiable : rien ici ne PEUT payer.
 
+import { roundAmount } from "@/lib/devis";
+
 export type RateUnit = "hour" | "day" | "week" | "month";
 
 /**
@@ -70,9 +72,6 @@ export type SpotTimeTerms = {
 // sous-unité en circulation et le PSP refuse une instruction décimale (voir roundAmount,
 // src/lib/devis.ts). Une quantité, elle, reste fractionnaire — 7,5 heures est une durée, pas
 // de l'argent.
-function roundAmount(value: number): number {
-  return Math.round(value);
-}
 
 /** Plafond financier COHÉRENT avec le tarif et la quantité — celui du §10 : 20 × 7 500. */
 export function expectedMaxAmount(terms: Pick<SpotTimeTerms, "rate" | "maxQuantity">): number {

@@ -70,6 +70,17 @@ export interface CertificateInfo {
 
 // ── Helpers cryptographiques ────────────────
 
+// Passphrase erronée (2026-11-10) : AES-256-GCM rejette la clé dérivée au contrôle du tag
+// d'authentification, et Node lève « Unsupported state or unable to authenticate data ».
+// Ce message brut remontait tel quel à l'écran de signature : il est remplacé par une erreur
+// typée que les routes traduisent en 400 lisible.
+export class InvalidPassphraseError extends Error {
+  constructor() {
+    super("Passphrase incorrecte : ce n'est pas celle choisie à la création de votre certificat de signature.");
+    this.name = "InvalidPassphraseError";
+  }
+}
+
 export function decryptPrivateKey(
   encryptedHex: string,
   passphrase: string,
@@ -80,11 +91,12 @@ export function decryptPrivateKey(
   const key = crypto.pbkdf2Sync(passphrase, saltHex, PBKDF2_ITERATIONS, KEY_LENGTH, HASH_ALGORITHM);
   const decipher = crypto.createDecipheriv(AES_ALGORITHM, key, Buffer.from(ivHex, "hex"));
   decipher.setAuthTag(Buffer.from(authTagHex, "hex"));
-  const decrypted = Buffer.concat([
-    decipher.update(Buffer.from(encryptedHex, "hex")),
-    decipher.final(),
-  ]);
-  return decrypted.toString("utf-8");
+  try {
+    const decrypted = Buffer.concat([decipher.update(Buffer.from(encryptedHex, "hex")), decipher.final()]);
+    return decrypted.toString("utf-8");
+  } catch {
+    throw new InvalidPassphraseError();
+  }
 }
 
 // ── Service ─────────────────────────────────

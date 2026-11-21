@@ -1,3 +1,4 @@
+import { isPublicationDuration } from "@/lib/mission-expiry";
 import { z } from "zod";
 import { isFinancingModeKey } from "@/lib/financing-modes";
 import { CURRENCY_VALUES } from "@/lib/currencies";
@@ -282,7 +283,8 @@ export const missionSchema = z.object({
   // valeur au-delà de 2 147 483 647 faisait lever Prisma — un 500 au lieu d'un 400.
   budgetMin: z.number().int().positive().max(MISSION_MONTANT_MAX).optional(),
   budgetMax: z.number().int().positive().max(MISSION_MONTANT_MAX).optional(),
-  // `null` = illimité, et c'est la valeur par défaut d'une mission qui n'en dit rien.
+  // Nombre de prestataires RECHERCHÉS (2026-11-10) — le client en retient jusqu'à ce nombre,
+  // chacun avec son engagement. `null` = 1. Ne limite plus les candidatures reçues.
   maxCandidatures: z.number().int().min(1).max(MISSION_MAX_CANDIDATURES_MAX).nullable().optional(),
   // Brouillon de pièces jointes déposé avant la création (POST /api/missions/attachments/draft).
   // La route convertit les fichiers de CE brouillon, et seulement ceux de l'appelant.
@@ -319,8 +321,11 @@ export const missionSchema = z.object({
   // Borne haute indispensable : `delaiJours` est un INTEGER Postgres. Une valeur hors plage
   // passait Zod puis faisait échouer l'insertion en 500.
   delaiJours: z.number().int().min(MISSION_DELAI_MIN).max(MISSION_DELAI_MAX),
-  // Mode devis (budgetType = "QUOTE") : rounds de négociation et date limite de devis.
+  // Mode devis (budgetType = "QUOTE") : rounds de négociation.
   maxRevisionRounds: z.number().int().min(1).max(MISSION_MAX_REVISION_ROUNDS_MAX).optional(),
+  // Durée de publication (2026-11-10) : la date limite de candidature en découle, calculée À LA
+  // PUBLICATION (src/lib/mission-expiry.ts). Une `dateExpiration` envoyée est ignorée.
+  dureePublicationJours: z.number().int().refine(isPublicationDuration, "duree_publication_invalide").optional(),
   dateExpiration: z.coerce.date().optional(),
   status: z.enum(["brouillon", "publiee"]).optional(),
   // Mission lancée depuis le profil public d'un prestataire (2026-11-08) : ce prestataire est

@@ -30,8 +30,6 @@ export const VALIDATION_MODE_LABEL: Record<ValidationMode, { label: string; defi
   },
 };
 
-export const DEFAULT_VALIDATION_MODE: ValidationMode = "client";
-
 export type ContractActors = {
   clientId: string;
   providerId: string;

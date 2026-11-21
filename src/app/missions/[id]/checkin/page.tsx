@@ -65,59 +65,59 @@ export default function CheckinPage({ params }: { params: { id: string } }) {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8FAF9] text-[#0f172a]">
+    <div className="min-h-screen bg-[#F6F5FA] text-[#191224]">
       <div className="fluid-form [--fw:520px] mx-auto px-4 lg:px-0 py-5 space-y-4">
-        <div className="flex items-center gap-1.5 text-[12px] text-[#64748B] flex-wrap">
-          <Link href={`/missions/${missionId}`} className="hover:text-[#0f172a]" style={{ textDecoration: "none" }}>Mission</Link>
+        <div className="flex items-center gap-1.5 text-[12px] text-[#6B6478] flex-wrap">
+          <Link href={`/missions/${missionId}`} className="hover:text-[#191224]" style={{ textDecoration: "none" }}>Mission</Link>
           <span>›</span>
-          <span className="text-[#0f172a] font-medium">Pointage</span>
+          <span className="text-[#191224] font-medium">Pointage</span>
         </div>
 
-        <div className="bg-white border border-[#E2E8F0] rounded-xl p-4 lg:p-5 space-y-4">
+        <div className="bg-white border border-[#E7E2F0] rounded-xl p-4 lg:p-5 space-y-4">
           <div className="flex items-center justify-between">
             <h1 className="text-[13px] font-semibold">Pointage de présence</h1>
-            <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-[#F1F5F9] text-[#64748B] text-[11px] font-semibold">Opt-in</span>
+            <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-[#EFEAF8] text-[#6B6478] text-[11px] font-semibold">Opt-in</span>
           </div>
 
-          <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAF9] p-3 text-[12.5px] text-[#475569] leading-relaxed">
-            <strong className="text-[#0f172a]">Outil optionnel.</strong> Ce pointage sert de preuve de présence entre vous et le client. Flexwork
+          <div className="rounded-xl border border-[#E7E2F0] bg-[#F6F5FA] p-3 text-[12.5px] text-[#4A4258] leading-relaxed">
+            <strong className="text-[#191224]">Outil optionnel.</strong> Ce pointage sert de preuve de présence entre vous et le client. Flexwork
             ne consulte, n&apos;agrège et n&apos;utilise jamais ces données pour une décision.
           </div>
 
-          {error && <div className="rounded-xl border border-[#FECACA] bg-[#FEF2F2] p-3 text-[13px] text-[#B91C1C]">{error}</div>}
+          {error && <div className="rounded-xl border border-[#FECACA] bg-[#FEECEB] p-3 text-[13px] text-[#B42318]">{error}</div>}
 
           {active === false && !optedIn && (
             <div>
-              <p className="mb-3 text-[13px] text-[#64748B] leading-relaxed">
+              <p className="mb-3 text-[13px] text-[#6B6478] leading-relaxed">
                 Le pointage n&apos;est pas encore actif — activez votre consentement. Il ne s&apos;activera réellement
                 qu&apos;une fois l&apos;autre partie également consentante, sans aucune conséquence si elle refuse.
               </p>
-              <button onClick={handleOptIn} className="h-10 px-5 rounded-lg bg-[#008751] text-white text-[13px] font-semibold hover:bg-[#007a49] transition-colors">
+              <button onClick={handleOptIn} className="h-10 px-5 rounded-full bg-[#4C1D95] text-white text-[13px] font-semibold hover:bg-[#3B1578] transition-colors">
                 Activer le pointage de mon côté
               </button>
             </div>
           )}
 
           {active === false && optedIn && (
-            <div className="rounded-xl border border-[#FDE68A] bg-[#FFFBEB] p-3 text-[13px] text-[#92400E]">
+            <div className="rounded-xl border border-[#FDE68A] bg-[#FFF6E3] p-3 text-[13px] text-[#92400E]">
               En attente du consentement de l&apos;autre partie.
             </div>
           )}
 
           {active === true && (
             <>
-              <div className="rounded-xl bg-[#f0fdf4] p-3.5">
-                <strong className="text-[#166534] text-[13px]">✓ Outil activé</strong>
-                <p className="text-[12.5px] text-[#64748B] mt-1">
+              <div className="rounded-xl bg-[#E7F7EF] p-3.5">
+                <strong className="text-[#047857] text-[13px]">✓ Outil activé</strong>
+                <p className="text-[12.5px] text-[#6B6478] mt-1">
                   Vous et le client avez tous deux consenti à l&apos;activation.
                 </p>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <button onClick={() => checkIn("arrivee")} className="h-10 rounded-lg bg-[#008751] text-white text-[13px] font-semibold hover:bg-[#007a49] transition-colors">
+                <button onClick={() => checkIn("arrivee")} className="h-10 rounded-lg bg-[#4C1D95] text-white text-[13px] font-semibold hover:bg-[#3B1578] transition-colors">
                   📍 Arrivée
                 </button>
-                <button onClick={() => checkIn("depart")} className="h-10 rounded-lg bg-[#0f172a] text-white text-[13px] font-semibold hover:bg-black transition-colors">
+                <button onClick={() => checkIn("depart")} className="h-10 rounded-lg bg-[#191224] text-white text-[13px] font-semibold hover:bg-black transition-colors">
                   🏁 Départ
                 </button>
               </div>
@@ -128,25 +128,25 @@ export default function CheckinPage({ params }: { params: { id: string } }) {
                 </h4>
                 <div className="space-y-1.5">
                   {events.map((ev) => (
-                    <div key={ev.id} className="text-[12.5px] text-[#64748B] px-2.5 py-2 bg-[#F8FAF9] border border-[#E2E8F0] rounded-lg">
-                      <strong className="text-[#0f172a]">{ev.type === "arrivee" ? "Arrivée" : "Départ"}</strong> — {new Date(ev.occurredAt).toLocaleString("fr-FR")}
+                    <div key={ev.id} className="text-[12.5px] text-[#6B6478] px-2.5 py-2 bg-[#F6F5FA] border border-[#E7E2F0] rounded-lg">
+                      <strong className="text-[#191224]">{ev.type === "arrivee" ? "Arrivée" : "Départ"}</strong> — {new Date(ev.occurredAt).toLocaleString("fr-FR")}
                       {ev.gpsLat && ev.gpsLng ? ` — GPS: ${ev.gpsLat}, ${ev.gpsLng}` : ""}
                     </div>
                   ))}
-                  {events.length === 0 && <p className="text-[12.5px] text-[#94A3B8]">Aucun pointage enregistré.</p>}
+                  {events.length === 0 && <p className="text-[12.5px] text-[#9A93A8]">Aucun pointage enregistré.</p>}
                 </div>
               </div>
             </>
           )}
         </div>
 
-        <div className="rounded-xl border border-[#FDE68A] bg-[#FFFBEB] p-3 text-[11.5px] text-[#92400E] leading-relaxed">
+        <div className="rounded-xl border border-[#FDE68A] bg-[#FFF6E3] p-3 text-[11.5px] text-[#92400E] leading-relaxed">
           <strong>Protection des données :</strong> Ces horodatages sont conservés pendant la durée de la mission + 7
           jours, puis purgés automatiquement. Aucun admin Flexwork n&apos;y a accès. Ils ne sont utilisés dans aucun
           score, classement ou décision de litige.
         </div>
 
-        <Link href={`/missions/${missionId}`} className="inline-block text-[#64748B] text-[13px]" style={{ textDecoration: "none" }}>
+        <Link href={`/missions/${missionId}`} className="inline-block text-[#6B6478] text-[13px]" style={{ textDecoration: "none" }}>
           ← Retour au détail de la mission
         </Link>
       </div>

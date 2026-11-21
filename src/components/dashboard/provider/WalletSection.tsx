@@ -34,7 +34,7 @@ const PAYOUT_DISPLAY: Record<PayoutStatus, { badge: string; badgeClass: string; 
   },
   verifie: {
     badge: "Vérifié",
-    badgeClass: "bg-[#008751]/10 text-[#008751]",
+    badgeClass: "bg-[#4C1D95]/10 text-[#4C1D95]",
     text: "Ton compte est vérifié : les paiements validés te sont versés automatiquement.",
     cta: "Voir mon compte",
     primary: false,
@@ -85,12 +85,12 @@ export default function WalletSection() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-[22px] font-bold text-[#0A1931]">Wallet</h1>
+        <h1 className="text-[22px] font-bold text-[#191224]">Wallet</h1>
         <p className="text-[12px] text-zinc-500 mt-0.5">Tes revenus issus des paiements sécurisés.</p>
       </div>
 
-      <div className="bg-[#0A1931] rounded-[20px] p-6 text-white relative overflow-hidden">
-        <div className="absolute top-[-30%] right-[-10%] w-[200px] h-[200px] rounded-full bg-[#FF7A00]/20 blur-[60px]" />
+      <div className="bg-[#191224] rounded-[20px] p-6 text-white relative overflow-hidden">
+        <div className="absolute top-[-30%] right-[-10%] w-[200px] h-[200px] rounded-full bg-[#6D28D9]/20 blur-[60px]" />
         <div className="relative">
           <div className="flex items-center gap-2 text-white/60 font-semibold uppercase tracking-widest text-[11px] mb-2">
             <Wallet className="w-4 h-4" /> Revenus totaux
@@ -108,8 +108,8 @@ export default function WalletSection() {
           <div className="bg-white rounded-[16px] border border-gray-100 p-4 md:p-5 flex flex-col sm:flex-row sm:items-center gap-4">
             <div className="flex-1 min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <Landmark className="w-4 h-4 text-[#0A1931]" aria-hidden />
-                <span className="text-[14px] font-semibold text-[#0A1931]">Compte de versement</span>
+                <Landmark className="w-4 h-4 text-[#191224]" aria-hidden />
+                <span className="text-[14px] font-semibold text-[#191224]">Compte de versement</span>
                 <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${d.badgeClass}`}>{d.badge}</span>
               </div>
               <p className="mt-1.5 text-[12px] text-zinc-500 leading-relaxed">{d.text}</p>
@@ -121,8 +121,8 @@ export default function WalletSection() {
               href={`/kyc/financier?returnTo=${encodeURIComponent(here)}`}
               className={`h-10 px-5 shrink-0 rounded-full text-[13px] font-semibold flex items-center justify-center transition ${
                 d.primary
-                  ? "bg-[#008751] text-white hover:bg-[#006e43]"
-                  : "bg-white border border-gray-200 text-[#0A1931] hover:bg-gray-50"
+                  ? "bg-[#4C1D95] text-white hover:bg-[#3B1578]"
+                  : "bg-white border border-gray-200 text-[#191224] hover:bg-gray-50"
               }`}
               style={{ textDecoration: "none" }}
             >
@@ -140,10 +140,10 @@ export default function WalletSection() {
           <div className="text-[11px] uppercase tracking-widest text-zinc-400 font-semibold mb-3">Ce qui t&apos;est dû</div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {[
-              { label: "Reconnu dû", value: escrow.owed, hint: "validé, couvert par le séquestre", tone: "text-[#008751]" },
-              { label: "Versement en cours", value: escrow.inFlight, hint: "en route vers ton compte", tone: "text-[#0A1931]" },
-              { label: "Retenue de garantie", value: escrow.retained, hint: "versée au dernier jalon", tone: "text-[#0A1931]" },
-              { label: "Gelé par un litige", value: escrow.blocked, hint: "ni versé, ni rendu", tone: escrow.blocked > 0 ? "text-[#B91C1C]" : "text-[#0A1931]" },
+              { label: "Reconnu dû", value: escrow.owed, hint: "validé, couvert par le séquestre", tone: "text-[#047857]" },
+              { label: "Versement en cours", value: escrow.inFlight, hint: "en route vers ton compte", tone: "text-[#191224]" },
+              { label: "Retenue de garantie", value: escrow.retained, hint: "versée au dernier jalon", tone: "text-[#191224]" },
+              { label: "Gelé par un litige", value: escrow.blocked, hint: "ni versé, ni rendu", tone: escrow.blocked > 0 ? "text-[#B42318]" : "text-[#191224]" },
             ].map((t) => (
               <div key={t.label}>
                 <div className={`text-[18px] font-bold tabular-nums ${t.tone}`}>{formatFCFA(t.value)}</div>
@@ -164,7 +164,7 @@ export default function WalletSection() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
         <div className="bg-white rounded-[16px] border border-gray-100 p-4">
           <div className="flex items-center gap-2 text-[11px] uppercase tracking-widest text-zinc-400 font-semibold mb-1">
-            <ShieldCheck className="w-4 h-4 text-[#008751]" /> Paiement sécurisé
+            <ShieldCheck className="w-4 h-4 text-[#047857]" /> Paiement sécurisé
           </div>
           <p className="text-[12px] text-zinc-500 leading-relaxed">
             Les fonds passent par un PSP (séquestre). La plateforme ne détient jamais ton argent.
@@ -172,14 +172,14 @@ export default function WalletSection() {
         </div>
         <div className="bg-white rounded-[16px] border border-gray-100 p-4">
           <div className="flex items-center gap-2 text-[11px] uppercase tracking-widest text-zinc-400 font-semibold mb-1">
-            <Clock className="w-4 h-4 text-[#FF7A00]" /> Ce mois
+            <Clock className="w-4 h-4 text-[#6D28D9]" /> Ce mois
           </div>
-          <div className="text-[20px] font-bold text-[#0A1931]">{summary ? formatFCFA(month) : "—"}</div>
+          <div className="text-[20px] font-bold text-[#191224]">{summary ? formatFCFA(month) : "—"}</div>
           <div className="text-[12px] text-zinc-400 mt-0.5">reçus sur les 30 derniers jours</div>
         </div>
         <div className="bg-white rounded-[16px] border border-gray-100 p-4">
           <div className="text-[11px] uppercase tracking-widest text-zinc-400 font-semibold mb-1">Missions terminées</div>
-          <div className="text-[20px] font-bold text-[#0A1931]">{summary ? String(completed) : "—"}</div>
+          <div className="text-[20px] font-bold text-[#191224]">{summary ? String(completed) : "—"}</div>
           <div className="text-[12px] text-zinc-400 mt-0.5">validées et clôturées</div>
         </div>
       </div>

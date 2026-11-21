@@ -166,3 +166,75 @@ test.describe("D — KYC", () => {
     await expect.poll(async () => (await prisma.payoutAccount.findUniqueOrThrow({ where: { userId: user.id } })).status).toBe("rejete");
   });
 });
+
+// Candidature d'un prestataire NON vérifié (2026-11-09) : enregistrée, modifiable tant qu'elle
+// n'est pas partie, puis envoyée D'ELLE-MÊME au client à la validation du KYC — le prestataire
+// ne la valide qu'une fois.
+test.describe("D — candidature en attente de vérification", () => {
+  test("D-08 non vérifié : enregistrée, modifiable ; KYC validé → envoyée seule, sans second clic", async ({ page }) => {
+    test.setTimeout(240_000);
+    const client = await createUser({ label: "kycdcli" });
+    const mission = await prisma.mission.create({
+      data: { clientId: client.id, titre: `Logo restaurant — pw ${Date.now()}`, description: "Création d'un logo.", domaine: "design", budget: 150000, currency: "XOF", delaiJours: 10, mode: "distance", status: "publiee" },
+    });
+    const presta = await createUser({ label: "kycdpre", role: "expert_digital", kycStatus: "en_attente" });
+    const drafts = new RegExp(`/dashboard/expert-digital/devis-contrats\\?tab=devis&f=brouillons&envoi=en-attente&mission=${mission.id}$`);
+    const warning = page.getByRole("alert").filter({ hasText: `Votre candidature à « ${mission.titre} » n'a pas été envoyée au client.` });
+
+    // 1. Non vérifié : direction la page des brouillons, avec l'avertissement de non-envoi.
+    await login(page, presta);
+    await page.goto(`/missions/${mission.id}?candidater=1`);
+    await page.getByRole("button", { name: /^Prix fixe/ }).click();
+    await page.getByPlaceholder("150000").fill("140000");
+    await page.getByRole("button", { name: "Envoyer ma candidature" }).click();
+    await expect(page).toHaveURL(drafts, { timeout: 30_000 });
+    await expect(warning).toBeVisible({ timeout: 30_000 });
+    await expect(warning).toContainText("partira automatiquement");
+    const row = page.locator("div.bg-white", { hasText: mission.titre }).filter({ hasText: "Non envoyée" }).first();
+    await expect(row).toContainText("140 000 XOF");
+    await expect(row).toContainText("Pas encore envoyée au client");
+
+    // 2. Modifiable depuis l'avertissement : formulaire repris, l'envoi devient une mise à jour.
+    await warning.getByRole("link", { name: "Modifier la candidature" }).click();
+    await expect(page).toHaveURL(new RegExp(`/missions/${mission.id}\\?candidater=1`));
+    await expect(page.getByPlaceholder("150000")).toHaveValue("140000", { timeout: 30_000 });
+    await page.getByPlaceholder("150000").fill("135000");
+    await page.getByRole("button", { name: "Mettre à jour ma candidature" }).click();
+    await expect(page).toHaveURL(drafts, { timeout: 30_000 });
+    await expect(row).toContainText("135 000 XOF", { timeout: 30_000 });
+    expect(await prisma.missionProposal.count({ where: { missionId: mission.id } })).toBe(0);
+
+    // 3. Tableau de bord : en attente d'envoi, « Modifier » — et aucun bouton « Envoyer ».
+    await page.goto("/dashboard/expert-digital");
+    const card = page.locator("section", { has: page.getByRole("heading", { name: "Candidatures en attente d'envoi" }) });
+    await expect(card).toBeVisible({ timeout: 30_000 });
+    await expect(card).toContainText("135 000 XOF");
+    await expect(card).toContainText("partiront automatiquement");
+    await expect(card.getByRole("button", { name: "Envoyer" })).toHaveCount(0);
+    await card.getByRole("link", { name: "Modifier" }).click();
+
+    // 4. Le formulaire est repris tel quel, toujours en mise à jour.
+    await expect(page).toHaveURL(new RegExp(`/missions/${mission.id}\\?candidater=1`));
+    await expect(page.getByPlaceholder("150000")).toHaveValue("135000", { timeout: 30_000 });
+    await expect(page.getByRole("button", { name: "Mettre à jour ma candidature" })).toBeVisible();
+
+    // 5. L'Admin KYC valide l'identité : la candidature part seule, dans sa dernière version.
+    await logout(page);
+    await login(page, await createUser({ label: "kycdadm", adminRole: "kyc" }));
+    const res = await page.request.post(`/api/admin/kyc/${presta.id}/decision`, { data: { status: "verifie", dateNaissance: "1990-05-12" } });
+    expect(res.ok(), await res.text()).toBe(true);
+    const sent = await prisma.missionProposal.findUniqueOrThrow({ where: { missionId_providerId: { missionId: mission.id, providerId: presta.id } } });
+    expect(sent).toMatchObject({ montant: 135000, status: "envoyee" });
+    expect(await prisma.proposalDraft.count({ where: { providerId: presta.id } })).toBe(0);
+    // Le client la reçoit, le prestataire en est informé.
+    expect(await prisma.missionNotification.count({ where: { userId: client.id, missionId: mission.id, type: "candidature_recue" } })).toBe(1);
+
+    // 6. Côté prestataire : plus rien en attente, la candidature est suivie normalement.
+    await logout(page);
+    await login(page, presta);
+    await page.goto("/dashboard/expert-digital");
+    const tracking = page.locator("section", { has: page.getByRole("heading", { name: "Suivi de mes candidatures" }) });
+    await expect(tracking).toContainText(mission.titre, { timeout: 30_000 });
+    await expect(page.getByRole("heading", { name: "Candidatures en attente d'envoi" })).toHaveCount(0);
+  });
+});

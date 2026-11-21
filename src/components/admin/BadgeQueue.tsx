@@ -14,6 +14,7 @@ import {
   tableCell,
   tableHead,
 } from "@/components/admin/admin-ui";
+import { personFullName } from "@/lib/person-name";
 
 // File d'instruction des badges « Vérifié » (2026-09-23).
 //
@@ -38,9 +39,6 @@ type BadgeItem = {
   stateDiplomas: { id: string; name: string; year: number | null; institution: string | null; specialty: string | null }[];
 };
 
-function fullName(u: BadgeItem["user"]): string {
-  return [u.firstname, u.lastname].filter(Boolean).join(" ") || u.email;
-}
 
 function day(iso: string | null): string {
   return iso ? new Date(iso).toLocaleDateString("fr-FR") : "—";
@@ -113,7 +111,7 @@ export function BadgeQueue() {
 
       <AdminCard title="File d'attente" subtitle="Du plus ancien au plus récent." padded={false}>
         {loading ? (
-          <p className="p-5 text-[13px] text-[#5A5750]">Chargement...</p>
+          <p className="p-5 text-[13px] text-[#6B6478]">Chargement...</p>
         ) : items.length === 0 ? (
           <div className="p-5">
             <AdminEmpty>Aucune demande de badge en attente.</AdminEmpty>
@@ -121,7 +119,7 @@ export function BadgeQueue() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full border-collapse">
-              <thead className="border-b border-[#E2E0D9] bg-[#FAFAF8]">
+              <thead className="border-b border-[#E7E2F0] bg-[#F6F5FA]">
                 <tr>
                   <th className={tableHead}>Prestataire</th>
                   <th className={tableHead}>Diplôme d&apos;État déclaré</th>
@@ -133,9 +131,9 @@ export function BadgeQueue() {
                 {items.map((item) => (
                   <tr key={item.profileId} className="border-b border-[#F1EFE9] align-top last:border-0">
                     <td className={tableCell}>
-                      <div className="font-medium">{fullName(item.user)}</div>
-                      <div className="text-[12px] text-[#5A5750]">{item.user.email}</div>
-                      <div className="text-[12px] text-[#5A5750]">
+                      <div className="font-medium">{(personFullName(item.user) || item.user.email)}</div>
+                      <div className="text-[12px] text-[#6B6478]">{item.user.email}</div>
+                      <div className="text-[12px] text-[#6B6478]">
                         {item.mainDomain} · {item.label} · KYC {item.user.kycStatus}
                       </div>
                     </td>
@@ -150,7 +148,7 @@ export function BadgeQueue() {
                           {item.stateDiplomas.map((d) => (
                             <li key={d.id} className="text-[13px]">
                               <span className="font-medium">{d.name}</span>
-                              <span className="text-[12px] text-[#5A5750]">
+                              <span className="text-[12px] text-[#6B6478]">
                                 {[d.year, d.institution, d.specialty].filter(Boolean).length
                                   ? ` — ${[d.year, d.institution, d.specialty].filter(Boolean).join(" · ")}`
                                   : ""}

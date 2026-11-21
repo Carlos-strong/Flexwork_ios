@@ -24,11 +24,11 @@ export default function TarifsPage() {
       />
 
       <section className="page-shell [&>*]:max-w-3xl py-12 lg:py-16 space-y-8">
-        <div className="bg-white border border-[#E2E8F0] rounded-2xl overflow-hidden">
+        <div className="bg-white border border-[#E7E2F0] rounded-2xl overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-[#0f172a] text-white text-left">
+                <tr className="bg-[#191224] text-white text-left">
                   <th className="px-5 py-3 font-semibold">Élément</th>
                   <th className="px-5 py-3 font-semibold hidden sm:table-cell">Détail</th>
                   <th className="px-5 py-3 font-semibold text-right">Prix</th>
@@ -36,10 +36,10 @@ export default function TarifsPage() {
               </thead>
               <tbody>
                 {LIGNES.map((l, i) => (
-                  <tr key={l.item} className={i % 2 ? "bg-[#F8FAF9]" : "bg-white"}>
-                    <td className="px-5 py-3 font-medium text-[#0f172a]">{l.item}</td>
-                    <td className="px-5 py-3 text-[#64748B] hidden sm:table-cell">{l.detail}</td>
-                    <td className="px-5 py-3 text-right font-semibold text-[#008751]">{l.prix}</td>
+                  <tr key={l.item} className={i % 2 ? "bg-[#F6F5FA]" : "bg-white"}>
+                    <td className="px-5 py-3 font-medium text-[#191224]">{l.item}</td>
+                    <td className="px-5 py-3 text-[#6B6478] hidden sm:table-cell">{l.detail}</td>
+                    <td className="px-5 py-3 text-right font-semibold text-[#047857]">{l.prix}</td>
                   </tr>
                 ))}
               </tbody>
@@ -47,9 +47,9 @@ export default function TarifsPage() {
           </div>
         </div>
 
-        <div className="bg-[#008751]/5 border border-[#008751]/20 rounded-2xl p-6">
-          <h2 className="font-bold text-[#0f172a] mb-2">Pourquoi cette grille ?</h2>
-          <p className="text-sm text-[#475569] leading-relaxed">
+        <div className="bg-[#4C1D95]/5 border border-[#4C1D95]/20 rounded-2xl p-6">
+          <h2 className="font-bold text-[#191224] mb-2">Pourquoi cette grille ?</h2>
+          <p className="text-sm text-[#4A4258] leading-relaxed">
             Une règle d&apos;équité guide nos tarifs : <strong>nous ne prélevons jamais de commission sur ce que nous rendons
             obligatoire</strong>. Le séquestre et l&apos;assurance à la mission protègent les deux parties, la plateforme ne
             monétise pas la protection qu&apos;elle impose. Les frais définitifs applicables aux missions seront publiés ici

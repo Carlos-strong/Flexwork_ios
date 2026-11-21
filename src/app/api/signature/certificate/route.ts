@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { SignatureService } from "@/lib/signature";
+import {
+  RESET_OTP_MESSAGES,
+  checkSignatureResetOtp,
+  hasActiveCertificate,
+  notifyCertificateRenewed,
+} from "@/lib/signature-reset";
 
 export const dynamic = "force-dynamic";
 
@@ -47,6 +53,21 @@ export async function POST(req: Request) {
       );
     }
 
+    // Remplacer un certificat ACTIF (passphrase oubliée) exige le code OTP envoyé à l'e-mail
+    // du compte (POST .../reset-otp) : une session ouverte ne suffit pas à changer la clé de
+    // signature de quelqu'un. Le premier certificat n'en demande pas.
+    const replacing = await hasActiveCertificate(userId);
+    if (replacing) {
+      const otpCode = typeof body.otpCode === "string" ? body.otpCode.trim() : "";
+      if (!otpCode) {
+        return NextResponse.json({ error: RESET_OTP_MESSAGES.otp_required, code: "otp_required" }, { status: 403 });
+      }
+      const otp = await checkSignatureResetOtp(userId, otpCode);
+      if (!otp.ok) {
+        return NextResponse.json({ error: RESET_OTP_MESSAGES[otp.reason], code: `otp_${otp.reason}` }, { status: 403 });
+      }
+    }
+
     const certificate = await SignatureService.generateCertificate({
       userId,
       commonName,
@@ -54,6 +75,10 @@ export async function POST(req: Request) {
       organization,
       passphrase,
     });
+
+    if (replacing) {
+      await notifyCertificateRenewed(userId).catch((err) => console.error("[certificate] Échec notification :", err));
+    }
 
     return NextResponse.json({ success: true, data: certificate }, { status: 201 });
   } catch (error) {

@@ -16,6 +16,7 @@ import {
   money,
   selectCls,
 } from "./ui";
+import { useDebounced } from "@/lib/use-debounced";
 
 // Journal des échanges plateforme ⇄ PSP — ce qui est parti, ce qui est revenu, et ce que la
 // plateforme en a fait. Là où le registre ne dit que l'état final d'une instruction, le journal
@@ -29,21 +30,12 @@ const PERIODS: { id: Period; label: string }[] = [
   { id: "all", label: "Tout" },
 ];
 
-function useDebounced<T>(value: T, delay = 300): T {
-  const [v, setV] = useState(value);
-  useEffect(() => {
-    const t = setTimeout(() => setV(value), delay);
-    return () => clearTimeout(t);
-  }, [value, delay]);
-  return v;
-}
-
-function Stat({ label, value, hint, tone = "text-[#1A1916]" }: { label: string; value: string; hint: string; tone?: string }) {
+function Stat({ label, value, hint, tone = "text-[#191224]" }: { label: string; value: string; hint: string; tone?: string }) {
   return (
-    <div className="bg-white border border-[#E2E0D9] rounded-xl p-3 min-w-0">
-      <div className="text-[10.5px] uppercase tracking-widest text-[#5A5750] font-semibold truncate">{label}</div>
+    <div className="bg-white border border-[#E7E2F0] rounded-xl p-3 min-w-0">
+      <div className="text-[10.5px] uppercase tracking-widest text-[#6B6478] font-semibold truncate">{label}</div>
       <div className={`text-[18px] font-bold tabular-nums mt-0.5 truncate ${tone}`}>{value}</div>
-      <div className="text-[11px] text-[#9C9A95] truncate">{hint}</div>
+      <div className="text-[11px] text-[#9A93A8] truncate">{hint}</div>
     </div>
   );
 }
@@ -81,33 +73,33 @@ function ExchangeDrawer({ reference, onClose, onOpenContract }: { reference: str
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" aria-label="Échange avec le PSP">
-      <div className="absolute inset-0 bg-[#1A1916]/40" onClick={onClose} />
-      <div className="relative w-full max-w-[560px] h-full bg-[#FAFAF8] overflow-y-auto shadow-2xl">
-        <div className="sticky top-0 z-10 bg-white border-b border-[#E2E0D9] px-4 py-3 flex items-start justify-between gap-3">
+      <div className="absolute inset-0 bg-[#191224]/40" onClick={onClose} />
+      <div className="relative w-full max-w-[560px] h-full bg-[#F6F5FA] overflow-y-auto shadow-2xl">
+        <div className="sticky top-0 z-10 bg-white border-b border-[#E7E2F0] px-4 py-3 flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <div className="text-[11px] text-[#9C9A95]">Échange avec le PSP</div>
-            <h2 className="text-[13px] font-bold font-mono text-[#1A1916] break-all">{reference}</h2>
+            <div className="text-[11px] text-[#9A93A8]">Échange avec le PSP</div>
+            <h2 className="text-[13px] font-bold font-mono text-[#191224] break-all">{reference}</h2>
           </div>
-          <button onClick={onClose} className="shrink-0 h-8 w-8 rounded-lg border border-[#E2E0D9] bg-white text-[#5A5750] hover:bg-[#F4F3EF]" aria-label="Fermer">
+          <button onClick={onClose} className="shrink-0 h-8 w-8 rounded-lg border border-[#E7E2F0] bg-white text-[#6B6478] hover:bg-[#EFEAF8]" aria-label="Fermer">
             ✕
           </button>
         </div>
 
-        {error && <p className="m-4 rounded-xl border border-[#FECACA] bg-[#FEF2F2] p-3 text-[13px] text-[#B91C1C]">{error}</p>}
-        {!data && !error && <p className="p-6 text-center text-[13px] text-[#5A5750]">Chargement…</p>}
+        {error && <p className="m-4 rounded-xl border border-[#FECACA] bg-[#FEECEB] p-3 text-[13px] text-[#B42318]">{error}</p>}
+        {!data && !error && <p className="p-6 text-center text-[13px] text-[#6B6478]">Chargement…</p>}
 
         {data && (
           <div className="p-4 space-y-4">
             {op ? (
-              <section className="rounded-xl border border-[#E2E0D9] bg-white p-3.5 text-[12.5px] space-y-1.5">
+              <section className="rounded-xl border border-[#E7E2F0] bg-white p-3.5 text-[12.5px] space-y-1.5">
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <Chip tone={OP_TYPE[op.instructionType]?.tone ?? "slate"}>{OP_TYPE[op.instructionType]?.label ?? op.instructionType}</Chip>
                   <Chip tone={OP_STATUS[op.status]?.tone ?? "slate"}>{OP_STATUS[op.status]?.label ?? op.status}</Chip>
                   <strong className="ml-auto tabular-nums">{money(op.amount, op.currency)}</strong>
                 </div>
-                <div className="text-[#5A5750]">
+                <div className="text-[#6B6478]">
                   {op.contractId ? (
-                    <button onClick={() => onOpenContract(op.contractId!)} className="text-[#2D5BE3] font-medium hover:underline">
+                    <button onClick={() => onOpenContract(op.contractId!)} className="text-[#4C1D95] font-medium hover:underline">
                       {op.label}
                     </button>
                   ) : (
@@ -115,21 +107,21 @@ function ExchangeDrawer({ reference, onClose, onOpenContract }: { reference: str
                   )}{" "}
                   · {op.pspName}
                 </div>
-                <div className="text-[#5A5750] tabular-nums">
+                <div className="text-[#6B6478] tabular-nums">
                   Transmise {dateTime(op.instructionSentAt)} · {op.pspConfirmedAt ? `dénouée ${dateTime(op.pspConfirmedAt)} (${duration(new Date(op.pspConfirmedAt).getTime() - sentAt!)})` : "aucun dénouement enregistré"}
                 </div>
               </section>
             ) : (
-              <p className="rounded-xl border border-[#FECACA] bg-[#FEF2F2] p-3 text-[12.5px] text-[#B91C1C]">
+              <p className="rounded-xl border border-[#FECACA] bg-[#FEECEB] p-3 text-[12.5px] text-[#B42318]">
                 Aucune instruction de la plateforme ne porte cette référence : le PSP — ou un tiers — a présenté un message sans objet.
               </p>
             )}
 
-            <ol className="relative border-l-2 border-[#E2E0D9] ml-2 space-y-3">
+            <ol className="relative border-l-2 border-[#E7E2F0] ml-2 space-y-3">
               {op && (
                 <li className="ml-4">
-                  <span className="absolute -left-[7px] w-3 h-3 rounded-full bg-[#1E40AF] ring-2 ring-white" />
-                  <div className="text-[11px] text-[#9C9A95] tabular-nums">{dateTime(op.instructionSentAt)}</div>
+                  <span className="absolute -left-[7px] w-3 h-3 rounded-full bg-[#1D4ED8] ring-2 ring-white" />
+                  <div className="text-[11px] text-[#9A93A8] tabular-nums">{dateTime(op.instructionSentAt)}</div>
                   <div className="text-[12.5px] font-semibold">Instruction transmise au PSP</div>
                 </li>
               )}
@@ -139,10 +131,10 @@ function ExchangeDrawer({ reference, onClose, onOpenContract }: { reference: str
                   <li key={ev.id} className="ml-4">
                     <span
                       className={`absolute -left-[7px] w-3 h-3 rounded-full ring-2 ring-white ${
-                        ev.outcome === "applied" ? "bg-[#2D5BE3]" : ev.outcome === "replayed" ? "bg-[#93C5FD]" : "bg-[#DC2626]"
+                        ev.outcome === "applied" ? "bg-[#4C1D95]" : ev.outcome === "replayed" ? "bg-[#93C5FD]" : "bg-[#B42318]"
                       }`}
                     />
-                    <div className="text-[11px] text-[#9C9A95] tabular-nums">
+                    <div className="text-[11px] text-[#9A93A8] tabular-nums">
                       {dateTime(ev.receivedAt)}
                       {sentAt !== null && ` · +${duration(new Date(ev.receivedAt).getTime() - sentAt)} après l'instruction`}
                     </div>
@@ -151,12 +143,12 @@ function ExchangeDrawer({ reference, onClose, onOpenContract }: { reference: str
                       <Chip tone={o?.tone ?? "slate"}>{o?.label ?? ev.outcome}</Chip>
                       {ev.error && <Chip tone="red">{PSP_ERROR[ev.error] ?? ev.error}</Chip>}
                     </div>
-                    <div className="text-[11.5px] text-[#5A5750] mt-0.5">
+                    <div className="text-[11.5px] text-[#6B6478] mt-0.5">
                       {PSP_CHANNEL[ev.channel] ?? ev.channel} · signature {ev.signatureValid ? "valide" : "invalide"} · traité en {duration(ev.durationMs)}
                     </div>
                     <details className="mt-1">
-                      <summary className="text-[11.5px] text-[#2D5BE3] cursor-pointer">Charge reçue</summary>
-                      <pre className="mt-1 rounded-lg bg-[#1A1916] text-[#E2E0D9] text-[11px] p-2.5 overflow-x-auto">{JSON.stringify(ev.payload, null, 2)}</pre>
+                      <summary className="text-[11.5px] text-[#4C1D95] cursor-pointer">Charge reçue</summary>
+                      <pre className="mt-1 rounded-lg bg-[#191224] text-[#E7E2F0] text-[11px] p-2.5 overflow-x-auto">{JSON.stringify(ev.payload, null, 2)}</pre>
                     </details>
                   </li>
                 );
@@ -243,17 +235,17 @@ export function PspJournal({ onOpenContract, refreshKey }: { onOpenContract: (id
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <p className="text-[12.5px] text-[#5A5750] max-w-[75ch]">
+        <p className="text-[12.5px] text-[#6B6478] max-w-[75ch]">
           Chaque instruction transmise au PSP et chaque message reçu en retour, avec ce que la plateforme en a fait. Les messages rejetés — signature
           invalide, référence inconnue — sont conservés : ce sont les plus importants à voir.
         </p>
-        <div className="inline-flex rounded-lg border border-[#E2E0D9] bg-white p-0.5" role="group" aria-label="Période">
+        <div className="inline-flex rounded-lg border border-[#E7E2F0] bg-white p-0.5" role="group" aria-label="Période">
           {PERIODS.map((p) => (
             <button
               key={p.id}
               onClick={() => setPeriod(p.id)}
               aria-pressed={period === p.id}
-              className={`h-8 px-3 rounded-md text-[12px] font-medium ${period === p.id ? "bg-[#1A1916] text-white" : "text-[#5A5750] hover:bg-[#F4F3EF]"}`}
+              className={`h-8 px-3 rounded-md text-[12px] font-medium ${period === p.id ? "bg-[#191224] text-white" : "text-[#6B6478] hover:bg-[#EFEAF8]"}`}
             >
               {p.label}
             </button>
@@ -271,7 +263,7 @@ export function PspJournal({ onOpenContract, refreshKey }: { onOpenContract: (id
               label="Messages rejetés"
               value={String(stats.inbound.rejected)}
               hint={stats.rejectionsByError[0] ? `surtout : ${PSP_ERROR[stats.rejectionsByError[0].error] ?? stats.rejectionsByError[0].error}` : "aucun"}
-              tone={stats.inbound.rejected > 0 ? "text-[#B91C1C]" : undefined}
+              tone={stats.inbound.rejected > 0 ? "text-[#B42318]" : undefined}
             />
             <Stat
               label="Sans réponse > 24 h"
@@ -288,7 +280,7 @@ export function PspJournal({ onOpenContract, refreshKey }: { onOpenContract: (id
 
           {stats.rejectionsByError.length > 0 && (
             <div className="flex items-center gap-2 flex-wrap text-[12px]">
-              <span className="text-[#5A5750]">Motifs de rejet :</span>
+              <span className="text-[#6B6478]">Motifs de rejet :</span>
               {stats.rejectionsByError.map((r) => (
                 <button
                   key={r.error}
@@ -298,7 +290,7 @@ export function PspJournal({ onOpenContract, refreshKey }: { onOpenContract: (id
                   }}
                   aria-pressed={error === r.error}
                   className={`h-7 px-2.5 rounded-full border text-[11.5px] font-medium ${
-                    error === r.error ? "bg-[#B91C1C] border-[#B91C1C] text-white" : "bg-white border-[#FECACA] text-[#B91C1C] hover:bg-[#FEF2F2]"
+                    error === r.error ? "bg-[#B42318] border-[#B42318] text-white" : "bg-white border-[#FECACA] text-[#B42318] hover:bg-[#FEECEB]"
                   }`}
                 >
                   {PSP_ERROR[r.error] ?? r.error} · {r.count}
@@ -343,17 +335,17 @@ export function PspJournal({ onOpenContract, refreshKey }: { onOpenContract: (id
           className={`${inputCls} max-w-[280px]`}
         />
         {filtered && (
-          <button onClick={resetFilters} className="h-9 px-3 text-[12px] font-medium text-[#2D5BE3] hover:underline">
+          <button onClick={resetFilters} className="h-9 px-3 text-[12px] font-medium text-[#4C1D95] hover:underline">
             Effacer les filtres
           </button>
         )}
       </div>
 
-      <div className="bg-white border border-[#E2E0D9] rounded-xl overflow-hidden">
+      <div className="bg-white border border-[#E7E2F0] rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-[12.5px] min-w-[1020px]">
             <thead>
-              <tr className="text-[10.5px] tracking-widest text-[#5A5750] uppercase bg-[#FAFAF8] border-b border-[#E2E0D9]">
+              <tr className="text-[10.5px] tracking-widest text-[#6B6478] uppercase bg-[#F6F5FA] border-b border-[#E7E2F0]">
                 <th className={th}>Horodatage</th>
                 <th className={th}>Sens</th>
                 <th className={th}>Message</th>
@@ -366,21 +358,21 @@ export function PspJournal({ onOpenContract, refreshKey }: { onOpenContract: (id
             </thead>
             <tbody>
               {items.map((it) => (
-                <tr key={it.key} className="border-b border-[#F4F3EF] last:border-0 hover:bg-[#FAFAF8] align-top">
-                  <td className="py-2 px-3 whitespace-nowrap text-[#5A5750] tabular-nums">{dateTime(it.at)}</td>
+                <tr key={it.key} className="border-b border-[#EFEAF8] last:border-0 hover:bg-[#F6F5FA] align-top">
+                  <td className="py-2 px-3 whitespace-nowrap text-[#6B6478] tabular-nums">{dateTime(it.at)}</td>
                   <td className="py-2 px-3">
                     <Direction kind={it.kind} />
                   </td>
                   <td className="py-2 px-3">
                     {it.kind === "outbound" ? (
                       <>
-                        <div className="font-medium text-[#1A1916]">{OP_TYPE[it.instructionType]?.label ?? it.instructionType}</div>
-                        <div className="text-[11px] text-[#9C9A95]">Instruction · {it.pspName}</div>
+                        <div className="font-medium text-[#191224]">{OP_TYPE[it.instructionType]?.label ?? it.instructionType}</div>
+                        <div className="text-[11px] text-[#9A93A8]">Instruction · {it.pspName}</div>
                       </>
                     ) : (
                       <>
-                        <div className="font-medium text-[#1A1916]">{PSP_EVENT[it.event] ?? it.event}</div>
-                        <div className="text-[11px] text-[#9C9A95]">
+                        <div className="font-medium text-[#191224]">{PSP_EVENT[it.event] ?? it.event}</div>
+                        <div className="text-[11px] text-[#9A93A8]">
                           {PSP_CHANNEL[it.channel] ?? it.channel} · signature {it.signatureValid ? "✓" : "✗"}
                         </div>
                       </>
@@ -390,22 +382,22 @@ export function PspJournal({ onOpenContract, refreshKey }: { onOpenContract: (id
                     {it.pspReference ? (
                       <button
                         onClick={() => setExchange(it.pspReference!)}
-                        className="font-mono text-[11px] text-[#2D5BE3] hover:underline truncate block max-w-full text-left"
+                        className="font-mono text-[11px] text-[#4C1D95] hover:underline truncate block max-w-full text-left"
                         title="Voir l'échange complet"
                       >
                         {it.pspReference}
                       </button>
                     ) : (
-                      <span className="text-[#9C9A95]">—</span>
+                      <span className="text-[#9A93A8]">—</span>
                     )}
                   </td>
                   <td className="py-2 px-3 max-w-[220px]">
                     {it.contractId ? (
-                      <button onClick={() => onOpenContract(it.contractId!)} className="text-left text-[#5A5750] hover:text-[#2D5BE3] hover:underline truncate block max-w-full">
+                      <button onClick={() => onOpenContract(it.contractId!)} className="text-left text-[#6B6478] hover:text-[#4C1D95] hover:underline truncate block max-w-full">
                         {it.label}
                       </button>
                     ) : (
-                      <span className="text-[#9C9A95] truncate block">{it.label}</span>
+                      <span className="text-[#9A93A8] truncate block">{it.label}</span>
                     )}
                   </td>
                   <td className="py-2 px-3 text-right tabular-nums whitespace-nowrap">{it.amount !== null ? money(it.amount, it.kind === "outbound" ? it.currency : "XOF") : "—"}</td>
@@ -415,17 +407,17 @@ export function PspJournal({ onOpenContract, refreshKey }: { onOpenContract: (id
                     ) : (
                       <div className="flex flex-col items-start gap-0.5">
                         <Chip tone={PSP_OUTCOME[it.outcome]?.tone ?? "slate"}>{PSP_OUTCOME[it.outcome]?.label ?? it.outcome}</Chip>
-                        {it.error && <span className="text-[11px] text-[#B91C1C]">{PSP_ERROR[it.error] ?? it.error}</span>}
+                        {it.error && <span className="text-[11px] text-[#B42318]">{PSP_ERROR[it.error] ?? it.error}</span>}
                       </div>
                     )}
                   </td>
-                  <td className="py-2 px-3 whitespace-nowrap text-[#5A5750] tabular-nums">
+                  <td className="py-2 px-3 whitespace-nowrap text-[#6B6478] tabular-nums">
                     {it.kind === "outbound" ? (
                       it.latencyMs !== null ? `dénouée en ${duration(it.latencyMs)}` : <span className="text-[#92400E]">sans réponse</span>
                     ) : (
                       <>
                         {it.latencyMs !== null ? `+${duration(it.latencyMs)}` : "—"}
-                        <div className="text-[11px] text-[#9C9A95]">traité en {duration(it.durationMs)}</div>
+                        <div className="text-[11px] text-[#9A93A8]">traité en {duration(it.durationMs)}</div>
                       </>
                     )}
                   </td>
@@ -433,16 +425,16 @@ export function PspJournal({ onOpenContract, refreshKey }: { onOpenContract: (id
               ))}
               {!loading && items.length === 0 && !failed && (
                 <tr>
-                  <td colSpan={8} className="py-8 text-center text-[#9C9A95]">Aucun échange sur cette période avec ces filtres.</td>
+                  <td colSpan={8} className="py-8 text-center text-[#9A93A8]">Aucun échange sur cette période avec ces filtres.</td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
-        <div className="px-4 py-2.5 border-t border-[#F4F3EF] text-[12px] text-[#5A5750] flex items-center justify-between gap-3">
+        <div className="px-4 py-2.5 border-t border-[#EFEAF8] text-[12px] text-[#6B6478] flex items-center justify-between gap-3">
           <span>{failed ? "Le journal n'a pas pu être chargé." : `${items.length} échange${items.length > 1 ? "s" : ""} affiché${items.length > 1 ? "s" : ""}`}</span>
           {cursor && (
-            <button onClick={() => load(cursor)} disabled={loading} className="h-8 px-3 rounded-lg border border-[#E2E0D9] bg-white font-medium hover:bg-[#FAFAF8] disabled:opacity-50">
+            <button onClick={() => load(cursor)} disabled={loading} className="h-8 px-3 rounded-lg border border-[#E7E2F0] bg-white font-medium hover:bg-[#F6F5FA] disabled:opacity-50">
               {loading ? "Chargement…" : "Charger plus"}
             </button>
           )}

@@ -40,7 +40,7 @@ export function PillScroller({
     ref.current?.scrollBy({ left: dir * ref.current.clientWidth * 0.8, behavior: "smooth" });
 
   const arrow =
-    "grid h-10 w-10 place-items-center rounded-full bg-white text-[#0A1931] ring-1 ring-black/[0.08] shadow-sm transition hover:-translate-y-0.5 hover:shadow-md disabled:pointer-events-none disabled:opacity-35";
+    "grid h-10 w-10 place-items-center rounded-full bg-white text-[#191224] ring-1 ring-black/[0.08] shadow-sm transition hover:-translate-y-0.5 hover:shadow-md disabled:pointer-events-none disabled:opacity-35";
 
   const fade = 48;
   const mask = `linear-gradient(to right, ${edges.start ? "black" : "transparent"}, black ${fade}px, black calc(100% - ${fade}px), ${edges.end ? "black" : "transparent"})`;
@@ -48,7 +48,7 @@ export function PillScroller({
   return (
     <section>
       <div className="mb-5 flex items-center justify-between gap-4">
-        <h2 className="text-xl sm:text-[26px] font-semibold leading-tight tracking-tight text-[#0A1931]">
+        <h2 className="text-xl sm:text-[26px] font-semibold leading-tight tracking-tight text-[#191224]">
           <span className="text-gray-400">{prefix} : </span>
           {subject}
         </h2>

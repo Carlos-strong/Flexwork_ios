@@ -29,9 +29,9 @@ export default async function PublishMissionPage({ searchParams }: { searchParam
 
 function SelfPublishBlocked({ userId }: { userId: string }) {
   return (
-    <main className="min-h-screen bg-[#F8FAF9] flex items-start md:items-center justify-center p-4 pt-8 md:p-8">
-      <div role="alert" className="w-full max-w-[480px] bg-white border border-[#E2E8F0] rounded-2xl p-6 md:p-8">
-        <h1 className="text-[20px] md:text-[22px] font-bold text-[#0A1931] leading-tight">
+    <main className="min-h-screen bg-[#F6F5FA] flex items-start md:items-center justify-center p-4 pt-8 md:p-8">
+      <div role="alert" className="w-full max-w-[480px] bg-white border border-[#E7E2F0] rounded-2xl p-6 md:p-8">
+        <h1 className="text-[20px] md:text-[22px] font-bold text-[#191224] leading-tight">
           Vous ne pouvez pas publier une mission sur votre propre profil
         </h1>
         <p className="mt-3 text-[14px] text-zinc-600 leading-relaxed">
@@ -41,14 +41,14 @@ function SelfPublishBlocked({ userId }: { userId: string }) {
         <div className="mt-6 flex flex-col sm:flex-row gap-3">
           <Link
             href={`/profil/${userId}`}
-            className="h-11 px-5 inline-flex items-center justify-center rounded-xl bg-[#0A1931] text-white text-[14px] font-semibold hover:bg-[#1e293b]"
+            className="h-11 px-5 inline-flex items-center justify-center rounded-full bg-[#191224] text-white text-[14px] font-semibold hover:bg-[#2A2338]"
             style={{ textDecoration: "none" }}
           >
             Voir mon profil
           </Link>
           <Link
             href="/dashboard"
-            className="h-11 px-5 inline-flex items-center justify-center rounded-xl border border-[#E2E8F0] bg-white text-[14px] font-medium text-zinc-700 hover:bg-zinc-50"
+            className="h-11 px-5 inline-flex items-center justify-center rounded-xl border border-[#E7E2F0] bg-white text-[14px] font-medium text-zinc-700 hover:bg-zinc-50"
             style={{ textDecoration: "none" }}
           >
             Mon tableau de bord

@@ -52,24 +52,24 @@ export default function RolesPage() {
           const meta = ADMIN_ROLE_META[role];
           const list = holders(role);
           return (
-            <div key={role} className="min-w-0 rounded-[16px] border border-[#E2E0D9] bg-white p-4 shadow-sm">
+            <div key={role} className="min-w-0 rounded-[16px] border border-[#E7E2F0] bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[14px] font-semibold" style={{ color: meta.accent }}>
                   {meta.label}
                 </span>
-                <code className="rounded bg-[#F4F3EF] px-1.5 py-0.5 text-[11px] text-[#5A5750]">{role}</code>
+                <code className="rounded bg-[#EFEAF8] px-1.5 py-0.5 text-[11px] text-[#6B6478]">{role}</code>
               </div>
-              <p className="mt-1 text-[12px] leading-snug text-[#5A5750]">{meta.tagline}</p>
+              <p className="mt-1 text-[12px] leading-snug text-[#6B6478]">{meta.tagline}</p>
               <div className="mt-3 space-y-1">
                 {admins === null ? (
-                  <div className="text-[12px] text-[#9C9A95]">Chargement…</div>
+                  <div className="text-[12px] text-[#9A93A8]">Chargement…</div>
                 ) : list.length === 0 ? (
                   <div className="text-[12px] font-medium text-[#B45309]">Aucun titulaire</div>
                 ) : (
                   list.map((a) => (
                     <div key={a.id} className="flex items-center justify-between gap-2 text-[12px]">
-                      <span className="truncate text-[#1A1916]">{a.email}</span>
-                      <span className="shrink-0 text-[#9C9A95]">
+                      <span className="truncate text-[#191224]">{a.email}</span>
+                      <span className="shrink-0 text-[#9A93A8]">
                         {a.actions > 0 ? `${a.actions} action${a.actions > 1 ? "s" : ""}` : "jamais exercé"}
                       </span>
                     </div>
@@ -98,7 +98,7 @@ export default function RolesPage() {
       >
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="border-b border-[#E2E0D9] bg-[#FAFAF8]">
+            <thead className="border-b border-[#E7E2F0] bg-[#F6F5FA]">
               <tr>
                 <th className={tableHead}>Rubrique</th>
                 {ADMIN_ROLES.map((role) => (
@@ -108,10 +108,10 @@ export default function RolesPage() {
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#E2E0D9]">
+            <tbody className="divide-y divide-[#E7E2F0]">
               {(["admin", "backoffice"] as const).flatMap((space) => [
-                <tr key={`space-${space}`} className="bg-[#F4F3EF]">
-                  <td colSpan={ADMIN_ROLES.length + 1} className="px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-[#5A5750]">
+                <tr key={`space-${space}`} className="bg-[#EFEAF8]">
+                  <td colSpan={ADMIN_ROLES.length + 1} className="px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-[#6B6478]">
                     {ADMIN_SPACES[space].icon} {ADMIN_SPACES[space].label} — {ADMIN_SPACES[space].section}
                   </td>
                 </tr>,
@@ -119,7 +119,7 @@ export default function RolesPage() {
                   <tr key={m.id}>
                     <td className={tableCell}>
                       {m.icon} {m.label}
-                      {m.unavailable && <span className="ml-1.5 text-[11px] text-[#9C9A95]">(non disponible)</span>}
+                      {m.unavailable && <span className="ml-1.5 text-[11px] text-[#9A93A8]">(non disponible)</span>}
                     </td>
                     {ADMIN_ROLES.map((role) => {
                       const has = m.roles.includes(role);
@@ -127,11 +127,11 @@ export default function RolesPage() {
                       return (
                         <td key={role} className={`${tableCell} text-center`}>
                           {!has ? (
-                            <span className="text-[#C9C6BE]">—</span>
+                            <span className="text-[#D4CCE3]">—</span>
                           ) : reads ? (
                             <span title="Consultation">👁</span>
                           ) : (
-                            <span className="font-bold text-[#1A7A4A]" title="Agit">
+                            <span className="font-bold text-[#3B1578]" title="Agit">
                               ●
                             </span>
                           )}
@@ -147,10 +147,10 @@ export default function RolesPage() {
       </AdminCard>
 
       <AdminCard title="Où se changent les rôles">
-        <p className="text-[13px] leading-relaxed text-[#5A5750]">
-          Directement en base, champ <code className="rounded bg-[#F4F3EF] px-1">User.adminRole</code> (avec{" "}
-          <code className="rounded bg-[#F4F3EF] px-1">isAdmin = true</code>). La prise d’effet est immédiate : la session de
-          l’administrateur relit son rôle à chaque requête. Le script <code className="rounded bg-[#F4F3EF] px-1">scripts/list-admins.ts</code>{" "}
+        <p className="text-[13px] leading-relaxed text-[#6B6478]">
+          Directement en base, champ <code className="rounded bg-[#EFEAF8] px-1">User.adminRole</code> (avec{" "}
+          <code className="rounded bg-[#EFEAF8] px-1">isAdmin = true</code>). La prise d’effet est immédiate : la session de
+          l’administrateur relit son rôle à chaque requête. Le script <code className="rounded bg-[#EFEAF8] px-1">scripts/list-admins.ts</code>{" "}
           liste les titulaires actuels.
         </p>
         {admins !== null && admins.length === 0 && (

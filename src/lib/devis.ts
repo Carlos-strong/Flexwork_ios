@@ -76,6 +76,28 @@ export function canProviderReviseDevis(input: { hasDevis: boolean; revisionReque
   return !input.hasDevis || input.revisionRequested;
 }
 
+// Une seule candidature par prestataire et par mission (2026-11-10). La base l'impose déjà
+// (@@unique([missionId, providerId])), mais l'envoi faisait un `upsert` : un second envoi
+// ÉCRASAIT la candidature au lieu d'être refusé, dès qu'il échappait à canProviderReviseDevis
+// — candidature antérieure aux rounds (sans `devisData`), ou deux envois simultanés qui
+// voyaient chacun « aucune candidature ». Seul cas où le prestataire renvoie quelque chose
+// sur une mission où il a déjà candidaté : une RÉVISION demandée par le client.
+export type ReapplicationCheck =
+  | { ok: true; kind: "first" | "revision"; round: number }
+  | { ok: false; error: "already_applied" | "proposal_closed" | "max_revisions_reached" };
+
+export function checkReapplication(
+  existing: { status: ProposalStatus; roundActuel: number; revisionRequestedAt: Date | null } | null,
+  maxRevisionRounds: number,
+  closedError: "already_applied" | "proposal_closed" = "already_applied",
+): ReapplicationCheck {
+  if (!existing) return { ok: true, kind: "first", round: 1 };
+  if (CLOSED_PROPOSAL_STATUSES.includes(existing.status)) return { ok: false, error: closedError };
+  if (existing.roundActuel >= maxRevisionRounds) return { ok: false, error: "max_revisions_reached" };
+  if (!existing.revisionRequestedAt) return { ok: false, error: "already_applied" };
+  return { ok: true, kind: "revision", round: existing.roundActuel + 1 };
+}
+
 // Statuts "ouverts" — une négociation existe et peut encore bouger (révision, rejet,
 // acceptation). "envoyee" y figure pour la négociation prix fixe/taux (src/app/api/missions/
 // [id]/proposals/route.ts) : sa toute première soumission reste "envoyee" (accord immédiat
@@ -84,7 +106,20 @@ export function canProviderReviseDevis(input: { hasDevis: boolean; revisionReque
 // sinon aucune négociation ne peut jamais démarrer. Sans effet sur le mode devis (QUOTE) :
 // sa première soumission (POST /api/missions/[id]/devis) passe toujours directement par
 // "en_negociation", jamais par "envoyee" avec un devisData renseigné.
-const OPEN_NEGOTIATION_STATUSES: ProposalStatus[] = ["envoyee", "en_negociation"];
+//
+// "preselectionnee" (2026-11-11) : une candidature présélectionnée (« Shortlister ») reste une
+// négociation ouverte — le client doit pouvoir encore la refuser ou demander une révision.
+const OPEN_NEGOTIATION_STATUSES: ProposalStatus[] = ["envoyee", "preselectionnee", "en_negociation"];
+
+// Présélection (« Shortlister », 2026-11-11) — bascule envoyee ⇄ preselectionnee, rien d'autre.
+// Une candidature déjà en négociation (en_negociation : révision en cours, ou tout devis en mode
+// QUOTE) n'est pas présélectionnable : POST .../devis/validate n'accepte que "en_negociation",
+// la déplacer la rendrait inacceptable. Statut cible renvoyé, ou null si la bascule est refusée.
+export function shortlistTarget(status: ProposalStatus, shortlisted: boolean): ProposalStatus | null {
+  if (shortlisted && status === "envoyee") return "preselectionnee";
+  if (!shortlisted && status === "preselectionnee") return "envoyee";
+  return null;
+}
 
 // Le client ne peut demander une révision que s'il y a déjà un devis/prix à réviser, la
 // négociation est toujours ouverte, et il n'y a pas déjà une demande en attente (évite les
@@ -118,7 +153,7 @@ export function canClientRejectDevis(status: ProposalStatus): boolean {
 //
 // Arrondi au plus proche (et non tronqué) : sur un devis, tronquer systématiquement à la baisse
 // ferait perdre au prestataire jusqu'à un franc par ligne, toujours dans le même sens.
-function roundAmount(value: number): number {
+export function roundAmount(value: number): number {
   return Math.round(value);
 }
 

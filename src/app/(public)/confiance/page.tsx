@@ -44,17 +44,17 @@ export default function ConfiancePage() {
       <section className="page-shell py-12 lg:py-16">
         <div className="grid sm:grid-cols-2 gap-4">
           {PILIERS.map((p) => (
-            <div key={p.t} className="bg-white border border-[#E2E8F0] rounded-2xl p-5">
+            <div key={p.t} className="bg-white border border-[#E7E2F0] rounded-2xl p-5">
               <div className="flex items-center gap-2 mb-2">
-                <span className="h-2 w-2 rounded-full bg-[#008751]" />
-                <h3 className="font-bold text-[#0f172a]">{p.t}</h3>
+                <span className="h-2 w-2 rounded-full bg-[#4C1D95]" />
+                <h3 className="font-bold text-[#191224]">{p.t}</h3>
               </div>
-              <p className="text-sm text-[#64748B] leading-relaxed">{p.d}</p>
+              <p className="text-sm text-[#6B6478] leading-relaxed">{p.d}</p>
             </div>
           ))}
         </div>
 
-        <div className="mt-10 bg-[#0A1931] text-white rounded-2xl p-6 lg:p-8">
+        <div className="mt-10 bg-[#191224] text-white rounded-2xl p-6 lg:p-8">
           <h2 className="text-lg font-bold mb-3">Ce que FlexWork ne fait pas</h2>
           <ul className="space-y-2 text-sm text-white/80">
             <li>• Elle ne certifie pas les compétences — les qualifications restent des déclarations du prestataire.</li>

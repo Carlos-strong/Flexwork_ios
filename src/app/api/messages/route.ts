@@ -16,6 +16,7 @@ import { containsLeakageAttempt } from "@/lib/leakage-detection";
 import { requireMissionParty } from "@/lib/resource-guard";
 import { notifyNewMessage, markConversationNotificationsRead } from "@/lib/message-notify";
 import { z } from "zod";
+import { personFullName } from "@/lib/person-name";
 
 // ---------------------------------------------------------------------------
 // GET — Liste des conversations ou messages d'une conversation
@@ -117,7 +118,7 @@ export async function GET(req: Request) {
         interlocutor: provider
           ? {
               id: provider.id,
-              name: [provider.firstname, provider.lastname].filter(Boolean).join(" ") || "Prestataire",
+              name: personFullName(provider) || "Prestataire",
               role: provider.role,
               country: provider.country,
             }
@@ -167,7 +168,7 @@ export async function GET(req: Request) {
       mission: { titre: m.titre, budget: m.budget, currency: m.currency, status: m.status },
       interlocutor: {
         id: client.id,
-        name: [client.firstname, client.lastname].filter(Boolean).join(" ") || "Client",
+        name: personFullName(client) || "Client",
         role: client.role,
         country: client.country,
       },

@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { PROVIDER_PAYOUT_TYPES } from "@/lib/escrow-instructions";
+import { escrowBalancesFor } from "@/lib/escrow";
+import { groupAnnonces, groupIsActive, groupIsClosed } from "@/lib/annonce-groups";
+import { initials } from "@/lib/initials";
+import { clientPublicName } from "@/lib/person-name";
 
 // Agrégation des données réelles pour la vue d'accueil du dashboard client
 // (/client/dashboard). La session JWT ne porte que id/email/tel/role — jamais
@@ -10,20 +14,6 @@ import { PROVIDER_PAYOUT_TYPES } from "@/lib/escrow-instructions";
 // bord. Même modèle que provider-summary (côté prestataire) : une seule requête renvoie
 // tout ce dont la page a besoin au lieu de valeurs codées en dur.
 
-function displayName(u: { firstname: string | null; lastname: string | null } | null | undefined): string {
-  if (!u) return "Client";
-  const first = u.firstname?.trim();
-  const lastInitial = u.lastname?.trim()?.charAt(0);
-  if (first && lastInitial) return `${first} ${lastInitial}.`;
-  return first || u.lastname || "Client";
-}
-
-function initialsOf(firstname: string | null, lastname: string | null, fallback: string): string {
-  const a = firstname?.trim()?.charAt(0) ?? "";
-  const b = lastname?.trim()?.charAt(0) ?? "";
-  const initials = `${a}${b}`.toUpperCase();
-  return initials || fallback;
-}
 
 export async function GET() {
   const session = await auth();
@@ -51,7 +41,14 @@ export async function GET() {
       // agrégé de la mission de façon optimiste"). Sans ça, un client avec un contrat à
       // jalons ne voyait jamais ce compteur bouger, même avec un jalon réellement en attente
       // de sa vérification.
-      contract: { select: { jalons: { select: { status: true } } } },
+      // montant/observedProgress : progression pondérée des cartes (weightedJalonsProgress).
+      contract: { select: { jalons: { select: { status: true, montant: true, observedProgress: true } } } },
+      // Prestataire retenu sur un ENGAGEMENT (2026-11-11) : nommé dans la carte de son annonce.
+      proposals: {
+        where: { status: { in: ["acceptee", "devis_valide"] }, mission: { parentMissionId: { not: null } } },
+        select: { provider: { select: { firstname: true, lastname: true } } },
+        take: 1,
+      },
     },
   });
 
@@ -67,46 +64,42 @@ export async function GET() {
     _sum: { amount: true },
   });
 
+  // Fonds actuellement détenus sous séquestre pour ce client (tuile « En escrow ») : même règle
+  // que la page Paiements (/api/dashboard/client-payments → escrowBalancesFor), sur tous ses
+  // contrats signés — financé moins versé et remboursé.
+  const signedContracts = await prisma.prestationContract.findMany({
+    where: { clientId: userId, clientSignedAt: { not: null } },
+    select: { id: true },
+  });
+  const balances = await escrowBalancesFor(signedContracts.map((c) => c.id));
+  const inEscrow = Array.from(balances.values()).reduce((sum, b) => sum + b.held, 0);
+
+  // Compteurs par MISSION PUBLIÉE (2026-11-11) : une annonce et ses engagements comptent pour
+  // une seule mission (src/lib/annonce-groups.ts). Les candidatures, elles, se somment sur le
+  // groupe entier — une candidature retenue a été déplacée sur son engagement, elle reste reçue.
+  const groups = groupAnnonces(missions);
   const totalProposals = missions.reduce((s, m) => s + m._count.proposals, 0);
   const hasPendingJalon = (m: (typeof missions)[number]) =>
     (m.contract?.jalons.length ?? 0) > 0 && m.contract!.jalons.some((j) => j.status === "livrable_soumis");
 
-  // Fil « Activité récente » côté client (⚠️ 7 du modèle — étapes de signature). Le client
-  // reçoit `provider_signed` (« contre-signe sous 48h ») et `contract_expired` (délai
-  // dépassé). Message déjà formaté stocké dans MissionNotification.message — même pattern
-  // que le fil prestataire (provider-summary), qui reconstruit un fallback depuis le titre
-  // quand message est absent (historique).
-  const notifRows = await prisma.missionNotification.findMany({
-    where: { userId },
-    select: { id: true, type: true, message: true, createdAt: true, mission: { select: { titre: true } } },
-    orderBy: { createdAt: "desc" },
-    take: 6,
-  });
-  const NOTIF_META: Record<string, { icon: string; fallback: (titre: string) => string }> = {
-    provider_signed: { icon: "✍️", fallback: (titre) => `Un prestataire a signé le contrat — contre-signe sous 48h pour « ${titre} »` },
-    contract_expired: { icon: "⏳", fallback: (titre) => `Délai de contre-signature dépassé pour « ${titre} » — contrat annulé` },
-    contract_locked: { icon: "🔒", fallback: (titre) => `Contrat signé — séquestre déclenché pour « ${titre} »` },
-    deliverable_submitted: { icon: "📦", fallback: (titre) => `Un livrable a été soumis pour « ${titre} » — vérifiez les preuves` },
-  };
-  const activity = notifRows.map((n) => {
-    const meta = NOTIF_META[n.type] ?? { icon: "🔔", fallback: (titre: string) => `Notification pour « ${titre} »` };
-    return { id: n.id, message: n.message ?? meta.fallback(n.mission.titre), icon: meta.icon, createdAt: n.createdAt.toISOString() };
-  });
-
   return NextResponse.json({
     user: {
-      name: displayName(user),
-      initials: initialsOf(user.firstname, user.lastname, "CL"),
+      name: clientPublicName(user),
+      initials: initials(user.firstname, user.lastname, "CL"),
       firstName: user.firstname?.trim() || user.lastname?.trim() || "Client",
+      // Nom complet et ville pour l'en-tête « Bonjour, Prénom Nom • Ville » — le client se voit
+      // lui-même, l'abréviation publique (clientPublicName) n'a pas lieu d'être ici.
+      fullName: [user.firstname?.trim(), user.lastname?.trim()].filter(Boolean).join(" ") || clientPublicName(user),
+      city: user.city?.trim() || null,
       // Null si pas de photo : les vues retombent sur les initiales SANS lancer de requête
       // 404 inutile sur /api/users/[id]/avatar (elle cassait le rendu de la navbar + bas de
       // sidebar avec des erreurs console).
       avatarUrl: user.avatarPath ? `/api/users/${userId}/avatar` : null,
     },
     stats: {
-      total: missions.length,
-      // Même définition "active" que le dashboard historique : tout sauf brouillon/publiee/cloturee.
-      active: missions.filter((m) => !["brouillon", "publiee", "cloturee"].includes(m.status)).length,
+      total: groups.length,
+      // Active : la mission, ou l'un de ses engagements, est en cours d'exécution.
+      active: groups.filter(groupIsActive).length,
       // Chemin historique (mission sans jalon, statut posé au niveau mission) OU chemin
       // à jalons (au moins un jalon "livrable_soumis" — voir le commentaire sur `contract`
       // ci-dessus).
@@ -119,10 +112,10 @@ export async function GET() {
       // simplement publiée, jamais payée. Même base que `revenueTotal` côté prestataire
       // (provider-summary), pour que les deux faces d'un même contrat s'accordent.
       budgetSpent: payouts._sum.amount ?? 0,
-      closed: missions.filter((m) => m.status === "cloturee").length,
-      open: missions.filter((m) => m.status === "publiee").length,
+      closed: groups.filter(groupIsClosed).length,
+      open: groups.filter((g) => g.mission.status === "publiee").length,
+      inEscrow,
     },
     missions,
-    activity,
   });
 }

@@ -71,10 +71,6 @@ export function cleanParagraph(s: string): string {
     .trim();
 }
 
-export function formatMontant(n: number, devise: string): string {
-  return sanitize(`${Math.round(n).toLocaleString("fr-FR")} ${devise}`);
-}
-
 export function formatDateLong(d: Date): string {
   return d.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
 }

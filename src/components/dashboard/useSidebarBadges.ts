@@ -25,10 +25,13 @@ type Conversation = { lastMessage?: { sent?: boolean } | null };
  * Poll toutes les 30s (même cadence que la cloche de notifications) + au focus de
  * l'onglet. Chaque source est indépendante : un échec n'écrase pas les autres badges.
  */
-export function useSidebarBadges(mode: Mode): Record<string, number> {
+// `null` (2026-11-09) : aucun compteur — rôle sans rubriques comptées (responsable de
+// chantier) ou visiteur, pour le menu du profil de la barre globale qui monte ce hook partout.
+export function useSidebarBadges(mode: Mode | null): Record<string, number> {
   const [badges, setBadges] = useState<Record<string, number>>({});
 
   const refresh = useCallback(async () => {
+    if (mode === null) return;
     const next: Record<string, number> = {};
 
     // Messages non lus (conversations dont le dernier message est un message reçu).
@@ -95,6 +98,7 @@ export function useSidebarBadges(mode: Mode): Record<string, number> {
   }, [mode]);
 
   useEffect(() => {
+    if (mode === null) return;
     refresh();
     // Sondage de secours, espacé tant que le flux temps réel est ouvert (src/lib/realtime/client.ts).
     // Toutes les 5 min malgré tout : certains changements de compteur ne passent par aucune
@@ -114,7 +118,7 @@ export function useSidebarBadges(mode: Mode): Record<string, number> {
       window.removeEventListener("focus", onFocus);
       unsubscribe();
     };
-  }, [refresh]);
+  }, [refresh, mode]);
 
   return badges;
 }

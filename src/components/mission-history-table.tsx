@@ -13,6 +13,7 @@ import { PROFESSIONAL_TYPE_LABELS } from "@/lib/provider-options";
 import { useState } from "react";
 import { Check, ExternalLink, Upload } from "lucide-react";
 import type { Checkpoint } from "@/components/progress-checkpoints";
+import { parseLatLng } from "@/lib/proof-format";
 
 // Même libellés que missions/[id]/page.tsx (PROFESSIONAL_TYPE_LABEL) — badge domaine de
 // l'en-tête carte.
@@ -59,16 +60,6 @@ export type HistoryAttachment = {
   requestNewProof?: boolean;
 };
 
-// Coordonnées "lat,lng" (POST .../deliverable, catégorie "geolocation") — même parsing que
-// ValidationClientView.tsx (parseLatLng), dupliqué ici (fonction pure, 3 lignes) pour ne pas
-// dépendre à l'envers d'un composant de vue depuis ce module partagé de plus bas niveau.
-function parseLatLng(note: string | null): { lat: number; lng: number } | null {
-  if (!note) return null;
-  const [latStr, lngStr] = note.split(",");
-  const lat = Number(latStr);
-  const lng = Number(lngStr);
-  return Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : null;
-}
 
 // Historique des rejets (GET .../rejections, voir ProgressRejection) — pendant de Checkpoint
 // pour la trace des soumissions REJETÉES, plutôt que seulement le dernier motif encore affiché
@@ -97,7 +88,7 @@ const READONLY_CATEGORY: Record<string, { icon: string; label: string }> = {
 export function ReadOnlyProofCategories({ attachments }: { attachments: HistoryAttachment[] }) {
   const sorted = [...attachments].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
   if (sorted.length === 0) {
-    return <p className="text-[12px] text-[#94A3B8] text-center py-3">Aucune preuve dans ce lot.</p>;
+    return <p className="text-[12px] text-[#9A93A8] text-center py-3">Aucune preuve dans ce lot.</p>;
   }
   return (
     <div className="space-y-2.5">
@@ -111,24 +102,24 @@ export function ReadOnlyProofCategories({ attachments }: { attachments: HistoryA
             /\.pdf(?:$|[?#])/i.test((a.url ?? "").split("?")[0].split("/").pop() ?? ""));
         const when = new Date(a.createdAt).toLocaleString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
         return (
-          <div key={a.id} className="rounded-xl border border-[#E2E8F0] bg-white overflow-hidden">
-            <div className="px-3 py-2 border-b border-[#F1F5F9] flex items-center justify-between gap-2 flex-wrap bg-[#F8FAF9]">
+          <div key={a.id} className="rounded-xl border border-[#E7E2F0] bg-white overflow-hidden">
+            <div className="px-3 py-2 border-b border-[#EFEAF8] flex items-center justify-between gap-2 flex-wrap bg-[#F6F5FA]">
               <div className="flex items-center gap-2 min-w-0">
-                <span className="w-6 h-6 rounded-full bg-[#E2E8F0] text-[#475569] text-[11px] font-bold flex items-center justify-center shrink-0">{i + 1}</span>
-                <span className="w-7 h-7 rounded-lg bg-white border border-[#E2E8F0] flex items-center justify-center text-[13px] shrink-0" aria-hidden>{cat.icon}</span>
-                <span className="text-[12px] font-semibold text-[#0f172a]">{cat.label}</span>
-                {a.fileName && <span className="text-[11px] text-[#64748B] truncate min-w-0">— {a.fileName}</span>}
+                <span className="w-6 h-6 rounded-full bg-[#E7E2F0] text-[#4A4258] text-[11px] font-bold flex items-center justify-center shrink-0">{i + 1}</span>
+                <span className="w-7 h-7 rounded-lg bg-white border border-[#E7E2F0] flex items-center justify-center text-[13px] shrink-0" aria-hidden>{cat.icon}</span>
+                <span className="text-[12px] font-semibold text-[#191224]">{cat.label}</span>
+                {a.fileName && <span className="text-[11px] text-[#6B6478] truncate min-w-0">— {a.fileName}</span>}
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <span className="text-[10.5px] text-[#94A3B8]">{when}</span>
+                <span className="text-[10.5px] text-[#9A93A8]">{when}</span>
                 {a.appreciation === "validee" && (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#DCFCE7] text-[#166534] border border-[#BBF7D0] text-[10.5px] font-semibold whitespace-nowrap">✓ Validée</span>
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#E7F7EF] text-[#047857] border border-[#BBF7D0] text-[10.5px] font-semibold whitespace-nowrap">✓ Validée</span>
                 )}
                 {a.appreciation === "rejetee" && (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#FEE2E2] text-[#991B1B] border border-[#FECACA] text-[10.5px] font-semibold whitespace-nowrap">✗ Rejetée</span>
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#FEECEB] text-[#991B1B] border border-[#FECACA] text-[10.5px] font-semibold whitespace-nowrap">✗ Rejetée</span>
                 )}
                 {!a.appreciation && (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#F1F5F9] text-[#475569] border border-[#E2E8F0] text-[10.5px] font-medium whitespace-nowrap">En attente</span>
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#EFEAF8] text-[#4A4258] border border-[#E7E2F0] text-[10.5px] font-medium whitespace-nowrap">En attente</span>
                 )}
               </div>
             </div>
@@ -136,25 +127,25 @@ export function ReadOnlyProofCategories({ attachments }: { attachments: HistoryA
               {a.category === "photo" && a.url ? (
                 // Fichier privé signé, servi par une route API, pas un asset optimisable par next/image.
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={a.url} alt={a.fileName ?? "Photo fournie"} className="w-full max-h-80 object-contain rounded-lg bg-[#F8FAF9] border border-[#E2E8F0]" />
+                <img src={a.url} alt={a.fileName ?? "Photo fournie"} className="w-full max-h-80 object-contain rounded-lg bg-[#F6F5FA] border border-[#E7E2F0]" />
               ) : a.category === "video" && a.url ? (
-                <video controls className="w-full max-h-80 rounded-lg border border-[#E2E8F0] bg-black">
+                <video controls className="w-full max-h-80 rounded-lg border border-[#E7E2F0] bg-black">
                   <source src={a.url} type={a.mimeType ?? undefined} />
                 </video>
               ) : a.category === "geolocation" && coords ? (
-                <div className="flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg bg-[#F8FAF9] border border-[#E2E8F0] flex-wrap">
-                  <span className="text-[12.5px] text-[#0f172a] font-mono">{coords.lat.toFixed(5)}, {coords.lng.toFixed(5)}</span>
-                  <a href={`https://www.google.com/maps?q=${coords.lat},${coords.lng}`} target="_blank" rel="noreferrer" className="text-[11.5px] text-[#1E40AF] font-medium shrink-0">
+                <div className="flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg bg-[#F6F5FA] border border-[#E7E2F0] flex-wrap">
+                  <span className="text-[12.5px] text-[#191224] font-mono">{coords.lat.toFixed(5)}, {coords.lng.toFixed(5)}</span>
+                  <a href={`https://www.google.com/maps?q=${coords.lat},${coords.lng}`} target="_blank" rel="noreferrer" className="text-[11.5px] text-[#1D4ED8] font-medium shrink-0">
                     Voir sur Google Maps ↗
                   </a>
                 </div>
               ) : isPdf || a.url ? (
-                <a href={a.url as string} target="_blank" rel="noreferrer" className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-[#F8FAF9] border border-[#E2E8F0] text-[#1E40AF] text-[12.5px] hover:bg-[#F1F5F9]">
+                <a href={a.url as string} target="_blank" rel="noreferrer" className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-[#F6F5FA] border border-[#E7E2F0] text-[#1D4ED8] text-[12.5px] hover:bg-[#EFEAF8]">
                   📄 <span className="truncate">{a.fileName ?? "Ouvrir le document"}</span>
                   <ExternalLink className="w-3.5 h-3.5 shrink-0" />
                 </a>
               ) : (
-                <p className="px-3 py-2.5 rounded-lg bg-[#F8FAF9] border border-[#E2E8F0] text-[12.5px] text-[#0f172a] leading-relaxed whitespace-pre-wrap">
+                <p className="px-3 py-2.5 rounded-lg bg-[#F6F5FA] border border-[#E7E2F0] text-[12.5px] text-[#191224] leading-relaxed whitespace-pre-wrap">
                   {a.note || "(preuve sans contenu lisible)"}
                 </p>
               )}
@@ -162,7 +153,7 @@ export function ReadOnlyProofCategories({ attachments }: { attachments: HistoryA
             {/* Avis du client sur cette preuve (2026-09-05) : rejetée → raison + motif + éventuelle
                 demande de nouvelle preuve, pour que le prestataire sache exactement quoi corriger. */}
             {a.appreciation === "rejetee" && (
-              <div className="mx-2.5 mb-2.5 rounded-md bg-[#FEF2F2] border border-[#FECACA] px-2.5 py-2 text-[11px] text-[#991B1B]">
+              <div className="mx-2.5 mb-2.5 rounded-md bg-[#FEECEB] border border-[#FECACA] px-2.5 py-2 text-[11px] text-[#991B1B]">
                 <span className="font-semibold">{a.rejectionReason ?? "Preuve non conforme"}</span>
                 {a.rejectionMotif && <span className="block mt-0.5 leading-relaxed">{a.rejectionMotif}</span>}
                 {a.requestNewProof && <span className="block mt-0.5 italic">Une nouvelle preuve a été demandée.</span>}
@@ -264,9 +255,9 @@ export function normalizeMissionSubmissionStatus(status: string): SubmissionStat
 }
 
 const OPEN_BADGE = "bg-[#ede9fe] text-[#6d28d9]";
-const SENT_BADGE = "bg-[#DBEAFE] text-[#1E40AF] border border-[#BFDBFE]";
-const SUCCESS_BADGE = "bg-[#DCFCE7] text-[#166534] border border-[#BBF7D0]";
-const DANGER_BADGE = "bg-[#FEE2E2] text-[#B91C1C] border border-[#FECACA]";
+const SENT_BADGE = "bg-[#DBEAFE] text-[#1D4ED8] border border-[#BFDBFE]";
+const SUCCESS_BADGE = "bg-[#E7F7EF] text-[#047857] border border-[#BBF7D0]";
+const DANGER_BADGE = "bg-[#FEECEB] text-[#B42318] border border-[#FECACA]";
 
 /** Type + Statut + couleur d'une ligne "preuve", pour UNE vue (prestataire/client) — seule
  *  source de vérité pour les deux tableaux (voir la règle de synchronisation ci-dessus). Les
@@ -539,7 +530,7 @@ export function RowHistoryTable({
   if (rows.length === 0) {
     return (
       <div className="py-4 text-center">
-        <p className="text-[12px] text-[#94A3B8]">Aucune preuve ni validation partielle pour l&apos;instant.</p>
+        <p className="text-[12px] text-[#9A93A8]">Aucune preuve ni validation partielle pour l&apos;instant.</p>
         {canSubmitProofs && (
           <div className="mt-2">
             <SubmitButton />
@@ -564,7 +555,7 @@ export function RowHistoryTable({
       <div className="overflow-x-auto [-webkit-overflow-scrolling:touch]">
         <table className="w-full min-w-[600px] text-[12px]">
         <thead>
-          <tr className="bg-[#F8FAF9] text-[10.5px] tracking-wide text-[#64748B] uppercase">
+          <tr className="bg-[#F6F5FA] text-[10.5px] tracking-wide text-[#6B6478] uppercase">
             <th className="text-left font-semibold py-1.5 px-1.5 whitespace-nowrap">Version</th>
             <th className="hidden md:table-cell text-center font-semibold py-1.5 px-1.5 whitespace-nowrap">Type</th>
             <th className="hidden md:table-cell text-right font-semibold py-1.5 px-1.5 whitespace-nowrap">Preuves</th>
@@ -581,18 +572,18 @@ export function RowHistoryTable({
             // getRowTypeStatus.
             const { typeLabel, statutLabel, badgeClass } = getRowTypeStatus(r, isLast, view, currentStatus, reviewOpenedAt);
             return (
-              <tr key={r.id} className="border-t border-[#F1F5F9]">
+              <tr key={r.id} className="border-t border-[#EFEAF8]">
                 <td className="py-1.5 px-1.5 whitespace-nowrap" title={`Par ${r.by}`}>
-                  <div className="font-mono font-semibold text-[#0f172a]">{r.version}</div>
-                  <div className="text-[10.5px] text-[#94A3B8] mt-0.5">{when}</div>
+                  <div className="font-mono font-semibold text-[#191224]">{r.version}</div>
+                  <div className="text-[10.5px] text-[#9A93A8] mt-0.5">{when}</div>
                 </td>
                 <td className="hidden md:table-cell py-1.5 px-1.5 text-center">
                   <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10.5px] font-medium whitespace-nowrap ${badgeClass}`}>
                     {typeLabel}
                   </span>
                 </td>
-                <td className="hidden md:table-cell py-1.5 px-1.5 text-right text-[#64748B] whitespace-nowrap">{r.proofsLabel}</td>
-                <td className="py-1.5 px-1.5 text-right font-bold text-[#0f172a] whitespace-nowrap">{r.percentPartial}%</td>
+                <td className="hidden md:table-cell py-1.5 px-1.5 text-right text-[#6B6478] whitespace-nowrap">{r.proofsLabel}</td>
+                <td className="py-1.5 px-1.5 text-right font-bold text-[#191224] whitespace-nowrap">{r.percentPartial}%</td>
                 <td className="py-1.5 px-1.5 text-center">
                   {/* Sur une ligne "preuve", le badge passe automatiquement de "Envoyée" à
                       "Validé" ou "Rejeté" selon l'issue de ce lot précis (r.outcome) — pas
@@ -612,7 +603,7 @@ export function RowHistoryTable({
                           onViewBatch(r.batchAttachments);
                           setOpenedIds((prev) => ({ ...prev, [r.id]: true }));
                         }}
-                        className="inline-flex items-center gap-1 text-[#1E40AF] text-[12px] font-semibold hover:underline"
+                        className="inline-flex items-center gap-1 text-[#1D4ED8] text-[12px] font-semibold hover:underline"
                       >
                         {openedIds[r.id] ? (
                           <>Ouvert <Check className="w-3.5 h-3.5" /></>
@@ -621,7 +612,7 @@ export function RowHistoryTable({
                         )}
                       </button>
                     ) : (
-                      !(isLast && canSubmitProofs) && <span className="text-[#94A3B8] text-[12px]">—</span>
+                      !(isLast && canSubmitProofs) && <span className="text-[#9A93A8] text-[12px]">—</span>
                     )}
                     {isLast && canSubmitProofs && <SubmitButton />}
                   </div>
@@ -637,7 +628,7 @@ export function RowHistoryTable({
       {/* Variante MOBILE (< sm) : chaque version en carte empilée — version + date, badge
           Statut, % partielle, motif (rejet) et action Voir. Le TYPE et les PREUVES sont
           masqués en mobile (demande utilisateur 2026-09-05). */}
-      <div className="sm:hidden divide-y divide-[#F1F5F9]">
+      <div className="sm:hidden divide-y divide-[#EFEAF8]">
         {rows.map((r, i) => {
           const isLast = i === rows.length - 1;
           const when = new Date(r.createdAt).toLocaleString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
@@ -649,8 +640,8 @@ export function RowHistoryTable({
             <div key={r.id} className="px-3.5 py-3">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <div className="font-mono font-semibold text-[#0f172a] text-[13px]">{r.version}</div>
-                  <div className="text-[10.5px] text-[#94A3B8] mt-0.5">{when}</div>
+                  <div className="font-mono font-semibold text-[#191224] text-[13px]">{r.version}</div>
+                  <div className="text-[10.5px] text-[#9A93A8] mt-0.5">{when}</div>
                 </div>
                 <div className="flex flex-col items-end gap-1.5 shrink-0">
                   {/* TYPE masqué en mobile — seul le Statut reste dans la carte. */}
@@ -658,7 +649,7 @@ export function RowHistoryTable({
                   {r.kind === "preuve" && (
                     <button
                       onClick={() => { onViewBatch(r.batchAttachments); setOpenedIds((prev) => ({ ...prev, [r.id]: true })); }}
-                      className="inline-flex items-center gap-1 text-[#1E40AF] text-[12px] font-semibold"
+                      className="inline-flex items-center gap-1 text-[#1D4ED8] text-[12px] font-semibold"
                     >
                       {openedIds[r.id] ? <>Ouvert <Check className="w-3.5 h-3.5" /></> : <>Voir <ExternalLink className="w-3 h-3" /></>}
                     </button>
@@ -666,9 +657,9 @@ export function RowHistoryTable({
                 </div>
               </div>
               {/* PREUVES masquées en mobile — seul le % de progression validée reste affiché. */}
-              <div className="mt-2.5 rounded-lg bg-[#F8FAF9] border border-[#F1F5F9] px-2.5 py-1.5 flex items-center justify-between text-[12px]">
-                <span className="text-[10px] uppercase tracking-wider text-[#64748B] font-semibold">% partielle</span>
-                <span className="text-[#0f172a] font-bold">{r.percentPartial}%</span>
+              <div className="mt-2.5 rounded-lg bg-[#F6F5FA] border border-[#EFEAF8] px-2.5 py-1.5 flex items-center justify-between text-[12px]">
+                <span className="text-[10px] uppercase tracking-wider text-[#6B6478] font-semibold">% partielle</span>
+                <span className="text-[#191224] font-bold">{r.percentPartial}%</span>
               </div>
             </div>
           );
@@ -676,13 +667,13 @@ export function RowHistoryTable({
       </div>
 
       {/* Bandeau récapitulatif — Total jalon / Validé / Reste, avec barre de progression. */}
-      <div className="bg-[#0A1931] text-white px-4 py-3 flex flex-wrap items-center gap-3">
+      <div className="bg-[#191224] text-white px-4 py-3 flex flex-wrap items-center gap-3">
         <span className="text-[11.5px]">
           Total jalon <strong>{money(montant)}</strong> — Validé <strong>{totalPercent}%</strong> {money(totalMontantCumulative)} libéré — Reste{" "}
           <strong>{remainingPercent}%</strong> {money(remainingMontant)}
         </span>
         <div className="flex-1 min-w-[120px] h-2 rounded-full bg-white/15 overflow-hidden">
-          <div className="h-full rounded-full bg-gradient-to-r from-[#F7C948] to-[#FF6B35]" style={{ width: `${totalPercent}%` }} />
+          <div className="h-full rounded-full bg-gradient-to-r from-[#F7C948] to-[#6D28D9]" style={{ width: `${totalPercent}%` }} />
         </div>
       </div>
     </div>
@@ -708,37 +699,37 @@ export function AmountProgressBar({
   return (
     <>
       <div className="mt-3 flex items-center gap-3 flex-wrap">
-        <span className="text-[15px] font-bold text-[#0f172a] whitespace-nowrap">{montant.toLocaleString("fr-FR")} {currency}</span>
+        <span className="text-[15px] font-bold text-[#191224] whitespace-nowrap">{montant.toLocaleString("fr-FR")} {currency}</span>
         {currency === "XOF" && (
-          <span className="px-2 py-0.5 rounded-full bg-[#F1F5F9] text-[#64748B] text-[11px] font-medium whitespace-nowrap">
+          <span className="px-2 py-0.5 rounded-full bg-[#EFEAF8] text-[#6B6478] text-[11px] font-medium whitespace-nowrap">
             ≈ {xofToEur(montant).toLocaleString("fr-FR")} €
           </span>
         )}
-        <div className="relative flex-1 min-w-[100px] h-2.5 rounded-full bg-[#F1F5F9] overflow-hidden">
-          <div className="absolute inset-y-0 left-0 bg-[#008751]" style={{ width: `${firmPercent}%` }} />
+        <div className="relative flex-1 min-w-[100px] h-2.5 rounded-full bg-[#EFEAF8] overflow-hidden">
+          <div className="absolute inset-y-0 left-0 bg-[#4C1D95]" style={{ width: `${firmPercent}%` }} />
           <div
             className="absolute inset-y-0"
             style={{
               left: `${firmPercent}%`,
               width: `${partialPercent}%`,
-              backgroundImage: "repeating-linear-gradient(45deg, rgba(0,135,81,0.6) 0 4px, rgba(0,135,81,0.28) 4px 8px)",
+              backgroundImage: "repeating-linear-gradient(45deg, rgba(76,29,149,0.6) 0 4px, rgba(76,29,149,0.28) 4px 8px)",
             }}
           />
         </div>
-        <span className="text-[13px] font-bold text-[#0f172a] whitespace-nowrap">{totalPercent}%</span>
+        <span className="text-[13px] font-bold text-[#191224] whitespace-nowrap">{totalPercent}%</span>
       </div>
 
       {totalPercent > 0 && (
-        <div className="mt-1.5 flex items-center gap-4 flex-wrap text-[10.5px] text-[#64748B]">
+        <div className="mt-1.5 flex items-center gap-4 flex-wrap text-[10.5px] text-[#6B6478]">
           <span className="inline-flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-[#008751] inline-block shrink-0" />
+            <span className="w-2 h-2 rounded-full bg-[#4C1D95] inline-block shrink-0" />
             0–{firmPercent}% validé ferme
           </span>
           {partialPercent > 0 && (
             <span className="inline-flex items-center gap-1.5">
               <span
                 className="w-2 h-2 rounded-full inline-block shrink-0"
-                style={{ backgroundImage: "repeating-linear-gradient(45deg, rgba(0,135,81,0.6) 0 2px, rgba(0,135,81,0.28) 2px 4px)" }}
+                style={{ backgroundImage: "repeating-linear-gradient(45deg, rgba(76,29,149,0.6) 0 2px, rgba(76,29,149,0.28) 2px 4px)" }}
               />
               {firmPercent}–{totalPercent}% validé partiel hachuré
             </span>

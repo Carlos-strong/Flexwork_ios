@@ -71,13 +71,13 @@ type DecisionKind = "approve" | "dispute" | "reject" | "verify";
 type Decision = { id: string; kind: DecisionKind; quantity: string; overtime: string; reason: string };
 
 const STATUS_META: Record<string, { label: string; bg: string; fg: string }> = {
-  open: { label: "Brouillon", bg: "bg-[#F1F5F9]", fg: "text-[#475569]" },
-  submitted: { label: "À constater", bg: "bg-[#FFFBEB]", fg: "text-[#92400E]" },
-  verified: { label: "Vérifié — à valider", bg: "bg-[#EFF6FF]", fg: "text-[#1D4ED8]" },
-  approved: { label: "Validé", bg: "bg-[#E6F4EE]", fg: "text-[#00623A]" },
-  rejected: { label: "Refusé", bg: "bg-[#FEF2F2]", fg: "text-[#B91C1C]" },
-  disputed: { label: "Contesté", bg: "bg-[#FEF2F2]", fg: "text-[#B91C1C]" },
-  cancelled: { label: "Annulé", bg: "bg-[#F1F5F9]", fg: "text-[#475569]" },
+  open: { label: "Brouillon", bg: "bg-[#EFEAF8]", fg: "text-[#4A4258]" },
+  submitted: { label: "À constater", bg: "bg-[#FFF6E3]", fg: "text-[#92400E]" },
+  verified: { label: "Vérifié — à valider", bg: "bg-[#EAF1FF]", fg: "text-[#1D4ED8]" },
+  approved: { label: "Validé", bg: "bg-[#F0EAFF]", fg: "text-[#3B1578]" },
+  rejected: { label: "Refusé", bg: "bg-[#FEECEB]", fg: "text-[#B42318]" },
+  disputed: { label: "Contesté", bg: "bg-[#FEECEB]", fg: "text-[#B42318]" },
+  cancelled: { label: "Annulé", bg: "bg-[#EFEAF8]", fg: "text-[#4A4258]" },
 };
 
 const DECISION_ERRORS: Record<string, string> = {
@@ -104,7 +104,7 @@ const CLOSE_ERRORS: Record<string, string> = {
 };
 
 const inputCls =
-  "w-full h-9 px-2.5 rounded-lg border border-[#E2E8F0] text-[13px] bg-white focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751]";
+  "w-full h-9 px-2.5 rounded-lg border border-[#E7E2F0] text-[13px] bg-white focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20 focus:border-[#4C1D95]";
 
 function unite(n: number, unit: RateUnit) {
   const l = RATE_UNIT_LABEL[unit];
@@ -371,30 +371,30 @@ export function AttendancePanel({
   const quantiteFigee = regle === "totale";
 
   return (
-    <div className={`bg-white border border-[#E2E8F0] rounded-xl p-4 lg:p-5 ${className}`}>
+    <div className={`bg-white border border-[#E7E2F0] rounded-xl p-4 lg:p-5 ${className}`}>
       <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
         <h2 className="text-[13px] font-semibold">Relevés de présence</h2>
-        <span className="text-[11.5px] text-[#64748B] tabular-nums">
+        <span className="text-[11.5px] text-[#6B6478] tabular-nums">
           {terms.rate.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} {d} / {u.per}
         </span>
       </div>
       {/* Mode de pointage du contrat — rappelé aux deux côtés : le prestataire sait comment ses
           relevés seront traités, le validateur sait ce qu'il a le droit de faire. */}
-      <p className="mb-3 text-[11.5px] text-[#64748B]" title={ATTENDANCE_VALIDATION_LABEL[regle].definition}>
-        Mode de pointage : <strong className="text-[#0f172a]">{ATTENDANCE_VALIDATION_LABEL[regle].label}</strong>
+      <p className="mb-3 text-[11.5px] text-[#6B6478]" title={ATTENDANCE_VALIDATION_LABEL[regle].definition}>
+        Mode de pointage : <strong className="text-[#191224]">{ATTENDANCE_VALIDATION_LABEL[regle].label}</strong>
       </p>
 
       {data.closed ? (
-        <div className="mb-3 rounded-xl border border-[#E2E8F0] bg-[#F8FAF9] p-3 text-[12.5px] text-[#475569] leading-relaxed">
-          <strong className="text-[#0f172a]">Chantier clôturé.</strong> Plus aucune présence ne peut être déclarée ; le
+        <div className="mb-3 rounded-xl border border-[#E7E2F0] bg-[#F6F5FA] p-3 text-[12.5px] text-[#4A4258] leading-relaxed">
+          <strong className="text-[#191224]">Chantier clôturé.</strong> Plus aucune présence ne peut être déclarée ; le
           solde non consommé du plafond a été restitué au client.
         </div>
       ) : data.suspended ? (
-        <div className="mb-3 rounded-xl border border-[#FDE68A] bg-[#FFFBEB] p-3 text-[12.5px] text-[#92400E] leading-relaxed">
+        <div className="mb-3 rounded-xl border border-[#FDE68A] bg-[#FFF6E3] p-3 text-[12.5px] text-[#92400E] leading-relaxed">
           <strong>Chantier suspendu par une médiation.</strong> Les déclarations reprendront à sa clôture.
         </div>
       ) : (
-        <p className="text-[12px] text-[#64748B] leading-relaxed mb-3">
+        <p className="text-[12px] text-[#6B6478] leading-relaxed mb-3">
           Un relevé ne paie rien par lui-même : il doit être constaté par{" "}
           {role === "site_manager" ? "vous" : "le client ou le responsable de chantier"}. C&apos;est cette
           validation, et elle seule, qui libère les fonds du séquestre.
@@ -402,23 +402,23 @@ export function AttendancePanel({
       )}
 
       {/* Jauge de consommation du plafond — ce qui est consommé, ce que le séquestre couvre encore. */}
-      <div className="rounded-xl bg-[#F8FAF9] border border-[#E2E8F0] px-3.5 py-2.5 text-[12.5px] space-y-1.5">
+      <div className="rounded-xl bg-[#F6F5FA] border border-[#E7E2F0] px-3.5 py-2.5 text-[12.5px] space-y-1.5">
         <div className="flex justify-between gap-3">
-          <span className="text-[#64748B]">Consommé</span>
+          <span className="text-[#6B6478]">Consommé</span>
           <strong className="tabular-nums">
             {unite(data.consumedQuantity, terms.rateUnit)} / {unite(terms.maxQuantity, terms.rateUnit)}
           </strong>
         </div>
-        <div className="h-1.5 rounded-full bg-[#E2E8F0] overflow-hidden" aria-hidden>
+        <div className="h-1.5 rounded-full bg-[#E7E2F0] overflow-hidden" aria-hidden>
           <div
-            className="h-full bg-[#008751] rounded-full transition-[width] duration-500"
+            className="h-full bg-[#4C1D95] rounded-full transition-[width] duration-500"
             style={{ width: `${Math.min(100, (data.consumedQuantity / Math.max(terms.maxQuantity, 1)) * 100)}%` }}
           />
         </div>
         {actif && (
           <div className="flex justify-between gap-3">
-            <span className="text-[#64748B]">Le séquestre couvre encore</span>
-            <strong className={`tabular-nums ${data.funding.low ? "text-[#B91C1C]" : "text-[#008751]"}`}>
+            <span className="text-[#6B6478]">Le séquestre couvre encore</span>
+            <strong className={`tabular-nums ${data.funding.low ? "text-[#B42318]" : "text-[#4C1D95]"}`}>
               {unite(data.funding.remainingUnits, terms.rateUnit)}
             </strong>
           </div>
@@ -427,7 +427,7 @@ export function AttendancePanel({
 
       {/* Alerte du §19 — prévenir AVANT l'arrêt du chantier, pas après. */}
       {actif && data.funding.low && (
-        <div className="mt-2.5 rounded-xl border border-[#FDE68A] bg-[#FFFBEB] p-3 text-[12.5px] text-[#92400E] leading-relaxed">
+        <div className="mt-2.5 rounded-xl border border-[#FDE68A] bg-[#FFF6E3] p-3 text-[12.5px] text-[#92400E] leading-relaxed">
           <strong>Financement bientôt épuisé.</strong> Le séquestre disponible ne couvre plus que{" "}
           {unite(data.funding.remainingUnits, terms.rateUnit)} de présence.{" "}
           {role === "client"
@@ -440,7 +440,7 @@ export function AttendancePanel({
           commune « Responsable chantier » (SiteManagerCard) ; ici, seulement l'alerte s'il manque :
           en OPR strict, rien ne se valide sans sa vérification. */}
       {role === "client" && actif && opr && !data.siteManagerDesignated && (
-        <div className="mt-3 rounded-xl border border-[#FDE68A] bg-[#FFFBEB] p-3 text-[12.5px] text-[#92400E] leading-relaxed">
+        <div className="mt-3 rounded-xl border border-[#FDE68A] bg-[#FFF6E3] p-3 text-[12.5px] text-[#92400E] leading-relaxed">
           <strong>Aucun responsable de chantier désigné.</strong> En vérification OPR, les relevés doivent être
           vérifiés par lui avant que vous puissiez les valider. Désignez-le dans la carte « Responsable chantier ».
         </div>
@@ -449,13 +449,13 @@ export function AttendancePanel({
         <form onSubmit={declarer} className="mt-3 grid grid-cols-2 sm:grid-cols-[1fr_1fr_1fr_auto] items-end gap-2">
           {terms.rateUnit === "month" ? (
             <label className="col-span-2 sm:col-span-2">
-              <span className="block text-[11.5px] text-[#64748B] mb-1">Mois travaillé</span>
+              <span className="block text-[11.5px] text-[#6B6478] mb-1">Mois travaillé</span>
               <input id="attendance-month" type="month" value={month} onChange={(e) => setMonth(e.target.value)} required className={inputCls} />
             </label>
           ) : terms.rateUnit === "day" ? (
             <>
               <label>
-                <span className="block text-[11.5px] text-[#64748B] mb-1">Du</span>
+                <span className="block text-[11.5px] text-[#6B6478] mb-1">Du</span>
                 <input
                   id="attendance-from"
                   type="date"
@@ -469,18 +469,18 @@ export function AttendancePanel({
                 />
               </label>
               <label>
-                <span className="block text-[11.5px] text-[#64748B] mb-1">Au</span>
+                <span className="block text-[11.5px] text-[#6B6478] mb-1">Au</span>
                 <input id="attendance-to" type="date" value={to} min={from} onChange={(e) => setTo(e.target.value)} required className={inputCls} />
               </label>
             </>
           ) : (
             <label className="col-span-2 sm:col-span-2">
-              <span className="block text-[11.5px] text-[#64748B] mb-1">Date</span>
+              <span className="block text-[11.5px] text-[#6B6478] mb-1">Date</span>
               <input id="attendance-date" type="date" value={from} onChange={(e) => setFrom(e.target.value)} required className={inputCls} />
             </label>
           )}
           <label>
-            <span className="block text-[11.5px] text-[#64748B] mb-1">
+            <span className="block text-[11.5px] text-[#6B6478] mb-1">
               {terms.rateUnit === "hour" ? "Heures" : terms.rateUnit === "day" ? "Jours travaillés" : "Part du mois"}
             </span>
             <input
@@ -499,11 +499,11 @@ export function AttendancePanel({
           <button
             type="submit"
             disabled={busy === "submit"}
-            className="h-9 px-4 rounded-lg bg-[#0f172a] text-white text-[13px] font-semibold hover:bg-black transition-colors disabled:opacity-50"
+            className="h-9 px-4 rounded-full bg-[#191224] text-white text-[13px] font-semibold hover:bg-black transition-colors disabled:opacity-50"
           >
             {busy === "submit" ? "Envoi…" : "Déclarer"}
           </button>
-          <p className="col-span-2 sm:col-span-4 text-[11px] text-[#94A3B8] tabular-nums">
+          <p className="col-span-2 sm:col-span-4 text-[11px] text-[#9A93A8] tabular-nums">
             Valeur estimée :{" "}
             {attendanceAmount(
               terms,
@@ -521,9 +521,9 @@ export function AttendancePanel({
         </p>
       )}
 
-      <div className="mt-3 rounded-xl border border-[#E2E8F0] divide-y divide-[#E2E8F0]">
+      <div className="mt-3 rounded-xl border border-[#E7E2F0] divide-y divide-[#E7E2F0]">
         {data.items.length === 0 && (
-          <p className="px-3.5 py-4 text-[12.5px] text-[#94A3B8]">
+          <p className="px-3.5 py-4 text-[12.5px] text-[#9A93A8]">
             {estTravailleur ? "Déclarez votre première période travaillée ci-dessus." : "Aucun relevé pour l'instant."}
           </p>
         )}
@@ -554,7 +554,7 @@ export function AttendancePanel({
                     <strong className="text-[12.5px]">{periodLabel(item, terms.rateUnit)}</strong>
                     <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${meta.bg} ${meta.fg}`}>{meta.label}</span>
                   </div>
-                  <div className="text-[11.5px] text-[#64748B] mt-0.5">
+                  <div className="text-[11.5px] text-[#6B6478] mt-0.5">
                     Déclaré : {unite(item.declaredQuantity, terms.rateUnit)}
                     {opr && item.verifiedQuantity != null && (
                       <> · vérifié : {unite(item.verifiedQuantity, terms.rateUnit)}</>
@@ -566,30 +566,30 @@ export function AttendancePanel({
                   </div>
                 </div>
                 <div className="text-right shrink-0">
-                  <strong className={`text-[12.5px] tabular-nums ${valide ? "text-[#008751]" : "text-[#64748B]"}`}>
+                  <strong className={`text-[12.5px] tabular-nums ${valide ? "text-[#047857]" : "text-[#6B6478]"}`}>
                     {item.amount.toLocaleString("fr-FR")} {d}
                   </strong>
                   {/* Un relevé non validé affiche ce qu'il VAUDRAIT, jamais ce qu'il rapporte. */}
-                  <div className="text-[10.5px] text-[#94A3B8] leading-tight">{valide ? "reconnu dû" : "valeur estimée"}</div>
+                  <div className="text-[10.5px] text-[#9A93A8] leading-tight">{valide ? "reconnu dû" : "valeur estimée"}</div>
                 </div>
               </div>
 
               {/* OPR : le client voit le relevé, mais attend la vérification du responsable. */}
               {peutValider && opr && item.status === "submitted" && (
-                <p className="mt-1.5 text-[11.5px] text-[#64748B]">En attente de vérification par le responsable de chantier.</p>
+                <p className="mt-1.5 text-[11.5px] text-[#6B6478]">En attente de vérification par le responsable de chantier.</p>
               )}
 
               {peutVerifier && item.status === "submitted" && !ouverte && (
                 <div className="flex gap-2 mt-2">
                   <button
                     onClick={() => ouvrirDecision(item, "verify")}
-                    className="flex-1 h-9 rounded-lg bg-[#0f172a] text-white text-[12.5px] font-semibold hover:bg-black transition-colors"
+                    className="flex-1 h-9 rounded-lg bg-[#191224] text-white text-[12.5px] font-semibold hover:bg-black transition-colors"
                   >
                     Vérifier et transmettre
                   </button>
                   <button
                     onClick={() => ouvrirDecision(item, "reject")}
-                    className="h-9 px-3.5 rounded-lg border border-[#E2E8F0] bg-white text-[12.5px] font-medium hover:bg-[#F8FAF9]"
+                    className="h-9 px-3.5 rounded-lg border border-[#E7E2F0] bg-white text-[12.5px] font-medium hover:bg-[#F6F5FA]"
                   >
                     Refuser
                   </button>
@@ -600,19 +600,19 @@ export function AttendancePanel({
                 <div className="flex gap-2 mt-2">
                   <button
                     onClick={() => ouvrirDecision(item, "approve")}
-                    className="flex-1 h-9 rounded-lg bg-[#008751] text-white text-[12.5px] font-semibold hover:bg-[#007a49] transition-colors"
+                    className="flex-1 h-9 rounded-lg bg-[#4C1D95] text-white text-[12.5px] font-semibold hover:bg-[#3B1578] transition-colors"
                   >
                     {opr ? "Valider définitivement" : "Constater"}
                   </button>
                   <button
                     onClick={() => ouvrirDecision(item, "dispute")}
-                    className="h-9 px-3.5 rounded-lg border border-[#FDE68A] bg-[#FFFBEB] text-[12.5px] font-medium text-[#92400E] hover:bg-[#FEF3C7]"
+                    className="h-9 px-3.5 rounded-lg border border-[#FDE68A] bg-[#FFF6E3] text-[12.5px] font-medium text-[#92400E] hover:bg-[#FFF6E3]"
                   >
                     Contester
                   </button>
                   <button
                     onClick={() => ouvrirDecision(item, "reject")}
-                    className="h-9 px-3.5 rounded-lg border border-[#E2E8F0] bg-white text-[12.5px] font-medium hover:bg-[#F8FAF9]"
+                    className="h-9 px-3.5 rounded-lg border border-[#E7E2F0] bg-white text-[12.5px] font-medium hover:bg-[#F6F5FA]"
                   >
                     Refuser
                   </button>
@@ -626,12 +626,12 @@ export function AttendancePanel({
                     e.preventDefault();
                     confirmerDecision(item);
                   }}
-                  className="mt-2 rounded-lg border border-[#E2E8F0] bg-[#F8FAF9] p-2.5 space-y-2"
+                  className="mt-2 rounded-lg border border-[#E7E2F0] bg-[#F6F5FA] p-2.5 space-y-2"
                 >
                   {ouverte.kind !== "reject" && (
                     <div className="grid grid-cols-2 gap-2">
                       <label>
-                        <span className="block text-[11px] text-[#64748B] mb-1">
+                        <span className="block text-[11px] text-[#6B6478] mb-1">
                           {ouverte.kind === "dispute" ? "Part reconnue" : ouverte.kind === "verify" || opr ? "Quantité vérifiée" : "Quantité constatée"} ({u.many})
                         </span>
                         <input
@@ -644,13 +644,13 @@ export function AttendancePanel({
                           onChange={(e) => setDecision({ ...ouverte, quantity: e.target.value })}
                           readOnly={champFige}
                           title={champFige ? motifFige : undefined}
-                          className={`${inputCls} ${champFige ? "bg-[#F1F5F9] text-[#64748B]" : ""}`}
+                          className={`${inputCls} ${champFige ? "bg-[#EFEAF8] text-[#6B6478]" : ""}`}
                           autoFocus
                         />
                       </label>
                       {(ouverte.kind === "verify" || (ouverte.kind === "approve" && !opr)) && terms.overtimeAllowed && (
                         <label>
-                          <span className="block text-[11px] text-[#64748B] mb-1">Dont heures sup.</span>
+                          <span className="block text-[11px] text-[#6B6478] mb-1">Dont heures sup.</span>
                           <input
                             id={`decision-overtime-${item.id}`}
                             type="number"
@@ -667,7 +667,7 @@ export function AttendancePanel({
                   )}
                   {ouverte.kind !== "approve" && (
                     <label className="block">
-                      <span className="block text-[11px] text-[#64748B] mb-1">
+                      <span className="block text-[11px] text-[#6B6478] mb-1">
                         Motif {ouverte.kind === "reject" ? "du refus" : "de la contestation"} (visible par le prestataire)
                       </span>
                       <input
@@ -681,7 +681,7 @@ export function AttendancePanel({
                       />
                     </label>
                   )}
-                  <p className="text-[11.5px] text-[#475569] tabular-nums">
+                  <p className="text-[11.5px] text-[#4A4258] tabular-nums">
                     {ouverte.kind === "reject"
                       ? "Rien ne sera versé ; le prestataire pourra corriger et redéclarer cette période."
                       : ouverte.kind === "verify"
@@ -695,7 +695,7 @@ export function AttendancePanel({
                       type="submit"
                       disabled={busy === item.id || (ouverte.kind !== "approve" && !ouverte.reason.trim())}
                       className={`flex-1 h-9 rounded-lg text-white text-[12.5px] font-semibold transition-colors disabled:opacity-50 ${
-                        ouverte.kind === "reject" ? "bg-[#B91C1C] hover:bg-[#991B1B]" : "bg-[#008751] hover:bg-[#007a49]"
+                        ouverte.kind === "reject" ? "bg-[#B42318] hover:bg-[#991B1B]" : "bg-[#4C1D95] hover:bg-[#3B1578]"
                       }`}
                     >
                       {busy === item.id
@@ -713,7 +713,7 @@ export function AttendancePanel({
                     <button
                       type="button"
                       onClick={() => setDecision(null)}
-                      className="h-9 px-3.5 rounded-lg border border-[#E2E8F0] bg-white text-[12.5px] font-medium hover:bg-[#F1F5F9]"
+                      className="h-9 px-3.5 rounded-lg border border-[#E7E2F0] bg-white text-[12.5px] font-medium hover:bg-[#EFEAF8]"
                     >
                       Annuler
                     </button>
@@ -723,7 +723,7 @@ export function AttendancePanel({
 
               {/* Litige ouvert : la part contestée est gelée — ni versée, ni rendue. */}
               {item.status === "disputed" && (
-                <div className="mt-2 rounded-lg border border-[#FDE68A] bg-[#FFFBEB] p-2.5">
+                <div className="mt-2 rounded-lg border border-[#FDE68A] bg-[#FFF6E3] p-2.5">
                   <p className="text-[12px] text-[#92400E] leading-relaxed">
                     <strong>Part contestée gelée au séquestre.</strong>{" "}
                     {unite((opr ? (item.verifiedQuantity ?? 0) : item.declaredQuantity) - (item.approvedQuantity ?? 0), terms.rateUnit)} en attente d&apos;arbitrage —
@@ -734,14 +734,14 @@ export function AttendancePanel({
                       <button
                         onClick={() => arbitrer(item, true)}
                         disabled={busy === item.id}
-                        className="flex-1 h-9 rounded-lg bg-[#008751] text-white text-[12.5px] font-semibold hover:bg-[#007a49] disabled:opacity-50"
+                        className="flex-1 h-9 rounded-lg bg-[#4C1D95] text-white text-[12.5px] font-semibold hover:bg-[#3B1578] disabled:opacity-50"
                       >
                         Reconnaître et payer
                       </button>
                       <button
                         onClick={() => arbitrer(item, false)}
                         disabled={busy === item.id}
-                        className="h-9 px-4 rounded-lg border border-[#E2E8F0] bg-white text-[12.5px] font-medium hover:bg-[#F8FAF9] disabled:opacity-50"
+                        className="h-9 px-4 rounded-lg border border-[#E7E2F0] bg-white text-[12.5px] font-medium hover:bg-[#F6F5FA] disabled:opacity-50"
                       >
                         Écarter
                       </button>
@@ -755,12 +755,12 @@ export function AttendancePanel({
       </div>
 
       {notice && (
-        <div className="mt-3 rounded-xl border border-[#A7F3D0] bg-[#E6F4EE] p-3 text-[12.5px] text-[#00623A] leading-relaxed" role="status">
+        <div className="mt-3 rounded-xl border border-[#A7F3D0] bg-[#F0EAFF] p-3 text-[12.5px] text-[#3B1578] leading-relaxed" role="status">
           {notice}
         </div>
       )}
       {error && (
-        <div className="mt-3 rounded-xl border border-[#FECACA] bg-[#FEF2F2] p-3 text-[12.5px] text-[#B91C1C] leading-relaxed" role="alert">
+        <div className="mt-3 rounded-xl border border-[#FECACA] bg-[#FEECEB] p-3 text-[12.5px] text-[#B42318] leading-relaxed" role="alert">
           {error}
         </div>
       )}
@@ -769,20 +769,20 @@ export function AttendancePanel({
           client est annoncé avant la confirmation. Sur un chantier DÉJÀ clos (plafond atteint) dont
           un arbitrage a ensuite libéré des fonds, le même geste récupère ce solde tout de suite. */}
       {role === "client" && !data.suspended && (actif || data.available > 0) && (
-        <div className="mt-4 border-t border-[#F1F5F9] pt-3">
+        <div className="mt-4 border-t border-[#EFEAF8] pt-3">
           {!confirmClose ? (
             <button
               onClick={() => {
                 setError(null);
                 setConfirmClose(true);
               }}
-              className="h-9 px-4 rounded-lg border border-[#E2E8F0] bg-white text-[12.5px] font-medium hover:bg-[#F8FAF9]"
+              className="h-9 px-4 rounded-lg border border-[#E7E2F0] bg-white text-[12.5px] font-medium hover:bg-[#F6F5FA]"
             >
               {data.closed ? `Récupérer le solde non consommé (${data.available.toLocaleString("fr-FR")} ${d})` : "Clôturer le chantier"}
             </button>
           ) : (
-            <div className="rounded-lg border border-[#E2E8F0] bg-[#F8FAF9] p-3 space-y-2">
-              <p className="text-[12.5px] text-[#334155] leading-relaxed">
+            <div className="rounded-lg border border-[#E7E2F0] bg-[#F6F5FA] p-3 space-y-2">
+              <p className="text-[12.5px] text-[#3F3850] leading-relaxed">
                 {enAttente.length > 0 ? (
                   <>
                     {enAttente.length} relevé{enAttente.length > 1 ? "s attendent" : " attend"} encore votre décision :
@@ -799,13 +799,13 @@ export function AttendancePanel({
                 <button
                   onClick={cloturer}
                   disabled={busy === "close" || enAttente.length > 0}
-                  className="flex-1 h-9 rounded-lg bg-[#0f172a] text-white text-[12.5px] font-semibold hover:bg-black disabled:opacity-50"
+                  className="flex-1 h-9 rounded-lg bg-[#191224] text-white text-[12.5px] font-semibold hover:bg-black disabled:opacity-50"
                 >
                   {busy === "close" ? "Clôture…" : "Confirmer la clôture"}
                 </button>
                 <button
                   onClick={() => setConfirmClose(false)}
-                  className="h-9 px-3.5 rounded-lg border border-[#E2E8F0] bg-white text-[12.5px] font-medium hover:bg-[#F1F5F9]"
+                  className="h-9 px-3.5 rounded-lg border border-[#E7E2F0] bg-white text-[12.5px] font-medium hover:bg-[#EFEAF8]"
                 >
                   Annuler
                 </button>

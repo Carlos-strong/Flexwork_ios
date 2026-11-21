@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { useCanActIn } from "@/components/admin/admin-role-context";
-import { AdminPageHeader, btnSecondary } from "@/components/admin/admin-ui";
+import { AdminPageHeader, StatCard, btnSecondary, formatXof } from "@/components/admin/admin-ui";
 
 // Médiation — aligné sur formulaires-flexwork-tous-profils.html.
 // L'admin propose, ne tranche jamais. Double validation pour les rejets.
@@ -19,7 +19,7 @@ import { AdminPageHeader, btnSecondary } from "@/components/admin/admin-ui";
 // existait précisément pour alimenter cet écran. Un pouvoir sans file d'attente oblige à
 // deviner ce sur quoi on travaille.
 const inputCls =
-  "w-full h-10 px-3 rounded-lg border border-[#E2E0D9] text-[13px] focus:outline-none focus:ring-2 focus:ring-[#2D5BE3]/20 focus:border-[#2D5BE3]";
+  "w-full h-10 px-3 rounded-lg border border-[#E7E2F0] text-[13px] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20 focus:border-[#4C1D95]";
 
 type MediationItem = {
   id: string;
@@ -32,18 +32,7 @@ type MediationItem = {
 
 type FinanceTotals = { held: number; payables: Record<string, { count: number; amount: number }> };
 
-function StatCard({ label, value, sub, color }: { label: string; value: string | number; sub?: string; color: string }) {
-  return (
-    <div className="bg-white rounded-xl border border-[#E2E0D9] p-4 relative overflow-hidden">
-      <div className="absolute top-0 left-0 right-0 h-1" style={{ background: color }} />
-      <div className="text-[11px] font-bold uppercase tracking-wider text-[#9C9A95]">{label}</div>
-      <div className="mt-1 text-[22px] font-extrabold tracking-tight tabular-nums">{value}</div>
-      {sub && <div className="mt-0.5 text-[11px] text-[#5A5750]">{sub}</div>}
-    </div>
-  );
-}
 
-const xof = (n: number) => `${n.toLocaleString("fr-FR")} XOF`;
 
 export default function AdminMediationPage() {
   // Le superviseur lit les litiges (§13) mais ne propose pas : `POST .../propose` exige
@@ -121,7 +110,7 @@ export default function AdminMediationPage() {
   const oldest = open[0] ?? null;
 
   return (
-    <div className="text-[#1A1916]">
+    <div className="text-[#191224]">
       <div className="space-y-5">
         <AdminPageHeader
           icon="⚖️"
@@ -137,40 +126,40 @@ export default function AdminMediationPage() {
         />
 
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-          <StatCard label="Médiations ouvertes" value={open.length} sub="Litiges en cours" color={open.length > 0 ? "#E8112D" : "#2D5BE3"} />
-          <StatCard label="Sans proposition" value={awaitingProposal.length} sub="À instruire" color={awaitingProposal.length > 0 ? "#B45309" : "#2D5BE3"} />
+          <StatCard label="Médiations ouvertes" value={open.length} sub="Litiges en cours" color={open.length > 0 ? "#B42318" : "#4C1D95"} />
+          <StatCard label="Sans proposition" value={awaitingProposal.length} sub="À instruire" color={awaitingProposal.length > 0 ? "#B45309" : "#4C1D95"} />
           <StatCard label="Proposition en attente" value={withProposal} sub="Accord des deux parties requis" color="#1D4ED8" />
           <StatCard
             label="Fonds au séquestre"
-            value={finance ? xof(finance.held) : "—"}
+            value={finance ? formatXof(finance.held) : "—"}
             sub={finance ? `${finance.payables.validated?.count ?? 0} payable(s) à instruire` : "Chargement…"}
-            color="#2D5BE3"
+            color="#4C1D95"
           />
         </div>
 
         {!canAct && (
-          <div className="rounded-xl border border-[#E2E0D9] bg-white p-3.5 text-[12.5px] text-[#5A5750]">
-            <strong className="text-[#1A1916]">Consultation seule.</strong> Proposer une résolution appartient au rôle{" "}
-            <code className="px-1 py-0.5 rounded bg-[#F4F3EF] text-[12px]">mediation</code> — un contrôleur qui peut réécrire ce qu&apos;il
+          <div className="rounded-xl border border-[#E7E2F0] bg-white p-3.5 text-[12.5px] text-[#6B6478]">
+            <strong className="text-[#191224]">Consultation seule.</strong> Proposer une résolution appartient au rôle{" "}
+            <code className="px-1 py-0.5 rounded bg-[#EFEAF8] text-[12px]">mediation</code> — un contrôleur qui peut réécrire ce qu&apos;il
             contrôle n&apos;en est plus un (§13).
           </div>
         )}
 
-        <div className="bg-white border border-[#E2E0D9] rounded-xl overflow-hidden">
-          <div className="px-4 lg:px-5 py-3 border-b border-[#F4F3EF] flex items-center justify-between">
+        <div className="bg-white border border-[#E7E2F0] rounded-xl overflow-hidden">
+          <div className="px-4 lg:px-5 py-3 border-b border-[#EFEAF8] flex items-center justify-between">
             <h2 className="text-[13px] font-semibold">Litiges ouverts</h2>
-            <span className="text-[10px] font-mono px-2 py-1 rounded-full bg-[#F4F3EF] text-[#5A5750]">
+            <span className="text-[10px] font-mono px-2 py-1 rounded-full bg-[#EFEAF8] text-[#6B6478]">
               Résolution non contraignante — modele-skillafrica-v3 §9
             </span>
           </div>
           {loading && open.length === 0 ? (
-            <div className="px-5 py-10 text-center text-[12px] text-[#9C9A95]">Chargement…</div>
+            <div className="px-5 py-10 text-center text-[12px] text-[#9A93A8]">Chargement…</div>
           ) : open.length === 0 ? (
-            <div className="px-5 py-10 text-center text-[12px] text-[#9C9A95]">Aucune médiation ouverte.</div>
+            <div className="px-5 py-10 text-center text-[12px] text-[#9A93A8]">Aucune médiation ouverte.</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left">
-                <thead className="bg-[#FAFAF8] text-[10px] font-bold uppercase tracking-wider text-[#9C9A95]">
+                <thead className="bg-[#F6F5FA] text-[10px] font-bold uppercase tracking-wider text-[#9A93A8]">
                   <tr>
                     <th className="px-4 lg:px-5 py-2.5">Mission</th>
                     <th className="px-4 py-2.5">Motif</th>
@@ -180,17 +169,17 @@ export default function AdminMediationPage() {
                     {canAct && <th className="px-4 py-2.5">Action</th>}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#F4F3EF] text-[12.5px]">
+                <tbody className="divide-y divide-[#EFEAF8] text-[12.5px]">
                   {open.map((m) => (
                     <tr key={m.id}>
                       <td className="px-4 lg:px-5 py-3">
                         <div className="font-medium">{m.mission.titre}</div>
-                        <div className="text-[11px] font-mono text-[#9C9A95]">#{m.id.slice(0, 8)}</div>
+                        <div className="text-[11px] font-mono text-[#9A93A8]">#{m.id.slice(0, 8)}</div>
                       </td>
-                      <td className="px-4 py-3 text-[#5A5750]">{m.reason}</td>
-                      <td className="px-4 py-3 text-[#5A5750]">{m.openedBy}</td>
-                      <td className="px-4 py-3 text-[#5A5750]">{new Date(m.createdAt).toLocaleDateString("fr-FR")}</td>
-                      <td className="px-4 py-3 text-[#5A5750]">{m.proposedResolution ?? "—"}</td>
+                      <td className="px-4 py-3 text-[#6B6478]">{m.reason}</td>
+                      <td className="px-4 py-3 text-[#6B6478]">{m.openedBy}</td>
+                      <td className="px-4 py-3 text-[#6B6478]">{new Date(m.createdAt).toLocaleDateString("fr-FR")}</td>
+                      <td className="px-4 py-3 text-[#6B6478]">{m.proposedResolution ?? "—"}</td>
                       {canAct && (
                         <td className="px-4 py-3">
                           <button
@@ -199,7 +188,7 @@ export default function AdminMediationPage() {
                               setFeedback(null);
                               document.getElementById("mediation-id")?.scrollIntoView({ behavior: "smooth", block: "center" });
                             }}
-                            className="h-8 px-3 rounded-lg bg-[#2D5BE3] text-white text-[11.5px] font-semibold hover:bg-[#007a49] transition-colors"
+                            className="h-8 px-3 rounded-full bg-[#4C1D95] text-white text-[11.5px] font-semibold hover:bg-[#3B1578] transition-colors"
                           >
                             Proposer
                           </button>
@@ -213,14 +202,14 @@ export default function AdminMediationPage() {
           )}
         </div>
 
-        <div className="rounded-xl border border-[#FDE68A] bg-[#FFFBEB] p-3.5 text-[12.5px] text-[#92400E] leading-relaxed">
+        <div className="rounded-xl border border-[#FDE68A] bg-[#FFF6E3] p-3.5 text-[12.5px] text-[#92400E] leading-relaxed">
           <strong>Vous proposez, vous ne tranchez pas.</strong> Ne jamais libérer ou bloquer de fonds unilatéralement.
           Toute proposition doit être soumise à l&apos;acceptation des deux parties.{oldest ? ` Le plus ancien litige ouvert date du ${new Date(oldest.createdAt).toLocaleDateString("fr-FR")}.` : ""}
         </div>
 
         {feedback && (
           <div
-            className={`rounded-xl border p-3 text-[13px] ${feedback.ok ? "border-[#BFDBFE] bg-[#EFF6FF] text-[#1E40AF]" : "border-[#FECACA] bg-[#FEF2F2] text-[#B91C1C]"}`}
+            className={`rounded-xl border p-3 text-[13px] ${feedback.ok ? "border-[#BFDBFE] bg-[#EAF1FF] text-[#1D4ED8]" : "border-[#FECACA] bg-[#FEECEB] text-[#B42318]"}`}
             role={feedback.ok ? "status" : "alert"}
           >
             {feedback.text}
@@ -228,40 +217,40 @@ export default function AdminMediationPage() {
         )}
 
         {canAct && (
-        <div id="proposer" className="bg-white border border-[#E2E0D9] rounded-xl p-4 lg:p-5 max-w-[820px] scroll-mt-28">
+        <div id="proposer" className="bg-white border border-[#E7E2F0] rounded-xl p-4 lg:p-5 max-w-[820px] scroll-mt-28">
           <h3 className="text-[13px] font-semibold mb-3">Proposer une résolution</h3>
           <form onSubmit={handlePropose} className="space-y-3">
             <div>
-              <label htmlFor="mediation-id" className="block text-[12px] font-medium text-[#5A5750] mb-1">Identifiant de la médiation</label>
+              <label htmlFor="mediation-id" className="block text-[12px] font-medium text-[#6B6478] mb-1">Identifiant de la médiation</label>
               <input id="mediation-id" type="text" required value={mediationId} onChange={(e) => setMediationId(e.target.value)} className={inputCls} />
             </div>
             <div>
-              <label htmlFor="mediation-resolution" className="block text-[12px] font-medium text-[#5A5750] mb-1">Proposition de résolution</label>
+              <label htmlFor="mediation-resolution" className="block text-[12px] font-medium text-[#6B6478] mb-1">Proposition de résolution</label>
               <textarea
                 id="mediation-resolution"
                 rows={4} required minLength={5} value={resolution} onChange={(e) => setResolution(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-[#E2E0D9] text-[13px] resize-y focus:outline-none focus:ring-2 focus:ring-[#2D5BE3]/20 focus:border-[#2D5BE3]"
+                className="w-full px-3 py-2 rounded-lg border border-[#E7E2F0] text-[13px] resize-y focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20 focus:border-[#4C1D95]"
               />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label htmlFor="mediation-release" className="block text-[12px] font-medium text-[#5A5750] mb-1">Libérer au prestataire (XOF)</label>
+                <label htmlFor="mediation-release" className="block text-[12px] font-medium text-[#6B6478] mb-1">Libérer au prestataire (XOF)</label>
                 <input id="mediation-release" type="number" min={0} step={500} value={releaseAmount} onChange={(e) => setReleaseAmount(e.target.value)} placeholder="0" className={`${inputCls} tabular-nums`} />
               </div>
               <div>
-                <label htmlFor="mediation-refund" className="block text-[12px] font-medium text-[#5A5750] mb-1">Rembourser au client (XOF)</label>
+                <label htmlFor="mediation-refund" className="block text-[12px] font-medium text-[#6B6478] mb-1">Rembourser au client (XOF)</label>
                 <input id="mediation-refund" type="number" min={0} step={500} value={refundAmount} onChange={(e) => setRefundAmount(e.target.value)} placeholder="0" className={`${inputCls} tabular-nums`} />
               </div>
             </div>
-            <p className="text-[11.5px] text-[#5A5750]">
+            <p className="text-[11.5px] text-[#6B6478]">
               Ce qui n&apos;est ni libéré ni remboursé reste gelé au séquestre. Laissez les deux montants vides pour une résolution non
               financière.
             </p>
             <div>
-              <label htmlFor="mediation-justification" className="block text-[12px] font-medium text-[#5A5750] mb-1">Justification (obligatoire)</label>
+              <label htmlFor="mediation-justification" className="block text-[12px] font-medium text-[#6B6478] mb-1">Justification (obligatoire)</label>
               <input id="mediation-justification" type="text" required value={justification} onChange={(e) => setJustification(e.target.value)} className={inputCls} />
             </div>
-            <button type="submit" className="h-10 px-5 rounded-lg bg-[#2D5BE3] text-white text-[13px] font-semibold hover:bg-[#007a49] transition-colors">
+            <button type="submit" className="h-10 px-5 rounded-full bg-[#4C1D95] text-white text-[13px] font-semibold hover:bg-[#3B1578] transition-colors">
               Soumettre la proposition aux deux parties
             </button>
           </form>

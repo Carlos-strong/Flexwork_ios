@@ -14,7 +14,6 @@
 
 import { useEffect, useState } from "react";
 import DashboardLayout, { CLIENT_NAV, type DashboardUser } from "@/components/dashboard/DashboardLayout";
-import { useSidebarBadges } from "@/components/dashboard/useSidebarBadges";
 import { useUserIdentity } from "@/components/user-identity";
 import { ValidationClientView } from "@/components/validation-client/ValidationClientView";
 import MissionTracker from "@/components/mission-tracker";
@@ -23,12 +22,13 @@ import { fetchDedupe } from "@/lib/fetch-dedupe";
 import { SITE_MANAGER_NAV } from "@/components/dashboard/SiteManagerDashboard";
 import { AttendancePanel } from "@/components/spot-time/attendance-panel";
 import { SiteManagerCard } from "@/components/validation-client/SiteManagerCard";
+import { personFullName } from "@/lib/person-name";
 
 const FALLBACK_USER: DashboardUser = {
   initials: "CL",
   name: "Client",
   role: "Cliente",
-  avatarGradient: "from-[#FF7A00] to-[#E8112D]",
+  avatarGradient: "from-[#6D28D9] to-[#B42318]",
 };
 
 type Interlocutor = { id: string; name: string; avatarPath: string | null };
@@ -43,9 +43,6 @@ export default function ClientValidationWorkspace({
   role?: "client" | "site_manager";
 }) {
   const estResponsable = role === "site_manager";
-  // Badges du sidebar pilotés par les événements réels (messages, propositions, paiements,
-  // missions à action) — même hook que les autres pages client.
-  const badgeCounts = useSidebarBadges("client");
   // Identité réelle partagée — chargée UNE fois au niveau racine (UserIdentityProvider), pas
   // à chaque montage ; photo via /api/users/me (avatarUrl null si absente → initiales).
   const identity = useUserIdentity();
@@ -66,7 +63,7 @@ export default function ClientValidationWorkspace({
       .then((c) => {
         // Messagerie client ↔ prestataire : le responsable de chantier n'y prend pas part.
         if (!c?.provider || estResponsable) return;
-        const name = [c.provider.firstname, c.provider.lastname].filter(Boolean).join(" ") || "Prestataire";
+        const name = personFullName(c.provider) || "Prestataire";
         setInterlocutor({ id: c.provider.id, name, avatarPath: c.provider.avatarPath ?? null });
       })
       .catch(() => {});
@@ -74,12 +71,9 @@ export default function ClientValidationWorkspace({
 
   return (
     <DashboardLayout
-      mode="client"
       user={user}
       navItems={estResponsable ? SITE_MANAGER_NAV : CLIENT_NAV}
       activeNav={estResponsable ? "dashboard" : "missions"}
-      onNavChange={() => {}}
-      badgeCounts={estResponsable ? {} : badgeCounts}
       title={estResponsable ? "Vérification OPR" : "Validation Client"}
     >
       <div className="page-width space-y-4">

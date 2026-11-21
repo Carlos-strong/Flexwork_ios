@@ -123,12 +123,12 @@ export default function SectionsPage() {
       <PublishBar revision={revision} onPublished={load} />
 
       {feedback && (
-        <div className="bg-[#FEF3C7] border border-[#FDE68A] text-[#92400E] rounded-xl px-4 py-2.5 text-[12px]">
+        <div className="bg-[#FFF6E3] border border-[#FDE68A] text-[#92400E] rounded-xl px-4 py-2.5 text-[12px]">
           {feedback}
         </div>
       )}
 
-      <p className="text-[12px] text-[#5A5750] max-w-3xl">
+      <p className="text-[12px] text-[#6B6478] max-w-3xl">
         Les sections ne se créent ni ne se suppriment : chacune est rendue par un composant précis du
         code, et une section sans composant serait éditable sans jamais s’afficher. Pour retirer un bloc
         de la page, passez-le en « désactivé ».
@@ -137,11 +137,11 @@ export default function SectionsPage() {
       {sections.map((section) => {
         const help = SECTION_HELP[section.key];
         return (
-          <div key={section.id} className="bg-white border border-[#E2E0D9] rounded-xl overflow-hidden">
-            <div className="px-4 py-3 border-b border-[#E2E0D9] flex items-center gap-2.5 flex-wrap">
+          <div key={section.id} className="bg-white border border-[#E7E2F0] rounded-xl overflow-hidden">
+            <div className="px-4 py-3 border-b border-[#E7E2F0] flex items-center gap-2.5 flex-wrap">
               <p className="text-[13px] font-bold">{section.label}</p>
               <StatusBadge status={section.status} />
-              <span className="text-[11px] font-mono text-[#9C9A95]">
+              <span className="text-[11px] font-mono text-[#9A93A8]">
                 {section.key}
                 {help ? ` → ${help.file}` : ""}
               </span>
@@ -151,14 +151,14 @@ export default function SectionsPage() {
                     status: section.status === "publie" ? "desactive" : "publie",
                   })
                 }
-                className="ml-auto h-7 px-2.5 rounded-lg border border-[#E2E0D9] text-[11px] font-medium hover:bg-[#FAFAF8]"
+                className="ml-auto h-7 px-2.5 rounded-lg border border-[#E7E2F0] text-[11px] font-medium hover:bg-[#F6F5FA]"
               >
                 {section.status === "publie" ? "Retirer de la page" : "Afficher sur la page"}
               </button>
             </div>
 
             <div className="p-4 space-y-3">
-              {help && <p className="text-[11px] text-[#9C9A95]">{help.note}</p>}
+              {help && <p className="text-[11px] text-[#9A93A8]">{help.note}</p>}
 
               <div className="grid md:grid-cols-2 gap-2.5">
                 <Field
@@ -186,19 +186,19 @@ export default function SectionsPage() {
               </div>
 
               {(section.items.length > 0 || section.key !== "hero") && (
-                <div className="border-t border-[#E2E0D9] pt-3">
-                  <p className="text-[11px] uppercase tracking-wide text-[#9C9A95] font-semibold mb-2">
+                <div className="border-t border-[#E7E2F0] pt-3">
+                  <p className="text-[11px] uppercase tracking-wide text-[#9A93A8] font-semibold mb-2">
                     Entrées — {section.items.length}
                   </p>
                   <div className="space-y-1.5">
                     {section.items.map((item) => (
-                      <div key={item.id} className="flex items-center gap-2 flex-wrap rounded-lg border border-[#E2E0D9] px-2.5 py-2">
+                      <div key={item.id} className="flex items-center gap-2 flex-wrap rounded-lg border border-[#E7E2F0] px-2.5 py-2">
                         <button
                           onClick={() =>
                             patch("item", item.id, { status: item.status === "publie" ? "desactive" : "publie" })
                           }
                           title={item.status === "publie" ? "Masquer" : "Afficher"}
-                          className={`text-[13px] leading-none ${item.status === "publie" ? "text-[#166534]" : "text-[#C9C6BE]"}`}
+                          className={`text-[13px] leading-none ${item.status === "publie" ? "text-[#047857]" : "text-[#D4CCE3]"}`}
                         >
                           ●
                         </button>
@@ -229,7 +229,7 @@ export default function SectionsPage() {
                         />
                         <button
                           onClick={() => removeItem(item.id)}
-                          className="text-[#C9C6BE] hover:text-[#B91C1C] text-[14px] leading-none px-1"
+                          className="text-[#D4CCE3] hover:text-[#B42318] text-[14px] leading-none px-1"
                           title="Supprimer l’entrée"
                         >
                           ×
@@ -267,14 +267,14 @@ function Field({
 
   return (
     <label className="block">
-      <span className="block text-[11px] font-semibold text-[#9C9A95] mb-1">{label}</span>
+      <span className="block text-[11px] font-semibold text-[#9A93A8] mb-1">{label}</span>
       {multiline ? (
         <textarea
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onBlur={commit}
           rows={2}
-          className="w-full px-2.5 py-1.5 rounded-lg border border-[#E2E0D9] text-[12px] focus:border-[#2D5BE3] outline-none"
+          className="w-full px-2.5 py-1.5 rounded-lg border border-[#E7E2F0] text-[12px] focus:border-[#4C1D95] outline-none"
         />
       ) : (
         <input
@@ -282,7 +282,7 @@ function Field({
           onChange={(e) => setDraft(e.target.value)}
           onBlur={commit}
           onKeyDown={(e) => e.key === "Enter" && commit()}
-          className="w-full h-9 px-2.5 rounded-lg border border-[#E2E0D9] text-[12px] focus:border-[#2D5BE3] outline-none"
+          className="w-full h-9 px-2.5 rounded-lg border border-[#E7E2F0] text-[12px] focus:border-[#4C1D95] outline-none"
         />
       )}
     </label>
@@ -311,7 +311,7 @@ function InlineField({
       onChange={(e) => setDraft(e.target.value)}
       onBlur={commit}
       onKeyDown={(e) => e.key === "Enter" && commit()}
-      className={`${width} h-7 px-2 rounded border border-transparent hover:border-[#E2E0D9] focus:border-[#2D5BE3] text-[12px] bg-transparent outline-none`}
+      className={`${width} h-7 px-2 rounded border border-transparent hover:border-[#E7E2F0] focus:border-[#4C1D95] text-[12px] bg-transparent outline-none`}
     />
   );
 }
@@ -329,7 +329,7 @@ function AddItem({ onAdd }: { onAdd: (label: string) => void }) {
         }
       }}
       placeholder="+ ajouter une entrée"
-      className="mt-2 h-8 px-2.5 rounded-lg border border-dashed border-[#D6D3CB] text-[12px] bg-transparent focus:bg-white focus:border-[#2D5BE3] outline-none"
+      className="mt-2 h-8 px-2.5 rounded-lg border border-dashed border-[#D6D3CB] text-[12px] bg-transparent focus:bg-white focus:border-[#4C1D95] outline-none"
     />
   );
 }

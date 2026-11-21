@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import type { Prisma, UserRole } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 import { LISTED_PROVIDER_WHERE } from "@/lib/profile-visibility";
 
 // Même critère d'éligibilité que getFeaturedProviders et /api/search/prestataires : identité

@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import { Plus_Jakarta_Sans } from "next/font/google";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import ProviderProfileTabs from "@/components/profile/ProviderProfileTabs";
@@ -21,16 +20,8 @@ import { safeCallbackUrl, withCallbackUrl } from "@/lib/safe-callback";
 //
 // L'onglet actif est lu dans l'URL (`?tab=`) : un lien vers « Domaines » doit ouvrir
 // « Domaines », pas « Présentation ».
-// Typographie de l'application (2026-11-07) : texte courant en Inter (police du body,
-// src/app/layout.tsx), titres en Plus Jakarta Sans via `.landing` — le même couple que l'accueil
-// et /recherche (voir globals.css). Chargée ici, comme sur ces pages, pour ne pas l'imposer
-// au reste de l'application.
-const display = Plus_Jakarta_Sans({
-  subsets: ["latin"],
-  weight: ["600", "700"],
-  variable: "--font-landing-display",
-  display: "swap",
-});
+// Typographie (2026-11-11) : IBM Plex Sans pour le texte et Sora pour les titres, chargées
+// une fois par src/app/layout.tsx pour toute l'application (voir globals.css).
 
 export default async function ProfilePage({ searchParams }: { searchParams: { tab?: string; returnTo?: string | string[] } }) {
   const session = await auth();
@@ -50,7 +41,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: { ta
   }
 
   return (
-    <div className={`landing ${display.variable}`}>
+    <div className={`landing`}>
       <ProviderProfileTabs initialTab={searchParams.tab} returnTo={returnTo} userId={userId} />
     </div>
   );

@@ -32,12 +32,12 @@ const FILTERS: { id: ContractFilter; label: string }[] = [
   { id: "blocked", label: "Fonds gelés" },
 ];
 
-function Kpi({ label, value, hint, tone = "text-[#1A1916]" }: { label: string; value: string; hint: string; tone?: string }) {
+function Kpi({ label, value, hint, tone = "text-[#191224]" }: { label: string; value: string; hint: string; tone?: string }) {
   return (
-    <div className="bg-white border border-[#E2E0D9] rounded-xl p-3.5 min-w-0">
-      <div className="text-[10.5px] uppercase tracking-widest text-[#5A5750] font-semibold">{label}</div>
+    <div className="bg-white border border-[#E7E2F0] rounded-xl p-3.5 min-w-0">
+      <div className="text-[10.5px] uppercase tracking-widest text-[#6B6478] font-semibold">{label}</div>
       <div className={`text-[18px] lg:text-[20px] font-bold tabular-nums mt-1 truncate ${tone}`}>{value}</div>
-      <div className="text-[11.5px] text-[#9C9A95] mt-0.5 truncate">{hint}</div>
+      <div className="text-[11.5px] text-[#9A93A8] mt-0.5 truncate">{hint}</div>
     </div>
   );
 }
@@ -46,18 +46,18 @@ function Kpi({ label, value, hint, tone = "text-[#1A1916]" }: { label: string; v
 // financé quand l'identité comptable tient — c'est ce que la barre montre d'un coup d'œil.
 function FlowBar({ snap }: { snap: Snapshot }) {
   const segments = [
-    { label: "Versé aux prestataires", value: snap.total.released, color: "#2D5BE3" },
-    { label: "Remboursé aux clients", value: snap.total.refunded, color: "#5A5750" },
+    { label: "Versé aux prestataires", value: snap.total.released, color: "#4C1D95" },
+    { label: "Remboursé aux clients", value: snap.total.refunded, color: "#6B6478" },
     { label: "Dû au prestataire", value: snap.missions.owedToProvider, color: "#0E9F6E" },
     { label: "Retenue de garantie", value: snap.missions.retained, color: "#D97706" },
-    { label: "Gelé (litiges)", value: snap.missions.blocked, color: "#DC2626" },
+    { label: "Gelé (litiges)", value: snap.missions.blocked, color: "#B42318" },
     { label: "Libre au séquestre", value: snap.missions.refundable, color: "#93C5FD" },
     { label: "Commandes Gig en cours", value: snap.gigs.held, color: "#6366F1" },
   ];
   const base = Math.max(snap.total.funded, segments.reduce((s, x) => s + Math.max(0, x.value), 0), 1);
 
   return (
-    <div className="bg-white border border-[#E2E0D9] rounded-xl p-4 lg:p-5">
+    <div className="bg-white border border-[#E7E2F0] rounded-xl p-4 lg:p-5">
       <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
         <h2 className="text-[13px] font-semibold">Destination des fonds financés</h2>
         {snap.identity.ok ? (
@@ -66,7 +66,7 @@ function FlowBar({ snap }: { snap: Snapshot }) {
           <Chip tone="red">Écart comptable de {money(snap.identity.gap)}</Chip>
         )}
       </div>
-      <div className="flex h-3 rounded-full overflow-hidden bg-[#F4F3EF]" role="img" aria-label="Répartition des fonds financés">
+      <div className="flex h-3 rounded-full overflow-hidden bg-[#EFEAF8]" role="img" aria-label="Répartition des fonds financés">
         {segments.map((s) =>
           s.value > 0 ? <div key={s.label} style={{ width: `${(s.value / base) * 100}%`, background: s.color }} title={`${s.label} : ${money(s.value)}`} /> : null
         )}
@@ -74,11 +74,11 @@ function FlowBar({ snap }: { snap: Snapshot }) {
       <ul className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-5 gap-y-1.5 text-[12px]">
         {segments.map((s) => (
           <li key={s.label} className="flex items-center justify-between gap-2 min-w-0">
-            <span className="flex items-center gap-1.5 text-[#5A5750] min-w-0">
+            <span className="flex items-center gap-1.5 text-[#6B6478] min-w-0">
               <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: s.color }} />
               <span className="truncate">{s.label}</span>
             </span>
-            <span className="tabular-nums text-[#1A1916] shrink-0">{money(s.value)}</span>
+            <span className="tabular-nums text-[#191224] shrink-0">{money(s.value)}</span>
           </li>
         ))}
       </ul>
@@ -93,16 +93,16 @@ function AnomalyPanel({ anomalies, onOpen }: { anomalies: Anomaly[]; onOpen: (co
 
   if (anomalies.length === 0) {
     return (
-      <div className="bg-white border border-[#E2E0D9] rounded-xl p-4 text-[13px] text-[#00623A] flex items-center gap-2">
-        <span className="w-2 h-2 rounded-full bg-[#2D5BE3]" />
+      <div className="bg-white border border-[#E7E2F0] rounded-xl p-4 text-[13px] text-[#3B1578] flex items-center gap-2">
+        <span className="w-2 h-2 rounded-full bg-[#4C1D95]" />
         Aucune anomalie : aucun fonds immobilisé sans issue, aucune instruction en souffrance.
       </div>
     );
   }
 
   return (
-    <div className="bg-white border border-[#E2E0D9] rounded-xl overflow-hidden">
-      <div className="px-4 lg:px-5 py-3 border-b border-[#F4F3EF] flex items-center justify-between gap-3 flex-wrap">
+    <div className="bg-white border border-[#E7E2F0] rounded-xl overflow-hidden">
+      <div className="px-4 lg:px-5 py-3 border-b border-[#EFEAF8] flex items-center justify-between gap-3 flex-wrap">
         <h2 className="text-[13px] font-semibold">À traiter ({anomalies.length})</h2>
         <div className="flex items-center gap-1.5">
           {(["critical", "warning", "info"] as const).map((s) =>
@@ -114,21 +114,21 @@ function AnomalyPanel({ anomalies, onOpen }: { anomalies: Anomaly[]; onOpen: (co
           )}
         </div>
       </div>
-      <ul className="divide-y divide-[#F4F3EF]">
+      <ul className="divide-y divide-[#EFEAF8]">
         {shown.map((a) => (
           <li key={a.id} className="px-4 lg:px-5 py-2.5 flex items-start gap-3">
             <span className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${SEVERITY[a.severity].dot}`} aria-label={SEVERITY[a.severity].label} />
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap text-[12.5px]">
-                <strong className="text-[#1A1916]">{ANOMALY[a.kind]?.label ?? a.kind}</strong>
-                <span className="text-[#5A5750] truncate">{a.title}</span>
+                <strong className="text-[#191224]">{ANOMALY[a.kind]?.label ?? a.kind}</strong>
+                <span className="text-[#6B6478] truncate">{a.title}</span>
               </div>
-              <p className="text-[12px] text-[#5A5750] mt-0.5">{a.detail}</p>
+              <p className="text-[12px] text-[#6B6478] mt-0.5">{a.detail}</p>
             </div>
             <div className="flex items-center gap-2 shrink-0">
               {a.amount > 0 && <span className="text-[12.5px] font-semibold tabular-nums">{money(a.amount)}</span>}
               {a.contractId && (
-                <button onClick={() => onOpen(a.contractId!)} className="h-8 px-3 rounded-lg border border-[#E2E0D9] bg-white text-[12px] font-medium hover:bg-[#FAFAF8]">
+                <button onClick={() => onOpen(a.contractId!)} className="h-8 px-3 rounded-lg border border-[#E7E2F0] bg-white text-[12px] font-medium hover:bg-[#F6F5FA]">
                   Ouvrir
                 </button>
               )}
@@ -137,7 +137,7 @@ function AnomalyPanel({ anomalies, onOpen }: { anomalies: Anomaly[]; onOpen: (co
         ))}
       </ul>
       {anomalies.length > 6 && (
-        <button onClick={() => setAll((v) => !v)} className="w-full py-2 text-[12px] font-medium text-[#2D5BE3] border-t border-[#F4F3EF] hover:bg-[#FAFAF8]">
+        <button onClick={() => setAll((v) => !v)} className="w-full py-2 text-[12px] font-medium text-[#4C1D95] border-t border-[#EFEAF8] hover:bg-[#F6F5FA]">
           {all ? "Réduire" : `Voir les ${anomalies.length - 6} autres`}
         </button>
       )}
@@ -202,7 +202,7 @@ function ContractsTable({
             onClick={() => setFilter(f.id)}
             aria-pressed={filter === f.id}
             className={`h-8 px-3 rounded-full border text-[12px] font-medium transition-colors ${
-              filter === f.id ? "bg-[#1A1916] border-[#1A1916] text-white" : "bg-white border-[#E2E0D9] text-[#5A5750] hover:border-[#9C9A95]"
+              filter === f.id ? "bg-[#191224] border-[#191224] text-white" : "bg-white border-[#E7E2F0] text-[#6B6478] hover:border-[#9A93A8]"
             }`}
           >
             {f.label}
@@ -219,11 +219,11 @@ function ContractsTable({
         />
       </div>
 
-      <div className="bg-white border border-[#E2E0D9] rounded-xl overflow-hidden">
+      <div className="bg-white border border-[#E7E2F0] rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-[12.5px] min-w-[980px]">
             <thead>
-              <tr className="text-[10.5px] tracking-widest text-[#5A5750] uppercase bg-[#FAFAF8] border-b border-[#E2E0D9]">
+              <tr className="text-[10.5px] tracking-widest text-[#6B6478] uppercase bg-[#F6F5FA] border-b border-[#E7E2F0]">
                 <th className={th}>Mission</th>
                 <th className={th}>État</th>
                 <th className={`${th} text-right`}>Financé</th>
@@ -245,14 +245,14 @@ function ContractsTable({
                     onClick={() => onOpen(r.contractId)}
                     onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onOpen(r.contractId)}
                     tabIndex={0}
-                    className="border-b border-[#F4F3EF] last:border-0 cursor-pointer hover:bg-[#FAFAF8] focus:outline-none focus-visible:bg-[#EFF6FF]"
+                    className="border-b border-[#EFEAF8] last:border-0 cursor-pointer hover:bg-[#F6F5FA] focus:outline-none focus-visible:bg-[#EAF1FF]"
                   >
                     <td className="py-2.5 px-3 max-w-[300px]">
                       <div className="flex items-center gap-1.5 min-w-0">
                         {worst && <span className={`w-2 h-2 rounded-full shrink-0 ${SEVERITY[worst].dot}`} aria-label={`${anomalies.length} anomalie(s)`} />}
-                        <span className="font-semibold text-[#1A1916] truncate">{r.titre}</span>
+                        <span className="font-semibold text-[#191224] truncate">{r.titre}</span>
                       </div>
-                      <div className="text-[11px] text-[#9C9A95] truncate">
+                      <div className="text-[11px] text-[#9A93A8] truncate">
                         {r.client.name} → {r.provider.name} · {MISSION_STATUS[r.missionStatus] ?? r.missionStatus}
                         {r.isTimeContract ? " · au temps" : ""}
                       </div>
@@ -262,30 +262,30 @@ function ContractsTable({
                       {r.pendingOperations > 0 && <div className="text-[11px] text-[#92400E] mt-0.5">{r.pendingOperations} en attente PSP</div>}
                     </td>
                     <td className="py-2.5 px-3 text-right tabular-nums">{money(r.balance.funded, r.currency)}</td>
-                    <td className="py-2.5 px-3 text-right tabular-nums text-[#2D5BE3]">{money(r.balance.released, r.currency)}</td>
+                    <td className="py-2.5 px-3 text-right tabular-nums text-[#047857]">{money(r.balance.released, r.currency)}</td>
                     <td className="py-2.5 px-3 text-right tabular-nums">{money(r.balance.refunded, r.currency)}</td>
                     <td className="py-2.5 px-3 text-right tabular-nums font-semibold">{money(r.balance.held, r.currency)}</td>
                     <td className="py-2.5 px-3 text-right tabular-nums">
-                      <span className={r.balance.blocked > 0 ? "text-[#B91C1C]" : "text-[#9C9A95]"}>{money(r.balance.blocked, r.currency)}</span>
+                      <span className={r.balance.blocked > 0 ? "text-[#B42318]" : "text-[#9A93A8]"}>{money(r.balance.blocked, r.currency)}</span>
                       <span className="text-[#D6D3CB]"> / </span>
-                      <span className={r.balance.retained > 0 ? "text-[#92400E]" : "text-[#9C9A95]"}>{money(r.balance.retained, r.currency)}</span>
+                      <span className={r.balance.retained > 0 ? "text-[#92400E]" : "text-[#9A93A8]"}>{money(r.balance.retained, r.currency)}</span>
                     </td>
-                    <td className={`py-2.5 px-3 text-right tabular-nums ${r.missing > 0 ? "text-[#92400E] font-semibold" : "text-[#9C9A95]"}`}>
+                    <td className={`py-2.5 px-3 text-right tabular-nums ${r.missing > 0 ? "text-[#92400E] font-semibold" : "text-[#9A93A8]"}`}>
                       {money(r.missing, r.currency)}
                     </td>
-                    <td className="py-2.5 px-3 whitespace-nowrap text-[#5A5750] tabular-nums">{dateTime(r.lastMovementAt)}</td>
+                    <td className="py-2.5 px-3 whitespace-nowrap text-[#6B6478] tabular-nums">{dateTime(r.lastMovementAt)}</td>
                   </tr>
                 );
               })}
               {visible.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="py-6 text-center text-[#9C9A95]">Aucun contrat ne correspond à ces filtres.</td>
+                  <td colSpan={9} className="py-6 text-center text-[#9A93A8]">Aucun contrat ne correspond à ces filtres.</td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
-        <div className="px-4 py-2.5 border-t border-[#F4F3EF] text-[12px] text-[#5A5750]">
+        <div className="px-4 py-2.5 border-t border-[#EFEAF8] text-[12px] text-[#6B6478]">
           {visible.length} contrat{visible.length > 1 ? "s" : ""} sur {rows.length}
         </div>
       </div>
@@ -321,29 +321,29 @@ function SweepDialog({ residualCount, residualAmount, onClose, onDone }: { resid
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="sweep-title">
-      <div className="absolute inset-0 bg-[#1A1916]/40" onClick={onClose} />
-      <div className="relative w-full max-w-[460px] bg-white rounded-xl border border-[#E2E0D9] p-5 space-y-3 shadow-2xl">
+      <div className="absolute inset-0 bg-[#191224]/40" onClick={onClose} />
+      <div className="relative w-full max-w-[460px] bg-white rounded-xl border border-[#E7E2F0] p-5 space-y-3 shadow-2xl">
         <h3 id="sweep-title" className="text-[15px] font-bold">Balayer les reliquats</h3>
-        <p className="text-[12.5px] text-[#5A5750] leading-relaxed">
+        <p className="text-[12.5px] text-[#6B6478] leading-relaxed">
           Rembourse au client le solde disponible de chaque mission <strong>clôturée ou remboursée</strong>. Les fonds gelés et les retenues ne
           partent pas. Même traitement que le passage quotidien : relancer ne rembourse jamais deux fois.
         </p>
-        <p className="text-[12.5px] rounded-lg bg-[#FAFAF8] border border-[#E2E0D9] px-3 py-2 tabular-nums">
+        <p className="text-[12.5px] rounded-lg bg-[#F6F5FA] border border-[#E7E2F0] px-3 py-2 tabular-nums">
           Repéré à l&apos;instant : {residualCount} reliquat{residualCount > 1 ? "s" : ""}, {money(residualAmount)}.
         </p>
-        <label htmlFor="sweep-justification" className="block text-[12px] font-medium text-[#5A5750]">
+        <label htmlFor="sweep-justification" className="block text-[12px] font-medium text-[#6B6478]">
           Justification (journalisée)
         </label>
         <input id="sweep-justification" type="text" value={reason} onChange={(e) => setReason(e.target.value)} className={inputCls} autoFocus />
-        {error && <p className="text-[12px] text-[#B91C1C]" role="alert">{error}</p>}
+        {error && <p className="text-[12px] text-[#B42318]" role="alert">{error}</p>}
         <div className="flex gap-2 justify-end">
-          <button onClick={onClose} className="h-9 px-4 rounded-lg border border-[#E2E0D9] bg-white text-[12.5px] font-medium hover:bg-[#FAFAF8]">
+          <button onClick={onClose} className="h-9 px-4 rounded-lg border border-[#E7E2F0] bg-white text-[12.5px] font-medium hover:bg-[#F6F5FA]">
             Annuler
           </button>
           <button
             onClick={run}
             disabled={busy || reason.trim().length < 5}
-            className="h-9 px-4 rounded-lg bg-[#1A1916] text-white text-[12.5px] font-semibold hover:bg-black disabled:opacity-40"
+            className="h-9 px-4 rounded-full bg-[#191224] text-white text-[12.5px] font-semibold hover:bg-black disabled:opacity-40"
           >
             {busy ? "Balayage…" : "Lancer le balayage"}
           </button>
@@ -399,7 +399,7 @@ export default function AdminFinancePage() {
   const canAct = snap?.viewerRole === "mediation";
 
   return (
-    <div className="text-[#1A1916]">
+    <div className="text-[#191224]">
       <div className="space-y-5">
         <AdminPageHeader
           icon="💳"
@@ -408,7 +408,7 @@ export default function AdminFinancePage() {
           readOnly={!!snap && !canAct}
           actions={
             <>
-              {snap && <span className="text-[11.5px] text-[#9C9A95] tabular-nums">Mis à jour {dateTime(snap.generatedAt)}</span>}
+              {snap && <span className="text-[11.5px] text-[#9A93A8] tabular-nums">Mis à jour {dateTime(snap.generatedAt)}</span>}
               <button onClick={load} disabled={refreshing} className={btnSecondary}>
                 {refreshing ? "Actualisation…" : "Actualiser"}
               </button>
@@ -424,22 +424,22 @@ export default function AdminFinancePage() {
         />
 
         {error === "forbidden" && (
-          <div className="rounded-xl border border-[#FECACA] bg-[#FEF2F2] p-4 text-[13px] text-[#B91C1C]">
+          <div className="rounded-xl border border-[#FECACA] bg-[#FEECEB] p-4 text-[13px] text-[#B42318]">
             Accès réservé aux administrateurs Superviseur et Médiation.
           </div>
         )}
         {error === "failed" && (
-          <div className="rounded-xl border border-[#FECACA] bg-[#FEF2F2] p-4 text-[13px] text-[#B91C1C]">
+          <div className="rounded-xl border border-[#FECACA] bg-[#FEECEB] p-4 text-[13px] text-[#B42318]">
             Les flux financiers n&apos;ont pas pu être chargés. Réessayez avec « Actualiser ».
           </div>
         )}
-        {!snap && !error && <div className="py-16 text-center text-[13px] text-[#5A5750]">Chargement du registre…</div>}
+        {!snap && !error && <div className="py-16 text-center text-[13px] text-[#6B6478]">Chargement du registre…</div>}
 
         {snap && (
           <>
             <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
               <Kpi label="Financé" value={money(snap.total.funded)} hint={`${snap.missions.contracts} contrats · ${snap.gigs.orders} commandes Gig`} />
-              <Kpi label="Versé aux prestataires" value={money(snap.total.released)} hint="confirmé ou en vol" tone="text-[#2D5BE3]" />
+              <Kpi label="Versé aux prestataires" value={money(snap.total.released)} hint="confirmé ou en vol" tone="text-[#4C1D95]" />
               <Kpi label="Remboursé aux clients" value={money(snap.total.refunded)} hint="confirmé ou en vol" />
               <Kpi label="Sous séquestre" value={money(snap.total.held)} hint={`dont ${money(snap.missions.blocked)} gelés`} />
               <Kpi
@@ -452,7 +452,7 @@ export default function AdminFinancePage() {
                 label="Échecs (30 j)"
                 value={String(snap.failedLast30Days.count)}
                 hint={money(snap.failedLast30Days.amount)}
-                tone={snap.failedLast30Days.count > 0 ? "text-[#B91C1C]" : undefined}
+                tone={snap.failedLast30Days.count > 0 ? "text-[#B42318]" : undefined}
               />
             </div>
 
@@ -460,7 +460,7 @@ export default function AdminFinancePage() {
 
             <AnomalyPanel anomalies={snap.anomalies} onOpen={setSelected} />
 
-            <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide border-b border-[#E2E0D9]" role="tablist">
+            <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide border-b border-[#E7E2F0]" role="tablist">
               {(
                 [
                   ["sequestres", `Séquestres (${snap.rows.length})`],
@@ -475,7 +475,7 @@ export default function AdminFinancePage() {
                   aria-selected={tab === id}
                   onClick={() => setTab(id)}
                   className={`h-10 shrink-0 whitespace-nowrap px-3.5 text-[13px] font-medium border-b-2 -mb-px transition-colors ${
-                    tab === id ? "border-[#2D5BE3] text-[#1A1916]" : "border-transparent text-[#5A5750] hover:text-[#1A1916]"
+                    tab === id ? "border-[#4C1D95] text-[#191224]" : "border-transparent text-[#6B6478] hover:text-[#191224]"
                   }`}
                 >
                   {label}
@@ -510,7 +510,7 @@ export default function AdminFinancePage() {
 
       {toast && (
         <div
-          className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[60] bg-[#1A1916] text-white px-4 py-2.5 rounded-full text-[13px] font-medium shadow-2xl max-w-[92vw]"
+          className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[60] bg-[#191224] text-white px-4 py-2.5 rounded-full text-[13px] font-medium shadow-2xl max-w-[92vw]"
           role="status"
         >
           {toast}

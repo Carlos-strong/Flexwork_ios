@@ -6,6 +6,9 @@ import Link from "next/link";
 import { Briefcase, Search, MessageCircle, Rocket } from "lucide-react";
 import { Avatar } from "@/components/avatar";
 import { useUserIdentity } from "@/components/user-identity";
+import { countryFlag } from "@/lib/country-flag";
+import { formatBudget } from "@/lib/budget-format";
+import { personFullName } from "@/lib/person-name";
 
 // ---------------------------------------------------------------------------
 // UI/UX repris de Mes-Missions-Fixed.html (contenu uniquement — ni sidebar ni
@@ -25,6 +28,9 @@ type RawMission = {
   delaiJours?: number | null;
   status: string;
   dateExpiration?: string | null;
+  // Places de l'annonce (2026-11-10, GET /api/missions).
+  placesRecherchees?: number;
+  prestatairesRetenus?: number;
   // avatarPath est bien renvoye par l'API consommee ici (select cote route) : seul le type
   // local ne le declarait pas, ce qui faisait echouer next build sur son usage plus bas.
   client?: { id: string; firstname: string | null; lastname: string | null; country: string | null; avatarPath: string | null } | null;
@@ -53,6 +59,8 @@ type Card = {
   clientAvatarPath: string | null;
   flag: string;
   deadline: string;
+  // « 2 prestataires recherchés · 1 retenu » — annonces ouvertes seulement (2026-11-10).
+  places?: string;
   progress: number;
   href: string;
 };
@@ -61,21 +69,13 @@ type Stats = { total: number; ouvertes: number; enCours: number; enRevision: num
 
 const STATUS_STYLE: Record<string, string> = {
   "Ouverte": "bg-[#FFF1E6] text-[#C2410C] border-[#FFD6BA]",
-  "En cours": "bg-[#DBEAFE] text-[#1E40AF] border-[#BFDBFE]",
+  "En cours": "bg-[#DBEAFE] text-[#1D4ED8] border-[#BFDBFE]",
   "En révision": "bg-[#FEF9C3] text-[#854D0E] border-[#FDE68A]",
-  "Livrée": "bg-[#DCFCE7] text-[#166534] border-[#BBF7D0]",
+  "Livrée": "bg-[#E7F7EF] text-[#047857] border-[#BBF7D0]",
   "Propositions": "bg-[#F3E8FF] text-[#6B21A8] border-[#E9D5FF]",
-  "Annulée": "bg-[#F3F4F6] text-[#4B5563] border-[#E5E7EB]",
+  "Annulée": "bg-[#EFEAF8] text-[#4A4258] border-[#E7E2F0]",
 };
 
-function countryFlag(code?: string | null): string {
-  if (!code || code.length !== 2) return "🌍";
-  return String.fromCodePoint(...[...code.toUpperCase()].map((c) => 0x1f1e6 + c.charCodeAt(0) - 65));
-}
-
-function fmtBudget(budget: number, currency: string, budgetType: string | null): string {
-  return budgetType === "QUOTE" ? "Sur devis" : `${budget.toLocaleString("fr-FR")} ${currency}`;
-}
 
 function deadlineFromEcheance(e?: string): string {
   if (!e) return "En cours";
@@ -85,6 +85,14 @@ function deadlineFromEcheance(e?: string): string {
   return `J-${days}`;
 }
 
+function placesOf(m: RawMission): string | undefined {
+  if (!m.placesRecherchees) return undefined;
+  const n = m.placesRecherchees;
+  const r = m.prestatairesRetenus ?? 0;
+  return `${n} prestataire${n > 1 ? "s" : ""} recherché${n > 1 ? "s" : ""}${r > 0 ? ` · ${r} retenu${r > 1 ? "s" : ""}` : ""}`;
+}
+
+// Échéance d'une annonce = sa date limite de candidature (2026-11-10).
 function deadlineOf(m: RawMission): string {
   if (m.dateExpiration) {
     const days = Math.ceil((new Date(m.dateExpiration).getTime() - Date.now()) / 86400000);
@@ -92,7 +100,8 @@ function deadlineOf(m: RawMission): string {
     if (days === 1) return "Demain";
     return `J-${days}`;
   }
-  if (m.delaiJours) return `J-${m.delaiJours}`;
+  // Sans date limite (annonce antérieure au 2026-11-10) : pas d'échéance à afficher — le délai
+  // d'exécution (delaiJours) n'en est pas une.
   return "Ouverte";
 }
 
@@ -160,15 +169,16 @@ export default function MissionsSection({ role }: { role: string }) {
             id: m.id,
             titre: m.titre,
             category: m.domaine ?? "Mission",
-            budget: fmtBudget(m.budget, m.currency, m.budgetType),
+            budget: formatBudget(m.budget, m.currency, m.budgetType),
             status: "Ouverte" as const,
             client: m.client
-              ? [m.client.firstname, m.client.lastname].filter(Boolean).join(" ") || "Client"
+              ? personFullName(m.client) || "Client"
               : "Nouveau client",
             clientId: m.client?.id ?? null,
             clientAvatarPath: m.client?.avatarPath ?? null,
             flag: countryFlag(m.client?.country),
             deadline: deadlineOf(m),
+            places: placesOf(m),
             progress: 0,
             href: `/missions/${m.id}`,
           }));
@@ -176,7 +186,7 @@ export default function MissionsSection({ role }: { role: string }) {
           id: m.id,
           titre: m.titre,
           category: "Mission",
-          budget: fmtBudget(m.budget, m.currency, null),
+          budget: formatBudget(m.budget, m.currency, null),
           status: (m.status === "livrable_soumis" || m.hasPendingJalon ? "En révision" : "En cours") as "En révision" | "En cours",
           client: m.client ?? "Client",
           // provider-summary ne renvoie pas encore l'id du client sur les missions en
@@ -231,9 +241,9 @@ export default function MissionsSection({ role }: { role: string }) {
 
   const statCards = [
     { label: "Total", value: stats.total, sub: "toutes missions", color: "border-gray-800", text: "" },
-    { label: "En cours", value: stats.enCours, sub: "• actif maintenant", color: "border-[#FF6B35]", text: "text-[#FF6B35]" },
+    { label: "En cours", value: stats.enCours, sub: "• actif maintenant", color: "border-[#6D28D9]", text: "text-[#6D28D9]" },
     { label: "En révision", value: stats.enRevision, sub: "en attente validation", color: "border-[#F7C948]", text: "" },
-    { label: "Livrées", value: stats.livre, sub: "✓ terminées", color: "border-[#1B9C6A]", text: "text-[#1B9C6A]" },
+    { label: "Livrées", value: stats.livre, sub: "✓ terminées", color: "border-[#047857]", text: "text-[#047857]" },
   ];
 
   return (
@@ -242,14 +252,14 @@ export default function MissionsSection({ role }: { role: string }) {
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
           <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-[28px] font-extrabold leading-none tracking-tight text-[#0A1931]">Mes Missions</h1>
-            <span className="rounded-full bg-[#0A1931] text-white text-[10px] font-bold tracking-wide px-3 py-1.5">{meta.label}</span>
+            <h1 className="text-[28px] font-extrabold leading-none tracking-tight text-[#191224]">Mes Missions</h1>
+            <span className="rounded-full bg-[#191224] text-white text-[10px] font-bold tracking-wide px-3 py-1.5">{meta.label}</span>
           </div>
           <p className="text-[13px] text-gray-500 mt-2">{meta.subtitle}</p>
         </div>
         <button
           onClick={() => { setSearch(""); setActiveFilter("Ouvertes"); }}
-          className="bg-gradient-to-r from-[#FF6B35] to-[#FF3E6C] text-white rounded-full px-5 py-[10px] text-[13px] font-bold shadow-[0_4px_14px_rgba(255,107,53,0.3)] hover:shadow-[0_6px_20px_rgba(255,107,53,0.4)] hover:translate-y-[-1px] transition-all flex items-center justify-center gap-2 shrink-0"
+          className="bg-gradient-to-r from-[#6D28D9] to-[#FF3E6C] text-white rounded-full px-5 py-[10px] text-[13px] font-bold shadow-[0_4px_14px_rgba(109,40,217,0.3)] hover:shadow-[0_6px_20px_rgba(109,40,217,0.4)] hover:translate-y-[-1px] transition-all flex items-center justify-center gap-2 shrink-0"
         >
           <Rocket className="w-4 h-4" /> Voir les missions ouvertes
           {stats.ouvertes > 0 && (
@@ -259,13 +269,13 @@ export default function MissionsSection({ role }: { role: string }) {
       </div>
 
       {/* Recherche */}
-      <div className="flex items-center bg-[#F9F5F0] rounded-full px-4 py-2.5 w-full text-[13px] border border-transparent focus-within:border-orange-200 focus-within:bg-white transition">
+      <div className="flex items-center bg-[#F6F5FA] rounded-full px-4 py-2.5 w-full text-[13px] border border-transparent focus-within:border-violet-200 focus-within:bg-white transition">
         <Search className="w-4 h-4 text-gray-400 mr-2" />
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Rechercher mission, catégorie, client..."
-          className="bg-transparent outline-none w-full placeholder:text-gray-400 text-[#0A1931]"
+          className="bg-transparent outline-none w-full placeholder:text-gray-400 text-[#191224]"
         />
       </div>
 
@@ -274,7 +284,7 @@ export default function MissionsSection({ role }: { role: string }) {
         {statCards.map((s) => (
           <div key={s.label} className={`bg-white rounded-[16px] p-4 border-l-4 ${s.color} shadow-[0_1px_3px_rgba(0,0,0,0.05)]`}>
             <div className="text-[11px] font-bold tracking-widest text-gray-400 uppercase">{s.label}</div>
-            <div className="text-[24px] font-extrabold mt-1 text-[#0A1931]">{s.value}</div>
+            <div className="text-[24px] font-extrabold mt-1 text-[#191224]">{s.value}</div>
             <div className={`text-[11px] mt-1 ${s.text || "text-gray-400"}`}>{s.sub}</div>
           </div>
         ))}
@@ -289,7 +299,7 @@ export default function MissionsSection({ role }: { role: string }) {
               <button
                 key={f.id}
                 onClick={() => setActiveFilter(f.id)}
-                className={`whitespace-nowrap rounded-full px-4 py-[7px] text-[12px] font-bold transition ${active ? "bg-[#0A1931] text-white shadow" : "bg-[#F8F6F3] text-gray-600 hover:bg-gray-100"}`}
+                className={`whitespace-nowrap rounded-full px-4 py-[7px] text-[12px] font-bold transition ${active ? "bg-[#191224] text-white shadow" : "bg-[#F6F5FA] text-gray-600 hover:bg-gray-100"}`}
               >
                 {f.id} <span className={`ml-1 ${active ? "text-white/70" : "text-gray-400"}`}>{f.count}</span>
               </button>
@@ -298,8 +308,8 @@ export default function MissionsSection({ role }: { role: string }) {
         </div>
         <div className="flex items-center gap-2 self-start sm:self-auto">
           <div className="bg-white rounded-full p-1 flex border border-gray-100 shadow-sm">
-            <button onClick={() => setView("grid")} title="Grille" className={`w-8 h-8 rounded-full flex items-center justify-center text-[13px] transition ${view === "grid" ? "bg-[#0A1931] text-white" : "text-gray-400 hover:text-gray-700"}`}>⊞</button>
-            <button onClick={() => setView("list")} title="Liste" className={`w-8 h-8 rounded-full flex items-center justify-center text-[13px] transition ${view === "list" ? "bg-[#0A1931] text-white" : "text-gray-400 hover:text-gray-700"}`}>☰</button>
+            <button onClick={() => setView("grid")} title="Grille" className={`w-8 h-8 rounded-full flex items-center justify-center text-[13px] transition ${view === "grid" ? "bg-[#191224] text-white" : "text-gray-400 hover:text-gray-700"}`}>⊞</button>
+            <button onClick={() => setView("list")} title="Liste" className={`w-8 h-8 rounded-full flex items-center justify-center text-[13px] transition ${view === "list" ? "bg-[#191224] text-white" : "text-gray-400 hover:text-gray-700"}`}>☰</button>
           </div>
         </div>
       </div>
@@ -313,7 +323,7 @@ export default function MissionsSection({ role }: { role: string }) {
             {filtered.map((c) => (
               <div
                 key={c.id}
-                className={`group bg-white rounded-[20px] p-5 border border-gray-100 hover:shadow-lg hover:border-orange-100 transition-all ${view === "list" ? "flex flex-col sm:flex-row sm:items-center gap-4" : ""}`}
+                className={`group bg-white rounded-[20px] p-5 border border-gray-100 hover:shadow-lg hover:border-violet-100 transition-all ${view === "list" ? "flex flex-col sm:flex-row sm:items-center gap-4" : ""}`}
               >
                 <div className={view === "list" ? "flex-1 min-w-0" : ""}>
                   <div className="flex justify-between items-start gap-3">
@@ -325,42 +335,43 @@ export default function MissionsSection({ role }: { role: string }) {
                       {c.deadline.startsWith("J-") || c.deadline === "Aujourd'hui" || c.deadline === "Demain" ? `⏰ ${c.deadline}` : c.deadline}
                     </span>
                   </div>
-                  <h3 className="font-bold text-[14px] mt-3 leading-snug group-hover:text-[#FF6B35] transition-colors line-clamp-2">{c.titre}</h3>
+                  <h3 className="font-bold text-[14px] mt-3 leading-snug group-hover:text-[#6D28D9] transition-colors line-clamp-2">{c.titre}</h3>
                   <div className="text-[12px] text-gray-500 mt-1 flex items-center gap-2">
                     <span>{c.category}</span>
                     <span className="w-1 h-1 bg-gray-300 rounded-full" />
-                    <span className="font-bold text-[#0A1931]">{c.budget}</span>
+                    <span className="font-bold text-[#191224]">{c.budget}</span>
                   </div>
+                  {c.places && <div className="text-[11.5px] text-gray-500 mt-1">👥 {c.places}</div>}
                   <div className="flex items-center gap-2 mt-4">
                     <Avatar
                       src={c.clientAvatarPath ? `/api/users/${c.clientId}/avatar` : null}
                       initials={c.client.charAt(0)}
                       size={28}
-                      gradient="from-[#FF6B35] to-[#F7C948]"
+                      gradient="from-[#6D28D9] to-[#F7C948]"
                     />
                     <div className="text-[12px]">
-                      <span className="font-semibold text-[#0A1931]">{c.client}</span> <span>{c.flag}</span>
+                      <span className="font-semibold text-[#191224]">{c.client}</span> <span>{c.flag}</span>
                     </div>
                   </div>
                   {c.progress > 0 && (
                     <div className="mt-4">
                       <div className="flex justify-between text-[10px] font-bold text-gray-400 mb-1">
                         <span>Progression</span>
-                        <span className="text-[#0A1931]">{c.progress}%</span>
+                        <span className="text-[#191224]">{c.progress}%</span>
                       </div>
                       <div className="h-[6px] bg-gray-100 rounded-full overflow-hidden">
-                        <div className="h-full bg-gradient-to-r from-[#FF6B35] to-[#F7C948] rounded-full transition-all" style={{ width: `${c.progress}%` }} />
+                        <div className="h-full bg-gradient-to-r from-[#6D28D9] to-[#F7C948] rounded-full transition-all" style={{ width: `${c.progress}%` }} />
                       </div>
                     </div>
                   )}
                 </div>
                 <div className={`flex gap-2 ${view === "list" ? "sm:w-[150px] shrink-0 mt-2 sm:mt-0" : "mt-4"}`}>
                   {c.status === "Ouverte" ? (
-                    <Link href={c.href} className="flex-1 bg-gradient-to-r from-[#FF6B35] to-[#FF3E6C] text-white rounded-full py-2 text-[12px] font-bold transition hover:brightness-110 text-center" style={{ textDecoration: "none" }}>
+                    <Link href={c.href} className="flex-1 bg-gradient-to-r from-[#6D28D9] to-[#FF3E6C] text-white rounded-full py-2 text-[12px] font-bold transition hover:brightness-110 text-center" style={{ textDecoration: "none" }}>
                       Candidater
                     </Link>
                   ) : (
-                    <Link href={c.href} className="flex-1 bg-[#0A1931] hover:bg-black text-white rounded-full py-2 text-[12px] font-bold transition text-center" style={{ textDecoration: "none" }}>
+                    <Link href={c.href} className="flex-1 bg-[#191224] hover:bg-black text-white rounded-full py-2 text-[12px] font-bold transition text-center" style={{ textDecoration: "none" }}>
                       Voir
                     </Link>
                   )}
@@ -369,7 +380,7 @@ export default function MissionsSection({ role }: { role: string }) {
                       rôle en base, donc pas besoin de providerUrl()/ROLE_TO_SLUG. Pointe
                       vers la messagerie unifiée (Messagerie, deep-link ?missionId=) — plus
                       vers /missions/[id]/chat, page dédiée retirée (doublon). */}
-                  <Link href={`/dashboard/${role}/messages?missionId=${c.id}`} className="bg-[#F8F6F3] hover:bg-gray-100 rounded-full px-3 py-2 flex items-center justify-center" style={{ textDecoration: "none" }}>
+                  <Link href={`/dashboard/${role}/messages?missionId=${c.id}`} className="bg-[#F6F5FA] hover:bg-gray-100 rounded-full px-3 py-2 flex items-center justify-center" style={{ textDecoration: "none" }}>
                     <MessageCircle className="w-4 h-4 text-zinc-500" />
                   </Link>
                 </div>
@@ -380,7 +391,7 @@ export default function MissionsSection({ role }: { role: string }) {
           {filtered.length === 0 && (
             <div className="bg-white rounded-[20px] p-12 text-center border border-dashed border-gray-200">
               <div className="text-[24px] mb-2">🔍</div>
-              <div className="font-bold text-[14px] text-[#0A1931]">Aucune mission trouvée</div>
+              <div className="font-bold text-[14px] text-[#191224]">Aucune mission trouvée</div>
               <div className="text-[12px] text-gray-500 mt-1">Essaie un autre filtre ou mot-clé.</div>
             </div>
           )}

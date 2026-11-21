@@ -14,6 +14,8 @@ vi.mock("@/lib/db", () => ({
     user: { findUnique: userFindUnique },
     garant: { findMany: garantFindMany },
     professionalDeclaration: { count: declarationCount },
+    // « Déjà retenu sur cette annonce » (2026-11-10) : aucun engagement dans ces cas.
+    missionProposal: { count: vi.fn().mockResolvedValue(0) },
     // Lus indirectement par isCategorieAgeOk (src/lib/age-categorie.ts) : le marqueur de la
     // catégorie de la mission, puis le seuil du pays pour la filière du candidat.
     categorie: { findUnique: categorieFindUnique },

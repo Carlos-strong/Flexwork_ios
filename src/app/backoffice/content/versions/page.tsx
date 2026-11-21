@@ -65,17 +65,17 @@ export default function VersionsPage() {
       <PublishBar revision={revision} onPublished={load} />
 
       {feedback && (
-        <div className="bg-[#DCFCE7] border border-[#BBF7D0] text-[#166534] rounded-xl px-4 py-2.5 text-[12px]">
+        <div className="bg-[#E7F7EF] border border-[#BBF7D0] text-[#047857] rounded-xl px-4 py-2.5 text-[12px]">
           {feedback}
         </div>
       )}
 
-      <p className="text-[12px] text-[#5A5750] max-w-3xl">
+      <p className="text-[12px] text-[#6B6478] max-w-3xl">
         Chaque publication fige l’état complet du contenu. C’est cet instantané que sert{" "}
         <code className="font-mono text-[11px]">/api/frontend/config</code>, jamais les tables
         d’édition — une section en cours d’écriture ne peut donc pas atteindre le site public.
       </p>
-      <p className="text-[12px] text-[#5A5750] max-w-3xl">
+      <p className="text-[12px] text-[#6B6478] max-w-3xl">
         Un retour arrière republie l’instantané choisi sous un nouveau numéro : il change ce qui
         est <em>servi</em>, pas ce qui est <em>en cours d’édition</em>. Vos brouillons restent
         donc intacts, et la barre ci-dessus signalera de nouveau « brouillon en attente » —
@@ -83,7 +83,7 @@ export default function VersionsPage() {
         sans rapport avec le problème qu’il corrige.
       </p>
 
-      <div className="bg-white border border-[#E2E0D9] rounded-xl divide-y divide-[#E2E0D9]">
+      <div className="bg-white border border-[#E7E2F0] rounded-xl divide-y divide-[#E7E2F0]">
         {releases.map((release) => {
           const isCurrent = release.version === current;
           return (
@@ -91,21 +91,21 @@ export default function VersionsPage() {
               <span className="text-[13px] font-bold w-14">v{release.version}</span>
 
               {isCurrent && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#DCFCE7] text-[#166534] border border-[#BBF7D0]">
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#E7F7EF] text-[#047857] border border-[#BBF7D0]">
                   en ligne
                 </span>
               )}
               {release.rolledBackFromVersion && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#DBEAFE] text-[#1E40AF] border border-[#BFDBFE]">
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#DBEAFE] text-[#1D4ED8] border border-[#BFDBFE]">
                   reprise de la v{release.rolledBackFromVersion}
                 </span>
               )}
 
               <div className="min-w-0">
-                <p className="text-[12px] text-[#1A1916] truncate">
-                  {release.note ?? <span className="text-[#9C9A95]">Publiée sans note</span>}
+                <p className="text-[12px] text-[#191224] truncate">
+                  {release.note ?? <span className="text-[#9A93A8]">Publiée sans note</span>}
                 </p>
-                <p className="text-[11px] text-[#9C9A95]">
+                <p className="text-[11px] text-[#9A93A8]">
                   {new Date(release.publishedAt).toLocaleString("fr-FR")} ·{" "}
                   {release.publishedBy
                     ? release.publishedBy.email
@@ -117,19 +117,19 @@ export default function VersionsPage() {
                 <div className="ml-auto flex items-center gap-2">
                   {confirming === release.version ? (
                     <>
-                      <span className="text-[11px] text-[#5A5750]">
+                      <span className="text-[11px] text-[#6B6478]">
                         Republier ce contenu en v{(current ?? 0) + 1} ?
                       </span>
                       <button
                         onClick={() => rollback(release.version)}
                         disabled={busy !== null}
-                        className="h-7 px-2.5 rounded-lg bg-[#1A1916] text-white text-[11px] font-bold"
+                        className="h-7 px-2.5 rounded-full bg-[#191224] text-white text-[11px] font-bold"
                       >
                         {busy === release.version ? "…" : "Confirmer"}
                       </button>
                       <button
                         onClick={() => setConfirming(null)}
-                        className="h-7 px-2.5 rounded-lg border border-[#E2E0D9] text-[11px]"
+                        className="h-7 px-2.5 rounded-lg border border-[#E7E2F0] text-[11px]"
                       >
                         Annuler
                       </button>
@@ -137,7 +137,7 @@ export default function VersionsPage() {
                   ) : (
                     <button
                       onClick={() => setConfirming(release.version)}
-                      className="h-7 px-2.5 rounded-lg border border-[#E2E0D9] text-[11px] font-medium hover:bg-[#FAFAF8]"
+                      className="h-7 px-2.5 rounded-lg border border-[#E7E2F0] text-[11px] font-medium hover:bg-[#F6F5FA]"
                     >
                       Revenir à cette version
                     </button>
@@ -149,7 +149,7 @@ export default function VersionsPage() {
         })}
 
         {releases.length === 0 && (
-          <p className="px-4 py-6 text-[13px] text-[#9C9A95] text-center">
+          <p className="px-4 py-6 text-[13px] text-[#9A93A8] text-center">
             Aucune publication. Le site public rend le socle de repli.
           </p>
         )}

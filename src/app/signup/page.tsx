@@ -40,7 +40,7 @@ import { InscriptionScreens } from "@/components/auth/InscriptionScreens";
 // quand un client le désignera, ce qui est précisément la condition de son implication.
 export default function SignupPage() {
   return (
-    <div className="min-h-screen bg-[#FFF8F0] flex flex-col lg:flex-row">
+    <div className="min-h-screen bg-[#F6F5FA] flex flex-col lg:flex-row">
       <AuthHero />
       <InscriptionScreens />
     </div>

@@ -399,10 +399,6 @@ export function spacesForRole(role: AdminRole): AdminSpace[] {
   return (Object.keys(ADMIN_SPACES) as AdminSpace[]).filter((space) => modulesForRole(role, space).length > 0);
 }
 
-export function spaceForPath(pathname: string): AdminSpace {
-  return pathname === "/backoffice" || pathname.startsWith("/backoffice/") ? "backoffice" : "admin";
-}
-
 /** Sous-rubriques visibles par ce rôle (`roles` d'une sous-rubrique est un filtre en plus). */
 export function subItemsForRole(entry: AdminModule, role: AdminRole): AdminSubItem[] {
   return (entry.children ?? []).filter((child) => !child.roles || child.roles.includes(role));

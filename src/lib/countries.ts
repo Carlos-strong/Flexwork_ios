@@ -20,9 +20,3 @@ export const COUNTRIES: readonly Country[] = [
   { code: "NE", dial: "+227", flag: "🇳🇪", name: "Niger" },
   { code: "NG", dial: "+234", flag: "🇳🇬", name: "Nigeria" },
 ];
-
-export const DEFAULT_COUNTRY = COUNTRIES[0];
-
-export function countryByCode(code: string | null | undefined): Country | undefined {
-  return COUNTRIES.find((c) => c.code === code);
-}

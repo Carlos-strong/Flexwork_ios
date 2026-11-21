@@ -93,7 +93,7 @@ export default function FilieresPage() {
 
       <AdminCard title="Filières par zone" subtitle="FeatureFlag (clé × zone). Chaque bascule est tracée dans le journal d’audit avec son auteur." padded={false}>
         {flags === null ? (
-          <div className="p-5 text-[13px] text-[#9C9A95]">Chargement…</div>
+          <div className="p-5 text-[13px] text-[#9A93A8]">Chargement…</div>
         ) : flags.length === 0 ? (
           <div className="p-5">
             <AdminEmpty>Aucune filière enregistrée.</AdminEmpty>
@@ -101,7 +101,7 @@ export default function FilieresPage() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="border-b border-[#E2E0D9] bg-[#FAFAF8]">
+              <thead className="border-b border-[#E7E2F0] bg-[#F6F5FA]">
                 <tr>
                   <th className={tableHead}>Clé</th>
                   <th className={tableHead}>Zone</th>
@@ -109,19 +109,19 @@ export default function FilieresPage() {
                   <th className={tableHead}>État</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#E2E0D9]">
+              <tbody className="divide-y divide-[#E7E2F0]">
                 {flags.map((f) => (
                   <tr key={f.id}>
                     <td className={`${tableCell} font-mono text-[12px]`}>{f.key}</td>
                     <td className={tableCell}>{f.zone}</td>
-                    <td className={`${tableCell} text-[#5A5750]`}>{f.note ?? "—"}</td>
+                    <td className={`${tableCell} text-[#6B6478]`}>{f.note ?? "—"}</td>
                     <td className={tableCell}>
                       {canAct ? (
                         <button
                           onClick={() => save(f.key, f.zone, !f.enabled, f.note ?? undefined)}
                           disabled={busy === `${f.key}:${f.zone}`}
                           className={`inline-flex h-8 items-center rounded-lg border px-3 text-[12px] font-semibold disabled:opacity-50 ${
-                            f.enabled ? "border-[#9FD4B4] bg-[#E6F5EE] text-[#1A7A4A]" : "border-[#E2E0D9] bg-white text-[#5A5750]"
+                            f.enabled ? "border-[#9FD4B4] bg-[#F0EAFF] text-[#3B1578]" : "border-[#E7E2F0] bg-white text-[#6B6478]"
                           }`}
                         >
                           {f.enabled ? "● Activée" : "○ Désactivée"}
@@ -158,7 +158,7 @@ export default function FilieresPage() {
       >
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="border-b border-[#E2E0D9] bg-[#FAFAF8]">
+            <thead className="border-b border-[#E7E2F0] bg-[#F6F5FA]">
               <tr>
                 <th className={tableHead}>#</th>
                 <th className={tableHead}>Prérequis</th>
@@ -166,34 +166,34 @@ export default function FilieresPage() {
                 <th className={tableHead}>Bloque</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#E2E0D9]">
+            <tbody className="divide-y divide-[#E7E2F0]">
               {LEGAL_PREREQUISITES.map((r) => (
                 <tr key={r.n}>
-                  <td className={`${tableCell} text-[#9C9A95]`}>{r.n}</td>
+                  <td className={`${tableCell} text-[#9A93A8]`}>{r.n}</td>
                   <td className={tableCell}>{r.label}</td>
                   <td className={tableCell}>
                     <span
                       className={`inline-flex rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${
-                        r.pending ? "border-[#FCD89A] bg-[#FEF3C7] text-[#B45309]" : "border-[#F5C2BE] bg-[#FDEDEC] text-[#B42318]"
+                        r.pending ? "border-[#FCD89A] bg-[#FFF6E3] text-[#B45309]" : "border-[#F5C2BE] bg-[#FEECEB] text-[#B42318]"
                       }`}
                     >
                       {r.status}
                     </span>
                   </td>
-                  <td className={`${tableCell} text-[#5A5750]`}>{r.blocks}</td>
+                  <td className={`${tableCell} text-[#6B6478]`}>{r.blocks}</td>
                 </tr>
               ))}
-              <tr className="bg-[#FAFAF8]">
-                <td className={`${tableCell} text-[#9C9A95]`}>—</td>
+              <tr className="bg-[#F6F5FA]">
+                <td className={`${tableCell} text-[#9A93A8]`}>—</td>
                 <td className={tableCell}>
                   <strong>RC Pro propre à la plateforme</strong>
                 </td>
                 <td className={tableCell}>
-                  <span className="inline-flex rounded-full border border-[#F5C2BE] bg-[#FDEDEC] px-2.5 py-0.5 text-[11px] font-semibold text-[#B42318]">
+                  <span className="inline-flex rounded-full border border-[#F5C2BE] bg-[#FEECEB] px-2.5 py-0.5 text-[11px] font-semibold text-[#B42318]">
                     À souscrire
                   </span>
                 </td>
-                <td className={`${tableCell} text-[#5A5750]`}>Ouverture au public (§7 de l’état consolidé)</td>
+                <td className={`${tableCell} text-[#6B6478]`}>Ouverture au public (§7 de l’état consolidé)</td>
               </tr>
             </tbody>
           </table>

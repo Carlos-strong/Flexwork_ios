@@ -25,7 +25,7 @@ export default function ClientOffresPanel() {
   return (
     <div className="page-width space-y-6">
       <div>
-        <h1 className="text-[28px] font-extrabold leading-none tracking-tight text-[#0A1931]">Offres</h1>
+        <h1 className="text-[28px] font-extrabold leading-none tracking-tight text-[#191224]">Offres</h1>
         <p className="text-[13px] text-gray-500 mt-2">
           Des prestations à prix fixe publiées par les prestataires. Vous signez en premier —
           les fonds passent sous séquestre — et le prestataire accepte sous 24h, sinon vous êtes remboursé.
@@ -43,7 +43,7 @@ export default function ClientOffresPanel() {
                 setOpenOrderId(null);
               }}
               className={`px-4 h-10 text-[13px] font-semibold border-b-2 -mb-px transition-colors ${
-                active ? "border-[#008751] text-[#0A1931]" : "border-transparent text-gray-400 hover:text-gray-600"
+                active ? "border-[#4C1D95] text-[#191224]" : "border-transparent text-gray-400 hover:text-gray-600"
               }`}
             >
               {t.label}

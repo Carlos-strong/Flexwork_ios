@@ -95,7 +95,7 @@ export function NotificationsBell() {
         className="relative w-9 h-9 grid place-items-center rounded-full hover:bg-zinc-100 transition-colors">
         <Bell size={18} className="text-zinc-600" />
         {unreadCount > 0 && (
-          <span className="absolute top-1 right-1 min-w-[16px] h-[16px] px-1 rounded-full bg-[#E8112D] text-white text-[9px] font-bold flex items-center justify-center">
+          <span className="absolute top-1 right-1 min-w-[16px] h-[16px] px-1 rounded-full bg-[#B42318] text-white text-[9px] font-bold flex items-center justify-center">
             {unreadCount > 9 ? "9+" : unreadCount}
           </span>
         )}
@@ -108,8 +108,8 @@ export function NotificationsBell() {
           ) : (
             <ul className="divide-y divide-zinc-100">
               {items.map(n => (
-                <li key={n.id} className={`px-4 py-3 ${!n.readAt ? "bg-[#f0fdf4]" : ""}`}>
-                  <div className="text-[11px] font-bold text-[#008751] mb-0.5">{notificationLabel(n.type)}</div>
+                <li key={n.id} className={`px-4 py-3 ${!n.readAt ? "bg-[#E7F7EF]" : ""}`}>
+                  <div className="text-[11px] font-bold text-[#047857] mb-0.5">{notificationLabel(n.type)}</div>
                   <div className="text-[12px] text-zinc-700 leading-snug">{n.message}</div>
                   <div className="text-[10px] text-zinc-400 mt-1">{new Date(n.createdAt).toLocaleString("fr-FR")}</div>
                 </li>

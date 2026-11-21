@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { notifyUser } from "@/lib/notify";
+import { personFullName } from "@/lib/person-name";
 
 // Notification des messages de la messagerie (2026-09-09) — auparavant AUCUN canal n'était
 // déclenché à l'envoi : ni cloche, ni e-mail. Les deux parties sont prévenues, l'expéditeur
@@ -65,7 +66,7 @@ export async function notifyNewMessage(params: {
     ]);
 
     const missionTitre = mission?.titre ?? "votre mission";
-    const senderName = [sender?.firstname, sender?.lastname].filter(Boolean).join(" ").trim() || sender?.email || "Votre interlocuteur";
+    const senderName = personFullName(sender) || sender?.email || "Votre interlocuteur";
     const extrait = params.preview.length > 140 ? `${params.preview.slice(0, 140)}…` : params.preview;
     const quoi = params.isFile ? `a envoyé un fichier : ${extrait}` : `: « ${extrait} »`;
 

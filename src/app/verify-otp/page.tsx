@@ -201,19 +201,19 @@ function VerifyOtpForm() {
   }
 
   return (
-    <div className="min-h-screen bg-[#FFF8F0] flex flex-col lg:flex-row">
+    <div className="min-h-screen bg-[#F6F5FA] flex flex-col lg:flex-row">
       {/* ================================================================ */}
       {/* LEFT — Hero / Branding                                             */}
       {/* ================================================================ */}
-      <div className="lg:w-[45%] xl:w-[42%] bg-[#0A1931] text-white flex flex-col justify-between p-6 md:p-10 lg:p-12 relative overflow-hidden">
+      <div className="lg:w-[45%] xl:w-[42%] bg-[#191224] text-white flex flex-col justify-between p-6 md:p-10 lg:p-12 relative overflow-hidden">
         {/* Decorative orbs */}
-        <div className="absolute top-[-15%] right-[-10%] w-[350px] h-[350px] rounded-full bg-[#FF7A00]/8 blur-[100px]" />
-        <div className="absolute bottom-[-10%] left-[-15%] w-[250px] h-[250px] rounded-full bg-[#008751]/8 blur-[80px]" />
+        <div className="absolute top-[-15%] right-[-10%] w-[350px] h-[350px] rounded-full bg-[#6D28D9]/8 blur-[100px]" />
+        <div className="absolute bottom-[-10%] left-[-15%] w-[250px] h-[250px] rounded-full bg-[#4C1D95]/8 blur-[80px]" />
 
         <div className="relative z-10">
           {/* Logo */}
           <Link href="/signin" className="flex items-center gap-2 mb-10 md:mb-14">
-            <div className="w-10 h-10 rounded-xl bg-[#FF7A00] flex items-center justify-center text-white font-extrabold text-[16px]">FW</div>
+            <div className="w-10 h-10 rounded-xl bg-[#6D28D9] flex items-center justify-center text-white font-extrabold text-[16px]">FW</div>
             <span className="text-white font-extrabold text-[20px] tracking-tight">FlexWork</span>
           </Link>
 
@@ -224,7 +224,7 @@ function VerifyOtpForm() {
           </div>
           <h1 className="text-[26px] md:text-[32px] lg:text-[36px] font-extrabold leading-tight mb-3">
             Un code,<br />
-            <span className="text-[#FF7A00]">et te voilà connecté</span>
+            <span className="text-[#6D28D9]">et te voilà connecté</span>
           </h1>
           <p className="text-white/50 text-[14px] leading-relaxed max-w-[380px]">
             Vérifie ton identité en quelques secondes — aucune donnée sensible n&apos;est stockée.
@@ -241,7 +241,7 @@ function VerifyOtpForm() {
             { icon: <Mail className="w-4 h-4" />, value: "OTP", label: "Connexion par code" },
           ].map((s, i) => (
             <div key={i} className="p-3 rounded-xl bg-white/[0.04] border border-white/[0.05]">
-              <div className="text-[#FF7A00] mb-1">{s.icon}</div>
+              <div className="text-[#6D28D9] mb-1">{s.icon}</div>
               <div className="text-[16px] font-bold">{s.value}</div>
               <div className="text-[10px] text-white/40">{s.label}</div>
             </div>
@@ -261,24 +261,24 @@ function VerifyOtpForm() {
         <div className="w-full max-w-[440px]">
           {/* Header */}
           <div className="text-center mb-8">
-            <div className="w-14 h-14 mx-auto rounded-2xl bg-[#FFF0E0] border border-[#FF7A00]/20 flex items-center justify-center mb-4">
-              <KeyRound className="w-7 h-7 text-[#FF7A00]" />
+            <div className="w-14 h-14 mx-auto rounded-2xl bg-[#F0EAFF] border border-[#6D28D9]/20 flex items-center justify-center mb-4">
+              <KeyRound className="w-7 h-7 text-[#6D28D9]" />
             </div>
-            <h1 className="text-[24px] md:text-[28px] font-bold text-[#0A1931]">Vérification</h1>
+            <h1 className="text-[24px] md:text-[28px] font-bold text-[#191224]">Vérification</h1>
             <p className="text-[13px] text-zinc-500 mt-1.5">
               Un code à 6 chiffres a été envoyé à{" "}
               <strong className="text-zinc-700">{identifier}</strong>.
             </p>
             {purpose !== "signup" && (
-              <Link href="/signin" className="inline-flex items-center justify-center gap-1 mt-2 text-[12px] text-[#008751] font-semibold hover:underline">
+              <Link href="/signin" className="inline-flex items-center justify-center gap-1 mt-2 text-[12px] text-[#4C1D95] font-semibold hover:underline">
                 <PencilLine className="w-3.5 h-3.5" /> Modifier l&apos;identifiant
               </Link>
             )}
           </div>
 
           {/* Info hint */}
-          <div className="mb-6 px-4 py-3 rounded-xl bg-[#eefaf4] border border-[#008751]/15 text-[12.5px] text-zinc-700 flex items-start gap-2.5">
-            <Info className="w-4 h-4 text-[#008751] shrink-0 mt-0.5" />
+          <div className="mb-6 px-4 py-3 rounded-xl bg-[#F0EAFF] border border-[#4C1D95]/15 text-[12.5px] text-zinc-700 flex items-start gap-2.5">
+            <Info className="w-4 h-4 text-[#4C1D95] shrink-0 mt-0.5" />
             <span>Le code expire dans 5 minutes. Saisis-le ci-dessous pour valider, ou demandes-en un nouveau.</span>
           </div>
 
@@ -324,12 +324,12 @@ function VerifyOtpForm() {
                     required
                     autoFocus={i === 0}
                     aria-label={`Chiffre ${i + 1} sur 6`}
-                    className="w-12 h-12 rounded-xl border border-[#E2E8F0] bg-white text-center text-[20px] font-bold text-[#0A1931] focus:outline-none focus:border-[#008751] focus:ring-2 focus:ring-[#008751]/20 transition"
+                    className="w-12 h-12 rounded-xl border border-[#E7E2F0] bg-white text-center text-[20px] font-bold text-[#191224] focus:outline-none focus:border-[#4C1D95] focus:ring-2 focus:ring-[#4C1D95]/20 transition"
                   />
                 ))}
               </div>
               <p className="flex items-center justify-center gap-1 mt-2 text-[11px] text-zinc-400">
-                <span className="text-[#008751]">✓</span> Code à usage unique • Jamais redemandé
+                <span className="text-[#4C1D95]">✓</span> Code à usage unique • Jamais redemandé
               </p>
             </div>
 
@@ -337,7 +337,7 @@ function VerifyOtpForm() {
             <button
               type="submit"
               disabled={submitting || !identifier}
-              className="w-full h-12 rounded-xl bg-[#FF7A00] text-white text-[15px] font-bold hover:brightness-110 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-[0_4px_16px_rgba(255,122,0,0.3)] flex items-center justify-center gap-2"
+              className="w-full h-12 rounded-xl bg-[#6D28D9] text-white text-[15px] font-bold hover:brightness-110 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-[0_4px_16px_rgba(109,40,217,0.3)] flex items-center justify-center gap-2"
             >
               {submitting ? (
                 "Vérification..."
@@ -355,7 +355,7 @@ function VerifyOtpForm() {
                 sans recours pour une simple non-réception. */}
             <div className="text-center pt-1 space-y-1.5">
               {resendMsg && (
-                <p role="status" className={`text-[12.5px] font-medium ${resendMsg.ok ? "text-[#008751]" : "text-red-700"}`}>
+                <p role="status" className={`text-[12.5px] font-medium ${resendMsg.ok ? "text-[#047857]" : "text-red-700"}`}>
                   {resendMsg.text}
                 </p>
               )}
@@ -363,7 +363,7 @@ function VerifyOtpForm() {
                 type="button"
                 onClick={handleResend}
                 disabled={resending || resendIn > 0 || !identifier}
-                className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-[#008751] hover:underline disabled:text-zinc-400 disabled:no-underline disabled:cursor-not-allowed"
+                className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-[#4C1D95] hover:underline disabled:text-zinc-400 disabled:no-underline disabled:cursor-not-allowed"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${resending ? "animate-spin" : ""}`} />
                 {resending
@@ -406,7 +406,7 @@ function VerifyOtpForm() {
 
 export default function VerifyOtpPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#FFF8F0] flex items-center justify-center"><div className="text-[14px] text-zinc-500">Chargement...</div></div>}>
+    <Suspense fallback={<div className="min-h-screen bg-[#F6F5FA] flex items-center justify-center"><div className="text-[14px] text-zinc-500">Chargement...</div></div>}>
       <VerifyOtpForm />
     </Suspense>
   );

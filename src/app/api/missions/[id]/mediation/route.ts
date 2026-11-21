@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import type { MissionStatus } from "@prisma/client";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
@@ -7,18 +6,9 @@ import { requireContractByMission } from "@/lib/resource-guard";
 import { heldBalance } from "@/lib/escrow";
 import { afterInstructionCommitted } from "@/lib/psp/dispatch";
 import { randomUUID } from "crypto";
+import { canOpenMediationAtStatus } from "@/lib/mediation-rules";
 
 const schema = z.object({ reason: z.string().min(5) });
-
-// Phases où une médiation est recevable : les fonds sont engagés et la mission n'est pas
-// terminée. Volontairement restrictif — ouvrir une médiation coûte cher (elle suspend le
-// cycle de vie de la mission), elle ne doit pas l'être « au cas où ».
-const MEDIABLE_STATUSES: MissionStatus[] = [
-  "fonds_sous_sequestre",
-  "en_cours",
-  "livrable_soumis",
-  "validee",
-];
 
 // US-601 (Phase 6) : ouvre une médiation — gèle les fonds chez le PSP, ne tranche rien.
 // Remplace intégralement l'ancien Litige à arbitrage opposable.
@@ -48,7 +38,9 @@ export async function POST(
   // à geler et un différend à trancher. Avant cette garde, elle était ouvrable sur une mission
   // simplement publiée (rien à geler) comme sur une mission déjà clôturée (tout est payé) — et
   // dans les deux cas elle écrasait le statut sans retour possible.
-  if (!MEDIABLE_STATUSES.includes(contract.mission.status)) {
+  // Statuts recevables : src/lib/mediation-rules.ts, partagés avec le bandeau de suivi qui
+  // propose d'ouvrir la médiation.
+  if (!canOpenMediationAtStatus(contract.mission.status)) {
     return NextResponse.json({ error: "mission_not_mediable" }, { status: 409 });
   }
   // Une seule médiation ouverte à la fois : deux en parallèle mémoriseraient deux statuts

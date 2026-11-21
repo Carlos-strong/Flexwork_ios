@@ -14,6 +14,7 @@ import {
   formatDateLong,
   widthsFor,
 } from "@/lib/pdf-kit";
+import { personFullName } from "@/lib/person-name";
 
 export const dynamic = "force-dynamic";
 
@@ -261,14 +262,14 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     roundsMax: mission.maxRevisionRounds,
     validiteJours: VALIDITE_JOURS,
     client: {
-      name: [mission.client.firstname, mission.client.lastname].filter(Boolean).join(" ") || "Client",
+      name: personFullName(mission.client) || "Client",
       adresse: adresseDe(mission.client),
       tel: mission.client.tel,
       email: mission.client.email,
       roleLabel: roleLabel(mission.client.role, "Client"),
     },
     provider: {
-      name: [proposal.provider.firstname, proposal.provider.lastname].filter(Boolean).join(" ") || "Prestataire",
+      name: personFullName(proposal.provider) || "Prestataire",
       adresse: adresseDe(proposal.provider),
       tel: proposal.provider.tel,
       email: proposal.provider.email,

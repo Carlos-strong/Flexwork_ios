@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
-import type { UserRole } from "@prisma/client";
 import { canViewProfile, isPubliclyListed } from "@/lib/profile-visibility";
 import { readLanguages } from "@/lib/languages";
 import { serializeGig } from "@/lib/gig-serialize";
+import { subRatingAverages } from "@/lib/review-display";
 
 // US-304 (Phase 3) : profil affiché en trois blocs strictement séparés — « Vérifié par
 // Flexwork » (identité uniquement), « Déclaré par le prestataire (non vérifié) »,
@@ -80,6 +80,9 @@ export async function GET(
       select: {
         id: true,
         note: true,
+        noteCommunication: true,
+        noteQualite: true,
+        noteValeur: true,
         commentaire: true,
         createdAt: true,
         author: { select: { country: true } },
@@ -103,6 +106,9 @@ export async function GET(
   ]);
   const averageNote = reviews.length ? reviews.reduce((s, r) => s + r.note, 0) / reviews.length : null;
   const ratingBreakdown = [5, 4, 3, 2, 1].map((n) => ({ note: n, count: reviews.filter((r) => r.note === n).length }));
+  // Détail des notes : moyenne de chaque sous-note sur les seuls avis qui la renseignent.
+  const sub = subRatingAverages(reviews);
+  const subRatings = { communication: sub.noteCommunication, qualite: sub.noteQualite, valeur: sub.noteValeur };
   const usedTags = new Set(
     [...doneMissionTags.flatMap((m) => m.tags), ...doneGigTags.flatMap((o) => o.gig.tags)].map((t) => t.toLocaleLowerCase("fr")),
   );
@@ -208,6 +214,7 @@ export async function GET(
       averageNote,
       reviewCount: reviews.length,
       ratingBreakdown,
+      subRatings,
       memberSince: user.createdAt,
     },
     // Services publiés : mêmes champs que le catalogue (src/lib/gig-serialize.ts).

@@ -101,7 +101,7 @@ export function GigImageCarousel({
   }
 
   if (count === 0) {
-    return <div className={`relative ${aspect} overflow-hidden ${rounded} bg-gradient-to-br from-[#0A1931] to-[#1B9C6A]`}>{fallback}</div>;
+    return <div className={`relative ${aspect} overflow-hidden ${rounded} bg-gradient-to-br from-[#191224] to-[#4C1D95]`}>{fallback}</div>;
   }
 
   const slide = (src: string, i: number) => (
@@ -158,7 +158,7 @@ export function GigImageCarousel({
             type="button"
             onClick={(e) => goTo(index - 1, e)}
             aria-label="Photo précédente"
-            className="absolute left-2 top-1/2 z-10 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full bg-white/90 text-[15px] text-[#0A1931] shadow-sm opacity-0 transition group-hover/carousel:opacity-100 focus-visible:opacity-100"
+            className="absolute left-2 top-1/2 z-10 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full bg-white/90 text-[15px] text-[#191224] shadow-sm opacity-0 transition group-hover/carousel:opacity-100 focus-visible:opacity-100"
           >
             ‹
           </button>
@@ -166,7 +166,7 @@ export function GigImageCarousel({
             type="button"
             onClick={(e) => goTo(index + 1, e)}
             aria-label="Photo suivante"
-            className="absolute right-2 top-1/2 z-10 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full bg-white/90 text-[15px] text-[#0A1931] shadow-sm opacity-0 transition group-hover/carousel:opacity-100 focus-visible:opacity-100"
+            className="absolute right-2 top-1/2 z-10 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full bg-white/90 text-[15px] text-[#191224] shadow-sm opacity-0 transition group-hover/carousel:opacity-100 focus-visible:opacity-100"
           >
             ›
           </button>

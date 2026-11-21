@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 // Page de paiement Mobile Money SIMULÉE (PSP virtuelle) — reproduit l'écran d'autorisation
-// que le client verrait chez le vrai PSP (MTN MoMo / Moov / Orange, style FedaPay). Le client
+// que le client verrait chez le vrai PSP (MTN MoMo / Moov Money / Celtiis Cash, style FedaPay). Le client
 // « autorise » le prélèvement → la PSP virtuelle renvoie le webhook `hold_confirmed` signé à
 // la plateforme, qui fait passer la mission sous séquestre. Jamais active en production.
 
@@ -78,10 +78,10 @@ function PayerInner() {
 
   if (!ref) {
     return (
-      <div className="min-h-screen bg-[#F8FAF9] text-[#0f172a] flex items-center justify-center p-4">
-        <div className="bg-white border border-[#E2E8F0] rounded-xl p-5 max-w-md text-center space-y-2">
+      <div className="min-h-screen bg-[#F6F5FA] text-[#191224] flex items-center justify-center p-4">
+        <div className="bg-white border border-[#E7E2F0] rounded-xl p-5 max-w-md text-center space-y-2">
           <div className="text-[15px] font-semibold">Référence manquante</div>
-          <p className="text-[13px] text-[#64748B]">Cette page simule l&apos;autorisation d&apos;un paiement — un paramètre <code className="bg-[#F1F5F9] px-1 rounded">ref</code> est requis.</p>
+          <p className="text-[13px] text-[#6B6478]">Cette page simule l&apos;autorisation d&apos;un paiement — un paramètre <code className="bg-[#EFEAF8] px-1 rounded">ref</code> est requis.</p>
         </div>
       </div>
     );
@@ -89,18 +89,18 @@ function PayerInner() {
 
   if (error && !op) {
     return (
-      <div className="min-h-screen bg-[#F8FAF9] text-[#0f172a] flex items-center justify-center p-4">
-        <div className="bg-white border border-[#E2E8F0] rounded-xl p-5 max-w-md text-center space-y-2">
+      <div className="min-h-screen bg-[#F6F5FA] text-[#191224] flex items-center justify-center p-4">
+        <div className="bg-white border border-[#E7E2F0] rounded-xl p-5 max-w-md text-center space-y-2">
           <div className="text-[15px] font-semibold">Paiement introuvable</div>
-          <p className="text-[13px] text-[#64748B]">{error}</p>
-          <Link href="/psp-sandbox" className="inline-block text-[12.5px] text-[#008751] font-medium" style={{ textDecoration: "none" }}>Retour à la console PSP</Link>
+          <p className="text-[13px] text-[#6B6478]">{error}</p>
+          <Link href="/psp-sandbox" className="inline-block text-[12.5px] text-[#4C1D95] font-medium" style={{ textDecoration: "none" }}>Retour à la console PSP</Link>
         </div>
       </div>
     );
   }
 
   if (!op) {
-    return <div className="min-h-screen bg-[#F8FAF9] text-[#0f172a] flex items-center justify-center text-[13px] text-[#64748B]">Chargement du paiement…</div>;
+    return <div className="min-h-screen bg-[#F6F5FA] text-[#191224] flex items-center justify-center text-[13px] text-[#6B6478]">Chargement du paiement…</div>;
   }
 
   const amount = op.amount ?? Number(fallbackAmount ?? 0);
@@ -109,40 +109,40 @@ function PayerInner() {
   const alreadyProcessed = op.status !== "pending";
 
   return (
-    <div className="min-h-screen bg-[#F8FAF9] text-[#0f172a] flex items-center justify-center px-4 py-8">
+    <div className="min-h-screen bg-[#F6F5FA] text-[#191224] flex items-center justify-center px-4 py-8">
       <div className="w-full max-w-[420px] space-y-4">
         <div className="text-center space-y-1">
-          <div className="text-[11px] uppercase tracking-widest text-[#64748B] font-semibold">Paiement sécurisé — PSP virtuelle</div>
-          <div className="text-[13px] text-[#64748B]">Environnement de simulation (développement)</div>
+          <div className="text-[11px] uppercase tracking-widest text-[#6B6478] font-semibold">Paiement sécurisé — PSP virtuelle</div>
+          <div className="text-[13px] text-[#6B6478]">Environnement de simulation (développement)</div>
         </div>
 
-        <div className="bg-white border border-[#E2E8F0] rounded-2xl p-6 space-y-5 shadow-sm">
+        <div className="bg-white border border-[#E7E2F0] rounded-2xl p-6 space-y-5 shadow-sm">
           <div className="flex items-center justify-between">
-            <div className="text-[13px] text-[#64748B]">Marchand</div>
+            <div className="text-[13px] text-[#6B6478]">Marchand</div>
             <div className="text-[13px] font-semibold">Flexwork — Séquestre</div>
           </div>
 
-          <div className="rounded-xl bg-[#0f172a] text-white p-4 text-center">
-            <div className="text-[11px] uppercase tracking-wider text-[#94A3B8]">Montant à payer</div>
+          <div className="rounded-xl bg-[#191224] text-white p-4 text-center">
+            <div className="text-[11px] uppercase tracking-wider text-[#9A93A8]">Montant à payer</div>
             <div className="text-[26px] font-bold mt-1">{amount.toLocaleString("fr-FR")} <span className="text-[15px]">{currency}</span></div>
-            {op.missionTitre && <div className="text-[11.5px] text-[#94A3B8] mt-1">{op.missionTitre}</div>}
+            {op.missionTitre && <div className="text-[11.5px] text-[#9A93A8] mt-1">{op.missionTitre}</div>}
           </div>
 
           <div className="space-y-2 text-[12.5px]">
-            <div className="flex justify-between"><span className="text-[#64748B]">Référence PSP</span><span className="font-medium break-all text-right pl-3">{op.pspReference}</span></div>
-            <div className="flex justify-between"><span className="text-[#64748B]">Moyen de paiement</span><span className="font-medium">Mobile Money (MTN · Moov · Orange)</span></div>
-            <div className="flex justify-between"><span className="text-[#64748B]">Statut</span><span className="font-medium">{alreadyProcessed ? "Déjà traité" : "En attente d&apos;autorisation"}</span></div>
+            <div className="flex justify-between"><span className="text-[#6B6478]">Référence PSP</span><span className="font-medium break-all text-right pl-3">{op.pspReference}</span></div>
+            <div className="flex justify-between"><span className="text-[#6B6478]">Moyen de paiement</span><span className="font-medium">Mobile Money (MTN · Moov · Celtiis)</span></div>
+            <div className="flex justify-between"><span className="text-[#6B6478]">Statut</span><span className="font-medium">{alreadyProcessed ? "Déjà traité" : "En attente d&apos;autorisation"}</span></div>
           </div>
 
-          {error && <div className="rounded-xl border border-[#FECACA] bg-[#FEF2F2] p-3 text-[12.5px] text-[#B91C1C]">{error}</div>}
+          {error && <div className="rounded-xl border border-[#FECACA] bg-[#FEECEB] p-3 text-[12.5px] text-[#B42318]">{error}</div>}
 
           {outcome === "success" && (
-            <div className="rounded-xl border border-[#BBF7D0] bg-[#F0FDF4] p-3 text-[12.5px] text-[#166534]">
+            <div className="rounded-xl border border-[#BBF7D0] bg-[#E7F7EF] p-3 text-[12.5px] text-[#047857]">
               <strong>Paiement autorisé.</strong> La PSP virtuelle a confirmé le HOLD — les fonds sont sous séquestre.
             </div>
           )}
           {outcome === "failed" && (
-            <div className="rounded-xl border border-[#FECACA] bg-[#FEF2F2] p-3 text-[12.5px] text-[#B91C1C]">
+            <div className="rounded-xl border border-[#FECACA] bg-[#FEECEB] p-3 text-[12.5px] text-[#B42318]">
               <strong>Paiement refusé.</strong> L&apos;opération a été marquée comme échouée.
             </div>
           )}
@@ -152,14 +152,14 @@ function PayerInner() {
               <button
                 disabled={busy !== null}
                 onClick={() => decide(true)}
-                className="w-full h-11 rounded-lg bg-[#008751] text-white text-[13px] font-semibold hover:bg-[#007a49] disabled:opacity-50"
+                className="w-full h-11 rounded-lg bg-[#4C1D95] text-white text-[13px] font-semibold hover:bg-[#3B1578] disabled:opacity-50"
               >
                 {busy === "deciding" ? "Traitement…" : "Autoriser le paiement"}
               </button>
               <button
                 disabled={busy !== null}
                 onClick={() => decide(false)}
-                className="w-full h-11 rounded-lg border border-[#E2E8F0] bg-white text-[13px] font-medium hover:bg-[#F8FAF9] disabled:opacity-50"
+                className="w-full h-11 rounded-lg border border-[#E7E2F0] bg-white text-[13px] font-medium hover:bg-[#F6F5FA] disabled:opacity-50"
               >
                 Refuser
               </button>
@@ -167,16 +167,16 @@ function PayerInner() {
           )}
 
           <div className="flex items-center justify-between pt-1">
-            <Link href="/psp-sandbox" className="text-[12px] text-[#64748B] hover:text-[#0f172a]" style={{ textDecoration: "none" }}>← Console PSP</Link>
+            <Link href="/psp-sandbox" className="text-[12px] text-[#6B6478] hover:text-[#191224]" style={{ textDecoration: "none" }}>← Console PSP</Link>
             {missionId ? (
-              <Link href={`/missions/${missionId}/escrow`} className="text-[12px] text-[#008751] font-medium" style={{ textDecoration: "none" }}>Revenir à la mission ↗</Link>
+              <Link href={`/missions/${missionId}/escrow`} className="text-[12px] text-[#047857] font-medium" style={{ textDecoration: "none" }}>Revenir à la mission ↗</Link>
             ) : (
-              <span className="text-[12px] text-[#94A3B8]">{mode === "autoconfirm" ? "Mode autoconfirm actif" : ""}</span>
+              <span className="text-[12px] text-[#9A93A8]">{mode === "autoconfirm" ? "Mode autoconfirm actif" : ""}</span>
             )}
           </div>
         </div>
 
-        <p className="text-[11px] text-[#94A3B8] text-center leading-relaxed">
+        <p className="text-[11px] text-[#9A93A8] text-center leading-relaxed">
           Aucun argent réel n&apos;est en jeu. Cette page simule l&apos;écran du PSP agréé pour tester le cycle séquestre
           (HOLD → autorisation → webhook signé → fonds sous séquestre) sans intégration réelle.
         </p>
@@ -187,7 +187,7 @@ function PayerInner() {
 
 export default function PayerPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#F8FAF9] text-[#0f172a] flex items-center justify-center text-[13px] text-[#64748B]">Chargement…</div>}>
+    <Suspense fallback={<div className="min-h-screen bg-[#F6F5FA] text-[#191224] flex items-center justify-center text-[13px] text-[#6B6478]">Chargement…</div>}>
       <PayerInner />
     </Suspense>
   );

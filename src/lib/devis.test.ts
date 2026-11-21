@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canClientRejectDevis, canClientRequestRevision, canProviderReviseDevis, computeDevisData } from "./devis";
+import { canClientRejectDevis, canClientRequestRevision, canProviderReviseDevis, checkReapplication, computeDevisData, shortlistTarget } from "./devis";
 import { devisSchema } from "./validation";
 
 describe("canProviderReviseDevis", () => {
@@ -265,5 +265,46 @@ describe("devisSchema", () => {
 
   it("refuse une main d'œuvre négative", () => {
     expect(devisSchema.safeParse({ ...valid, laborCost: -1 }).success).toBe(false);
+  });
+});
+
+describe("checkReapplication — une seule candidature par mission", () => {
+  const base = { status: "envoyee" as const, roundActuel: 1, revisionRequestedAt: null };
+  it("première candidature : permise, round 1", () => {
+    expect(checkReapplication(null, 3)).toEqual({ ok: true, kind: "first", round: 1 });
+  });
+  it("candidature existante sans demande de révision : refusée (already_applied)", () => {
+    expect(checkReapplication(base, 3)).toEqual({ ok: false, error: "already_applied" });
+    expect(checkReapplication({ ...base, status: "en_negociation", roundActuel: 2 }, 3)).toEqual({ ok: false, error: "already_applied" });
+  });
+  it("candidature close (refusée, acceptée, annulée, devis validé) : refusée", () => {
+    for (const status of ["refusee", "acceptee", "annulee_definitive", "devis_valide"] as const) {
+      expect(checkReapplication({ ...base, status, revisionRequestedAt: new Date() }, 3)).toEqual({ ok: false, error: "already_applied" });
+      expect(checkReapplication({ ...base, status }, 3, "proposal_closed")).toEqual({ ok: false, error: "proposal_closed" });
+    }
+  });
+  it("révision demandée par le client : permise, round suivant", () => {
+    expect(checkReapplication({ ...base, revisionRequestedAt: new Date() }, 3)).toEqual({ ok: true, kind: "revision", round: 2 });
+  });
+  it("rounds épuisés : refusée même avec une demande", () => {
+    expect(checkReapplication({ ...base, roundActuel: 3, revisionRequestedAt: new Date() }, 3)).toEqual({ ok: false, error: "max_revisions_reached" });
+  });
+});
+
+describe("présélection (Shortlister)", () => {
+  it("bascule envoyee ⇄ preselectionnee", () => {
+    expect(shortlistTarget("envoyee", true)).toBe("preselectionnee");
+    expect(shortlistTarget("preselectionnee", false)).toBe("envoyee");
+  });
+  it("refuse toute autre transition", () => {
+    expect(shortlistTarget("en_negociation", true)).toBeNull();
+    expect(shortlistTarget("acceptee", true)).toBeNull();
+    expect(shortlistTarget("refusee", true)).toBeNull();
+    expect(shortlistTarget("envoyee", false)).toBeNull();
+    expect(shortlistTarget("preselectionnee", true)).toBeNull();
+  });
+  it("une candidature présélectionnée reste refusable et révisable", () => {
+    expect(canClientRejectDevis("preselectionnee")).toBe(true);
+    expect(canClientRequestRevision({ hasDevis: true, status: "preselectionnee", revisionAlreadyRequested: false })).toBe(true);
   });
 });

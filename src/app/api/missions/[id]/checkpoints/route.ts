@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { contractRole } from "@/lib/validation-mode";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
+import { personFullName } from "@/lib/person-name";
 
 // Historique des points d'étape ("validations partielles", voir .../checkpoint) d'une
 // mission — jalon par jalon et/ou au niveau mission (contrat sans jalon). Consultable par les
@@ -42,7 +43,7 @@ export async function GET(
       // d'étape ; sans cet ordre, impossible de les présenter dans l'ordre du contrat.
       jalonOrdre: c.jalon?.ordre ?? null,
       progress: c.progress,
-      validatedByName: [c.validatedBy.firstname, c.validatedBy.lastname].filter(Boolean).join(" ") || "Client",
+      validatedByName: personFullName(c.validatedBy) || "Client",
       createdAt: c.createdAt,
     })),
   });

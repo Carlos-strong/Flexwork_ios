@@ -30,23 +30,23 @@ export function FinancingModeNotice({
   const brief = providerBrief(mode, { quoteMode });
 
   return (
-    <div className={`rounded-xl border border-[#008751]/25 bg-[#008751]/[0.04] p-4 ${className}`}>
+    <div className={`rounded-xl border border-[#4C1D95]/25 bg-[#4C1D95]/[0.04] p-4 ${className}`}>
       <div className="flex flex-wrap items-center gap-2 mb-1.5">
-        <span className="text-[10px] uppercase tracking-wide font-semibold px-1.5 py-0.5 rounded bg-[#008751]/10 text-[#00623A]">
+        <span className="text-[10px] uppercase tracking-wide font-semibold px-1.5 py-0.5 rounded bg-[#4C1D95]/10 text-[#3B1578]">
           Mode de financement
         </span>
-        <strong className="text-[13px] text-[#0f172a]">{mode.label}</strong>
+        <strong className="text-[13px] text-[#191224]">{mode.label}</strong>
       </div>
-      <p className="text-[13px] text-[#334155] leading-relaxed">{brief.headline}</p>
+      <p className="text-[13px] text-[#3F3850] leading-relaxed">{brief.headline}</p>
       <ul className="mt-2 space-y-1">
         {brief.points.map((point) => (
-          <li key={point} className="text-[12px] text-[#475569] leading-relaxed flex gap-2">
-            <span aria-hidden className="text-[#008751] shrink-0">•</span>
+          <li key={point} className="text-[12px] text-[#4A4258] leading-relaxed flex gap-2">
+            <span aria-hidden className="text-[#4C1D95] shrink-0">•</span>
             <span>{point}</span>
           </li>
         ))}
       </ul>
-      <p className="text-[11px] text-[#64748B] mt-2">
+      <p className="text-[11px] text-[#6B6478] mt-2">
         {mode.family === "temps"
           ? "Fixé par la mission (tarif au temps) — il sera figé dans le contrat, sans modification possible ensuite."
           : "Proposé dans le devis, accepté par le client avec lui — il sera figé dans le contrat, sans modification possible ensuite."}

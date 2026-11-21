@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { resolveSiteManager } from "@/lib/site-manager";
 import { SignatureService } from "@/lib/signature";
 import { notifyMissionUser } from "@/lib/mission-notify";
+import { personFullName } from "@/lib/person-name";
 
 // Désignation du RESPONSABLE DE CHANTIER (2026-09-14, étendue le 2026-10-01).
 //
@@ -34,7 +35,7 @@ async function loadOwned(missionId: string, userId: string) {
 }
 
 function describe(user: { id: string; firstname: string | null; lastname: string | null; email: string | null } | null) {
-  return user && { id: user.id, name: [user.firstname, user.lastname].filter(Boolean).join(" ").trim() || user.email };
+  return user && { id: user.id, name: personFullName(user) || user.email };
 }
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {

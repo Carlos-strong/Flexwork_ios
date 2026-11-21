@@ -3,14 +3,16 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
-import { ChevronDown, ExternalLink, FileText, Check } from "lucide-react";
+import { AlertTriangle, ChevronDown, ExternalLink, FileText, Check } from "lucide-react";
 import { missionsHrefForRole, candidaturesHrefForRole, type Role } from "@/lib/role-dashboard";
 import { fetchDedupe } from "@/lib/fetch-dedupe";
+import { MISSION_PHASES, LITIGE_INDEX } from "@/lib/mission-phases";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Chronologie des pages — Publication → Clôture
 // Intégration de la maquette « Chronologie-Pages-Publication-Cloture-Vjr.html » dans
-// l'application : les 14 étapes de la maquette sont mappées sur les pages et
+// l'application : les 14 étapes de la maquette (16 depuis le 2026-11-11 : validation/paiement par
+// jalon et médiation ajoutées pour coller au code) sont mappées sur les pages et
 // fonctionnalités RÉELLEMENT implémentées (routes Next.js, composants, API).
 // La maquette a été retirée du dépôt le 16 septembre 2026, son contenu étant
 // désormais porté par cette page — c'est ici, et non dans un fichier HTML, que
@@ -20,33 +22,27 @@ import { fetchDedupe } from "@/lib/fetch-dedupe";
 // motif de route est affiché en code monospace sans lien.
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Pipeline global — 7 phases de la maquette VJR.
-const PHASES = [
-  "Candidature",
-  "Étude",
-  "Négociation 3/3",
-  "Contrat Draft",
-  "Signature QR",
-  "Escrow",
-  "Clôture",
-] as const;
+// Pipeline global — mêmes phases que le bandeau de suivi des missions (src/lib/mission-phases.ts).
+// Avant le 2026-11-11, cette page avait son propre découpage en 7 phases (sans exécution ni
+// litige), différent de celui du bandeau : un même parcours raconté de deux façons.
 
 // Badges de rôle — palette du design system Flexwork.
 const ROLE_BADGE: Record<string, string> = {
-  CLIENT: "bg-[#EFF6FF] text-[#1D4ED8] border border-[#BFDBFE]",
-  PUBLIC: "bg-[#F1F5F9] text-[#475569] border border-[#E2E8F0]",
-  TALENT: "bg-[#F0FDF4] text-[#15803D] border border-[#BBF7D0]",
-  BOTH: "bg-[#FEF3C7] text-[#B45309] border border-[#FDE68A]",
+  CLIENT: "bg-[#EAF1FF] text-[#1D4ED8] border border-[#BFDBFE]",
+  PUBLIC: "bg-[#EFEAF8] text-[#4A4258] border border-[#E7E2F0]",
+  TALENT: "bg-[#E7F7EF] text-[#047857] border border-[#BBF7D0]",
+  BOTH: "bg-[#FFF6E3] text-[#B45309] border border-[#FDE68A]",
   SYSTEM: "bg-[#F3E8FF] text-[#7C3AED] border border-[#E9D5FF]",
 };
 
 // Badges de statut — mêmes tons que MISSION_STATUS_STYLE (src/lib/mission-status.ts).
 const STATUS_TONE = {
-  green: "bg-[#E6F4EE] text-[#008751] border border-[#A7F3D0]",
-  gray: "bg-[#F1F5F9] text-[#64748B] border border-[#E2E8F0]",
-  blue: "bg-[#EFF6FF] text-[#1D4ED8] border border-[#BFDBFE]",
-  amber: "bg-[#FEF3C7] text-[#D97706] border border-[#FDE68A]",
-  dark: "bg-[#0f172a] text-white border border-[#0f172a]",
+  green: "bg-[#F0EAFF] text-[#4C1D95] border border-[#A7F3D0]",
+  gray: "bg-[#EFEAF8] text-[#6B6478] border border-[#E7E2F0]",
+  blue: "bg-[#EAF1FF] text-[#1D4ED8] border border-[#BFDBFE]",
+  amber: "bg-[#FFF6E3] text-[#D97706] border border-[#FDE68A]",
+  dark: "bg-[#191224] text-white border border-[#191224]",
+  red: "bg-[#FEECEB] text-[#B42318] border border-[#FECACA]",
 } as const;
 
 type RouteLink = {
@@ -59,7 +55,10 @@ type RouteLink = {
 
 type ChronoStep = {
   id: string;
+  /** Index dans MISSION_PHASES. */
   phase: number;
+  /** Étape hors du parcours nominal (médiation) : affichée comme une branche. */
+  branch?: boolean;
   role: string;
   date: string;
   title: string;
@@ -84,10 +83,10 @@ const STEPS: ChronoStep[] = [
     status: "Publié",
     statusTone: "green",
     description:
-      "Page Mission publiée — ouverte aux candidatures. Formulaire réel de création : titre, description, domaine (risque MEDIUM auto), budget, délai, mode (FIXED / TAUX / QUOTE), tags, date d'expiration. Publication soumise au KYC vérifié.",
+      "Page Mission publiée — ouverte aux candidatures. Formulaire réel de création : titre, description, domaine (risque MEDIUM auto), budget, délai, mode (FIXED / TAUX / QUOTE), tags, date d'expiration. Publication possible avec un KYC en attente (au plus 3 missions en ligne non vérifiées) ; le KYC vérifié n'est exigé qu'aux étapes sensibles (contractualiser, financer, signer).",
     links: [{ label: "/missions/new", href: "/missions/new", note: "Publier une mission" }],
     detail:
-      "src/app/missions/new/page.tsx → POST /api/missions. Le MÉTIER choisi dans la taxonomie détermine le palier de risque (Metier.riskLevel) et l'éventuelle assurance effective. Un brouillon est enregistrable sans KYC ; la publication (status = publiee) l'exige.",
+      "src/app/missions/new/page.tsx → POST /api/missions. Le MÉTIER choisi dans la taxonomie détermine le palier de risque (Metier.riskLevel) et l'éventuelle assurance effective. Publication : POST /api/missions/[id]/publish, droits calculés par clientPublicationRight (src/lib/kyc-policy.ts) — KYC rejeté = mission gardée en brouillon « publication demandée ».",
   },
   {
     id: "02",
@@ -145,7 +144,7 @@ const STEPS: ChronoStep[] = [
   },
   {
     id: "05",
-    phase: 1,
+    phase: 0,
     role: "CLIENT",
     date: "J-9 · 16:20",
     title: "Tableau Récap Candidatures",
@@ -160,7 +159,7 @@ const STEPS: ChronoStep[] = [
   },
   {
     id: "06",
-    phase: 1,
+    phase: 0,
     role: "CLIENT",
     date: "J-9 · 16:25",
     title: "Drawer Voir Offre Soumise",
@@ -175,7 +174,7 @@ const STEPS: ChronoStep[] = [
   },
   {
     id: "07",
-    phase: 1,
+    phase: 0,
     role: "TALENT",
     date: "J-9 · 17:00",
     title: "Récap Offre Envoyée",
@@ -190,7 +189,7 @@ const STEPS: ChronoStep[] = [
   },
   {
     id: "08",
-    phase: 2,
+    phase: 0,
     role: "BOTH",
     date: "J-8 → J-5",
     title: "Messagerie & Négociation Rounds",
@@ -208,7 +207,7 @@ const STEPS: ChronoStep[] = [
   },
   {
     id: "09",
-    phase: 2,
+    phase: 0,
     role: "CLIENT",
     date: "J-4 · 11:00",
     title: "Devis Validé",
@@ -223,7 +222,7 @@ const STEPS: ChronoStep[] = [
   },
   {
     id: "10",
-    phase: 3,
+    phase: 1,
     role: "SYSTEM",
     date: "J-4 · 11:05",
     title: "Contrat Draft",
@@ -241,7 +240,7 @@ const STEPS: ChronoStep[] = [
   },
   {
     id: "11",
-    phase: 4,
+    phase: 1,
     role: "BOTH",
     date: "J-4 · 14:30",
     title: "Signature QR Bilatérale",
@@ -249,32 +248,32 @@ const STEPS: ChronoStep[] = [
     status: "Signé x2",
     statusTone: "green",
     description:
-      "2 signatures électroniques (RSA-SHA256), hash SHA-256, QR de preuve généré, vérification publique. Ordre imposé serveur : le prestataire signe en premier, le client contre-signe (48 h max).",
+      "2 signatures électroniques (RSA-SHA256), hash SHA-256, QR de preuve généré, vérification publique. Ordre imposé serveur : le prestataire signe en premier, le client contre-signe (48 h max). KYC vérifié exigé pour signer.",
     links: [{ label: "/missions/[id]/contract", href: "/missions/[id]/contract", note: "SignContractModal + SignatureQRCode" }],
     detail:
-      "POST /api/signature/sign (ordre + expirations 48 h, src/lib/contract-expiry.ts) + /api/signature/verify. Composants SignContractModal (src/components/sign-contract-modal.tsx) et SignatureQRCode. À la contre-signature : déclenchement auto du séquestre.",
+      "POST /api/signature/sign (ordre + expirations 48 h, src/lib/contract-expiry.ts) + /api/signature/verify. Composants SignContractModal (src/components/sign-contract-modal.tsx) et SignatureQRCode. À la contre-signature, la mission passe « contrat_signe » et le serveur TENTE le séquestre automatique (voir étape 12) ; la notification envoyée aux deux parties dit ce qui s'est réellement passé.",
   },
   {
     id: "12",
-    phase: 5,
-    role: "SYSTEM",
+    phase: 2,
+    role: "CLIENT",
     date: "J-4 · 14:35",
     title: "Escrow / Paiement Sécurisé",
     src: ["escrow-paiement-vjr"],
     status: "487k bloqués",
     statusTone: "blue",
     description:
-      "Instruction HOLD au PSP agréé (FedaPay / Mobile Money) — la plateforme ne détient jamais les fonds. Montant = prix du contrat. Libération par jalons à la validation. Console sandbox en dev.",
+      "Instruction HOLD au PSP agréé (FedaPay / Mobile Money) — la plateforme ne détient jamais les fonds. Contrat SANS jalons : instruction créée automatiquement à la 2ᵉ signature, le client autorise ensuite le paiement chez le PSP. Contrat À jalons (mode recommandé) : rien n'est déclenché à la signature, le client finance chaque jalon depuis la page séquestre.",
     links: [
       { label: "/missions/[id]/escrow", href: "/missions/[id]/escrow", note: "Paiement sous séquestre" },
       { label: "/psp-sandbox", href: "/psp-sandbox", note: "Console sandbox (dev)" },
     ],
     detail:
-      "src/app/missions/[id]/escrow/page.tsx + src/lib/escrow.ts (requestContractHold, contractPrice = prix convenu) + PSP virtuel src/lib/psp-virtual.ts (webhook signé HMAC, US-503). HOLD auto à la 2ᵉ signature.",
+      "src/app/missions/[id]/escrow/page.tsx + src/lib/escrow.ts (requestContractHold, contractPrice = prix convenu ; renvoie use_jalon_hold sur un contrat à jalons) + POST /api/missions/[id]/jalons/[jalonId]/hold (HOLD au montant du jalon). Mêmes garde-fous : flag PSP par zone, assurance effective si risque élevé, responsable chantier désigné en vérification OPR. PSP virtuel : src/lib/psp-virtual.ts (webhook signé HMAC, US-503).",
   },
   {
     id: "13",
-    phase: 5,
+    phase: 3,
     role: "TALENT",
     date: "J-3 → J0",
     title: "Exécution Jalons",
@@ -282,32 +281,60 @@ const STEPS: ChronoStep[] = [
     status: "En cours",
     statusTone: "blue",
     description:
-      "Suivi des échéances (2026-09-05 / 12 / 19), statut de chaque jalon (En attente / Financé / Livrable soumis / Validé / Payé), pointage de présence GPS (opt-in), soumission de livrables jalon par jalon avec preuves typées.",
+      "Suivi des échéances (2026-09-05 / 12 / 19), statut de chaque jalon (En attente / Financé / Livrable soumis / Validé / Payé), pointage de présence GPS (opt-in), soumission de livrables jalon par jalon avec preuves typées. Début de la boucle répétée pour chaque jalon : financer → livrer → valider → payer.",
     links: [
       { label: "/missions/[id]", href: "/missions/[id]", note: "Suivi jalons" },
       { label: "/missions/[id]/checkin", href: "/missions/[id]/checkin", note: "Pointage GPS" },
       { label: "/missions/[id]/deliverable", href: "/missions/[id]/deliverable", note: "Soumettre le livrable" },
     ],
     detail:
-      "Jalons : GET /api/missions/[id]/jalons (progression déclarée/constatée — la libération exige 100% constaté par le client). Pointage : src/app/missions/[id]/checkin/page.tsx (opt-in, GPS, purge auto). Livrable : src/app/missions/[id]/deliverable/page.tsx (photo/vidéo/document/géoloc/autre).",
+      "Jalons : GET /api/missions/[id]/jalons (progression déclarée/constatée) + POST /api/missions/[id]/jalons/[jalonId]/submit. Pointage : src/app/missions/[id]/checkin/page.tsx (opt-in, GPS, purge auto). Livrable : src/app/missions/[id]/deliverable/page.tsx (photo/vidéo/document/géoloc/autre).",
   },
   {
     id: "14",
-    phase: 6,
+    phase: 3,
     role: "CLIENT",
+    date: "Par jalon",
+    title: "Validation & Paiement du jalon",
+    src: ["execution-jalons-vjr [validation]", "escrow-paiement-vjr [release]"],
+    status: "Validé → Payé",
+    statusTone: "green",
+    description:
+      "Le client vérifie le livrable du jalon (100 % constaté exigé) puis le valide ou le rejette. La validation déclenche une instruction RELEASE pour le montant de CE jalon, retenue de garantie déduite. Le versement reste retenu tant que le compte de versement du prestataire n'est pas vérifié. La boucle reprend à l'étape 13 pour le jalon suivant.",
+    links: [{ label: "/missions/[id]", href: "/missions/[id]", note: "Vue Validation client" }],
+    detail:
+      "POST /api/missions/[id]/jalons/[jalonId]/validate | reject (logique partagée avec le contrat sans jalon : src/lib/deliverable-actions.ts). Confirmation de libération par webhook PSP (src/lib/psp-webhook.ts). /missions/[id]/validation-client n'est plus qu'une redirection vers /missions/[id].",
+  },
+  {
+    id: "15",
+    phase: LITIGE_INDEX,
+    branch: true,
+    role: "BOTH",
+    date: "Si désaccord",
+    title: "Médiation (facultative)",
+    src: ["— aucune maquette VJR (écran du prototype Marketplace+Escrow)"],
+    status: "Fonds gelés",
+    statusTone: "red",
+    description:
+      "Branche hors parcours nominal, ouvrable par le client ou le prestataire tant que les fonds sont engagés et la mission non terminée (séquestre, en cours, livrable soumis, validée). Elle gèle les fonds chez le PSP et suspend la mission. L'Admin Médiation propose une résolution chiffrée ; elle ne s'applique que si les deux parties l'acceptent. La plateforme ne tranche jamais.",
+    links: [{ label: "/missions/[id]/mediation", href: "/missions/[id]/mediation", note: "Ouvrir / suivre la médiation" }],
+    detail:
+      "POST /api/missions/[id]/mediation (statut → mediation_ouverte, gel transmis au PSP via outbox ; statuts recevables : src/lib/mediation-rules.ts, partagés avec le bandeau de suivi). Proposition : POST /api/admin/mediations/[id]/propose (resolutionAmount borné par ce qui reste séquestré). Réponse des parties : POST /api/admin/mediations/[id]/respond. Les avis sont suspendus tant que la médiation est ouverte.",
+  },
+  {
+    id: "16",
+    phase: 4,
+    role: "BOTH",
     date: "J0 · 18:00",
-    title: "Clôture / Livraison / Avis",
+    title: "Clôture / Avis",
     src: ["cloture-livraison-avis-vjr"],
     status: "Clôturé 4.9★",
     statusTone: "dark",
     description:
-      "Validation du livrable → RELEASE escrow → mission « cloturee » (tous jalons libérés). Notation croisée client/prestataire (1 à 5), note moyenne dans le bloc Activité, satisfaction garantie.",
-    links: [
-      { label: "/missions/[id]", href: "/missions/[id]", note: "Valider le livrable" },
-      { label: "/missions/[id]/reviews", href: "/missions/[id]/reviews", note: "Avis sur la mission" },
-    ],
+      "Mission « cloturee » une fois TOUS les jalons libérés. Notation croisée client/prestataire (1 à 5, sous-notes), note moyenne dans le bloc Activité du profil public.",
+    links: [{ label: "/missions/[id]/reviews", href: "/missions/[id]/reviews", note: "Avis sur la mission" }],
     detail:
-      "Validation + release : POST /api/missions/[id]/deliverable/validate + escrow/release → src/lib/psp-webhook.ts (mission cloturee une fois TOUS les jalons libere). Avis : src/app/missions/[id]/reviews/page.tsx + POST /api/missions/[id]/reviews (suspendu si médiation ouverte).",
+      "Clôture : src/lib/psp-webhook.ts (mission cloturee après la dernière libération). Avis : src/app/missions/[id]/reviews/page.tsx + POST /api/missions/[id]/reviews (statuts recevables : src/lib/review-rules.ts). Bouton « Donner un avis » dans le bandeau de suivi dès la validation.",
   },
 ];
 
@@ -356,12 +383,12 @@ export default function ChronologiePage() {
     href === "ROLE_MISSIONS" || href === "ROLE_CANDIDATURES" || !href.includes("[id]") || !!missionId;
 
   return (
-    <div className="min-h-screen bg-[#F8FAF9] text-[#0f172a]">
+    <div className="min-h-screen bg-[#F6F5FA] text-[#191224]">
       <div className="fluid-doc [--fw:960px] mx-auto px-4 lg:px-0 py-8 space-y-6">
         {/* Bandeau */}
-        <div className="rounded-xl overflow-hidden border border-[#E2E8F0]">
+        <div className="rounded-xl overflow-hidden border border-[#E7E2F0]">
           <div className="h-1 w-full bg-gradient-to-r from-[#008751] via-[#FCD116] to-[#E8112D]" />
-          <div className="bg-[#0A1931] text-white px-5 py-4 flex items-center justify-between gap-3 flex-wrap">
+          <div className="bg-[#191224] text-white px-5 py-4 flex items-center justify-between gap-3 flex-wrap">
             <div>
               <p className="text-[11px] font-bold tracking-[0.2em] text-[#FCD116]">FLEXWORK</p>
               <p className="text-[13px] text-white/80">Bénin 🇧🇯 · Publication → Clôture</p>
@@ -375,29 +402,39 @@ export default function ChronologiePage() {
         {/* En-tête */}
         <div>
           <h1 className="text-[24px] lg:text-[28px] font-extrabold tracking-tight">Chronologie des Pages Publication → Clôture</h1>
-          <p className="text-[14px] text-[#64748B] mt-2 max-w-[720px] leading-relaxed">
+          <p className="text-[14px] text-[#6B6478] mt-2 max-w-[720px] leading-relaxed">
             Vue complète Flexwork de la publication de la mission à la clôture.{" "}
             {STEPS.length} étapes ordonnées avec rôles, fichiers sources VJR, et pages réelles
             implémentées. Chaque carte s&apos;ouvre pour détailler la fonctionnalité et les routes associées.
           </p>
         </div>
 
-        {/* Pipeline global — 7 phases */}
-        <div className="bg-white border border-[#E2E8F0] rounded-xl p-4">
-          <p className="text-[11px] font-bold tracking-widest text-[#94A3B8] uppercase mb-3">Pipeline final</p>
+        {/* Pipeline global — phases partagées avec le bandeau de suivi */}
+        <div className="bg-white border border-[#E7E2F0] rounded-xl p-4">
+          <p className="text-[11px] font-bold tracking-widest text-[#9A93A8] uppercase mb-3">Pipeline final</p>
           <div className="flex flex-wrap items-center gap-2">
-            {PHASES.map((p) => (
-              <span key={p} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#F0FDF4] text-[#008751] border border-[#A7F3D0] text-[12px] font-semibold">
-                <Check size={13} strokeWidth={3} /> {p}
-              </span>
-            ))}
+            {MISSION_PHASES.map((p, i) =>
+              i === LITIGE_INDEX ? (
+                <span key={p} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-dashed text-[12px] font-semibold bg-[#FEECEB] text-[#B42318] border-[#FECACA]">
+                  <AlertTriangle size={13} strokeWidth={2.5} /> {p} <span className="font-normal">· branche facultative</span>
+                </span>
+              ) : (
+                <span key={p} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#E7F7EF] text-[#4C1D95] border border-[#A7F3D0] text-[12px] font-semibold">
+                  <Check size={13} strokeWidth={3} /> {p}
+                </span>
+              ),
+            )}
           </div>
+          <p className="text-[11.5px] text-[#6B6478] mt-3 leading-relaxed">
+            Mêmes phases que le bandeau de suivi d&apos;une mission. En « Pilotage Jalons », les étapes 13 et 14 se répètent
+            pour chaque jalon. Le litige suspend le parcours : il n&apos;en est pas la suite.
+          </p>
         </div>
 
         {/* Timeline verticale */}
         <div className="relative pl-6 lg:pl-8">
           {/* Ligne centrale */}
-          <div className="absolute left-[7px] lg:left-[9px] top-2 bottom-2 w-[2px] bg-[#008751]/30" style={{ backgroundImage: "repeating-linear-gradient(#008751 0 6px, transparent 6px 12px)" }} />
+          <div className="absolute left-[7px] lg:left-[9px] top-2 bottom-2 w-[2px] bg-[#4C1D95]/30" style={{ backgroundImage: "repeating-linear-gradient(#4C1D95 0 6px, transparent 6px 12px)" }} />
 
           <div className="space-y-4">
             {STEPS.map((step) => {
@@ -405,8 +442,8 @@ export default function ChronologiePage() {
               return (
                 <div key={step.id} className="relative">
                   {/* Pastille */}
-                  <span className={`absolute -left-6 lg:-left-8 top-6 w-4 h-4 rounded-full border-2 border-white shadow ${open ? "bg-[#008751]" : "bg-white"}`} style={{ boxShadow: open ? "0 0 0 3px rgba(0,135,81,0.18)" : undefined }} />
-                  <div className={`bg-white border rounded-xl transition-shadow ${open ? "border-[#008751] shadow-md" : "border-[#E2E8F0] hover:border-[#008751]/40"}`}>
+                  <span className={`absolute -left-6 lg:-left-8 top-6 w-4 h-4 rounded-full border-2 border-white shadow ${step.branch ? "bg-[#B42318]" : open ? "bg-[#4C1D95]" : "bg-white"}`} style={{ boxShadow: open ? "0 0 0 3px rgba(76,29,149,0.18)" : undefined }} />
+                  <div className={`bg-white border rounded-xl transition-shadow ${step.branch ? "border-dashed lg:ml-6" : ""} ${open ? (step.branch ? "border-[#B42318] shadow-md" : "border-[#4C1D95] shadow-md") : step.branch ? "border-[#FECACA] hover:border-[#B42318]/50" : "border-[#E7E2F0] hover:border-[#4C1D95]/40"}`}>
                     <button onClick={() => expand(step.id)} className="w-full text-left p-4 lg:p-5" aria-expanded={open}>
                       <div className="flex flex-col lg:flex-row lg:items-start gap-3 lg:gap-4">
                         {/* Rôle + date */}
@@ -414,25 +451,25 @@ export default function ChronologiePage() {
                           <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold tracking-wider ${ROLE_BADGE[step.role] ?? ROLE_BADGE.PUBLIC}`}>
                             [{step.role}]
                           </span>
-                          <span className="text-[11px] font-medium text-[#64748B] tabular-nums">{step.date}</span>
+                          <span className="text-[11px] font-medium text-[#6B6478] tabular-nums">{step.date}</span>
                         </div>
 
                         {/* Contenu principal */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex items-start gap-2.5 min-w-0">
-                              <span className="text-[11px] font-extrabold text-[#008751] pt-0.5 tabular-nums">#{step.id}</span>
+                              <span className="text-[11px] font-extrabold text-[#4C1D95] pt-0.5 tabular-nums">#{step.id}</span>
                               <div className="min-w-0">
                                 <h3 className="text-[14px] font-bold leading-snug">{step.title}</h3>
-                                <p className="text-[11px] text-[#94A3B8] mt-0.5 font-mono truncate">{step.src.join(" + ")}</p>
+                                <p className="text-[11px] text-[#9A93A8] mt-0.5 font-mono truncate">{step.src.join(" + ")}</p>
                               </div>
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
                               <span className={`hidden sm:inline-flex px-2.5 py-1 rounded-full text-[11px] font-semibold border ${STATUS_TONE[step.statusTone]}`}>{step.status}</span>
-                              <ChevronDown size={16} className={`text-[#94A3B8] transition-transform ${open ? "rotate-180" : ""}`} />
+                              <ChevronDown size={16} className={`text-[#9A93A8] transition-transform ${open ? "rotate-180" : ""}`} />
                             </div>
                           </div>
-                          <p className="text-[13px] text-[#334155] mt-2 leading-relaxed">{step.description}</p>
+                          <p className="text-[13px] text-[#3F3850] mt-2 leading-relaxed">{step.description}</p>
 
                           {/* Lien de rôle sur mobile */}
                           <span className={`sm:hidden mt-2 inline-flex px-2.5 py-1 rounded-full text-[11px] font-semibold border ${STATUS_TONE[step.statusTone]}`}>{step.status}</span>
@@ -442,17 +479,17 @@ export default function ChronologiePage() {
 
                     {/* Détail déplié */}
                     {open && (
-                      <div className="border-t border-[#E2E8F0] px-4 lg:px-5 py-4 space-y-4 bg-[#F8FAF9] rounded-b-xl">
+                      <div className="border-t border-[#E7E2F0] px-4 lg:px-5 py-4 space-y-4 bg-[#F6F5FA] rounded-b-xl">
                         {/* Routes réelles */}
                         <div>
-                          <p className="text-[11px] font-bold tracking-widest text-[#94A3B8] uppercase mb-2">Pages &amp; fonctionnalités implémentées</p>
+                          <p className="text-[11px] font-bold tracking-widest text-[#9A93A8] uppercase mb-2">Pages &amp; fonctionnalités implémentées</p>
                           <div className="flex flex-wrap gap-2">
                             {step.links.map((l) => {
                               const href = resolveHref(l.href);
                               const resolvable = isResolvable(l.href);
                               if (!resolvable || !href) {
                                 return (
-                                  <span key={l.href} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-[#E2E8F0] text-[12px] font-mono text-[#94A3B8]">
+                                  <span key={l.href} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-[#E7E2F0] text-[12px] font-mono text-[#9A93A8]">
                                     {l.label} <span className="text-[10px] font-sans">(connectez-vous)</span>
                                   </span>
                                 );
@@ -461,11 +498,11 @@ export default function ChronologiePage() {
                                 <Link
                                   key={l.href}
                                   href={href}
-                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-[#008751]/30 hover:border-[#008751] text-[12px] font-mono font-medium text-[#008751] transition-colors"
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-[#4C1D95]/30 hover:border-[#4C1D95] text-[12px] font-mono font-medium text-[#4C1D95] transition-colors"
                                   style={{ textDecoration: "none" }}
                                 >
                                   {l.label} <ExternalLink size={12} />
-                                  {l.note && <span className="font-sans text-[10px] text-[#64748B]">· {l.note}</span>}
+                                  {l.note && <span className="font-sans text-[10px] text-[#6B6478]">· {l.note}</span>}
                                 </Link>
                               );
                             })}
@@ -473,19 +510,19 @@ export default function ChronologiePage() {
                         </div>
 
                         {/* Détail technique */}
-                        <p className="text-[12.5px] text-[#475569] leading-relaxed">{step.detail}</p>
+                        <p className="text-[12.5px] text-[#4A4258] leading-relaxed">{step.detail}</p>
 
                         {/* Aperçu tableau jalons — étape 04 */}
                         {step.id === "04" && (
-                          <div className="rounded-lg border border-[#E2E8F0] overflow-hidden">
-                            <div className="bg-[#0A1931] text-white px-3 py-2 text-[11px] font-semibold flex items-center justify-between">
+                          <div className="rounded-lg border border-[#E7E2F0] overflow-hidden">
+                            <div className="bg-[#191224] text-white px-3 py-2 text-[11px] font-semibold flex items-center justify-between">
                               <span>Aperçu tableau jalons — modèle officiel (Total HT)</span>
                               <span className="text-[10px] font-mono text-white/60">NON CONTRACTUEL · BROUILLON</span>
                             </div>
                             <div className="overflow-x-auto">
                               <table className="w-full text-[12px] bg-white">
                                 <thead>
-                                  <tr className="bg-[#F1F5F9] text-[#475569] text-left text-[10px] uppercase tracking-wide">
+                                  <tr className="bg-[#EFEAF8] text-[#4A4258] text-left text-[10px] uppercase tracking-wide">
                                     <th className="px-3 py-2 font-bold">#</th>
                                     <th className="px-3 py-2 font-bold">Description</th>
                                     <th className="px-3 py-2 font-bold text-right">Qté</th>
@@ -494,10 +531,10 @@ export default function ChronologiePage() {
                                     <th className="px-3 py-2 font-bold">Échéance</th>
                                   </tr>
                                 </thead>
-                                <tbody className="divide-y divide-[#E2E8F0]">
+                                <tbody className="divide-y divide-[#E7E2F0]">
                                   {SAMPLE_JALONS.map((j) => (
                                     <tr key={j.n}>
-                                      <td className="px-3 py-2 text-[#64748B]">{j.n}</td>
+                                      <td className="px-3 py-2 text-[#6B6478]">{j.n}</td>
                                       <td className="px-3 py-2">{j.desc}</td>
                                       <td className="px-3 py-2 text-right tabular-nums">{j.qte}</td>
                                       <td className="px-3 py-2 text-right tabular-nums">{j.pu}</td>
@@ -507,15 +544,15 @@ export default function ChronologiePage() {
                                   ))}
                                 </tbody>
                                 <tfoot>
-                                  <tr className="border-t border-[#E2E8F0] bg-[#F8FAF9]">
+                                  <tr className="border-t border-[#E7E2F0] bg-[#F6F5FA]">
                                     <td colSpan={4} className="px-3 py-2 text-[11px] font-bold">Total HT</td>
-                                    <td className="px-3 py-2 text-right tabular-nums font-bold text-[#008751]">487 000 XOF</td>
+                                    <td className="px-3 py-2 text-right tabular-nums font-bold text-[#047857]">487 000 XOF</td>
                                     <td className="px-3 py-2" />
                                   </tr>
                                 </tfoot>
                               </table>
                             </div>
-                            <div className="px-3 py-2 bg-[#F0FDF4] text-[11px] text-[#008751] font-semibold border-t border-[#A7F3D0]">
+                            <div className="px-3 py-2 bg-[#E7F7EF] text-[11px] text-[#047857] font-semibold border-t border-[#A7F3D0]">
                               TTC 487 000 XOF · TVA 18% incluse · Délai 4j — généré par <span className="font-mono">src/lib/devis.ts</span> / <span className="font-mono">DevisPanel</span>
                             </div>
                           </div>
@@ -530,8 +567,8 @@ export default function ChronologiePage() {
         </div>
 
         {/* Note de bas de page */}
-        <div className="bg-white border border-[#E2E8F0] rounded-xl p-4 text-[12px] text-[#64748B] leading-relaxed">
-          <p className="text-[11px] font-bold tracking-widest text-[#94A3B8] uppercase mb-1">Fichiers sources de la maquette VJR</p>
+        <div className="bg-white border border-[#E7E2F0] rounded-xl p-4 text-[12px] text-[#6B6478] leading-relaxed">
+          <p className="text-[11px] font-bold tracking-widest text-[#9A93A8] uppercase mb-1">Fichiers sources de la maquette VJR</p>
           <p className="font-mono text-[11px] break-words">
             formulaire-publication-missions-vjr · offre-candidature-vjr-mobile-apercu.html · offre-soumise-vue-voir-devis.html ·
             recap-offre-candidature-envoyee-vjr · profil-talent-extrait-vjr · FlexWork_recapoffre · messagerie-vjr-rounds-0-3 ·

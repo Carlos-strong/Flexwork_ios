@@ -24,7 +24,7 @@ type MyGig = Omit<GigView, "createdAt" | "updatedAt"> & { createdAt: string; upd
 type Filter = "tous" | "publie" | "brouillon" | "cloture";
 
 const STATUS: Record<string, { label: string; className: string; dot: string }> = {
-  publie: { label: "En ligne", className: "bg-emerald-50 text-[#008751]", dot: "bg-[#008751]" },
+  publie: { label: "En ligne", className: "bg-emerald-50 text-[#4C1D95]", dot: "bg-[#4C1D95]" },
   brouillon: { label: "Brouillon", className: "bg-zinc-100 text-zinc-700", dot: "bg-zinc-400" },
   cloture: { label: "Clôturé", className: "bg-zinc-800 text-white", dot: "bg-white" },
 };
@@ -184,10 +184,10 @@ export function GigManager({
     return (
       <div ref={rootRef} className="scroll-mt-6 space-y-3">
         <div className="flex items-center justify-between gap-3">
-          <p className="text-[15px] font-semibold text-[#0A1931]">
+          <p className="text-[15px] font-semibold text-[#191224]">
             {editing === "new" ? "Nouveau service" : `Modifier : ${editing.titre}`}
           </p>
-          <button type="button" onClick={() => setEditing(null)} className="text-[13px] font-medium text-zinc-500 hover:text-[#0A1931]">
+          <button type="button" onClick={() => setEditing(null)} className="text-[13px] font-medium text-zinc-500 hover:text-[#191224]">
             ← Retour à la liste
           </button>
         </div>
@@ -229,7 +229,7 @@ export function GigManager({
               aria-pressed={filter === f.key}
               disabled={f.key !== "tous" && counts[f.key] === 0}
               className={`h-8 rounded-full px-3 text-[12.5px] font-medium transition disabled:opacity-40 ${
-                filter === f.key ? "bg-[#0A1931] text-white" : "border border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50"
+                filter === f.key ? "bg-[#191224] text-white" : "border border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50"
               }`}
             >
               {f.label} <span className="tabular-nums opacity-70">{counts[f.key]}</span>
@@ -239,7 +239,7 @@ export function GigManager({
         <button
           type="button"
           onClick={() => openEditor("new")}
-          className="h-10 px-5 rounded-full bg-[#FF6B35] text-white text-[13px] font-semibold hover:bg-[#E85A24] transition"
+          className="h-10 px-5 rounded-full bg-[#6D28D9] text-white text-[13px] font-semibold hover:bg-[#5B21B6] transition"
         >
           + Nouveau service
         </button>
@@ -259,14 +259,14 @@ export function GigManager({
         </ul>
       ) : gigs.length === 0 ? (
         <div className="rounded-xl border border-dashed border-zinc-300 p-8 text-center">
-          <p className="text-[15px] font-semibold text-[#0A1931]">Proposez votre premier service</p>
+          <p className="text-[15px] font-semibold text-[#191224]">Proposez votre premier service</p>
           <p className="mx-auto mt-1 max-w-[52ch] text-[13px] text-zinc-500">
             Une offre à prix fixe en trois formules, qu&apos;un client commande en quelques clics — paiement sous séquestre.
           </p>
           <button
             type="button"
             onClick={() => openEditor("new")}
-            className="mt-4 h-10 px-5 rounded-full bg-[#FF6B35] text-white text-[13px] font-semibold hover:bg-[#E85A24]"
+            className="mt-4 h-10 px-5 rounded-full bg-[#6D28D9] text-white text-[13px] font-semibold hover:bg-[#5B21B6]"
           >
             + Créer un service
           </button>
@@ -286,7 +286,7 @@ export function GigManager({
                     type="button"
                     onClick={() => openEditor(g)}
                     aria-label={`Modifier ${g.titre}`}
-                    className="relative h-[48px] w-[72px] sm:h-[72px] sm:w-[116px] shrink-0 overflow-hidden rounded-lg bg-gradient-to-br from-[#0A1931] to-[#1B9C6A]"
+                    className="relative h-[48px] w-[72px] sm:h-[72px] sm:w-[116px] shrink-0 overflow-hidden rounded-lg bg-gradient-to-br from-[#191224] to-[#4C1D95]"
                   >
                     {g.coverUrl ? (
                       <>
@@ -313,14 +313,14 @@ export function GigManager({
                   <div className="min-w-0 flex-1">
                     {/* Mobile : statut sous le titre, pour laisser au titre toute la largeur. */}
                     <div className="flex flex-col-reverse items-start gap-1 sm:flex-row sm:justify-between sm:gap-2">
-                      <p className="line-clamp-2 text-[14px] font-semibold leading-snug text-[#0A1931]">{g.titre}</p>
+                      <p className="line-clamp-2 text-[14px] font-semibold leading-snug text-[#191224]">{g.titre}</p>
                       <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold ${st.className}`}>
                         <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${st.dot}`} />
                         {st.label}
                       </span>
                     </div>
                     <p className="mt-1 text-[12.5px] text-zinc-500">
-                      dès <span className="font-semibold text-[#0A1931]">{g.prixDepart.toLocaleString("fr-FR")} {g.currency}</span>
+                      dès <span className="font-semibold text-[#191224]">{g.prixDepart.toLocaleString("fr-FR")} {g.currency}</span>
                       {" · "}
                       {g.packages.length ? `${g.packages.length} formules` : "prix unique"}
                       {" · "}
@@ -365,7 +365,7 @@ export function GigManager({
                     <button
                       type="button"
                       onClick={() => openEditor(g)}
-                      className="h-8 px-3 rounded-full border border-zinc-200 bg-white text-[12px] font-semibold text-[#0A1931] hover:bg-zinc-50"
+                      className="h-8 px-3 rounded-full border border-zinc-200 bg-white text-[12px] font-semibold text-[#191224] hover:bg-zinc-50"
                     >
                       Modifier
                     </button>
@@ -383,7 +383,7 @@ export function GigManager({
                         type="button"
                         disabled={busy}
                         onClick={() => (missing.length ? openEditor(g) : void setStatus(g, "publie"))}
-                        className="h-8 px-3 rounded-full bg-[#008751] text-[12px] font-semibold text-white hover:bg-[#006e43] disabled:opacity-50"
+                        className="h-8 px-3 rounded-full bg-[#4C1D95] text-[12px] font-semibold text-white hover:bg-[#3B1578] disabled:opacity-50"
                       >
                         {missing.length ? "Compléter pour publier" : g.status === "cloture" ? "Remettre en ligne" : "Publier"}
                       </button>

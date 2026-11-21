@@ -22,9 +22,3 @@ export const CURRENCIES: CurrencyOption[] = [
 export const CURRENCY_VALUES = ["XOF", "NGN", "EUR", "USD"] as const;
 
 export const DEFAULT_CURRENCY = "XOF";
-
-/** Libellé lisible d'une devise — replie sur le code lui-même si elle sort du catalogue. */
-export function currencyLabel(value?: string | null): string {
-  if (!value) return "F CFA (XOF)";
-  return CURRENCIES.find((c) => c.value === value)?.label ?? value;
-}

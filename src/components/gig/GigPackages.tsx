@@ -25,7 +25,7 @@ const SHOW_PANEL: Record<GigTier, string> = {
 };
 
 const ORDER_CLASS =
-  "mt-5 flex h-11 w-full items-center justify-center rounded-xl bg-[#FF6B35] text-[14px] font-semibold text-white hover:bg-[#E85A24] disabled:opacity-50 transition";
+  "mt-5 flex h-11 w-full items-center justify-center rounded-xl bg-[#6D28D9] text-[14px] font-semibold text-white hover:bg-[#5B21B6] disabled:opacity-50 transition";
 
 export function GigPackages({
   packages,
@@ -73,7 +73,7 @@ export function GigPackages({
     if (!fallback) return null;
     return (
       <div className="rounded-2xl border border-zinc-200 bg-white p-5">
-        <p className="text-[24px] font-bold text-[#0A1931]">
+        <p className="text-[24px] font-bold text-[#191224]">
           {fmt(fallback.prix)} <span className="text-[14px] font-semibold text-zinc-500">{currency}</span>
         </p>
         <p className="mt-1 text-[13px] text-zinc-600">Livraison sous {fallback.delaiJours} jour{fallback.delaiJours > 1 ? "s" : ""}</p>
@@ -100,7 +100,7 @@ export function GigPackages({
             />
             <label
               htmlFor={`${name}-${p.tier}`}
-              className="pointer-events-none flex h-11 items-center justify-center text-[13px] font-semibold text-zinc-500 transition peer-hover:bg-zinc-50 peer-hover:text-[#0A1931] peer-checked:border-b-2 peer-checked:border-[#0A1931] peer-checked:text-[#0A1931] peer-focus-visible:ring-2 peer-focus-visible:ring-inset peer-focus-visible:ring-[#008751]/40"
+              className="pointer-events-none flex h-11 items-center justify-center text-[13px] font-semibold text-zinc-500 transition peer-hover:bg-zinc-50 peer-hover:text-[#191224] peer-checked:border-b-2 peer-checked:border-[#191224] peer-checked:text-[#191224] peer-focus-visible:ring-2 peer-focus-visible:ring-inset peer-focus-visible:ring-[#4C1D95]/40"
             >
               {GIG_TIER_LABELS[p.tier]}
             </label>
@@ -110,13 +110,13 @@ export function GigPackages({
       {packages.map((p) => (
         <div key={p.tier} data-panel={p.tier} className="hidden p-5">
           <div className="flex items-baseline justify-between gap-3">
-            <p className="text-[15px] font-bold text-[#0A1931]">{p.titre}</p>
-            <p className="text-[22px] font-bold text-[#0A1931] whitespace-nowrap">
+            <p className="text-[15px] font-bold text-[#191224]">{p.titre}</p>
+            <p className="text-[22px] font-bold text-[#191224] whitespace-nowrap">
               {fmt(p.prix)} <span className="text-[13px] font-semibold text-zinc-500">{currency}</span>
             </p>
           </div>
           <p className="mt-2 text-[14px] leading-relaxed text-zinc-600 whitespace-pre-line">{p.description}</p>
-          <ul className="mt-4 space-y-1.5 text-[13px] font-medium text-[#0A1931]">
+          <ul className="mt-4 space-y-1.5 text-[13px] font-medium text-[#191224]">
             <li>⏱ Livraison sous {p.delaiJours} jour{p.delaiJours > 1 ? "s" : ""}</li>
             <li>↻ {p.revisions === 0 ? "Aucune révision" : `${p.revisions} révision${p.revisions > 1 ? "s" : ""}`}</li>
           </ul>

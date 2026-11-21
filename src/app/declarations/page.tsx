@@ -289,8 +289,8 @@ export default function DeclarationsPage() {
     );
   }
 
-  const inputClass = "w-full h-10 px-3 rounded-xl border border-zinc-200 text-[14px] focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751] transition";
-  const btnPrimary = "h-10 px-5 rounded-full bg-[#008751] text-white text-[13px] font-semibold hover:bg-[#006e43] disabled:opacity-50 transition";
+  const inputClass = "w-full h-10 px-3 rounded-xl border border-zinc-200 text-[14px] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20 focus:border-[#4C1D95] transition";
+  const btnPrimary = "h-10 px-5 rounded-full bg-[#4C1D95] text-white text-[13px] font-semibold hover:bg-[#3B1578] disabled:opacity-50 transition";
 
   return (
     <div className="min-h-screen bg-zinc-50 py-10 px-4">
@@ -299,7 +299,7 @@ export default function DeclarationsPage() {
         <header className="space-y-4">
           <BackLink href={back.href} label={back.label} />
           <div>
-            <h1 className="text-[24px] font-bold tracking-tight text-[#0A1931]">Mes déclarations professionnelles</h1>
+            <h1 className="text-[24px] font-bold tracking-tight text-[#191224]">Mes déclarations professionnelles</h1>
             <p className="mt-1 text-[14px] text-zinc-500">
               Diplômes, assurance, niveau et expériences : les éléments que vous déclarez pour votre profil et votre badge.
             </p>
@@ -333,7 +333,7 @@ export default function DeclarationsPage() {
           <button
             type="button"
             onClick={() => setOpenSections(allOpen ? new Set() : new Set(SECTION_IDS))}
-            className="text-[13px] font-medium text-[#008751] hover:underline"
+            className="text-[13px] font-medium text-[#4C1D95] hover:underline"
           >
             {allOpen ? "Tout replier" : "Tout déplier"}
           </button>
@@ -347,26 +347,26 @@ export default function DeclarationsPage() {
           open={openSections.has("qualifications")}
           onToggle={toggleSection}
         >
-          {qualifMsg && <div className="mx-6 mt-4 px-4 py-3 rounded-xl bg-[#f0fdf4] border border-[#bbf7d0] text-[13px] text-[#166534] font-medium">{qualifMsg}</div>}
+          {qualifMsg && <div className="mx-6 mt-4 px-4 py-3 rounded-xl bg-[#E7F7EF] border border-[#bbf7d0] text-[13px] text-[#047857] font-medium">{qualifMsg}</div>}
           <form onSubmit={submitQualifications} className="px-6 py-5 space-y-4">
             {diplomes.map((d) => (
               <div key={d.id} className="border border-zinc-200 rounded-xl p-4 bg-zinc-50/50">
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Type de diplôme / certificat <span className="text-[#E8112D]">*</span></label>
+                    <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Type de diplôme / certificat <span className="text-[#B42318]">*</span></label>
                     <select value={d.qualificationName} onChange={(e) => updateDiplome(d.id, "qualificationName", e.target.value)} required className={inputClass}>
                       <option value="">Sélectionner</option>
                       {DIPLOME_TYPES.map((dt) => <option key={dt.value} value={dt.value}>{dt.label}</option>)}
                     </select>
                   </div>
                   <div>
-                    <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Année d&apos;obtention <span className="text-[#E8112D]">*</span></label>
+                    <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Année d&apos;obtention <span className="text-[#B42318]">*</span></label>
                     <input type="number" placeholder="2018" min={1950} max={2026} value={d.year} onChange={(e) => updateDiplome(d.id, "year", e.target.value)} required className={inputClass} />
                   </div>
                 </div>
                 <div className="grid sm:grid-cols-2 gap-4 mt-4">
                   <div>
-                    <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Lieu d&apos;obtention <span className="text-[#E8112D]">*</span></label>
+                    <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Lieu d&apos;obtention <span className="text-[#B42318]">*</span></label>
                     <input type="text" placeholder="Établissement, ville" value={d.location} onChange={(e) => updateDiplome(d.id, "location", e.target.value)} required className={inputClass} />
                   </div>
                   <div>
@@ -379,7 +379,7 @@ export default function DeclarationsPage() {
                   <input type="text" placeholder="Spécialité / filière" value={d.specialty} onChange={(e) => updateDiplome(d.id, "specialty", e.target.value)} className={inputClass} />
                 </div>
                 <div className="mt-4">
-                  <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Délivré par l&apos;État ? <span className="text-[#E8112D]">*</span></label>
+                  <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Délivré par l&apos;État ? <span className="text-[#B42318]">*</span></label>
                   <div className="flex gap-6">
                     <label className="flex items-center gap-2 text-[13px] cursor-pointer">
                       <input type="radio" name={`isStateIssued_${d.id}`} checked={d.isStateIssued === true} onChange={() => updateDiplome(d.id, "isStateIssued", true)} /> Oui — pivot du badge
@@ -393,7 +393,7 @@ export default function DeclarationsPage() {
               </div>
             ))}
             <button type="button" onClick={addDiplome}
-              className="inline-flex items-center gap-2 px-4 py-2 border border-dashed border-zinc-300 rounded-xl text-[13px] font-medium text-zinc-500 hover:border-[#008751] hover:text-[#008751] transition">
+              className="inline-flex items-center gap-2 px-4 py-2 border border-dashed border-zinc-300 rounded-xl text-[13px] font-medium text-zinc-500 hover:border-[#4C1D95] hover:text-[#4C1D95] transition">
               + Ajouter un diplôme / certificat
             </button>
             <button type="submit" className={btnPrimary}>Soumettre les qualifications</button>
@@ -408,7 +408,7 @@ export default function DeclarationsPage() {
           open={openSections.has("assurance")}
           onToggle={toggleSection}
         >
-          {insuranceMsg && <div className="mx-6 mt-4 px-4 py-3 rounded-xl bg-[#f0fdf4] border border-[#bbf7d0] text-[13px] text-[#166534] font-medium">{insuranceMsg}</div>}
+          {insuranceMsg && <div className="mx-6 mt-4 px-4 py-3 rounded-xl bg-[#E7F7EF] border border-[#bbf7d0] text-[13px] text-[#047857] font-medium">{insuranceMsg}</div>}
           <form onSubmit={submitInsurance} className="px-6 py-5 space-y-4">
             <div>
               <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Assureur</label>
@@ -429,7 +429,7 @@ export default function DeclarationsPage() {
             <div>
               <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Document (police d&apos;assurance)</label>
               <div className="relative">
-                <div className="p-4 border border-dashed border-zinc-300 rounded-xl text-center text-[13px] text-zinc-400 cursor-pointer hover:border-[#008751] hover:text-[#008751] transition">
+                <div className="p-4 border border-dashed border-zinc-300 rounded-xl text-center text-[13px] text-zinc-400 cursor-pointer hover:border-[#4C1D95] hover:text-[#4C1D95] transition">
                   + Téléverser le justificatif (PDF, JPG, PNG)
                 </div>
                 <input type="file" name="file" accept=".pdf,.jpg,.png" className="absolute inset-0 opacity-0 cursor-pointer" />
@@ -447,7 +447,7 @@ export default function DeclarationsPage() {
           open={openSections.has("niveau")}
           onToggle={toggleSection}
         >
-          {expMsg && <div className="mx-6 mt-4 px-4 py-3 rounded-xl bg-[#f0fdf4] border border-[#bbf7d0] text-[13px] text-[#166534] font-medium">{expMsg}</div>}
+          {expMsg && <div className="mx-6 mt-4 px-4 py-3 rounded-xl bg-[#E7F7EF] border border-[#bbf7d0] text-[13px] text-[#047857] font-medium">{expMsg}</div>}
           <form onSubmit={submitLevel} className="px-6 py-5 space-y-4">
             <div className="grid sm:grid-cols-2 gap-4">
               <div>
@@ -481,7 +481,7 @@ export default function DeclarationsPage() {
             Seules les expériences validées par vos références comptent pour le badge. 20 % des déclarations sont
             contrôlées manuellement.
           </p>
-          {xpMsg && <div className="mx-6 mt-4 px-4 py-3 rounded-xl bg-[#f0fdf4] border border-[#bbf7d0] text-[13px] text-[#166534] font-medium">{xpMsg}</div>}
+          {xpMsg && <div className="mx-6 mt-4 px-4 py-3 rounded-xl bg-[#E7F7EF] border border-[#bbf7d0] text-[13px] text-[#047857] font-medium">{xpMsg}</div>}
           <form onSubmit={submitExperiences} className="px-6 py-5 space-y-5">
             {experiences.map((xp) => {
               const xpRefs = refs.filter((r) => r.experienceId === xp.id);
@@ -490,7 +490,7 @@ export default function DeclarationsPage() {
                 <div key={xp.id} className="border border-zinc-200 rounded-xl p-4 bg-zinc-50/50 space-y-4">
                   {/* Client type */}
                   <div>
-                    <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Type de client <span className="text-[#E8112D]">*</span></label>
+                    <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Type de client <span className="text-[#B42318]">*</span></label>
                     <div className="flex gap-6">
                       <label className="flex items-center gap-2 text-[13px] cursor-pointer">
                         <input type="radio" name={`clientType_${xp.id}`} checked={xp.clientType === "INDIVIDUAL"} onChange={() => updateExperience(xp.id, "clientType", "INDIVIDUAL")} /> Particulier
@@ -504,11 +504,11 @@ export default function DeclarationsPage() {
                   {/* Client name + Role */}
                   <div className="grid sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Nom du client / entreprise <span className="text-[#E8112D]">*</span></label>
+                      <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Nom du client / entreprise <span className="text-[#B42318]">*</span></label>
                       <input type="text" value={xp.clientName} onChange={(e) => updateExperience(xp.id, "clientName", e.target.value)} placeholder="Nom" required className={inputClass} />
                     </div>
                     <div>
-                      <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Poste / fonction <span className="text-[#E8112D]">*</span></label>
+                      <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Poste / fonction <span className="text-[#B42318]">*</span></label>
                       <select value={xp.role} onChange={(e) => updateExperience(xp.id, "role", e.target.value)} required className={inputClass}>
                         <option value="">Sélectionner</option>
                         {POSTES_BTP.map((p) => <option key={p} value={p}>{p}</option>)}
@@ -524,8 +524,8 @@ export default function DeclarationsPage() {
 
                   {/* Description */}
                   <div>
-                    <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Description <span className="text-[#E8112D]">*</span></label>
-                    <textarea value={xp.description} onChange={(e) => updateExperience(xp.id, "description", e.target.value)} placeholder="Description..." required rows={2} className="w-full px-3 py-2.5 rounded-xl border border-zinc-200 text-[14px] resize-y focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751] transition" />
+                    <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Description <span className="text-[#B42318]">*</span></label>
+                    <textarea value={xp.description} onChange={(e) => updateExperience(xp.id, "description", e.target.value)} placeholder="Description..." required rows={2} className="w-full px-3 py-2.5 rounded-xl border border-zinc-200 text-[14px] resize-y focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20 focus:border-[#4C1D95] transition" />
                   </div>
 
                   {/* Technologies */}
@@ -562,7 +562,7 @@ export default function DeclarationsPage() {
                   <div>
                     <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Portfolio (images, documents)</label>
                     <div className="relative">
-                      <div className="p-4 border border-dashed border-zinc-300 rounded-xl text-center text-[13px] text-zinc-400 cursor-pointer hover:border-[#008751] hover:text-[#008751] transition">
+                      <div className="p-4 border border-dashed border-zinc-300 rounded-xl text-center text-[13px] text-zinc-400 cursor-pointer hover:border-[#4C1D95] hover:text-[#4C1D95] transition">
                         + Ajouter des fichiers au portfolio
                       </div>
                       <input type="file" multiple accept="image/jpeg,image/png,application/pdf" className="absolute inset-0 opacity-0 cursor-pointer" />
@@ -575,24 +575,24 @@ export default function DeclarationsPage() {
                     <div className="text-[13px] font-bold text-zinc-700 mb-3">Personnes ressources — vérification de terrain</div>
 
                     {/* Référent principal */}
-                    <div className="border border-[#008751]/20 rounded-xl p-3 bg-[#f0fdf4] mb-3">
-                      <div className="text-[12px] font-bold text-[#008751] mb-2">Référent principal (obligatoire)</div>
+                    <div className="border border-[#4C1D95]/20 rounded-xl p-3 bg-[#E7F7EF] mb-3">
+                      <div className="text-[12px] font-bold text-[#4C1D95] mb-2">Référent principal (obligatoire)</div>
                       {xpRefs.filter((r) => r.kind === "primary").map((ref) => (
                         <div key={ref.id} className="space-y-2">
                           <div className="grid sm:grid-cols-2 gap-3">
-                            <input type="text" value={ref.nom} onChange={(e) => updateRef(ref.id, "nom", e.target.value)} placeholder="Nom" className="h-9 px-3 rounded-lg border border-zinc-200 text-[13px] focus:outline-none focus:ring-1 focus:ring-[#008751]/20" />
-                            <input type="text" value={ref.prenom} onChange={(e) => updateRef(ref.id, "prenom", e.target.value)} placeholder="Prénom" className="h-9 px-3 rounded-lg border border-zinc-200 text-[13px] focus:outline-none focus:ring-1 focus:ring-[#008751]/20" />
+                            <input type="text" value={ref.nom} onChange={(e) => updateRef(ref.id, "nom", e.target.value)} placeholder="Nom" className="h-9 px-3 rounded-lg border border-zinc-200 text-[13px] focus:outline-none focus:ring-1 focus:ring-[#4C1D95]/20" />
+                            <input type="text" value={ref.prenom} onChange={(e) => updateRef(ref.id, "prenom", e.target.value)} placeholder="Prénom" className="h-9 px-3 rounded-lg border border-zinc-200 text-[13px] focus:outline-none focus:ring-1 focus:ring-[#4C1D95]/20" />
                           </div>
                           <div className="grid sm:grid-cols-2 gap-3">
-                            <input type="tel" value={ref.tel} onChange={(e) => updateRef(ref.id, "tel", e.target.value)} placeholder="+229 XX XX XX XX" className="h-9 px-3 rounded-lg border border-zinc-200 text-[13px] focus:outline-none focus:ring-1 focus:ring-[#008751]/20" />
-                            <input type="email" value={ref.email} onChange={(e) => updateRef(ref.id, "email", e.target.value)} placeholder="email (optionnel)" className="h-9 px-3 rounded-lg border border-zinc-200 text-[13px] focus:outline-none focus:ring-1 focus:ring-[#008751]/20" />
+                            <input type="tel" value={ref.tel} onChange={(e) => updateRef(ref.id, "tel", e.target.value)} placeholder="+229 XX XX XX XX" className="h-9 px-3 rounded-lg border border-zinc-200 text-[13px] focus:outline-none focus:ring-1 focus:ring-[#4C1D95]/20" />
+                            <input type="email" value={ref.email} onChange={(e) => updateRef(ref.id, "email", e.target.value)} placeholder="email (optionnel)" className="h-9 px-3 rounded-lg border border-zinc-200 text-[13px] focus:outline-none focus:ring-1 focus:ring-[#4C1D95]/20" />
                           </div>
-                          <input type="text" value={ref.lien} onChange={(e) => updateRef(ref.id, "lien", e.target.value)} placeholder="Lien avec l'expérience (client, chef de chantier...)" className="w-full h-9 px-3 rounded-lg border border-zinc-200 text-[13px] focus:outline-none focus:ring-1 focus:ring-[#008751]/20" />
+                          <input type="text" value={ref.lien} onChange={(e) => updateRef(ref.id, "lien", e.target.value)} placeholder="Lien avec l'expérience (client, chef de chantier...)" className="w-full h-9 px-3 rounded-lg border border-zinc-200 text-[13px] focus:outline-none focus:ring-1 focus:ring-[#4C1D95]/20" />
                         </div>
                       ))}
                       {!hasPrimary && (
                         <button type="button" onClick={() => addRef(xp.id, "primary")}
-                          className="text-[12px] text-[#008751] font-medium hover:underline">+ Ajouter le référent principal</button>
+                          className="text-[12px] text-[#4C1D95] font-medium hover:underline">+ Ajouter le référent principal</button>
                       )}
                     </div>
 
@@ -609,7 +609,7 @@ export default function DeclarationsPage() {
                         </div>
                       ))}
                       <button type="button" onClick={() => addRef(xp.id, "secondary")}
-                        className="text-[12px] text-[#008751] font-medium hover:underline">+ Ajouter un référent secondaire</button>
+                        className="text-[12px] text-[#4C1D95] font-medium hover:underline">+ Ajouter un référent secondaire</button>
                     </div>
 
                     {/* Référent croisé */}
@@ -625,14 +625,14 @@ export default function DeclarationsPage() {
                         </div>
                       ))}
                       <button type="button" onClick={() => addRef(xp.id, "cross")}
-                        className="text-[12px] text-[#008751] font-medium hover:underline">+ Ajouter un référent croisé</button>
+                        className="text-[12px] text-[#4C1D95] font-medium hover:underline">+ Ajouter un référent croisé</button>
                     </div>
                   </div>
                 </div>
               );
             })}
             <button type="button" onClick={addExperience}
-              className="inline-flex items-center gap-2 px-4 py-2 border border-dashed border-zinc-300 rounded-xl text-[13px] font-medium text-zinc-500 hover:border-[#008751] hover:text-[#008751] transition">
+              className="inline-flex items-center gap-2 px-4 py-2 border border-dashed border-zinc-300 rounded-xl text-[13px] font-medium text-zinc-500 hover:border-[#4C1D95] hover:text-[#4C1D95] transition">
               + Ajouter une expérience
             </button>
             <button type="submit" className={btnPrimary}>Soumettre les expériences</button>
@@ -643,7 +643,7 @@ export default function DeclarationsPage() {
         <Section
           id="badge"
           title={<>Badge &amp; VAE</>}
-          badge={<span className="text-[11px] px-2 py-1 rounded-full bg-[#008751] text-white font-bold">Vérification</span>}
+          badge={<span className="text-[11px] px-2 py-1 rounded-full bg-[#4C1D95] text-white font-bold">Vérification</span>}
           open={openSections.has("badge")}
           onToggle={toggleSection}
         >
@@ -651,7 +651,7 @@ export default function DeclarationsPage() {
             Le badge n&apos;est accordé qu&apos;après réussite du test, même si l&apos;identité, les expériences et le
             diplôme sont validés.
           </p>
-          {badgeMsg && <div className="mx-6 mt-4 px-4 py-3 rounded-xl bg-[#f0fdf4] border border-[#bbf7d0] text-[13px] text-[#166534] font-medium">{badgeMsg}</div>}
+          {badgeMsg && <div className="mx-6 mt-4 px-4 py-3 rounded-xl bg-[#E7F7EF] border border-[#bbf7d0] text-[13px] text-[#047857] font-medium">{badgeMsg}</div>}
           <form onSubmit={submitBadge} className="px-6 py-5 space-y-4">
             {/* Matrice badge */}
             <div className="overflow-x-auto">
@@ -662,10 +662,10 @@ export default function DeclarationsPage() {
                   <th className="text-left px-3 py-2">Badge</th><th className="text-left px-3 py-2">VAE</th>
                 </tr></thead>
                 <tbody className="divide-y divide-zinc-100">
-                  <tr><td className="px-3 py-2"><span className="w-2 h-2 inline-block rounded-full bg-[#E8112D] mr-1" />❌</td><td className="px-3 py-2">❌</td><td className="px-3 py-2">❌</td><td className="px-3 py-2">❌</td><td className="px-3 py-2"><span className="text-[11px] px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-medium">Non vérifié</span></td><td className="px-3 py-2">—</td></tr>
-                  <tr><td className="px-3 py-2">❌</td><td className="px-3 py-2"><span className="w-2 h-2 inline-block rounded-full bg-[#008751] mr-1" />✅</td><td className="px-3 py-2">✅</td><td className="px-3 py-2">✅</td><td className="px-3 py-2"><span className="text-[11px] px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-medium">Non vérifié</span></td><td className="px-3 py-2">—</td></tr>
-                  <tr><td className="px-3 py-2">✅</td><td className="px-3 py-2">✅</td><td className="px-3 py-2">❌</td><td className="px-3 py-2">✅</td><td className="px-3 py-2"><span className="text-[11px] px-1.5 py-0.5 rounded bg-[#008751]/10 text-[#008751] font-medium">Vérifié</span></td><td className="px-3 py-2"><span className="text-[11px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 font-medium">Active</span></td></tr>
-                  <tr><td className="px-3 py-2">✅</td><td className="px-3 py-2">✅</td><td className="px-3 py-2">✅</td><td className="px-3 py-2">✅</td><td className="px-3 py-2"><span className="text-[11px] px-1.5 py-0.5 rounded bg-[#008751]/10 text-[#008751] font-bold">Vérifié</span></td><td className="px-3 py-2">—</td></tr>
+                  <tr><td className="px-3 py-2"><span className="w-2 h-2 inline-block rounded-full bg-[#B42318] mr-1" />❌</td><td className="px-3 py-2">❌</td><td className="px-3 py-2">❌</td><td className="px-3 py-2">❌</td><td className="px-3 py-2"><span className="text-[11px] px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-medium">Non vérifié</span></td><td className="px-3 py-2">—</td></tr>
+                  <tr><td className="px-3 py-2">❌</td><td className="px-3 py-2"><span className="w-2 h-2 inline-block rounded-full bg-[#047857] mr-1" />✅</td><td className="px-3 py-2">✅</td><td className="px-3 py-2">✅</td><td className="px-3 py-2"><span className="text-[11px] px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-medium">Non vérifié</span></td><td className="px-3 py-2">—</td></tr>
+                  <tr><td className="px-3 py-2">✅</td><td className="px-3 py-2">✅</td><td className="px-3 py-2">❌</td><td className="px-3 py-2">✅</td><td className="px-3 py-2"><span className="text-[11px] px-1.5 py-0.5 rounded bg-[#047857]/10 text-[#047857] font-medium">Vérifié</span></td><td className="px-3 py-2"><span className="text-[11px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 font-medium">Active</span></td></tr>
+                  <tr><td className="px-3 py-2">✅</td><td className="px-3 py-2">✅</td><td className="px-3 py-2">✅</td><td className="px-3 py-2">✅</td><td className="px-3 py-2"><span className="text-[11px] px-1.5 py-0.5 rounded bg-[#047857]/10 text-[#047857] font-bold">Vérifié</span></td><td className="px-3 py-2">—</td></tr>
                 </tbody>
               </table>
             </div>

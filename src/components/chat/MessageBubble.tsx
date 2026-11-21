@@ -12,6 +12,8 @@ type Props = {
   interlocutorId: string;
   interlocutorName: string;
   interlocutorAvatarPath?: string | null;
+  /** Ouvre la conversation dès l'affichage — « Ouvrir le chat » des cartes de candidature. */
+  initialOpen?: boolean;
 };
 
 type ThreadMessage = {
@@ -45,8 +47,8 @@ function clockOf(iso: string): string {
 // les signaux SSE pour tout utilisateur connecté ; seuls les dashboards (Messagerie/ex-
 // ChatView) savaient afficher un appel. Envoie un vrai message via POST /api/messages,
 // endpoint partagé avec Messagerie — aucune logique d'envoi dupliquée ou simulée.
-export function MessageBubble({ missionId, currentUserId, interlocutorId, interlocutorName, interlocutorAvatarPath }: Props) {
-  const [open, setOpen] = useState(false);
+export function MessageBubble({ missionId, currentUserId, interlocutorId, interlocutorName, interlocutorAvatarPath, initialOpen = false }: Props) {
+  const [open, setOpen] = useState(initialOpen);
   const [content, setContent] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -166,7 +168,7 @@ export function MessageBubble({ missionId, currentUserId, interlocutorId, interl
                   <div className="flex items-center gap-3 min-w-0">
                     <Avatar src={interlocutorAvatarPath ? `/api/users/${interlocutorId}/avatar` : null} initials={initials} size={40} />
                     <div className="leading-tight min-w-0">
-                      <div className="font-bold text-[13px] text-[#0A1931] truncate">{interlocutorName}</div>
+                      <div className="font-bold text-[13px] text-[#191224] truncate">{interlocutorName}</div>
                       <div className="text-[11px] text-zinc-500">Message concernant cette mission</div>
                     </div>
                   </div>
@@ -189,9 +191,9 @@ export function MessageBubble({ missionId, currentUserId, interlocutorId, interl
                   ) : (
                     thread.map((m) => (
                       <div key={m.id} className={`flex ${m.sent ? "justify-end" : "justify-start"}`}>
-                        <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-[13px] leading-snug ${m.sent ? "bg-[#008751] text-white rounded-br-sm" : "bg-white border border-zinc-200 text-[#0A1931] rounded-bl-sm"}`}>
+                        <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-[13px] leading-snug ${m.sent ? "bg-[#4C1D95] text-white rounded-br-sm" : "bg-white border border-zinc-200 text-[#191224] rounded-bl-sm"}`}>
                           {m.type === "file" && m.url ? (
-                            <a href={m.url} target="_blank" rel="noreferrer" className={`underline ${m.sent ? "text-white" : "text-[#008751]"}`}>{m.fileName ?? "Pièce jointe"}</a>
+                            <a href={m.url} target="_blank" rel="noreferrer" className={`underline ${m.sent ? "text-white" : "text-[#4C1D95]"}`}>{m.fileName ?? "Pièce jointe"}</a>
                           ) : (
                             <p className="whitespace-pre-wrap break-words">{m.content}</p>
                           )}
@@ -210,7 +212,7 @@ export function MessageBubble({ missionId, currentUserId, interlocutorId, interl
                         <button
                           key={q}
                           onClick={() => setContent(q)}
-                          className="px-3 py-1.5 rounded-full bg-zinc-100 hover:bg-[#008751]/10 hover:text-[#008751] text-[11px] text-left border border-transparent transition"
+                          className="px-3 py-1.5 rounded-full bg-zinc-100 hover:bg-[#4C1D95]/10 hover:text-[#4C1D95] text-[11px] text-left border border-transparent transition"
                         >
                           {q}
                         </button>
@@ -224,12 +226,12 @@ export function MessageBubble({ missionId, currentUserId, interlocutorId, interl
                       onChange={(e) => setContent(e.target.value.slice(0, 2500))}
                       onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
                       placeholder="Écrivez un message..."
-                      className="flex-1 h-[42px] max-h-[110px] rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-[13px] outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751] resize-none"
+                      className="flex-1 h-[42px] max-h-[110px] rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-[13px] outline-none focus:ring-2 focus:ring-[#4C1D95]/20 focus:border-[#4C1D95] resize-none"
                     />
                     <button
                       disabled={!content.trim() || sending}
                       onClick={send}
-                      className={`h-[42px] px-4 rounded-xl font-medium text-[13px] transition shrink-0 ${content.trim() && !sending ? "bg-[#008751] text-white hover:bg-[#006d43]" : "bg-zinc-200 text-zinc-500 cursor-not-allowed"}`}
+                      className={`h-[42px] px-4 rounded-xl font-medium text-[13px] transition shrink-0 ${content.trim() && !sending ? "bg-[#4C1D95] text-white hover:bg-[#006d43]" : "bg-zinc-200 text-zinc-500 cursor-not-allowed"}`}
                     >
                       {sending ? "..." : "Envoyer"}
                     </button>
@@ -243,12 +245,12 @@ export function MessageBubble({ missionId, currentUserId, interlocutorId, interl
 
       <button
         onClick={() => setOpen((v) => !v)}
-        className={`relative w-14 h-14 rounded-full shadow-xl flex items-center justify-center text-white text-[22px] transition-all ${open ? "bg-zinc-900" : "bg-[#2563eb] hover:bg-[#008751]"}`}
+        className={`relative w-14 h-14 rounded-full shadow-xl flex items-center justify-center text-white text-[22px] transition-all ${open ? "bg-zinc-900" : "bg-[#4C1D95] hover:bg-[#3B1578]"}`}
         style={{ boxShadow: "0 10px 24px rgba(0,0,0,.18)" }}
       >
         💬
         {hasUnread && !open && (
-          <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#E8112D] border-2 border-white" />
+          <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#B42318] border-2 border-white" />
         )}
       </button>
     </div>

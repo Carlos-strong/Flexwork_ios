@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { PROFESSIONAL_TYPE_LABELS } from "@/lib/provider-options";
 import { useSession } from "next-auth/react";
 import DashboardLayout, { providerNav, type DashboardUser } from "@/components/dashboard/DashboardLayout";
-import { useSidebarBadges } from "@/components/dashboard/useSidebarBadges";
 import { fetchDedupe } from "@/lib/fetch-dedupe";
 import { useUserIdentity } from "@/components/user-identity";
 import { providerUrl } from "@/lib/provider-urls";
@@ -22,6 +21,9 @@ import { countryFlag } from "@/components/person-card";
 import { PaymentModelPicker, PaymentModelBadge } from "@/components/financing/payment-model-picker";
 import { getFinancingMode } from "@/lib/financing-modes";
 import { uuid } from "@/lib/uuid";
+import { personFullName } from "@/lib/person-name";
+import { devisDraftFromPayload } from "@/lib/proposal-draft-restore";
+import { heldCandidatureHref } from "@/components/dashboard/nav";
 
 // Rapatrié depuis src/components/dashboard/types.ts, supprimé le 16/09/2026 : cette page en
 // était le seul consommateur restant, le fichier ne portait plus que cette constante, et son
@@ -72,7 +74,7 @@ const DELAY_PRESETS = ["14 jours (2 semaines)", "21 jours (3 semaines)", "28 jou
 
 const PROFESSIONAL_TYPE_LABEL: Record<string, string> = PROFESSIONAL_TYPE_LABELS;
 
-const FALLBACK_USER: DashboardUser = { initials: "PR", name: "Prestataire", role: "Prestataire", avatarGradient: "from-[#FF7A00] to-[#E8112D]" };
+const FALLBACK_USER: DashboardUser = { initials: "PR", name: "Prestataire", role: "Prestataire", avatarGradient: "from-[#6D28D9] to-[#B42318]" };
 
 /**
  * Formate une date de champ `<input type="date">` (`yyyy-mm-dd`) en `jj/mm/aaaa`, PAR DÉCOUPAGE
@@ -98,7 +100,6 @@ export default function OffreCandidaturePage() {
   const userId = (session?.user as { id?: string } | undefined)?.id;
   const role = (session?.user as { role?: Role } | undefined)?.role;
   const isClient = role === "client";
-  const badgeCounts = useSidebarBadges("prestataire");
 
   // Identité réelle partagée — chargée UNE fois au niveau racine (UserIdentityProvider), PAS
   // à chaque montage. Photo via /api/users/me (avatarUrl null si absente → initiales).
@@ -144,6 +145,9 @@ export default function OffreCandidaturePage() {
   const [feedback, setFeedback] = useState<{ ok: boolean; msg: string } | null>(null);
   const [blockedByProfile, setBlockedByProfile] = useState<string | null>(null);
   const [restoredFromDraft, setRestoredFromDraft] = useState(false);
+  // Devis retenu faute de KYC vérifié mais ENREGISTRÉ en brouillon côté serveur
+  // (src/lib/proposal-drafts.ts) — il partira tel quel une fois l'identité vérifiée.
+  const [kycDraftSaved, setKycDraftSaved] = useState(false);
   // Date de début du brouillon écartée car déjà passée — sert l'avertissement, effacé dès que
   // le prestataire en saisit une nouvelle.
   const [expiredDateDebut, setExpiredDateDebut] = useState<string | null>(null);
@@ -163,6 +167,59 @@ export default function OffreCandidaturePage() {
   // toujours affichées (mise en page 2 colonnes) ; en dessous, une seule à la fois pour
   // éviter un défilement interminable sur petit écran.
   const [mobileTab, setMobileTab] = useState<"details" | "devis" | "client">("details");
+
+  const itemsRef = useRef(items);
+  itemsRef.current = items;
+  // Brouillon SERVEUR (devis retenu faute de KYC, éventuellement saisi sur un autre appareil) :
+  // repris quand cet appareil n'a pas de brouillon local et que le formulaire est encore vierge.
+  useEffect(() => {
+    if (myProposal !== null || devis?.lineItems?.length || loadDevisDraft(missionId)) return;
+    let stale = false;
+    fetch(`/api/proposal-drafts?missionId=${encodeURIComponent(missionId)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { kycVerified: boolean; items: { kind: string; payload: Record<string, unknown> }[] } | null) => {
+        const item = d?.items.find((i) => i.kind === "devis");
+        if (stale || !item) return;
+        const restored = devisDraftFromPayload(item.payload);
+        if (restored.lineItems.length === 0) return;
+        // Saisie déjà commencée sur cet écran : on ne l'écrase pas.
+        const current = itemsRef.current;
+        const blank = !current || (current.length === 1 && !current[0].description && !current[0].unitPrice);
+        if (!blank) return;
+        saveDevisDraft(missionId, restored);
+        setItems(restored.lineItems.map((i, idx) => ({ id: String(idx), ...i })));
+        setDelay(restored.delay);
+        const date = restorableDateDebut(restored);
+        setDateDebut(date.value);
+        if (date.expired) setExpiredDateDebut(date.expiredValue ?? null);
+        setMessage(restored.notes);
+        setTvaRate(restored.tvaRate);
+        setLaborCost(restored.laborCost);
+        setPaymentModeKey(restored.financingModeKey ?? null);
+        setRestoredFromDraft(true);
+        setKycDraftSaved(!d!.kycVerified);
+      })
+      .catch(() => {});
+    return () => {
+      stale = true;
+    };
+  }, [myProposal, devis, missionId]);
+
+  // Devis en attente de la vérification d'identité (brouillon serveur) : on le dit, quel que
+  // soit l'appareil d'où le formulaire a été restauré, et l'envoi devient une mise à jour.
+  useEffect(() => {
+    if (myProposal !== null) return;
+    let stale = false;
+    fetch(`/api/proposal-drafts?missionId=${encodeURIComponent(missionId)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { kycVerified: boolean; items: { kind: string }[] } | null) => {
+        if (!stale && d && !d.kycVerified && d.items.some((i) => i.kind === "devis")) setKycDraftSaved(true);
+      })
+      .catch(() => {});
+    return () => {
+      stale = true;
+    };
+  }, [myProposal, missionId]);
 
   // Initialise le formulaire une fois myProposal connu (devis existant = révision, sinon
   // brouillon local éventuel, sinon 1 ligne vide) — équivalent de l'initialiseur de DevisForm.
@@ -257,6 +314,7 @@ export default function OffreCandidaturePage() {
     setPending(true);
     setFeedback(null);
     setBlockedByProfile(null);
+    setKycDraftSaved(false);
     const res = await fetch(`/api/missions/${missionId}/devis`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -271,6 +329,14 @@ export default function OffreCandidaturePage() {
       return;
     }
     const d = await res.json().catch(() => ({}));
+    // KYC non vérifié : le devis est enregistré en brouillon (serveur, et sur cet appareil).
+    if (d.error === "kyc_not_verified" && d.draftSaved) {
+      saveDevisDraft(missionId, { lineItems: lineItemsPayload, delay: delay.trim(), dateDebut, notes: message ?? "", tvaRate: Number(tvaRate) || 0, laborCost: Number(laborCost) || 0, financingModeKey: paymentModeKey ?? undefined });
+      setKycDraftSaved(true);
+      // Direction la page des brouillons, avec l'avertissement de non-envoi (2026-11-09).
+      router.push(heldCandidatureHref(role, missionId));
+      return;
+    }
     if (d.error === "garant_required" || d.error === "insurance_required") {
       saveDevisDraft(missionId, { lineItems: lineItemsPayload, delay: delay.trim(), dateDebut, notes: message ?? "", tvaRate: Number(tvaRate) || 0, laborCost: Number(laborCost) || 0, financingModeKey: paymentModeKey ?? undefined });
       setBlockedByProfile(d.message ?? "Votre profil doit être complété avant de candidater à cette mission.");
@@ -299,20 +365,19 @@ export default function OffreCandidaturePage() {
 
   if (loading || !mission || items === null || totals === null) {
     return (
-      <div className="min-h-screen bg-[#F8FAF9] flex items-center justify-center">
-        <div className="w-8 h-8 border-[3px] border-[#008751] border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen bg-[#F6F5FA] flex items-center justify-center">
+        <div className="w-8 h-8 border-[3px] border-[#4C1D95] border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   const st = MISSION_STATUS_STYLE[mission.status as keyof typeof MISSION_STATUS_STYLE] ?? MISSION_STATUS_STYLE.brouillon;
   const risk = RISK_BADGE[mission.riskLevel] ?? RISK_BADGE.low;
-  const clientName = mission.client ? [mission.client.firstname, mission.client.lastname].filter(Boolean).join(" ") || "Client" : "Client";
+  const clientName = mission.client ? personFullName(mission.client) || "Client" : "Client";
   const clientInitials = clientName.split(" ").slice(0, 2).map((w) => w[0] ?? "").join("").toUpperCase() || "?";
 
   return (
     <DashboardLayout
-      mode="prestataire"
       user={user}
       navItems={providerNav(role ?? "expert_digital")}
       // Cette page sert deux parcours sous la même URL : candidater à une mission ouverte
@@ -322,36 +387,34 @@ export default function OffreCandidaturePage() {
       // actif dans ce 2ᵉ cas, déplaçant à tort le bandeau hors de sa rubrique d'origine
       // (signalé 2026-09-04, même cause que /missions/[id]/proposals — voir MissionPageShell).
       activeNav={myProposal ? "candidatures" : "missions"}
-      onNavChange={(id) => router.push(providerUrl(role ?? "expert_digital", id))}
-      badgeCounts={badgeCounts}
       title="Offre de candidature"
     >
       <div className="page-width flex flex-col lg:flex-row gap-6 pb-[96px] lg:pb-0">
         <main className="flex-1 min-w-0">
           {/* Fil d'Ariane */}
-          <div className="flex items-center gap-1.5 text-[13px] text-[#64748B] mb-4 flex-wrap">
-            <Link href={providerUrl(role ?? "expert_digital", "missions")} className="hover:text-[#0f172a]" style={{ textDecoration: "none" }}>Missions</Link>
+          <div className="flex items-center gap-1.5 text-[13px] text-[#6B6478] mb-4 flex-wrap">
+            <Link href={providerUrl(role ?? "expert_digital", "missions")} className="hover:text-[#191224]" style={{ textDecoration: "none" }}>Missions</Link>
             <span>›</span>
-            <span className="hover:text-[#0f172a]">{mission.domaine}</span>
+            <span className="hover:text-[#191224]">{mission.domaine}</span>
             <span>›</span>
-            <span className="text-[#0f172a] font-medium">{mission.titre}</span>
+            <span className="text-[#191224] font-medium">{mission.titre}</span>
           </div>
 
           {/* En-tête mission */}
-          <div className="bg-white border border-[#E2E8F0] rounded-xl shadow-sm p-5 lg:p-6 mb-6">
+          <div className="bg-white border border-[#E7E2F0] rounded-xl shadow-sm p-5 lg:p-6 mb-6">
             <div className="flex flex-wrap gap-2 mb-3">
               <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full ${st.bg} ${st.text} text-[11px] font-bold tracking-wide`}>
                 <span className={`w-1.5 h-1.5 rounded-full ${st.dot}`} /> {st.label.toUpperCase()}
               </span>
               <span className="inline-flex px-2.5 py-1 rounded-full bg-[#F3E8FF] text-[#7C3AED] text-[11px] font-semibold">Mode Devis</span>
               {mission.dateExpiration && (
-                <span className="inline-flex px-2.5 py-1 rounded-full bg-[#FEF3C7] text-[#D97706] text-[11px] font-semibold border border-[#FDE68A]">
+                <span className="inline-flex px-2.5 py-1 rounded-full bg-[#FFF6E3] text-[#D97706] text-[11px] font-semibold border border-[#FDE68A]">
                   Expiration {new Date(mission.dateExpiration).toLocaleDateString("fr-FR")}
                 </span>
               )}
             </div>
             <h1 className="text-[22px] lg:text-[26px] font-bold leading-tight tracking-tight mb-3">{mission.titre}</h1>
-            <div className="flex flex-wrap items-center gap-4 text-[13px] text-[#64748B]">
+            <div className="flex flex-wrap items-center gap-4 text-[13px] text-[#6B6478]">
               <span>Publié le {new Date(mission.createdAt).toLocaleDateString("fr-FR")}</span>
               <span>{mission._count.proposals} candidature{mission._count.proposals > 1 ? "s" : ""}</span>
               <span>Réf {mission.id.slice(-8).toUpperCase()}</span>
@@ -359,7 +422,7 @@ export default function OffreCandidaturePage() {
           </div>
 
           {/* Bascule d'onglets — mobile uniquement */}
-          <div className="lg:hidden flex gap-1 p-1 bg-white border border-[#E2E8F0] rounded-xl mb-4">
+          <div className="lg:hidden flex gap-1 p-1 bg-white border border-[#E7E2F0] rounded-xl mb-4">
             {([
               ["details", "Détails"],
               ["devis", "Devis"],
@@ -368,7 +431,7 @@ export default function OffreCandidaturePage() {
               <button
                 key={id}
                 onClick={() => setMobileTab(id)}
-                className={`flex-1 py-2 text-sm font-medium rounded-lg transition ${mobileTab === id ? "bg-[#0f172a] text-white" : "text-[#64748B]"}`}
+                className={`flex-1 py-2 text-sm font-medium rounded-lg transition ${mobileTab === id ? "bg-[#191224] text-white" : "text-[#6B6478]"}`}
               >
                 {label}
               </button>
@@ -377,25 +440,25 @@ export default function OffreCandidaturePage() {
 
           <div className={mobileTab === "details" ? "block" : "hidden lg:block"}>
           {/* Contexte client */}
-          <div className="bg-white border border-[#E2E8F0] rounded-xl shadow-sm p-5 lg:p-6 mb-6">
+          <div className="bg-white border border-[#E7E2F0] rounded-xl shadow-sm p-5 lg:p-6 mb-6">
             <h2 className="text-[14px] font-semibold tracking-tight mb-3">Contexte client</h2>
-            <p className="text-[13.5px] leading-6 text-[#334155] mb-4 whitespace-pre-wrap">{mission.description}</p>
+            <p className="text-[13.5px] leading-6 text-[#3F3850] mb-4 whitespace-pre-wrap">{mission.description}</p>
             {attachments.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-4">
                 {attachments.map((a) => (
-                  <a key={a.id} href={a.url} target="_blank" rel="noreferrer" className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#F8FAF9] border border-[#E2E8F0] text-[12px]" style={{ textDecoration: "none", color: "inherit" }}>
+                  <a key={a.id} href={a.url} target="_blank" rel="noreferrer" className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#F6F5FA] border border-[#E7E2F0] text-[12px]" style={{ textDecoration: "none", color: "inherit" }}>
                     <span className="font-medium">{a.fileName ?? "Fichier"}</span>
                   </a>
                 ))}
               </div>
             )}
             <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-              <div className="p-3 rounded-lg bg-[#F8FAF9] border border-[#E2E8F0]">
-                <div className="text-[11px] text-[#64748B] uppercase tracking-wide font-semibold">Domaine</div>
+              <div className="p-3 rounded-lg bg-[#F6F5FA] border border-[#E7E2F0]">
+                <div className="text-[11px] text-[#6B6478] uppercase tracking-wide font-semibold">Domaine</div>
                 <div className="text-[14px] font-semibold mt-1">{mission.domaine}</div>
               </div>
-              <div className="p-3 rounded-lg bg-[#F8FAF9] border border-[#E2E8F0]">
-                <div className="text-[11px] text-[#64748B] uppercase tracking-wide font-semibold">Négociation</div>
+              <div className="p-3 rounded-lg bg-[#F6F5FA] border border-[#E7E2F0]">
+                <div className="text-[11px] text-[#6B6478] uppercase tracking-wide font-semibold">Négociation</div>
                 <div className="text-[14px] font-semibold mt-1">{mission.maxRevisionRounds} rounds max</div>
               </div>
               <div className="p-3 rounded-lg bg-[#FEFCE8] border border-[#FDE68A]">
@@ -406,27 +469,27 @@ export default function OffreCandidaturePage() {
           </div>
 
           {/* Détails réels de la mission (remplace la carte "Détails BTP" fabriquée de la maquette) */}
-          <div className="bg-white border border-[#E2E8F0] rounded-xl shadow-sm p-5 lg:p-6 mb-6">
+          <div className="bg-white border border-[#E7E2F0] rounded-xl shadow-sm p-5 lg:p-6 mb-6">
             <h2 className="text-[14px] font-semibold tracking-tight mb-4">Détails de la mission</h2>
             <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 text-[13px]">
               <div>
-                <div className="text-[#64748B] text-[11px] uppercase font-semibold tracking-wide">Profil recherché</div>
+                <div className="text-[#6B6478] text-[11px] uppercase font-semibold tracking-wide">Profil recherché</div>
                 <div className="font-medium mt-1">{mission.professionalType ? (PROFESSIONAL_TYPE_LABEL[mission.professionalType] ?? mission.professionalType) : "Non spécifié"}{mission.requiredLevel ? ` — ${mission.requiredLevel}` : ""}</div>
               </div>
               <div>
-                <div className="text-[#64748B] text-[11px] uppercase font-semibold tracking-wide">Mode</div>
+                <div className="text-[#6B6478] text-[11px] uppercase font-semibold tracking-wide">Mode</div>
                 <div className="font-medium mt-1 capitalize">{mission.mode}</div>
               </div>
               <div>
-                <div className="text-[#64748B] text-[11px] uppercase font-semibold tracking-wide">Palier de risque</div>
+                <div className="text-[#6B6478] text-[11px] uppercase font-semibold tracking-wide">Palier de risque</div>
                 <div className="mt-1"><span className={`inline-flex px-2 py-0.5 rounded-full text-[12px] font-semibold ${risk.bg} ${risk.text}`}>{risk.label}</span></div>
               </div>
               {mission.tags.length > 0 && (
                 <div className="col-span-2 lg:col-span-3">
-                  <div className="text-[#64748B] text-[11px] uppercase font-semibold tracking-wide mb-1.5">Compétences</div>
+                  <div className="text-[#6B6478] text-[11px] uppercase font-semibold tracking-wide mb-1.5">Compétences</div>
                   <div className="flex flex-wrap gap-1.5">
                     {mission.tags.map((t) => (
-                      <span key={t} className="px-2 py-0.5 rounded-full bg-[#F8FAF9] border border-[#E2E8F0] text-[12px]">{t}</span>
+                      <span key={t} className="px-2 py-0.5 rounded-full bg-[#F6F5FA] border border-[#E7E2F0] text-[12px]">{t}</span>
                     ))}
                   </div>
                 </div>
@@ -437,15 +500,25 @@ export default function OffreCandidaturePage() {
 
           <div className={mobileTab === "devis" ? "block" : "hidden lg:block"}>
           {/* Devis à soumettre */}
-          <div className="bg-white border border-[#E2E8F0] rounded-xl shadow-sm p-5 lg:p-6 mb-6">
+          <div className="bg-white border border-[#E7E2F0] rounded-xl shadow-sm p-5 lg:p-6 mb-6">
             <div className="flex items-center justify-between flex-wrap gap-3 mb-5">
               <h2 className="text-[15px] font-semibold tracking-tight">Devis à soumettre</h2>
               <div className="flex items-center gap-2">
-                <button onClick={() => setPreviewOpen(true)} className="h-8 px-3 rounded-lg border border-[#E2E8F0] bg-white text-[12px] font-medium hover:bg-[#F8FAF9]">Aperçu</button>
+                <button onClick={() => setPreviewOpen(true)} className="h-8 px-3 rounded-lg border border-[#E7E2F0] bg-white text-[12px] font-medium hover:bg-[#F6F5FA]">Aperçu</button>
               </div>
             </div>
 
-            {restoredFromDraft && !blockedByProfile && (
+            {kycDraftSaved && (
+              <div role="status" className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900 space-y-2 mb-4">
+                <p className="font-semibold">Devis enregistré — en attente de la vérification de votre identité.</p>
+                <p>
+                  Il sera envoyé automatiquement au client dès que votre identité sera vérifiée : vous n&apos;aurez rien à
+                  refaire. D&apos;ici là, vous pouvez le modifier ci-dessous puis cliquer « Mettre à jour mon devis ».
+                </p>
+                <Link href="/kyc" className="inline-block font-semibold underline">Vérifier mon identité</Link>
+              </div>
+            )}
+            {restoredFromDraft && !blockedByProfile && !kycDraftSaved && (
               <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800 mb-4">
                 Brouillon restauré — reprenez votre devis là où vous l&apos;aviez laissé.
               </div>
@@ -471,7 +544,7 @@ export default function OffreCandidaturePage() {
                 prestataire arrivait devant le tableau sans la consigne à laquelle il doit
                 répondre. Le round en cours est rappelé, la demande valant pour celui-ci. */}
             {myProposal?.revisionRequestedAt && (
-              <div className="mb-4 rounded-xl border border-[#FDE68A] bg-[#FFFBEB] p-3.5">
+              <div className="mb-4 rounded-xl border border-[#FDE68A] bg-[#FFF6E3] p-3.5">
                 <div className="text-[12px] font-semibold text-[#92400E]">
                   Révision demandée par le client
                   {typeof myProposal.roundActuel === "number" && ` — round ${myProposal.roundActuel + 1}`}
@@ -484,10 +557,10 @@ export default function OffreCandidaturePage() {
               </div>
             )}
 
-            <div className="hidden lg:block w-full overflow-x-auto border border-[#E2E8F0] rounded-xl">
+            <div className="hidden lg:block w-full overflow-x-auto border border-[#E7E2F0] rounded-xl">
               <div className="min-w-[760px]">
                 <table className="w-full text-[13px]">
-                  <thead className="bg-[#F8FAF9] text-[11px] uppercase tracking-wide font-semibold text-[#64748B] border-b border-[#E2E8F0]">
+                  <thead className="bg-[#F6F5FA] text-[11px] uppercase tracking-wide font-semibold text-[#6B6478] border-b border-[#E7E2F0]">
                     <tr>
                       <th className="text-left px-4 py-2.5 w-[56px]">#</th>
                       <th className="text-left px-3 py-2.5">Description</th>
@@ -501,66 +574,66 @@ export default function OffreCandidaturePage() {
                   </thead>
                   <tbody>
                     {items.map((item, idx) => (
-                      <tr key={item.id} className="border-b border-[#F1F5F9] hover:bg-[#FBFDFC] group">
+                      <tr key={item.id} className="border-b border-[#EFEAF8] hover:bg-[#FBFDFC] group">
                         <td className="px-4 py-2.5 font-mono text-[12px] font-semibold">{String(idx + 1).padStart(2, "0")}</td>
                         <td className="px-3 py-2">
                           <input
                             value={item.description}
                             onChange={(e) => updateItem(item.id, { description: e.target.value })}
                             placeholder={`Description du ${lineWord}...`}
-                            className={`w-full h-8 px-2 rounded-md border text-[12.5px] focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751] ${!item.description.trim() ? "border-[#FCA5A5] bg-[#FEF2F2]" : "border-[#E2E8F0] bg-white"}`}
+                            className={`w-full h-8 px-2 rounded-md border text-[12.5px] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20 focus:border-[#4C1D95] ${!item.description.trim() ? "border-[#FCA5A5] bg-[#FEECEB]" : "border-[#E7E2F0] bg-white"}`}
                           />
                         </td>
                         <td className="px-2 py-2">
-                          <input type="number" min={1} value={item.quantity} onChange={(e) => updateItem(item.id, { quantity: Math.max(1, Number(e.target.value)) })} className="w-full h-8 text-center rounded-md border border-[#E2E8F0] bg-white text-[12.5px] focus:outline-none focus:border-[#008751]" />
+                          <input type="number" min={1} value={item.quantity} onChange={(e) => updateItem(item.id, { quantity: Math.max(1, Number(e.target.value)) })} className="w-full h-8 text-center rounded-md border border-[#E7E2F0] bg-white text-[12.5px] focus:outline-none focus:border-[#4C1D95]" />
                         </td>
                         <td className="px-2 py-2">
-                          <select value={item.unit} onChange={(e) => updateItem(item.id, { unit: e.target.value })} className="w-full h-8 rounded-md border border-[#E2E8F0] bg-white text-[12.5px] focus:outline-none focus:border-[#008751]">
+                          <select value={item.unit} onChange={(e) => updateItem(item.id, { unit: e.target.value })} className="w-full h-8 rounded-md border border-[#E7E2F0] bg-white text-[12.5px] focus:outline-none focus:border-[#4C1D95]">
                             {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
                           </select>
                         </td>
                         <td className="px-2 py-2">
-                          <input type="number" min={0} step={0.01} value={item.unitPrice || ""} onChange={(e) => updateItem(item.id, { unitPrice: Math.max(0, parseFloat(e.target.value) || 0) })} className={`w-full h-8 text-right rounded-md border text-[12.5px] focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751] px-2 ${item.unitPrice <= 0 ? "border-[#FCA5A5] bg-[#FEF2F2]" : "border-[#E2E8F0] bg-white"}`} />
+                          <input type="number" min={0} step={0.01} value={item.unitPrice || ""} onChange={(e) => updateItem(item.id, { unitPrice: Math.max(0, parseFloat(e.target.value) || 0) })} className={`w-full h-8 text-right rounded-md border text-[12.5px] focus:outline-none focus:ring-2 focus:ring-[#047857]/20 focus:border-[#047857] px-2 ${item.unitPrice <= 0 ? "border-[#FCA5A5] bg-[#FEECEB]" : "border-[#E7E2F0] bg-white"}`} />
                         </td>
                         <td className="px-3 py-2 text-right font-medium font-mono text-[13px]">{(item.quantity * item.unitPrice).toLocaleString("fr-FR")}</td>
                         <td className="px-2 py-2">
-                          <input value={item.echeance ?? ""} onChange={(e) => updateItem(item.id, { echeance: e.target.value })} placeholder="Ex. S3" className="w-full h-8 text-center rounded-md border border-[#E2E8F0] bg-white text-[11px] font-medium focus:outline-none focus:border-[#008751]" />
+                          <input value={item.echeance ?? ""} onChange={(e) => updateItem(item.id, { echeance: e.target.value })} placeholder="Ex. S3" className="w-full h-8 text-center rounded-md border border-[#E7E2F0] bg-white text-[11px] font-medium focus:outline-none focus:border-[#4C1D95]" />
                         </td>
                         <td className="px-2 py-2">
                           <div className="flex items-center gap-1 justify-end opacity-0 group-hover:opacity-100 transition">
-                            <button onClick={() => moveItem(idx, -1)} disabled={idx === 0} className="w-6 h-6 rounded bg-white border border-[#E2E8F0] flex items-center justify-center hover:bg-[#F8FAF9] disabled:opacity-30">↑</button>
-                            <button onClick={() => moveItem(idx, 1)} disabled={idx === items.length - 1} className="w-6 h-6 rounded bg-white border border-[#E2E8F0] flex items-center justify-center hover:bg-[#F8FAF9] disabled:opacity-30">↓</button>
-                            <button onClick={() => setDeleteId(item.id)} disabled={items.length <= 1} className="w-6 h-6 rounded bg-white border border-[#FECACA] text-[#EF4444] flex items-center justify-center hover:bg-[#FEF2F2] disabled:opacity-30">✕</button>
+                            <button onClick={() => moveItem(idx, -1)} disabled={idx === 0} className="w-6 h-6 rounded bg-white border border-[#E7E2F0] flex items-center justify-center hover:bg-[#F6F5FA] disabled:opacity-30">↑</button>
+                            <button onClick={() => moveItem(idx, 1)} disabled={idx === items.length - 1} className="w-6 h-6 rounded bg-white border border-[#E7E2F0] flex items-center justify-center hover:bg-[#F6F5FA] disabled:opacity-30">↓</button>
+                            <button onClick={() => setDeleteId(item.id)} disabled={items.length <= 1} className="w-6 h-6 rounded bg-white border border-[#FECACA] text-[#EF4444] flex items-center justify-center hover:bg-[#FEECEB] disabled:opacity-30">✕</button>
                           </div>
                         </td>
                       </tr>
                     ))}
                   </tbody>
-                  <tfoot className="bg-[#F8FAF9]">
-                    <tr className="border-t border-[#E2E8F0]">
-                      <td colSpan={5} className="px-4 py-2.5 text-right text-[12px] font-medium text-[#64748B]">Main d&apos;œuvre</td>
+                  <tfoot className="bg-[#F6F5FA]">
+                    <tr className="border-t border-[#E7E2F0]">
+                      <td colSpan={5} className="px-4 py-2.5 text-right text-[12px] font-medium text-[#6B6478]">Main d&apos;œuvre</td>
                       <td className="px-3 py-2.5 text-right">
-                        <input type="number" min={0} step={0.01} value={laborCost || ""} onChange={(e) => setLaborCost(parseFloat(e.target.value) || 0)} placeholder="0" className="w-full h-7 text-right rounded-md border border-[#E2E8F0] bg-white text-[12.5px] px-2" />
+                        <input type="number" min={0} step={0.01} value={laborCost || ""} onChange={(e) => setLaborCost(parseFloat(e.target.value) || 0)} placeholder="0" className="w-full h-7 text-right rounded-md border border-[#E7E2F0] bg-white text-[12.5px] px-2" />
                       </td>
                       <td colSpan={2} />
                     </tr>
-                    <tr className="border-t border-[#E2E8F0]">
-                      <td colSpan={5} className="px-4 py-2.5 text-right text-[12px] font-medium text-[#64748B]">Total HT</td>
+                    <tr className="border-t border-[#E7E2F0]">
+                      <td colSpan={5} className="px-4 py-2.5 text-right text-[12px] font-medium text-[#6B6478]">Total HT</td>
                       <td className="px-3 py-2.5 text-right font-mono font-semibold">{totals.totalHT.toLocaleString("fr-FR")}</td>
                       <td colSpan={2} />
                     </tr>
                     <tr>
-                      <td colSpan={5} className="px-4 py-2 text-right text-[12px] font-medium text-[#64748B]">
+                      <td colSpan={5} className="px-4 py-2 text-right text-[12px] font-medium text-[#6B6478]">
                         <span className="inline-flex items-center gap-1.5">
-                          TVA <input type="number" min={0} max={100} step={0.5} value={tvaRate} onChange={(e) => setTvaRate(parseFloat(e.target.value) || 0)} className="w-14 h-6 text-center rounded border border-[#E2E8F0] text-[11px]" />%
+                          TVA <input type="number" min={0} max={100} step={0.5} value={tvaRate} onChange={(e) => setTvaRate(parseFloat(e.target.value) || 0)} className="w-14 h-6 text-center rounded border border-[#E7E2F0] text-[11px]" />%
                         </span>
                       </td>
-                      <td className="px-3 py-2 text-right font-mono text-[#64748B]">{totals.tva.toLocaleString("fr-FR")}</td>
+                      <td className="px-3 py-2 text-right font-mono text-[#6B6478]">{totals.tva.toLocaleString("fr-FR")}</td>
                       <td colSpan={2} />
                     </tr>
-                    <tr className="border-t border-[#E2E8F0] bg-white">
+                    <tr className="border-t border-[#E7E2F0] bg-white">
                       <td colSpan={5} className="px-4 py-3 text-right text-[13px] font-bold">Total TTC</td>
-                      <td className="px-3 py-3 text-right font-mono font-bold text-[15px] text-[#008751]">{totals.totalTTC.toLocaleString("fr-FR")}</td>
+                      <td className="px-3 py-3 text-right font-mono font-bold text-[15px] text-[#047857]">{totals.totalTTC.toLocaleString("fr-FR")}</td>
                       <td colSpan={2} />
                     </tr>
                   </tfoot>
@@ -573,60 +646,60 @@ export default function OffreCandidaturePage() {
                 toujours visibles, pas de survol). */}
             <div className="lg:hidden space-y-3">
               {items.map((item, idx) => (
-                <div key={item.id} className="bg-[#F8FAF9] border border-[#E2E8F0] rounded-xl p-3">
+                <div key={item.id} className="bg-[#F6F5FA] border border-[#E7E2F0] rounded-xl p-3">
                   <div className="flex justify-between items-start">
-                    <span className="text-xs font-semibold text-[#008751] px-2 py-0.5 bg-[#E6F4EE] rounded-full">#{String(idx + 1).padStart(2, "0")}</span>
+                    <span className="text-xs font-semibold text-[#4C1D95] px-2 py-0.5 bg-[#F0EAFF] rounded-full">#{String(idx + 1).padStart(2, "0")}</span>
                     <div className="flex gap-1">
-                      <button onClick={() => moveItem(idx, -1)} disabled={idx === 0} className="w-7 h-7 rounded-lg border border-[#E2E8F0] bg-white text-[10px] disabled:opacity-30">▲</button>
-                      <button onClick={() => moveItem(idx, 1)} disabled={idx === items.length - 1} className="w-7 h-7 rounded-lg border border-[#E2E8F0] bg-white text-[10px] disabled:opacity-30">▼</button>
-                      <button onClick={() => setDeleteId(item.id)} disabled={items.length <= 1} className="w-7 h-7 rounded-lg border border-[#E2E8F0] bg-white text-red-500 text-xs disabled:opacity-30">✕</button>
+                      <button onClick={() => moveItem(idx, -1)} disabled={idx === 0} className="w-7 h-7 rounded-lg border border-[#E7E2F0] bg-white text-[10px] disabled:opacity-30">▲</button>
+                      <button onClick={() => moveItem(idx, 1)} disabled={idx === items.length - 1} className="w-7 h-7 rounded-lg border border-[#E7E2F0] bg-white text-[10px] disabled:opacity-30">▼</button>
+                      <button onClick={() => setDeleteId(item.id)} disabled={items.length <= 1} className="w-7 h-7 rounded-lg border border-[#E7E2F0] bg-white text-red-500 text-xs disabled:opacity-30">✕</button>
                     </div>
                   </div>
                   <input
                     value={item.description}
                     onChange={(e) => updateItem(item.id, { description: e.target.value })}
                     placeholder={`Description du ${lineWord}...`}
-                    className={`mt-2 w-full text-sm font-medium border rounded-lg px-3 py-2 ${!item.description.trim() ? "border-[#FCA5A5] bg-[#FEF2F2]" : "border-[#E2E8F0] bg-white"}`}
+                    className={`mt-2 w-full text-sm font-medium border rounded-lg px-3 py-2 ${!item.description.trim() ? "border-[#FCA5A5] bg-[#FEECEB]" : "border-[#E7E2F0] bg-white"}`}
                   />
                   <div className="grid grid-cols-2 min-[420px]:grid-cols-3 gap-2 mt-3">
                     <div>
-                      <div className="text-[10px] text-[#64748B] uppercase tracking-widest">Qté</div>
-                      <input type="number" min={1} value={item.quantity} onChange={(e) => updateItem(item.id, { quantity: Math.max(1, Number(e.target.value)) })} className="mt-1 w-full h-9 rounded-lg border border-[#E2E8F0] px-2 text-sm" />
+                      <div className="text-[10px] text-[#6B6478] uppercase tracking-widest">Qté</div>
+                      <input type="number" min={1} value={item.quantity} onChange={(e) => updateItem(item.id, { quantity: Math.max(1, Number(e.target.value)) })} className="mt-1 w-full h-9 rounded-lg border border-[#E7E2F0] px-2 text-sm" />
                     </div>
                     <div>
-                      <div className="text-[10px] text-[#64748B] uppercase tracking-widest">PU HT</div>
-                      <input type="number" min={0} step={0.01} value={item.unitPrice || ""} onChange={(e) => updateItem(item.id, { unitPrice: Math.max(0, parseFloat(e.target.value) || 0) })} className={`mt-1 w-full h-9 rounded-lg border px-2 text-sm ${item.unitPrice <= 0 ? "border-[#FCA5A5] bg-[#FEF2F2]" : "border-[#E2E8F0]"}`} />
+                      <div className="text-[10px] text-[#6B6478] uppercase tracking-widest">PU HT</div>
+                      <input type="number" min={0} step={0.01} value={item.unitPrice || ""} onChange={(e) => updateItem(item.id, { unitPrice: Math.max(0, parseFloat(e.target.value) || 0) })} className={`mt-1 w-full h-9 rounded-lg border px-2 text-sm ${item.unitPrice <= 0 ? "border-[#FCA5A5] bg-[#FEECEB]" : "border-[#E7E2F0]"}`} />
                     </div>
                     <div>
-                      <div className="text-[10px] text-[#64748B] uppercase tracking-widest">Montant</div>
-                      <div className="mt-1 h-9 flex items-center justify-end font-medium text-sm bg-white border border-[#E2E8F0] rounded-lg px-2">{(item.quantity * item.unitPrice).toLocaleString("fr-FR")}</div>
+                      <div className="text-[10px] text-[#6B6478] uppercase tracking-widest">Montant</div>
+                      <div className="mt-1 h-9 flex items-center justify-end font-medium text-sm bg-white border border-[#E7E2F0] rounded-lg px-2">{(item.quantity * item.unitPrice).toLocaleString("fr-FR")}</div>
                     </div>
                   </div>
                   <div className="mt-2">
-                    <div className="text-[10px] text-[#64748B] uppercase tracking-widest">Échéance</div>
-                    <input value={item.echeance ?? ""} onChange={(e) => updateItem(item.id, { echeance: e.target.value })} placeholder="Ex. S3" className="mt-1 w-full h-9 rounded-lg border border-[#E2E8F0] px-2 text-sm" />
+                    <div className="text-[10px] text-[#6B6478] uppercase tracking-widest">Échéance</div>
+                    <input value={item.echeance ?? ""} onChange={(e) => updateItem(item.id, { echeance: e.target.value })} placeholder="Ex. S3" className="mt-1 w-full h-9 rounded-lg border border-[#E7E2F0] px-2 text-sm" />
                   </div>
                 </div>
               ))}
 
               {/* Totaux — équivalent mobile du tfoot du tableau desktop */}
-              <div className="bg-white border border-[#E2E8F0] rounded-xl p-3 space-y-2 text-sm">
+              <div className="bg-white border border-[#E7E2F0] rounded-xl p-3 space-y-2 text-sm">
                 <div className="flex items-center justify-between">
-                  <span className="text-[#64748B]">Main d&apos;œuvre</span>
-                  <input type="number" min={0} step={0.01} value={laborCost || ""} onChange={(e) => setLaborCost(parseFloat(e.target.value) || 0)} placeholder="0" className="w-28 h-8 text-right rounded-md border border-[#E2E8F0] px-2 text-[13px]" />
+                  <span className="text-[#6B6478]">Main d&apos;œuvre</span>
+                  <input type="number" min={0} step={0.01} value={laborCost || ""} onChange={(e) => setLaborCost(parseFloat(e.target.value) || 0)} placeholder="0" className="w-28 h-8 text-right rounded-md border border-[#E7E2F0] px-2 text-[13px]" />
                 </div>
-                <div className="flex justify-between"><span className="text-[#64748B]">Total HT</span><span className="font-medium">{totals.totalHT.toLocaleString("fr-FR")}</span></div>
+                <div className="flex justify-between"><span className="text-[#6B6478]">Total HT</span><span className="font-medium">{totals.totalHT.toLocaleString("fr-FR")}</span></div>
                 <div className="flex items-center justify-between">
-                  <span className="text-[#64748B] flex items-center gap-1.5">TVA <input type="number" min={0} max={100} step={0.5} value={tvaRate} onChange={(e) => setTvaRate(parseFloat(e.target.value) || 0)} className="w-12 h-6 text-center rounded border border-[#E2E8F0] text-[11px]" />%</span>
-                  <span className="text-[#64748B]">{totals.tva.toLocaleString("fr-FR")}</span>
+                  <span className="text-[#6B6478] flex items-center gap-1.5">TVA <input type="number" min={0} max={100} step={0.5} value={tvaRate} onChange={(e) => setTvaRate(parseFloat(e.target.value) || 0)} className="w-12 h-6 text-center rounded border border-[#E7E2F0] text-[11px]" />%</span>
+                  <span className="text-[#6B6478]">{totals.tva.toLocaleString("fr-FR")}</span>
                 </div>
-                <div className="flex justify-between text-[16px] font-bold pt-2 border-t border-[#E2E8F0]"><span>Total TTC</span><span className="text-[#008751]">{totals.totalTTC.toLocaleString("fr-FR")}</span></div>
+                <div className="flex justify-between text-[16px] font-bold pt-2 border-t border-[#E7E2F0]"><span>Total TTC</span><span className="text-[#047857]">{totals.totalTTC.toLocaleString("fr-FR")}</span></div>
               </div>
             </div>
 
             <div className="flex items-center gap-2 mt-3">
-              <button onClick={addItem} className="h-8 px-3 rounded-lg border border-dashed border-[#94A3B8] text-[12px] font-medium hover:border-[#008751] hover:text-[#008751]">+ Ajouter {lineWord}</button>
-              <span className="text-[11px] text-[#94A3B8]">{items.length} {lineWord}s • Calcul live</span>
+              <button onClick={addItem} className="h-8 px-3 rounded-lg border border-dashed border-[#9A93A8] text-[12px] font-medium hover:border-[#4C1D95] hover:text-[#4C1D95]">+ Ajouter {lineWord}</button>
+              <span className="text-[11px] text-[#9A93A8]">{items.length} {lineWord}s • Calcul live</span>
               {needsTwoLines && items.length < 2 && (
                 <span className="text-[11px] text-[#B45309]">La retenue de garantie exige au moins deux jalons.</span>
               )}
@@ -634,17 +707,17 @@ export default function OffreCandidaturePage() {
 
             <div className="grid lg:grid-cols-2 gap-4 mt-6">
               <div>
-                <label className="text-[11px] font-semibold tracking-wide uppercase text-[#64748B] mb-1.5 block">Délai d&apos;exécution</label>
-                <select value={delay ?? ""} onChange={(e) => setDelay(e.target.value)} className="w-full h-10 px-3 rounded-lg border border-[#E2E8F0] bg-white text-[13px] focus:outline-none focus:border-[#008751]">
+                <label className="text-[11px] font-semibold tracking-wide uppercase text-[#6B6478] mb-1.5 block">Délai d&apos;exécution</label>
+                <select value={delay ?? ""} onChange={(e) => setDelay(e.target.value)} className="w-full h-10 px-3 rounded-lg border border-[#E7E2F0] bg-white text-[13px] focus:outline-none focus:border-[#4C1D95]">
                   {DELAY_PRESETS.map((d) => <option key={d} value={d}>{d}</option>)}
                   {delay && !DELAY_PRESETS.includes(delay) && <option value={delay}>{delay}</option>}
                 </select>
               </div>
               <div>
-                <label className="text-[11px] font-semibold tracking-wide uppercase text-[#64748B] mb-1.5 block">Date début souhaitée</label>
-                <input type="date" value={dateDebut} onChange={(e) => { setDateDebut(e.target.value); if (e.target.value) setExpiredDateDebut(null); }} className={`w-full h-10 px-3 rounded-lg border bg-white text-[13px] focus:outline-none focus:border-[#008751] ${!dateDebut ? "border-[#FCA5A5]" : "border-[#E2E8F0]"}`} />
+                <label className="text-[11px] font-semibold tracking-wide uppercase text-[#6B6478] mb-1.5 block">Date début souhaitée</label>
+                <input type="date" value={dateDebut} onChange={(e) => { setDateDebut(e.target.value); if (e.target.value) setExpiredDateDebut(null); }} className={`w-full h-10 px-3 rounded-lg border bg-white text-[13px] focus:outline-none focus:border-[#4C1D95] ${!dateDebut ? "border-[#FCA5A5]" : "border-[#E7E2F0]"}`} />
                 {expiredDateDebut && (
-                  <p className="mt-1.5 text-[11px] leading-4 text-[#B45309] bg-[#FFFBEB] border border-[#FDE68A] rounded-lg px-2.5 py-2">
+                  <p className="mt-1.5 text-[11px] leading-4 text-[#B45309] bg-[#FFF6E3] border border-[#FDE68A] rounded-lg px-2.5 py-2">
                     {/* Voir `formatDateSaisie` en tête de fichier pour le motif : une date de
                         calendrier ne passe jamais par `new Date(...)`. */}
                     La date de début de votre brouillon ({formatDateSaisie(expiredDateDebut)}) est passée
@@ -655,21 +728,21 @@ export default function OffreCandidaturePage() {
             </div>
 
             <div className="mt-4">
-              <label className="text-[11px] font-semibold tracking-wide uppercase text-[#64748B] mb-1.5 flex items-center justify-between">
+              <label className="text-[11px] font-semibold tracking-wide uppercase text-[#6B6478] mb-1.5 flex items-center justify-between">
                 <span>Message au client *</span>
-                <span className={`text-[11px] font-normal ${(message ?? "").length < 20 ? "text-[#EF4444]" : "text-[#94A3B8]"}`}>{(message ?? "").length} caractères • min 20</span>
+                <span className={`text-[11px] font-normal ${(message ?? "").length < 20 ? "text-[#EF4444]" : "text-[#9A93A8]"}`}>{(message ?? "").length} caractères • min 20</span>
               </label>
               <textarea
                 value={message ?? ""}
                 onChange={(e) => setMessage(e.target.value)}
                 rows={5}
                 placeholder="Présentez votre approche, références similaires, garanties..."
-                className={`w-full rounded-lg border p-3 text-[13px] leading-6 resize-none focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751] ${(message ?? "").trim().length < 20 ? "border-[#FCA5A5] bg-[#FEF2F2]" : "border-[#E2E8F0] bg-white"}`}
+                className={`w-full rounded-lg border p-3 text-[13px] leading-6 resize-none focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20 focus:border-[#4C1D95] ${(message ?? "").trim().length < 20 ? "border-[#FCA5A5] bg-[#FEECEB]" : "border-[#E7E2F0] bg-white"}`}
               />
             </div>
 
-            <label className="mt-5 flex items-start gap-3 p-3 rounded-lg bg-[#F8FAF9] border border-[#E2E8F0] cursor-pointer">
-              <input type="checkbox" checked={highlightProfile} onChange={(e) => setHighlightProfile(e.target.checked)} className="mt-0.5 w-4 h-4 rounded border-[#CBD5E1] text-[#008751]" />
+            <label className="mt-5 flex items-start gap-3 p-3 rounded-lg bg-[#F6F5FA] border border-[#E7E2F0] cursor-pointer">
+              <input type="checkbox" checked={highlightProfile} onChange={(e) => setHighlightProfile(e.target.checked)} className="mt-0.5 w-4 h-4 rounded border-[#D4CCE3] text-[#4C1D95]" />
               <span className="text-[13px] leading-5">
                 <span className="font-semibold">Mettre en avant mon profil avec réalisations</span>
               </span>
@@ -680,70 +753,70 @@ export default function OffreCandidaturePage() {
 
         {/* Panneau latéral droit */}
         <aside className={`w-full lg:w-[380px] shrink-0 space-y-4 ${mobileTab === "client" ? "block" : "hidden lg:block"}`}>
-          <div className="bg-white border border-[#E2E8F0] rounded-xl shadow-sm p-5">
+          <div className="bg-white border border-[#E7E2F0] rounded-xl shadow-sm p-5">
             <Link href={mission.client ? `/profil/${mission.client.id}?returnTo=${encodeURIComponent(`/missions/${missionId}/devis`)}` : "#"} className="flex items-start gap-3" style={{ textDecoration: "none", color: "inherit" }}>
-              <Avatar src={mission.client?.avatarPath ? `/api/users/${mission.client.id}/avatar` : null} initials={clientInitials} size={44} gradient="from-[#0f172a] to-[#334155]" />
+              <Avatar src={mission.client?.avatarPath ? `/api/users/${mission.client.id}/avatar` : null} initials={clientInitials} size={44} gradient="from-[#191224] to-[#3F3850]" />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <div className="font-semibold text-[14px]">{clientName} {mission.client?.country && <span>{countryFlag(mission.client.country)}</span>}</div>
                   {mission.clientStats.kycVerified ? (
-                    <span className="px-2 py-0.5 rounded-full bg-[#E6F4EE] text-[#008751] text-[10px] font-bold">KYC Validé</span>
+                    <span className="px-2 py-0.5 rounded-full bg-[#F0EAFF] text-[#4C1D95] text-[10px] font-bold">KYC Validé</span>
                   ) : (
                     <span
                       title="Le client peut publier avant sa vérification ; aucun contrat ni paiement n'est possible tant qu'elle n'est pas faite."
-                      className="px-2 py-0.5 rounded-full bg-[#FEF3C7] text-[#92400E] text-[10px] font-bold"
+                      className="px-2 py-0.5 rounded-full bg-[#FFF6E3] text-[#92400E] text-[10px] font-bold"
                     >
                       Identité non vérifiée
                     </span>
                   )}
                 </div>
-                <div className="flex items-center gap-3 text-[12px] text-[#64748B] mt-1 flex-wrap">
+                <div className="flex items-center gap-3 text-[12px] text-[#6B6478] mt-1 flex-wrap">
                   <span>{mission.clientStats.missionsCompleted} mission{mission.clientStats.missionsCompleted > 1 ? "s" : ""} clôturée{mission.clientStats.missionsCompleted > 1 ? "s" : ""}</span>
                   {mission.clientStats.averageRating != null && <span><span className="text-[#F7C948]">★</span> {mission.clientStats.averageRating.toFixed(1)}</span>}
                   {mission.clientStats.memberSince && <span>Membre {new Date(mission.clientStats.memberSince).getFullYear()}</span>}
                 </div>
               </div>
             </Link>
-            <div className="mt-3 p-2.5 rounded-lg bg-[#F8FAF9] border border-[#E2E8F0] text-[12px] text-[#475569]">
+            <div className="mt-3 p-2.5 rounded-lg bg-[#F6F5FA] border border-[#E7E2F0] text-[12px] text-[#4A4258]">
               Paiement sécurisé via escrow — les fonds ne sont libérés qu&apos;après validation du livrable.
             </div>
           </div>
 
-          <div className="bg-white border border-[#E2E8F0] rounded-xl shadow-sm p-5">
+          <div className="bg-white border border-[#E7E2F0] rounded-xl shadow-sm p-5">
             <h3 className="font-semibold text-[13px] mb-4 flex items-center justify-between">
               Récap Devis
-              <span className="text-[11px] font-normal px-2 py-0.5 rounded-full bg-[#F1F5F9] text-[#64748B]">{!paymentModeKey ? "Modèle à choisir" : isJalonModel ? "Par jalons" : "Prix fixe"}</span>
+              <span className="text-[11px] font-normal px-2 py-0.5 rounded-full bg-[#EFEAF8] text-[#6B6478]">{!paymentModeKey ? "Modèle à choisir" : isJalonModel ? "Par jalons" : "Prix fixe"}</span>
             </h3>
             <div className="space-y-2.5 text-[13px]">
-              <div className="flex justify-between"><span className="text-[#64748B]">Montant TTC</span><span className="font-bold font-mono text-[15px] text-[#008751]">{totals.totalTTC.toLocaleString("fr-FR")} {mission.currency}</span></div>
-              <div className="flex justify-between"><span className="text-[#64748B]">Total HT</span><span className="font-medium font-mono">{totals.totalHT.toLocaleString("fr-FR")}</span></div>
-              <div className="flex justify-between"><span className="text-[#64748B]">TVA ({tvaRate}%)</span><span className="font-mono text-[#64748B]">{totals.tva.toLocaleString("fr-FR")}</span></div>
-              <div className="h-px bg-[#E2E8F0] my-2" />
-              <div className="flex justify-between"><span className="text-[#64748B]">{isJalonModel ? "Jalons" : "Postes"}</span><span className="font-medium">{items.length}</span></div>
-              <div className="flex justify-between"><span className="text-[#64748B]">Délai</span><span className="font-medium">{delay}</span></div>
+              <div className="flex justify-between"><span className="text-[#6B6478]">Montant TTC</span><span className="font-bold font-mono text-[15px] text-[#047857]">{totals.totalTTC.toLocaleString("fr-FR")} {mission.currency}</span></div>
+              <div className="flex justify-between"><span className="text-[#6B6478]">Total HT</span><span className="font-medium font-mono">{totals.totalHT.toLocaleString("fr-FR")}</span></div>
+              <div className="flex justify-between"><span className="text-[#6B6478]">TVA ({tvaRate}%)</span><span className="font-mono text-[#6B6478]">{totals.tva.toLocaleString("fr-FR")}</span></div>
+              <div className="h-px bg-[#E7E2F0] my-2" />
+              <div className="flex justify-between"><span className="text-[#6B6478]">{isJalonModel ? "Jalons" : "Postes"}</span><span className="font-medium">{items.length}</span></div>
+              <div className="flex justify-between"><span className="text-[#6B6478]">Délai</span><span className="font-medium">{delay}</span></div>
             </div>
           </div>
 
-          <div className="rounded-xl border border-[#FDE68A] bg-[#FFFBEB] p-4">
+          <div className="rounded-xl border border-[#FDE68A] bg-[#FFF6E3] p-4">
             <div className="text-[12.5px] leading-5 text-[#92400E]">
               <div className="font-semibold mb-1">Exclusivité candidature</div>
               En soumettant ce devis, vous ne pouvez pas avoir une autre négociation active en parallèle sur une autre mission.
             </div>
           </div>
 
-          <div className="bg-white border border-[#E2E8F0] rounded-xl shadow-sm p-5">
+          <div className="bg-white border border-[#E7E2F0] rounded-xl shadow-sm p-5">
             <button
               disabled={!canSubmitForm || pending}
               onClick={submit}
-              className={`w-full h-11 rounded-lg font-semibold text-[14px] transition ${canSubmitForm && !pending ? "bg-[#008751] hover:bg-[#006E42] text-white shadow-sm" : "bg-[#E2E8F0] text-[#94A3B8] cursor-not-allowed"}`}
+              className={`w-full h-11 rounded-lg font-semibold text-[14px] transition ${canSubmitForm && !pending ? "bg-[#4C1D95] hover:bg-[#3B1578] text-white shadow-sm" : "bg-[#E7E2F0] text-[#9A93A8] cursor-not-allowed"}`}
             >
-              {pending ? "Envoi..." : `Soumettre mon devis – ${totals.totalTTC.toLocaleString("fr-FR")} ${mission.currency}`}
+              {pending ? "Envoi..." : `${kycDraftSaved ? "Mettre à jour mon devis" : "Soumettre mon devis"} – ${totals.totalTTC.toLocaleString("fr-FR")} ${mission.currency}`}
             </button>
-            <button onClick={saveDraftNow} className="w-full mt-2.5 h-10 rounded-lg border border-[#E2E8F0] bg-white text-[13px] font-medium hover:bg-[#F8FAF9]">
+            <button onClick={saveDraftNow} className="w-full mt-2.5 h-10 rounded-lg border border-[#E7E2F0] bg-white text-[13px] font-medium hover:bg-[#F6F5FA]">
               Enregistrer brouillon
             </button>
             {!canSubmitForm && (
-              <div className="mt-3 p-2.5 rounded-lg bg-[#FEF2F2] border border-[#FECACA] text-[11px] text-[#B91C1C] leading-4">
+              <div className="mt-3 p-2.5 rounded-lg bg-[#FEECEB] border border-[#FECACA] text-[11px] text-[#B42318] leading-4">
                 • Choisissez le modèle de paiement • Vérifiez les {lineWord}s (description + prix &gt; 0) • Message min 20 caractères • Date de début requise
               </div>
             )}
@@ -755,19 +828,19 @@ export default function OffreCandidaturePage() {
       {/* Barre d'action fixe — mobile uniquement, pour garder le total et l'action de
           soumission accessibles sans avoir à faire défiler jusqu'au panneau latéral droit
           (masqué hors de l'onglet "Client" sur petit écran). */}
-      <div className="lg:hidden fixed bottom-0 inset-x-0 bg-white border-t border-[#E2E8F0] p-3 z-20 flex items-center justify-between gap-3">
+      <div className="lg:hidden fixed bottom-0 inset-x-0 bg-white border-t border-[#E7E2F0] p-3 z-20 flex items-center justify-between gap-3">
         <div>
-          <div className="text-[11px] text-[#64748B]">Total TTC</div>
+          <div className="text-[11px] text-[#6B6478]">Total TTC</div>
           <div className="font-bold">{totals.totalTTC.toLocaleString("fr-FR")} {mission.currency}</div>
         </div>
         <div className="flex gap-2">
-          <button onClick={() => setPreviewOpen(true)} className="h-10 px-4 rounded-lg border border-[#E2E8F0] text-sm">👁</button>
+          <button onClick={() => setPreviewOpen(true)} className="h-10 px-4 rounded-lg border border-[#E7E2F0] text-sm">👁</button>
           <button
             disabled={!canSubmitForm || pending}
             onClick={submit}
-            className={`h-10 px-5 rounded-lg text-sm font-medium ${canSubmitForm && !pending ? "bg-[#008751] text-white" : "bg-[#E2E8F0] text-[#94A3B8] cursor-not-allowed"}`}
+            className={`h-10 px-5 rounded-lg text-sm font-medium ${canSubmitForm && !pending ? "bg-[#4C1D95] text-white" : "bg-[#E7E2F0] text-[#9A93A8] cursor-not-allowed"}`}
           >
-            {pending ? "Envoi..." : "Soumettre"}
+            {pending ? "Envoi..." : kycDraftSaved ? "Mettre à jour" : "Soumettre"}
           </button>
         </div>
       </div>
@@ -775,13 +848,13 @@ export default function OffreCandidaturePage() {
       {/* Modale confirmation suppression jalon */}
       {deleteId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-[#0f172a]/50" onClick={() => setDeleteId(null)} />
-          <div className="relative bg-white rounded-xl border border-[#E2E8F0] shadow-xl w-full max-w-[360px] p-5">
+          <div className="absolute inset-0 bg-[#191224]/50" onClick={() => setDeleteId(null)} />
+          <div className="relative bg-white rounded-xl border border-[#E7E2F0] shadow-xl w-full max-w-[360px] p-5">
             <h4 className="font-semibold text-[14px] mb-1">Supprimer ce {lineWord} ?</h4>
-            <p className="text-[12px] text-[#64748B] leading-5 mb-4">Cette action recalcule automatiquement le total.</p>
+            <p className="text-[12px] text-[#6B6478] leading-5 mb-4">Cette action recalcule automatiquement le total.</p>
             <div className="flex gap-2 justify-end">
-              <button onClick={() => setDeleteId(null)} className="h-9 px-4 rounded-lg border border-[#E2E8F0] bg-white text-[13px] font-medium">Annuler</button>
-              <button onClick={confirmDelete} className="h-9 px-4 rounded-lg bg-[#EF4444] text-white text-[13px] font-medium hover:bg-[#DC2626]">Supprimer</button>
+              <button onClick={() => setDeleteId(null)} className="h-9 px-4 rounded-lg border border-[#E7E2F0] bg-white text-[13px] font-medium">Annuler</button>
+              <button onClick={confirmDelete} className="h-9 px-4 rounded-lg bg-[#EF4444] text-white text-[13px] font-medium hover:bg-[#B42318]">Supprimer</button>
             </div>
           </div>
         </div>
@@ -790,36 +863,36 @@ export default function OffreCandidaturePage() {
       {/* Modale aperçu — écran uniquement, aucun PDF généré */}
       {previewOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 lg:p-8">
-          <div className="absolute inset-0 bg-[#0f172a]/60" onClick={() => setPreviewOpen(false)} />
-          <div className="relative bg-white rounded-xl border border-[#E2E8F0] shadow-2xl w-full max-w-[780px] max-h-[90vh] overflow-hidden flex flex-col">
-            <div className="h-14 px-6 border-b border-[#E2E8F0] flex items-center justify-between shrink-0">
+          <div className="absolute inset-0 bg-[#191224]/60" onClick={() => setPreviewOpen(false)} />
+          <div className="relative bg-white rounded-xl border border-[#E7E2F0] shadow-2xl w-full max-w-[780px] max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="h-14 px-6 border-b border-[#E7E2F0] flex items-center justify-between shrink-0">
               <span className="font-semibold text-[14px]">Aperçu du devis</span>
-              <button onClick={() => setPreviewOpen(false)} className="w-8 h-8 rounded-lg border border-[#E2E8F0] flex items-center justify-center hover:bg-[#F8FAF9]">✕</button>
+              <button onClick={() => setPreviewOpen(false)} className="w-8 h-8 rounded-lg border border-[#E7E2F0] flex items-center justify-center hover:bg-[#F6F5FA]">✕</button>
             </div>
-            <div className="overflow-auto p-8 bg-[#F8FAF9]">
-              <div className="bg-white border border-[#E2E8F0] rounded-lg p-8 shadow-sm">
+            <div className="overflow-auto p-8 bg-[#F6F5FA]">
+              <div className="bg-white border border-[#E7E2F0] rounded-lg p-8 shadow-sm">
                 <div className="flex justify-between items-start mb-8">
                   <div>
-                    <div className="text-[11px] tracking-widest font-bold text-[#94A3B8] uppercase">Devis • Flexwork</div>
+                    <div className="text-[11px] tracking-widest font-bold text-[#9A93A8] uppercase">Devis • Flexwork</div>
                     <div className="text-[20px] font-bold mt-1">{mission.titre}</div>
-                    <div className="text-[12px] text-[#64748B] mt-1">Réf {mission.id.slice(-8).toUpperCase()} • {new Date().toLocaleDateString("fr-FR")}</div>
+                    <div className="text-[12px] text-[#6B6478] mt-1">Réf {mission.id.slice(-8).toUpperCase()} • {new Date().toLocaleDateString("fr-FR")}</div>
                     <PaymentModelBadge modeKey={paymentModeKey} className="mt-2" />
                   </div>
                   <div className="text-right">
-                    <div className="text-[12px] text-[#64748B]">Total TTC</div>
-                    <div className="text-[22px] font-bold font-mono text-[#008751]">{totals.totalTTC.toLocaleString("fr-FR")} {mission.currency}</div>
+                    <div className="text-[12px] text-[#6B6478]">Total TTC</div>
+                    <div className="text-[22px] font-bold font-mono text-[#047857]">{totals.totalTTC.toLocaleString("fr-FR")} {mission.currency}</div>
                   </div>
                 </div>
                 <div className="overflow-x-auto">
-                  <table className="w-full text-[12px] border border-[#E2E8F0] rounded-lg overflow-hidden">
-                    <thead className="bg-[#F8FAF9] text-[10px] uppercase tracking-wide font-semibold text-[#64748B]">
+                  <table className="w-full text-[12px] border border-[#E7E2F0] rounded-lg overflow-hidden">
+                    <thead className="bg-[#F6F5FA] text-[10px] uppercase tracking-wide font-semibold text-[#6B6478]">
                       <tr><th className="text-left p-2.5">#</th><th className="text-left p-2.5">Prestation</th><th className="text-right p-2.5">Montant HT</th></tr>
                     </thead>
                     <tbody>
                       {items.map((it, idx) => (
-                        <tr key={it.id} className="border-t border-[#F1F5F9]">
+                        <tr key={it.id} className="border-t border-[#EFEAF8]">
                           <td className="p-2.5 font-mono">{String(idx + 1).padStart(2, "0")}</td>
-                          <td className="p-2.5">{it.description || <span className="text-[#94A3B8] italic">— description vide —</span>}</td>
+                          <td className="p-2.5">{it.description || <span className="text-[#9A93A8] italic">— description vide —</span>}</td>
                           <td className="p-2.5 text-right font-mono">{(it.quantity * it.unitPrice).toLocaleString("fr-FR")}</td>
                         </tr>
                       ))}
@@ -827,13 +900,13 @@ export default function OffreCandidaturePage() {
                   </table>
                 </div>
                 <div className="mt-6 grid grid-cols-2 gap-6 text-[12px]">
-                  <div className="p-3 rounded-lg bg-[#F8FAF9] border border-[#E2E8F0]">
+                  <div className="p-3 rounded-lg bg-[#F6F5FA] border border-[#E7E2F0]">
                     <div className="font-semibold mb-1">Conditions</div>
-                    <div className="text-[#64748B] leading-5">Délai {delay} {dateDebut && `• Début ${formatDateSaisie(dateDebut)}`}</div>
+                    <div className="text-[#6B6478] leading-5">Délai {delay} {dateDebut && `• Début ${formatDateSaisie(dateDebut)}`}</div>
                   </div>
-                  <div className="p-3 rounded-lg bg-[#F8FAF9] border border-[#E2E8F0]">
+                  <div className="p-3 rounded-lg bg-[#F6F5FA] border border-[#E7E2F0]">
                     <div className="font-semibold mb-1">Message</div>
-                    <div className="text-[#64748B] leading-5 whitespace-pre-wrap line-clamp-4">{message}</div>
+                    <div className="text-[#6B6478] leading-5 whitespace-pre-wrap line-clamp-4">{message}</div>
                   </div>
                 </div>
               </div>

@@ -24,6 +24,7 @@ import {
   type ProviderIdentity,
   type ProviderProfile,
 } from "@/components/profile/profile-shared";
+import { initials } from "@/lib/initials";
 
 export function PresentationTab({
   profile,
@@ -151,7 +152,7 @@ export function PresentationTab({
         aside={<Criterion done={!!identity?.avatarUrl && title.trim().length > 0} />}
       >
         <div className="flex items-center gap-4">
-          <Avatar src={identity?.avatarUrl ?? null} initials={initialsOf(identity)} size={64} />
+          <Avatar src={identity?.avatarUrl ?? null} initials={initials(identity?.firstname, identity?.lastname)} size={64} />
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <input
@@ -210,7 +211,7 @@ export function PresentationTab({
               key={option.value}
               className={`flex items-center gap-2.5 px-3 sm:px-4 py-3 rounded-xl border text-[14px] leading-tight cursor-pointer transition-colors duration-200 ${
                 providerKind === option.value
-                  ? "border-[#008751] bg-[#008751]/5 text-[#0A1931] font-medium"
+                  ? "border-[#4C1D95] bg-[#4C1D95]/5 text-[#191224] font-medium"
                   : "border-zinc-200 text-zinc-600 hover:bg-zinc-50"
               }`}
             >
@@ -220,7 +221,7 @@ export function PresentationTab({
                 value={option.value}
                 checked={providerKind === option.value}
                 onChange={() => setProviderKind(option.value)}
-                className="accent-[#008751] shrink-0"
+                className="accent-[#4C1D95] shrink-0"
               />
               {option.label}
             </label>
@@ -281,7 +282,7 @@ export function PresentationTab({
           <ul className="mb-3 space-y-2">
             {languages.map((l, i) => (
               <li key={l.code} className="flex flex-wrap items-center gap-2">
-                <span className="min-w-[110px] text-[14px] font-medium text-[#0A1931]">
+                <span className="min-w-[110px] text-[14px] font-medium text-[#191224]">
                   {LANGUAGES.find((x) => x.code === l.code)?.label ?? l.code}
                 </span>
                 <select
@@ -337,7 +338,7 @@ export function PresentationTab({
 }
 
 const textareaClass =
-  "w-full px-3 py-2.5 rounded-xl border border-zinc-200 text-[14px] resize-y focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751] transition";
+  "w-full px-3 py-2.5 rounded-xl border border-zinc-200 text-[14px] resize-y focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20 focus:border-[#4C1D95] transition";
 
 /** Libellé d'un champ texte long avec son compteur aligné à droite, au plus près de la saisie. */
 function CounterLabel({
@@ -372,8 +373,3 @@ function Criterion({ done }: { done: boolean }) {
   );
 }
 
-function initialsOf(identity: ProviderIdentity | null): string {
-  const a = identity?.firstname?.trim()?.charAt(0) ?? "";
-  const b = identity?.lastname?.trim()?.charAt(0) ?? "";
-  return (`${a}${b}`.toUpperCase()) || "?";
-}

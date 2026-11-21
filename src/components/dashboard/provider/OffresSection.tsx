@@ -9,6 +9,9 @@ import { Avatar } from "@/components/avatar";
 import GigsPanel from "./GigsPanel";
 import GigOrdersPanel from "@/components/dashboard/gig/GigOrdersPanel";
 import GigOrderDetail from "@/components/dashboard/gig/GigOrderDetail";
+import { timeAgo } from "@/lib/time-ago";
+import { countryFlag } from "@/lib/country-flag";
+import { personFullName } from "@/lib/person-name";
 
 // ---------------------------------------------------------------------------
 // Même architecture de vue que MissionsSection.tsx / CandidaturesSection.tsx (recherche,
@@ -63,28 +66,11 @@ const DISPLAY_STATUS: Record<string, CardStatus> = {
 };
 
 const STATUS_STYLE: Record<CardStatus, string> = {
-  "Reçue": "bg-[#DBEAFE] text-[#1E40AF] border-[#BFDBFE]",
-  "Acceptée": "bg-[#DCFCE7] text-[#166534] border-[#BBF7D0]",
-  "Refusée": "bg-[#FEE2E2] text-[#B91C1C] border-[#FECACA]",
-  "Expirée": "bg-[#F3F4F6] text-[#4B5563] border-[#E5E7EB]",
+  "Reçue": "bg-[#DBEAFE] text-[#1D4ED8] border-[#BFDBFE]",
+  "Acceptée": "bg-[#E7F7EF] text-[#047857] border-[#BBF7D0]",
+  "Refusée": "bg-[#FEECEB] text-[#B42318] border-[#FECACA]",
+  "Expirée": "bg-[#EFEAF8] text-[#4A4258] border-[#E7E2F0]",
 };
-
-function countryFlag(code?: string | null): string {
-  if (!code || code.length !== 2) return "🌍";
-  return String.fromCodePoint(...[...code.toUpperCase()].map((c) => 0x1f1e6 + c.charCodeAt(0) - 65));
-}
-
-function timeAgo(iso: string): string {
-  const diffMin = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
-  if (diffMin < 1) return "à l'instant";
-  if (diffMin < 60) return `Il y a ${diffMin} min`;
-  const diffH = Math.floor(diffMin / 60);
-  if (diffH < 24) return `Il y a ${diffH}h`;
-  const diffJ = Math.floor(diffH / 24);
-  if (diffJ === 1) return "Hier";
-  if (diffJ < 7) return `Il y a ${diffJ}j`;
-  return new Date(iso).toLocaleDateString("fr-FR");
-}
 
 // Section "Offres" du dashboard prestataire (/dashboard/<role>/offres) : désormais un hub
 // à onglets qui intègre TOUTES les fonctionnalités Gig sous la rubrique Offres du sidebar :
@@ -139,7 +125,7 @@ export default function OffresSection() {
         category: o.mission.domaine ?? "Mission",
         budget: `${o.montant.toLocaleString("fr-FR")} ${o.currency}`,
         status: DISPLAY_STATUS[o.status] ?? "Reçue",
-        client: o.client ? [o.client.firstname, o.client.lastname].filter(Boolean).join(" ") || "Client" : "Client",
+        client: o.client ? personFullName(o.client) || "Client" : "Client",
         clientId: o.client?.id ?? null,
         clientAvatarPath: o.client?.avatarPath ?? null,
         flag: countryFlag(o.client?.country),
@@ -178,8 +164,8 @@ export default function OffresSection() {
 
   const statCards = [
     { label: "Total", value: stats.total, sub: "offres reçues", color: "border-gray-800", text: "" },
-    { label: "En attente", value: stats.recues, sub: "réponse à donner", color: "border-[#FF6B35]", text: "text-[#FF6B35]" },
-    { label: "Acceptées", value: stats.acceptees, sub: "→ contrat sécurisé", color: "border-[#1B9C6A]", text: "text-[#1B9C6A]" },
+    { label: "En attente", value: stats.recues, sub: "réponse à donner", color: "border-[#6D28D9]", text: "text-[#6D28D9]" },
+    { label: "Acceptées", value: stats.acceptees, sub: "→ contrat sécurisé", color: "border-[#4C1D95]", text: "text-[#4C1D95]" },
     { label: "Refusées", value: stats.refusees, sub: "", color: "border-[#EF4444]", text: "text-[#EF4444]" },
   ];
 
@@ -187,7 +173,7 @@ export default function OffresSection() {
     <div className="page-width space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
-          <h1 className="text-[28px] font-extrabold leading-none tracking-tight text-[#0A1931]">Offres</h1>
+          <h1 className="text-[28px] font-extrabold leading-none tracking-tight text-[#191224]">Offres</h1>
           <p className="text-[13px] text-gray-500 mt-2">Offres formelles, Gigs à prix fixe et commandes reçues.</p>
         </div>
       </div>
@@ -204,7 +190,7 @@ export default function OffresSection() {
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
-              className={`whitespace-nowrap rounded-full px-4 py-[7px] text-[12px] font-bold transition ${active ? "bg-[#0A1931] text-white shadow" : "bg-[#F8F6F3] text-gray-600 hover:bg-gray-100"}`}
+              className={`whitespace-nowrap rounded-full px-4 py-[7px] text-[12px] font-bold transition ${active ? "bg-[#191224] text-white shadow" : "bg-[#F6F5FA] text-gray-600 hover:bg-gray-100"}`}
             >
               {t.label}
             </button>
@@ -215,16 +201,16 @@ export default function OffresSection() {
       {tab === "offres" && (
         <>
           {feedback && (
-        <div className="px-4 py-3 rounded-xl bg-[#f0faf5] border border-[#008751]/30 text-[13px] font-medium text-[#065f46]">{feedback}</div>
+        <div className="px-4 py-3 rounded-xl bg-[#F0EAFF] border border-[#4C1D95]/30 text-[13px] font-medium text-[#065f46]">{feedback}</div>
       )}
 
-      <div className="flex items-center bg-[#F9F5F0] rounded-full px-4 py-2.5 w-full text-[13px] border border-transparent focus-within:border-orange-200 focus-within:bg-white transition">
+      <div className="flex items-center bg-[#F6F5FA] rounded-full px-4 py-2.5 w-full text-[13px] border border-transparent focus-within:border-violet-200 focus-within:bg-white transition">
         <Search className="w-4 h-4 text-gray-400 mr-2" />
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Rechercher une offre, une mission, un client..."
-          className="bg-transparent outline-none w-full placeholder:text-gray-400 text-[#0A1931]"
+          className="bg-transparent outline-none w-full placeholder:text-gray-400 text-[#191224]"
         />
       </div>
 
@@ -232,7 +218,7 @@ export default function OffresSection() {
         {statCards.map((s) => (
           <div key={s.label} className={`bg-white rounded-[16px] p-4 border-l-4 ${s.color} shadow-[0_1px_3px_rgba(0,0,0,0.05)]`}>
             <div className="text-[11px] font-bold tracking-widest text-gray-400 uppercase">{s.label}</div>
-            <div className="text-[24px] font-extrabold mt-1 text-[#0A1931] font-fraunces">{s.value}</div>
+            <div className="text-[24px] font-extrabold mt-1 text-[#191224] font-fraunces">{s.value}</div>
             <div className={`text-[11px] mt-1 ${s.text || "text-gray-400"}`}>{s.sub}</div>
           </div>
         ))}
@@ -246,7 +232,7 @@ export default function OffresSection() {
               <button
                 key={f.id}
                 onClick={() => setActiveFilter(f.id)}
-                className={`whitespace-nowrap rounded-full px-4 py-[7px] text-[12px] font-bold transition ${active ? "bg-[#0A1931] text-white shadow" : "bg-[#F8F6F3] text-gray-600 hover:bg-gray-100"}`}
+                className={`whitespace-nowrap rounded-full px-4 py-[7px] text-[12px] font-bold transition ${active ? "bg-[#191224] text-white shadow" : "bg-[#F6F5FA] text-gray-600 hover:bg-gray-100"}`}
               >
                 {f.id} <span className={`ml-1 ${active ? "text-white/70" : "text-gray-400"}`}>{f.count}</span>
               </button>
@@ -255,8 +241,8 @@ export default function OffresSection() {
         </div>
         <div className="flex items-center gap-2 self-start sm:self-auto">
           <div className="bg-white rounded-full p-1 flex border border-gray-100 shadow-sm">
-            <button onClick={() => setView("grid")} title="Grille" className={`w-8 h-8 rounded-full flex items-center justify-center text-[13px] transition ${view === "grid" ? "bg-[#0A1931] text-white" : "text-gray-400 hover:text-gray-700"}`}>⊞</button>
-            <button onClick={() => setView("list")} title="Liste" className={`w-8 h-8 rounded-full flex items-center justify-center text-[13px] transition ${view === "list" ? "bg-[#0A1931] text-white" : "text-gray-400 hover:text-gray-700"}`}>☰</button>
+            <button onClick={() => setView("grid")} title="Grille" className={`w-8 h-8 rounded-full flex items-center justify-center text-[13px] transition ${view === "grid" ? "bg-[#191224] text-white" : "text-gray-400 hover:text-gray-700"}`}>⊞</button>
+            <button onClick={() => setView("list")} title="Liste" className={`w-8 h-8 rounded-full flex items-center justify-center text-[13px] transition ${view === "list" ? "bg-[#191224] text-white" : "text-gray-400 hover:text-gray-700"}`}>☰</button>
           </div>
         </div>
       </div>
@@ -275,7 +261,7 @@ export default function OffresSection() {
             {filtered.map((c) => (
               <div
                 key={c.id}
-                className={`group bg-white rounded-[20px] p-5 border border-gray-100 hover:shadow-lg hover:border-orange-100 transition-all ${view === "list" ? "flex flex-col sm:flex-row sm:items-center gap-4" : ""}`}
+                className={`group bg-white rounded-[20px] p-5 border border-gray-100 hover:shadow-lg hover:border-violet-100 transition-all ${view === "list" ? "flex flex-col sm:flex-row sm:items-center gap-4" : ""}`}
               >
                 <div className={view === "list" ? "flex-1 min-w-0" : ""}>
                   <div className="flex justify-between items-start gap-3">
@@ -285,21 +271,21 @@ export default function OffresSection() {
                     </div>
                     <span className="text-[10px] text-gray-400 font-medium whitespace-nowrap">{c.time}</span>
                   </div>
-                  <h3 className="font-bold text-[14px] mt-3 leading-snug group-hover:text-[#FF6B35] transition-colors line-clamp-2">{c.titre}</h3>
+                  <h3 className="font-bold text-[14px] mt-3 leading-snug group-hover:text-[#6D28D9] transition-colors line-clamp-2">{c.titre}</h3>
                   <div className="text-[12px] text-gray-500 mt-1 flex items-center gap-2">
                     <span className="truncate">{c.missionTitre}</span>
                     <span className="w-1 h-1 bg-gray-300 rounded-full shrink-0" />
-                    <span className="font-bold text-[#0A1931] font-fraunces shrink-0">{c.budget}</span>
+                    <span className="font-bold text-[#191224] font-fraunces shrink-0">{c.budget}</span>
                   </div>
                   <div className="flex items-center gap-2 mt-4">
                     <Avatar
                       src={c.clientAvatarPath ? `/api/users/${c.clientId}/avatar` : null}
                       initials={c.client.charAt(0)}
                       size={28}
-                      gradient="from-[#FF7A00] to-[#E8112D]"
+                      gradient="from-[#6D28D9] to-[#B42318]"
                     />
                     <div className="text-[12px]">
-                      <span className="font-semibold text-[#0A1931]">{c.client}</span> <span>{c.flag}</span>
+                      <span className="font-semibold text-[#191224]">{c.client}</span> <span>{c.flag}</span>
                     </div>
                   </div>
                 </div>
@@ -309,26 +295,26 @@ export default function OffresSection() {
                       <button
                         onClick={() => respond(c.id, "accept")}
                         disabled={respondingId === c.id}
-                        className="flex-1 bg-[#008751] hover:brightness-110 text-white rounded-full py-2 text-[12px] font-bold transition disabled:opacity-50"
+                        className="flex-1 bg-[#4C1D95] hover:brightness-110 text-white rounded-full py-2 text-[12px] font-bold transition disabled:opacity-50"
                       >
                         {respondingId === c.id ? "…" : "Accepter"}
                       </button>
                       <button
                         onClick={() => respond(c.id, "decline")}
                         disabled={respondingId === c.id}
-                        className="flex-1 bg-[#F8F6F3] hover:bg-gray-100 text-zinc-600 rounded-full py-2 text-[12px] font-bold transition disabled:opacity-50"
+                        className="flex-1 bg-[#F6F5FA] hover:bg-gray-100 text-zinc-600 rounded-full py-2 text-[12px] font-bold transition disabled:opacity-50"
                       >
                         Refuser
                       </button>
                     </div>
                   ) : (
-                    <Link href={c.href} className="flex-1 bg-[#0A1931] hover:bg-black text-white rounded-full py-2 text-[12px] font-bold transition text-center" style={{ textDecoration: "none" }}>
+                    <Link href={c.href} className="flex-1 bg-[#191224] hover:bg-black text-white rounded-full py-2 text-[12px] font-bold transition text-center" style={{ textDecoration: "none" }}>
                       Voir
                     </Link>
                   )}
                   {/* Messagerie unifiée (Messagerie, deep-link ?missionId=) — plus vers
                       /missions/[id]/chat, page dédiée retirée (doublon). */}
-                  <Link href={`${providerUrl(role ?? "", "messages")}?missionId=${c.missionId}`} className="bg-[#F8F6F3] hover:bg-gray-100 rounded-full px-3 py-2 flex items-center justify-center gap-1.5 text-[11px] text-zinc-500 font-medium" style={{ textDecoration: "none" }}>
+                  <Link href={`${providerUrl(role ?? "", "messages")}?missionId=${c.missionId}`} className="bg-[#F6F5FA] hover:bg-gray-100 rounded-full px-3 py-2 flex items-center justify-center gap-1.5 text-[11px] text-zinc-500 font-medium" style={{ textDecoration: "none" }}>
                     <MessageCircle className="w-3.5 h-3.5" /> Message
                   </Link>
                 </div>
@@ -339,7 +325,7 @@ export default function OffresSection() {
           {filtered.length === 0 && (
             <div className="bg-white rounded-[20px] p-12 text-center border border-dashed border-gray-200">
               <div className="text-[24px] mb-2">🔍</div>
-              <div className="font-bold text-[14px] text-[#0A1931]">Aucune offre trouvée</div>
+              <div className="font-bold text-[14px] text-[#191224]">Aucune offre trouvée</div>
               <div className="text-[12px] text-gray-500 mt-1">Essaie un autre filtre ou mot-clé.</div>
             </div>
           )}

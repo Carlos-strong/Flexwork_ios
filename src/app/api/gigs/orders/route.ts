@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
+import { personFullName } from "@/lib/person-name";
 
 export const dynamic = "force-dynamic";
 
@@ -39,7 +40,7 @@ export async function GET(req: Request) {
       const counterpart = {
         id: other.id,
         name:
-          [other.firstname, other.lastname].filter(Boolean).join(" ").trim() ||
+          personFullName(other) ||
           (asClient ? "Prestataire" : "Client"),
         avatarUrl: other.avatarPath ? `/api/users/${other.id}/avatar` : null,
       };

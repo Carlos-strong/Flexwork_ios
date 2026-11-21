@@ -388,6 +388,7 @@ export default function ProviderProfileTabs({
                       void loadCompletion();
                       void loadDeclared(profile.id);
                     }}
+                    onFinished={() => void handleSectionSaved("experience", profile)}
                   />
                 )}
                 {key === "localisation" && <LocalisationTab profile={profile} onSaved={(p) => void handleSectionSaved("localisation", p)} />}
@@ -398,7 +399,7 @@ export default function ProviderProfileTabs({
         ) : (
         <>
         <div>
-          <h1 className="text-[clamp(1.375rem,1.1rem+1.1vw,1.75rem)] font-bold leading-tight text-[#0A1931]">
+          <h1 className="text-[clamp(1.375rem,1.1rem+1.1vw,1.75rem)] font-bold leading-tight text-[#191224]">
             {hasProfile ? "Mon profil prestataire" : "Créer mon profil prestataire"}
           </h1>
           <p className="mt-1.5 max-w-[60ch] text-[14px] leading-relaxed text-zinc-500">
@@ -411,10 +412,10 @@ export default function ProviderProfileTabs({
         {/* ── Progression + étapes ─────────────────────────────────────────────────────── */}
         <div className="bg-white rounded-[20px] border border-gray-100 shadow-[0_1px_2px_rgba(10,25,49,0.04)] p-4 sm:p-5">
           <div className="flex items-baseline justify-between gap-3 mb-2.5">
-            <span className="text-[14px] font-semibold text-[#0A1931]">
+            <span className="text-[14px] font-semibold text-[#191224]">
               {finished ? "Profil complet" : `Étape ${index + 1} sur ${STEPS.length} · ${current.label}`}
             </span>
-            <span className="text-[18px] font-bold tabular-nums text-[#008751]">{completion ? `${completion.percent} %` : "—"}</span>
+            <span className="text-[18px] font-bold tabular-nums text-[#4C1D95]">{completion ? `${completion.percent} %` : "—"}</span>
           </div>
           <div
             className="h-2 rounded-full bg-gray-100 overflow-hidden"
@@ -425,7 +426,7 @@ export default function ProviderProfileTabs({
             aria-label="Complétion du profil"
           >
             <div
-              className="h-full rounded-full bg-[#008751] transition-[width] duration-700 ease-out"
+              className="h-full rounded-full bg-[#4C1D95] transition-[width] duration-700 ease-out"
               style={{ width: `${completion?.percent ?? 0}%` }}
             />
           </div>
@@ -442,7 +443,7 @@ export default function ProviderProfileTabs({
                     <span
                       aria-hidden
                       className={`absolute top-[17px] left-[calc(50%+20px)] right-[calc(-50%+20px)] h-0.5 rounded-full ${
-                        done ? "bg-[#008751]" : "bg-zinc-200"
+                        done ? "bg-[#047857]" : "bg-zinc-200"
                       }`}
                     />
                   )}
@@ -452,21 +453,21 @@ export default function ProviderProfileTabs({
                     disabled={locked}
                     aria-current={active ? "step" : undefined}
                     aria-label={`Étape ${i + 1} : ${s.label}${done ? " (complète)" : ""}${locked ? " (verrouillée)" : ""}`}
-                    className={`relative z-10 flex h-9 w-9 items-center justify-center rounded-full border-2 text-[13px] font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#008751]/40 disabled:cursor-not-allowed ${
+                    className={`relative z-10 flex h-9 w-9 items-center justify-center rounded-full border-2 text-[13px] font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4C1D95]/40 disabled:cursor-not-allowed ${
                       active
-                        ? "border-[#0A1931] bg-[#0A1931] text-white"
+                        ? "border-[#191224] bg-[#191224] text-white"
                         : done
-                          ? "border-[#008751] bg-[#008751] text-white hover:bg-[#006e43]"
+                          ? "border-[#4C1D95] bg-[#4C1D95] text-white hover:bg-[#3B1578]"
                           : locked
                             ? "border-zinc-200 bg-zinc-50 text-zinc-300"
-                            : "border-zinc-300 bg-white text-zinc-500 hover:border-[#0A1931] hover:text-[#0A1931]"
+                            : "border-zinc-300 bg-white text-zinc-500 hover:border-[#191224] hover:text-[#191224]"
                     }`}
                   >
                     {locked ? <LockIcon /> : done && !active ? "✓" : i + 1}
                   </button>
                   <span
                     className={`mt-1.5 text-[11px] sm:text-[12px] leading-tight ${
-                      active ? "font-semibold text-[#0A1931]" : locked ? "text-zinc-300" : "text-zinc-500"
+                      active ? "font-semibold text-[#191224]" : locked ? "text-zinc-300" : "text-zinc-500"
                     } ${active ? "" : "hidden sm:block"}`}
                   >
                     {s.label}
@@ -519,8 +520,17 @@ export default function ProviderProfileTabs({
               <DomainesTab key={profile?.id ?? "nouveau"} profile={profile} onSaved={(p) => void handleStepSaved("domaines", p)} />
             </StepPanel>
             <StepPanel id="experience" active={step} visited={visited}>
-              {/* Plusieurs ajouts indépendants, pas de bouton unique : on avance avec « Continuer ». */}
-              <ExperienceTab profile={profile} onSaved={setProfile} onCompletionChanged={() => void loadCompletion()} />
+              {/* Parcours en sous-étapes (niveau → expériences → diplômes → portfolio → garants →
+                  validation) : « Valider la section » passe à l'étape suivante du profil, comme
+                  l'enregistrement des étapes à formulaire unique. */}
+              <ExperienceTab
+                profile={profile}
+                onSaved={setProfile}
+                onCompletionChanged={() => void loadCompletion()}
+                onFinished={() => {
+                  if (profile) void handleStepSaved("experience", profile);
+                }}
+              />
             </StepPanel>
             <StepPanel id="localisation" active={step} visited={visited}>
               <LocalisationTab profile={profile} onSaved={(p) => void handleStepSaved("localisation", p)} />
@@ -549,7 +559,7 @@ export default function ProviderProfileTabs({
                   onClick={() => goTo(next.key)}
                   disabled={isLocked(next.key)}
                   title={isLocked(next.key) ? "Enregistrez d'abord votre métier principal." : undefined}
-                  className="h-10 px-5 rounded-full border border-zinc-200 bg-white text-[13px] font-semibold text-[#0A1931] hover:bg-zinc-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="h-10 px-5 rounded-full border border-zinc-200 bg-white text-[13px] font-semibold text-[#191224] hover:bg-zinc-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   {activeSection?.done ? "Continuer" : "Passer cette étape"}
                   <span className="hidden sm:inline"> : {next.label}</span> →
@@ -567,7 +577,7 @@ export default function ProviderProfileTabs({
                     window.scrollTo({ top: 0, behavior: "smooth" });
                   }}
                   disabled={!hasProfile}
-                  className="h-10 px-5 rounded-full border border-zinc-200 bg-white text-[13px] font-semibold text-[#0A1931] hover:bg-zinc-50 transition-colors disabled:opacity-40"
+                  className="h-10 px-5 rounded-full border border-zinc-200 bg-white text-[13px] font-semibold text-[#191224] hover:bg-zinc-50 transition-colors disabled:opacity-40"
                 >
                   Terminer →
                 </button>
@@ -580,20 +590,20 @@ export default function ProviderProfileTabs({
 
         <nav className="flex flex-wrap gap-x-5 gap-y-2 pt-1 text-[13px]" aria-label="Liens du profil">
           {returnTo ? (
-            <Link href={returnTo} className="font-medium text-zinc-500 hover:text-[#0A1931] hover:underline">
+            <Link href={returnTo} className="font-medium text-zinc-500 hover:text-[#191224] hover:underline">
               ← Revenir à la page précédente
             </Link>
           ) : (
-            <Link href={PROVIDER_DASHBOARD} className="font-medium text-zinc-500 hover:text-[#0A1931] hover:underline">
+            <Link href={PROVIDER_DASHBOARD} className="font-medium text-zinc-500 hover:text-[#191224] hover:underline">
               ← Retour au tableau de bord
             </Link>
           )}
           {userId && hasProfile && mode === "wizard" && (
-            <Link href={`/profil/${userId}`} className="font-medium text-[#008751] hover:underline">
+            <Link href={`/profil/${userId}`} className="font-medium text-[#4C1D95] hover:underline">
               Voir mon profil public
             </Link>
           )}
-          <Link href="/badge?returnTo=%2Fprofile" className="font-medium text-zinc-500 hover:text-[#0A1931] hover:underline">
+          <Link href="/badge?returnTo=%2Fprofile" className="font-medium text-zinc-500 hover:text-[#191224] hover:underline">
             Badge « Vérifié »
           </Link>
         </nav>
@@ -633,13 +643,13 @@ function ProfileOverview({
     <>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-[clamp(1.375rem,1.1rem+1.1vw,1.75rem)] font-bold leading-tight text-[#0A1931]">Mon profil prestataire</h1>
+          <h1 className="text-[clamp(1.375rem,1.1rem+1.1vw,1.75rem)] font-bold leading-tight text-[#191224]">Mon profil prestataire</h1>
           <p className="mt-1.5 max-w-[60ch] text-[14px] leading-relaxed text-zinc-500">
             Votre profil est complet. Modifiez une rubrique à la fois : vos changements sont visibles des clients dès
             l&apos;enregistrement.
           </p>
         </div>
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-[13px] font-semibold text-[#008751]">
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-[13px] font-semibold text-[#4C1D95]">
           ✓ Complet · {completion?.percent ?? 100} %
         </span>
       </div>
@@ -647,7 +657,7 @@ function ProfileOverview({
       {userId && (
         <Link
           href={`/profil/${userId}?returnTo=%2Fprofile`}
-          className="flex items-center justify-between gap-3 rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-[14px] font-medium text-[#0A1931] shadow-sm hover:bg-zinc-50 transition"
+          className="flex items-center justify-between gap-3 rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-[14px] font-medium text-[#191224] shadow-sm hover:bg-zinc-50 transition"
           style={{ textDecoration: "none" }}
         >
           <span>
@@ -678,12 +688,12 @@ function ProfileOverview({
             id={`rubrique-${s.key}`}
             aria-labelledby={`rubrique-${s.key}-titre`}
             className={`scroll-mt-6 rounded-[20px] border bg-white shadow-[0_1px_2px_rgba(10,25,49,0.04)] ${
-              open ? "border-[#0A1931]/20" : "border-gray-100"
+              open ? "border-[#191224]/20" : "border-gray-100"
             }`}
           >
             <header className="flex items-start justify-between gap-3 px-4 pt-4 sm:px-6 sm:pt-5">
               <div className="min-w-0">
-                <h2 id={`rubrique-${s.key}-titre`} className="flex items-center gap-2 text-[17px] font-bold text-[#0A1931]">
+                <h2 id={`rubrique-${s.key}-titre`} className="flex items-center gap-2 text-[17px] font-bold text-[#191224]">
                   {s.label}
                   {!done && (
                     <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">À compléter</span>
@@ -704,7 +714,7 @@ function ProfileOverview({
                   type="button"
                   onClick={() => onEdit(s.key)}
                   aria-label={`Modifier la rubrique ${s.label}`}
-                  className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-4 text-[13px] font-semibold text-[#0A1931] hover:bg-zinc-50 transition"
+                  className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-4 text-[13px] font-semibold text-[#191224] hover:bg-zinc-50 transition"
                 >
                   <svg aria-hidden viewBox="0 0 20 20" className="h-3.5 w-3.5">
                     <path
@@ -757,12 +767,12 @@ function FinishedPanel({
       <div
         aria-hidden
         className={`mx-auto flex h-14 w-14 items-center justify-center rounded-full text-[26px] ${
-          complete ? "bg-emerald-50 text-[#008751]" : "bg-amber-50 text-amber-600"
+          complete ? "bg-emerald-50 text-[#4C1D95]" : "bg-amber-50 text-amber-600"
         }`}
       >
         {complete ? "✓" : "…"}
       </div>
-      <h2 className="mt-4 text-[20px] font-bold text-[#0A1931]">
+      <h2 className="mt-4 text-[20px] font-bold text-[#191224]">
         {complete ? "Votre profil est complet" : `${doneCount} étape${doneCount > 1 ? "s" : ""} sur ${STEPS.length} complète${doneCount > 1 ? "s" : ""}`}
       </h2>
       <p className="mx-auto mt-2 max-w-[48ch] text-[14px] leading-relaxed text-zinc-500">
@@ -773,7 +783,7 @@ function FinishedPanel({
       <div className="mt-6 flex flex-wrap justify-center gap-2">
         <Link
           href={returnTo ?? PROVIDER_DASHBOARD}
-          className="h-10 px-5 rounded-full bg-[#008751] text-white text-[13px] font-semibold hover:bg-[#006e43] transition flex items-center"
+          className="h-10 px-5 rounded-full bg-[#4C1D95] text-white text-[13px] font-semibold hover:bg-[#3B1578] transition flex items-center"
         >
           {returnTo ? "Revenir à la page précédente" : "Aller au tableau de bord"}
         </Link>
@@ -787,7 +797,7 @@ function FinishedPanel({
         {userId && (
           <Link
             href={`/profil/${userId}`}
-            className="h-10 px-5 rounded-full border border-zinc-200 bg-white text-[13px] font-medium text-[#008751] hover:bg-zinc-50 transition flex items-center"
+            className="h-10 px-5 rounded-full border border-zinc-200 bg-white text-[13px] font-medium text-[#4C1D95] hover:bg-zinc-50 transition flex items-center"
           >
             Voir mon profil public
           </Link>

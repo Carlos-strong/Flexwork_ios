@@ -102,7 +102,9 @@ test.describe("B — inscription et connexion", () => {
     // Déconnexion par le vrai bouton du tableau de bord.
     await page.goto("/client/dashboard");
     await page.waitForLoadState("networkidle");
-    await page.getByRole("button", { name: "Déconnexion" }).first().click();
+    // Déconnexion depuis le menu du compte de la barre globale (l'ancien sidebar, 2026-11-09).
+    await page.getByRole("button", { name: "Menu du compte" }).click();
+    await page.getByRole("menuitem", { name: "Déconnexion" }).click();
     await expect(page).toHaveURL(/localhost:\d+\/$/, { timeout: 30_000 });
 
     // Le cas réel : une réponse /api/auth/session en vol (ou une copie du cookie) remet

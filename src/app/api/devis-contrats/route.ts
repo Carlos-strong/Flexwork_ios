@@ -3,6 +3,8 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { devisBucket, contratBucket, devisVisibleInList, type DevisBucket, type ContratBucket } from "@/lib/devis-contrats";
 import { isRevisionPending } from "@/lib/proposal-status";
+import { personFullName } from "@/lib/person-name";
+import { computeDevisData, type DevisLineItemInput } from "@/lib/devis";
 
 // Alimente le bloc sidebar "Documents Contractuels" (compteurs) et la rubrique dédiée
 // "Devis & Contrats" (/client/devis-contrats, /dashboard/<role>/devis-contrats) — voir
@@ -67,7 +69,7 @@ export async function GET() {
         id: p.id,
         missionId: p.mission.id,
         missionTitre: p.mission.titre,
-        counterpartName: [counterpart.firstname, counterpart.lastname].filter(Boolean).join(" ") || (isClient ? "Prestataire" : "Client"),
+        counterpartName: personFullName(counterpart) || (isClient ? "Prestataire" : "Client"),
         montant: devisData?.totalTTC ?? p.montant,
         currency: p.mission.currency,
         status: p.status,
@@ -78,6 +80,49 @@ export async function GET() {
         createdAt: p.createdAt,
       };
     });
+
+  // Candidatures NON ENVOYÉES (2026-11-09) — retenues faute de KYC vérifié
+  // (src/lib/proposal-drafts.ts). Elles sont les vrais brouillons du prestataire : rangées dans
+  // « Brouillons », marquées `pending`, avec la raison d'un éventuel envoi automatique refusé.
+  // Les deux types y figurent (devis et prix fixe) : la page des brouillons est le seul endroit
+  // où le prestataire retrouve tout ce qui n'est pas encore parti chez le client.
+  const drafts = isClient
+    ? []
+    : await prisma.proposalDraft.findMany({
+        where: { providerId: userId },
+        orderBy: { updatedAt: "desc" },
+        select: {
+          id: true,
+          kind: true,
+          payload: true,
+          lastError: true,
+          updatedAt: true,
+          mission: { select: { id: true, titre: true, currency: true, client: { select: { firstname: true, lastname: true } } } },
+        },
+      });
+  const pendingDevis = drafts.map((d) => {
+    const p = (d.payload ?? {}) as { montant?: number; lineItems?: DevisLineItemInput[]; delay?: string; tvaRate?: number; laborCost?: number };
+    const montant =
+      d.kind === "devis" && Array.isArray(p.lineItems)
+        ? computeDevisData(p.lineItems, p.delay ?? "", "", p.tvaRate ?? 0, p.laborCost ?? 0).totalTTC
+        : (p.montant ?? 0);
+    devisCounts.brouillon++;
+    return {
+      id: d.id,
+      missionId: d.mission.id,
+      missionTitre: d.mission.titre,
+      counterpartName: personFullName(d.mission.client) || "Client",
+      montant,
+      currency: d.mission.currency,
+      status: "non_envoyee",
+      bucket: "brouillon" as DevisBucket,
+      revisionPending: false,
+      pending: true,
+      kind: d.kind,
+      lastError: d.lastError,
+      createdAt: d.updatedAt,
+    };
+  });
 
   const rawContracts = await prisma.prestationContract.findMany({
     where: isClient ? { clientId: userId } : { providerId: userId },
@@ -104,7 +149,7 @@ export async function GET() {
       id: c.id,
       missionId: c.mission.id,
       missionTitre: c.mission.titre,
-      counterpartName: [counterpart.firstname, counterpart.lastname].filter(Boolean).join(" ") || (isClient ? "Prestataire" : "Client"),
+      counterpartName: personFullName(counterpart) || (isClient ? "Prestataire" : "Client"),
       montant: c.mission.budget,
       currency: c.mission.currency,
       hash: c.currentHash,
@@ -117,7 +162,7 @@ export async function GET() {
   });
 
   return NextResponse.json({
-    devis,
+    devis: [...pendingDevis, ...devis],
     contrats,
     counts: {
       brouillon: devisCounts.brouillon,

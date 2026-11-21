@@ -28,7 +28,7 @@ export default async function KycFinancierPage({ searchParams }: { searchParams:
       <div className="mx-auto fluid-form [--fw:720px] space-y-5">
         <BackLink href={back.href} label={back.label} />
         <div>
-          <h1 className="text-[22px] font-bold text-[#0A1931]">Vérification financière requise</h1>
+          <h1 className="text-[22px] font-bold text-[#191224]">Vérification financière requise</h1>
           <p className="mt-1 text-[13px] text-zinc-500">
             Pour recevoir votre premier paiement, complétez votre compte de versement Mobile Money.
           </p>

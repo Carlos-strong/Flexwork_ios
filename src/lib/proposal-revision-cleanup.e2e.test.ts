@@ -18,6 +18,7 @@ import { POST as devisRejectPost } from "@/app/api/missions/[id]/proposals/[prop
 import { POST as devisValidatePost } from "@/app/api/missions/[id]/proposals/[proposalId]/devis/validate/route";
 import { acceptProposal } from "@/lib/accept-proposal";
 import { prisma } from "@/lib/db";
+import { closeExpiredAnnonces } from "@/lib/scheduled-tasks";
 
 let clientId = "";
 let providerAId = "";
@@ -108,8 +109,12 @@ describe("Sortie de négociation — la demande de révision ne survit pas au st
     expect(retenue.status).toBe("devis_valide");
     expect(retenue.revisionRequestedAt).toBeNull();
 
-    // Le cas qui produisait le pire affichage : candidature écartée mais toujours marquée
-    // « Révision demandée ».
+    // Retenir un prestataire ne ferme plus l'annonce (2026-11-10) : l'autre devis reste en lice
+    // jusqu'à l'échéance. C'est À LA CLÔTURE qu'il est refusé — et nettoyé : le cas qui
+    // produisait le pire affichage était une candidature écartée encore marquée « Révision
+    // demandée ».
+    expect((await prisma.missionProposal.findUniqueOrThrow({ where: { id: b.id } })).status).toBe("en_negociation");
+    await expireAndClose(mission.id);
     const ecartee = await prisma.missionProposal.findUniqueOrThrow({ where: { id: b.id } });
     expect(ecartee.status).toBe("refusee");
     expect(ecartee.revisionRequestedAt).toBeNull();
@@ -117,8 +122,7 @@ describe("Sortie de négociation — la demande de révision ne survit pas au st
 
   it("acceptation d'une candidature (prix fixe) → retenue et écartées nettoyées", async () => {
     const { mission, a, b } = await createMissionWithTwoProposals("FIXED");
-    // acceptProposal ne refuse que les candidatures "envoyee" : on reproduit l'état réel
-    // d'une candidature à prix fixe encore ouverte.
+    // État réel d'une candidature à prix fixe encore ouverte.
     await prisma.missionProposal.updateMany({ where: { missionId: mission.id }, data: { status: "envoyee" } });
 
     await acceptProposal(mission.id, a.id);
@@ -127,8 +131,17 @@ describe("Sortie de négociation — la demande de révision ne survit pas au st
     expect(retenue.status).toBe("acceptee");
     expect(retenue.revisionRequestedAt).toBeNull();
 
+    // Refusée et nettoyée à la clôture de l'annonce seulement (2026-11-10).
+    expect((await prisma.missionProposal.findUniqueOrThrow({ where: { id: b.id } })).status).toBe("envoyee");
+    await expireAndClose(mission.id);
     const ecartee = await prisma.missionProposal.findUniqueOrThrow({ where: { id: b.id } });
     expect(ecartee.status).toBe("refusee");
     expect(ecartee.revisionRequestedAt).toBeNull();
   });
 });
+
+/** Échéance franchie puis passage de la tâche de clôture des annonces. */
+async function expireAndClose(missionId: string) {
+  await prisma.mission.update({ where: { id: missionId }, data: { dateExpiration: new Date(Date.now() - 60_000) } });
+  await closeExpiredAnnonces();
+}

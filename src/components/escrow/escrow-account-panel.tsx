@@ -53,10 +53,10 @@ type PayableRow = {
 // transaction que la validation dès que le séquestre la couvre — une créance qui reste
 // `validated` attend donc un financement.
 const PAYABLE_META: Record<PayableRow["status"], { client: string; provider: string; cls: string }> = {
-  validated: { client: "Due — attend un financement", provider: "Due — attend le financement du client", cls: "bg-[#FFFBEB] text-[#92400E]" },
-  instructed: { client: "Versement en cours", provider: "Versement en cours", cls: "bg-[#EFF6FF] text-[#1E40AF]" },
-  paid: { client: "Versée", provider: "Reçue", cls: "bg-[#E6F4EE] text-[#00623A]" },
-  failed: { client: "Refusée par le PSP — sera reprise", provider: "Refusée par le PSP — sera reprise", cls: "bg-[#FEF2F2] text-[#B91C1C]" },
+  validated: { client: "Due — attend un financement", provider: "Due — attend le financement du client", cls: "bg-[#FFF6E3] text-[#92400E]" },
+  instructed: { client: "Versement en cours", provider: "Versement en cours", cls: "bg-[#EAF1FF] text-[#1D4ED8]" },
+  paid: { client: "Versée", provider: "Reçue", cls: "bg-[#E7F7EF] text-[#065F46]" },
+  failed: { client: "Refusée par le PSP — sera reprise", provider: "Refusée par le PSP — sera reprise", cls: "bg-[#FEECEB] text-[#B42318]" },
 };
 
 type RechargeNeed = { due: number; available: number; missing: number; currency: string; pendingHold: boolean };
@@ -64,12 +64,12 @@ type RechargeNeed = { due: number; available: number; missing: number; currency:
 // Libellés des six états du cycle financier. Le ton est factuel : un état financier n'est pas
 // un jugement sur la mission, et « partiellement libéré » ne veut dire ni bien ni mal.
 const STATE_META: Record<string, { label: string; bg: string; fg: string }> = {
-  non_finance: { label: "Non financé", bg: "bg-[#F1F5F9]", fg: "text-[#475569]" },
-  financement_en_attente: { label: "Financement en attente", bg: "bg-[#FFFBEB]", fg: "text-[#92400E]" },
-  sequestre: { label: "Fonds sous séquestre", bg: "bg-[#E6F4EE]", fg: "text-[#00623A]" },
-  partiellement_libere: { label: "Partiellement libéré", bg: "bg-[#EFF6FF]", fg: "text-[#1E40AF]" },
-  totalement_libere: { label: "Totalement libéré", bg: "bg-[#E6F4EE]", fg: "text-[#00623A]" },
-  cloture: { label: "Clôturé", bg: "bg-[#F1F5F9]", fg: "text-[#475569]" },
+  non_finance: { label: "Non financé", bg: "bg-[#EFEAF8]", fg: "text-[#4A4258]" },
+  financement_en_attente: { label: "Financement en attente", bg: "bg-[#FFF6E3]", fg: "text-[#92400E]" },
+  sequestre: { label: "Fonds sous séquestre", bg: "bg-[#E7F7EF]", fg: "text-[#065F46]" },
+  partiellement_libere: { label: "Partiellement libéré", bg: "bg-[#EAF1FF]", fg: "text-[#1D4ED8]" },
+  totalement_libere: { label: "Totalement libéré", bg: "bg-[#F0EAFF]", fg: "text-[#3B1578]" },
+  cloture: { label: "Clôturé", bg: "bg-[#EFEAF8]", fg: "text-[#4A4258]" },
 };
 
 function Ligne({
@@ -86,12 +86,12 @@ function Ligne({
   accent?: "vert" | "ambre" | "rouge";
 }) {
   const couleur =
-    accent === "vert" ? "text-[#008751]" : accent === "ambre" ? "text-[#92400E]" : accent === "rouge" ? "text-[#B91C1C]" : "text-[#0f172a]";
+    accent === "vert" ? "text-[#4C1D95]" : accent === "ambre" ? "text-[#92400E]" : accent === "rouge" ? "text-[#B42318]" : "text-[#191224]";
   return (
     <div className="flex items-baseline justify-between gap-3 py-1.5">
-      <span className="text-[12.5px] text-[#64748B] min-w-0">
+      <span className="text-[12.5px] text-[#6B6478] min-w-0">
         {libelle}
-        {aide && <span className="block text-[11px] text-[#94A3B8] leading-tight mt-0.5">{aide}</span>}
+        {aide && <span className="block text-[11px] text-[#9A93A8] leading-tight mt-0.5">{aide}</span>}
       </span>
       <strong className={`text-[13px] shrink-0 tabular-nums ${couleur}`}>
         {montant.toLocaleString("fr-FR")} {devise}
@@ -164,7 +164,7 @@ export function EscrowAccountPanel({ missionId, className = "" }: { missionId: s
   const etat = STATE_META[balance.financialState] ?? STATE_META.non_finance;
 
   return (
-    <div className={`bg-white border border-[#E2E8F0] rounded-xl p-4 lg:p-5 ${className}`}>
+    <div className={`bg-white border border-[#E7E2F0] rounded-xl p-4 lg:p-5 ${className}`}>
       <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
         <h2 className="text-[13px] font-semibold">Compte du séquestre</h2>
         <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold ${etat.bg} ${etat.fg}`}>
@@ -174,12 +174,12 @@ export function EscrowAccountPanel({ missionId, className = "" }: { missionId: s
 
       {/* La distinction que tout le reste sert. Énoncée en une phrase, à l'endroit où les
           chiffres pourraient laisser croire le contraire. */}
-      <p className="text-[12px] text-[#64748B] leading-relaxed mb-3">
+      <p className="text-[12px] text-[#6B6478] leading-relaxed mb-3">
         Financer n&apos;est pas payer : les fonds restent séquestrés chez le prestataire de paiement agréé
         jusqu&apos;à validation. {estClient ? "Ils ne sont versés qu'à ce moment-là." : "Ils vous sont versés à ce moment-là."}
       </p>
 
-      <div className="rounded-xl bg-[#F8FAF9] border border-[#E2E8F0] px-3.5 py-2 divide-y divide-[#E2E8F0]">
+      <div className="rounded-xl bg-[#F6F5FA] border border-[#E7E2F0] px-3.5 py-2 divide-y divide-[#E7E2F0]">
         <Ligne libelle="Montant du contrat" montant={balance.contractual} devise={d} />
         <Ligne
           libelle={estClient ? "Vous avez financé" : "Le client a financé"}
@@ -206,8 +206,8 @@ export function EscrowAccountPanel({ missionId, className = "" }: { missionId: s
 
       {/* Décomposition : où va ce qui reste. N'a de sens que s'il reste quelque chose. */}
       {balance.held > 0 && (
-        <div className="mt-3 rounded-xl border border-[#E2E8F0] px-3.5 py-2 divide-y divide-[#E2E8F0]">
-          <div className="pb-1.5 text-[11px] uppercase tracking-wide font-semibold text-[#94A3B8]">
+        <div className="mt-3 rounded-xl border border-[#E7E2F0] px-3.5 py-2 divide-y divide-[#E7E2F0]">
+          <div className="pb-1.5 text-[11px] uppercase tracking-wide font-semibold text-[#9A93A8]">
             Sur les {balance.held.toLocaleString("fr-FR")} {d} restants
           </div>
           <Ligne
@@ -247,7 +247,7 @@ export function EscrowAccountPanel({ missionId, className = "" }: { missionId: s
       {/* Insuffisance de séquestre : une somme est due et ne peut pas partir. C'est le seul
           état qui appelle une ACTION, et seul le client peut la faire. */}
       {need && need.missing > 0 && (
-        <div className="mt-3 rounded-xl border border-[#FDE68A] bg-[#FFFBEB] p-3.5">
+        <div className="mt-3 rounded-xl border border-[#FDE68A] bg-[#FFF6E3] p-3.5">
           <p className="text-[12.5px] text-[#92400E] leading-relaxed">
             <strong>Financement complémentaire requis : {need.missing.toLocaleString("fr-FR")} {d}.</strong>{" "}
             {need.due.toLocaleString("fr-FR")} {d} sont reconnus dus au prestataire, et le séquestre n&apos;en couvre
@@ -258,7 +258,7 @@ export function EscrowAccountPanel({ missionId, className = "" }: { missionId: s
             <button
               onClick={recharger}
               disabled={submitting}
-              className="mt-2.5 w-full h-10 rounded-lg bg-[#008751] text-white text-[13px] font-semibold hover:bg-[#007a49] transition-colors disabled:opacity-50"
+              className="mt-2.5 w-full h-10 rounded-lg bg-[#4C1D95] text-white text-[13px] font-semibold hover:bg-[#3B1578] transition-colors disabled:opacity-50"
             >
               {submitting ? "Envoi…" : `Compléter le séquestre (${need.missing.toLocaleString("fr-FR")} ${d})`}
             </button>
@@ -275,26 +275,26 @@ export function EscrowAccountPanel({ missionId, className = "" }: { missionId: s
           Déplié d'office tant qu'un versement n'est pas abouti — c'est là qu'est la question. */}
       {balance.payables.length > 0 && (
         <details
-          className="mt-3 rounded-xl border border-[#E2E8F0] group"
+          className="mt-3 rounded-xl border border-[#E7E2F0] group"
           open={balance.payables.some((p) => p.status !== "paid")}
         >
-          <summary className="flex items-center justify-between gap-3 px-3.5 py-2.5 cursor-pointer list-none text-[12.5px] font-semibold text-[#0f172a]">
+          <summary className="flex items-center justify-between gap-3 px-3.5 py-2.5 cursor-pointer list-none text-[12.5px] font-semibold text-[#191224]">
             <span>Détail des versements ({balance.payables.length})</span>
-            <span className="text-[#94A3B8] transition-transform group-open:rotate-180" aria-hidden>▾</span>
+            <span className="text-[#9A93A8] transition-transform group-open:rotate-180" aria-hidden>▾</span>
           </summary>
-          <ul className="divide-y divide-[#F1F5F9] border-t border-[#E2E8F0]">
+          <ul className="divide-y divide-[#EFEAF8] border-t border-[#E7E2F0]">
             {balance.payables.map((p) => {
               const meta = PAYABLE_META[p.status];
               const quand = new Date(p.paidAt ?? p.validatedAt).toLocaleDateString("fr-FR");
               return (
                 <li key={p.id} className="flex items-start justify-between gap-3 px-3.5 py-2">
                   <div className="min-w-0">
-                    <div className="text-[12.5px] text-[#0f172a] truncate">{p.label}</div>
+                    <div className="text-[12.5px] text-[#191224] truncate">{p.label}</div>
                     <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                       <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${meta.cls}`}>
                         {estClient ? meta.client : meta.provider}
                       </span>
-                      <span className="text-[11px] text-[#94A3B8]">
+                      <span className="text-[11px] text-[#9A93A8]">
                         {p.paidAt ? "le" : "reconnue le"} {quand}
                       </span>
                     </div>
@@ -312,7 +312,7 @@ export function EscrowAccountPanel({ missionId, className = "" }: { missionId: s
       {redirect && (
         <Link
           href={`/psp-sandbox/payer?ref=${encodeURIComponent(redirect.reference)}&missionId=${missionId}`}
-          className="block mt-2.5 text-[12.5px] text-[#008751] font-semibold"
+          className="block mt-2.5 text-[12.5px] text-[#4C1D95] font-semibold"
           style={{ textDecoration: "none" }}
         >
           Autoriser le versement de {redirect.amount.toLocaleString("fr-FR")} {d} (sandbox PSP virtuelle) →
@@ -320,7 +320,7 @@ export function EscrowAccountPanel({ missionId, className = "" }: { missionId: s
       )}
 
       {error && (
-        <div className="mt-3 rounded-xl border border-[#FECACA] bg-[#FEF2F2] p-3 text-[12.5px] text-[#B91C1C]">{error}</div>
+        <div className="mt-3 rounded-xl border border-[#FECACA] bg-[#FEECEB] p-3 text-[12.5px] text-[#B42318]">{error}</div>
       )}
     </div>
   );

@@ -24,6 +24,7 @@ import {
   wrapText,
 } from "@/lib/pdf-kit";
 import QRCode from "qrcode";
+import { personFullName } from "@/lib/person-name";
 
 export const dynamic = "force-dynamic";
 
@@ -588,8 +589,8 @@ export async function GET(
 
   const snapshot = contract.termsSnapshot as ContractSnapshot;
   const provider = contract.mission.proposals[0]?.provider;
-  const clientName = [contract.mission.client.firstname, contract.mission.client.lastname].filter(Boolean).join(" ") || "Client";
-  const providerName = [provider?.firstname, provider?.lastname].filter(Boolean).join(" ") || "Prestataire";
+  const clientName = personFullName(contract.mission.client) || "Client";
+  const providerName = personFullName(provider) || "Prestataire";
 
   const adresseDe = (u: { address?: string | null; city?: string | null; country?: string | null }): string => {
     const parts = [u.address, u.city, u.country].filter((v) => v && v.trim());

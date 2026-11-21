@@ -95,30 +95,30 @@ export function PublishBar({ revision, onPublished }: { revision?: number; onPub
   if (forbidden) return null;
 
   return (
-    <div className="bg-white border border-[#E2E0D9] rounded-xl px-4 py-3 flex flex-wrap items-center gap-3">
+    <div className="bg-white border border-[#E7E2F0] rounded-xl px-4 py-3 flex flex-wrap items-center gap-3">
       <div className="flex items-center gap-2 text-[12px]">
-        <span className="font-bold text-[#1A1916]">
+        <span className="font-bold text-[#191224]">
           {state ? `Frontend v${state.version}` : "Frontend —"}
         </span>
         {state?.publishedAt && (
-          <span className="text-[#9C9A95]">
+          <span className="text-[#9A93A8]">
             publié le {new Date(state.publishedAt).toLocaleString("fr-FR")}
           </span>
         )}
-        {state?.version === 0 && <span className="text-[#9C9A95]">jamais publié — socle de repli en ligne</span>}
+        {state?.version === 0 && <span className="text-[#9A93A8]">jamais publié — socle de repli en ligne</span>}
       </div>
 
       <span
         className={`text-[11px] px-2 py-0.5 rounded-full border ${
           state?.hasPendingChanges
-            ? "bg-[#FEF3C7] text-[#92400E] border-[#FDE68A]"
-            : "bg-[#DCFCE7] text-[#166534] border-[#BBF7D0]"
+            ? "bg-[#FFF6E3] text-[#92400E] border-[#FDE68A]"
+            : "bg-[#E7F7EF] text-[#047857] border-[#BBF7D0]"
         }`}
       >
         {state?.hasPendingChanges ? "Brouillon en attente" : "En ligne à jour"}
       </span>
 
-      {feedback && <span className="text-[12px] text-[#5A5750]">{feedback}</span>}
+      {feedback && <span className="text-[12px] text-[#6B6478]">{feedback}</span>}
 
       {/* Note facultative. Sans elle, l'historique n'aligne que des dates et des numéros, et
           « pourquoi cette version ? » reste sans réponse trois semaines plus tard. Le champ
@@ -130,7 +130,7 @@ export function PublishBar({ revision, onPublished }: { revision?: number; onPub
           onKeyDown={(e) => e.key === "Enter" && !busy && publish()}
           placeholder="Note de publication (facultative)"
           maxLength={200}
-          className="ml-auto h-8 w-64 px-2.5 rounded-lg border border-[#E2E0D9] text-[12px] outline-none focus:border-[#2D5BE3]"
+          className="ml-auto h-8 w-64 px-2.5 rounded-lg border border-[#E7E2F0] text-[12px] outline-none focus:border-[#4C1D95]"
         />
       )}
 
@@ -141,8 +141,8 @@ export function PublishBar({ revision, onPublished }: { revision?: number; onPub
           state?.hasPendingChanges ? "" : "ml-auto "
         }${
           busy || !state?.hasPendingChanges
-            ? "bg-[#F4F3EF] text-[#9C9A95] cursor-not-allowed"
-            : "bg-[#2D5BE3] text-white hover:brightness-110"
+            ? "bg-[#EFEAF8] text-[#9A93A8] cursor-not-allowed"
+            : "bg-[#4C1D95] text-white hover:brightness-110"
         }`}
       >
         {busy ? "Publication…" : "Publier"}
@@ -154,10 +154,10 @@ export function PublishBar({ revision, onPublished }: { revision?: number; onPub
 /** Pastille de statut, commune à tous les écrans du module. */
 export function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
-    publie: "bg-[#DCFCE7] text-[#166534] border-[#BBF7D0]",
-    brouillon: "bg-[#FEF3C7] text-[#92400E] border-[#FDE68A]",
-    desactive: "bg-[#F4F3EF] text-[#9C9A95] border-[#E2E0D9]",
-    archive: "bg-[#FEE2E2] text-[#B91C1C] border-[#FECACA]",
+    publie: "bg-[#E7F7EF] text-[#047857] border-[#BBF7D0]",
+    brouillon: "bg-[#FFF6E3] text-[#92400E] border-[#FDE68A]",
+    desactive: "bg-[#EFEAF8] text-[#9A93A8] border-[#E7E2F0]",
+    archive: "bg-[#FEECEB] text-[#B42318] border-[#FECACA]",
   };
   const labels: Record<string, string> = {
     publie: "Publié",
@@ -175,9 +175,9 @@ export function StatusBadge({ status }: { status: string }) {
 /** Bandeau d'accès refusé, identique sur tous les écrans de la console. */
 export function ForbiddenNotice() {
   return (
-    <div className="bg-white border border-[#E2E0D9] rounded-xl p-6 text-center">
-      <p className="text-[14px] font-bold text-[#1A1916]">Accès refusé</p>
-      <p className="mt-2 text-[13px] text-[#5A5750] max-w-prose mx-auto">
+    <div className="bg-white border border-[#E7E2F0] rounded-xl p-6 text-center">
+      <p className="text-[14px] font-bold text-[#191224]">Accès refusé</p>
+      <p className="mt-2 text-[13px] text-[#6B6478] max-w-prose mx-auto">
         Cette console est réservée au rôle d’administration <code className="font-mono">frontend</code>.
         Le superviseur peut la consulter ; les autres rôles n’y ont pas accès.
       </p>

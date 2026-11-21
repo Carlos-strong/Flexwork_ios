@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
+import { placesRecherchees } from "@/lib/mission-expiry";
 import { contractPrice } from "@/lib/escrow";
 import { isVirtualPspEnabled } from "@/lib/psp-virtual";
 
@@ -25,7 +26,21 @@ export async function GET(
     where: { id },
     include: {
       client: { select: { id: true, firstname: true, lastname: true, avatarPath: true, country: true, kycStatus: true, createdAt: true } },
-      _count: { select: { proposals: true } },
+      _count: { select: { proposals: true, engagements: { where: { status: { not: "annulee" } } } } },
+      // Annonce et engagements (2026-11-10) : l'annonce d'origine d'un engagement, et les
+      // engagements d'une annonce avec le prestataire retenu sur chacun.
+      parentMission: { select: { id: true, titre: true } },
+      engagements: {
+        // Un engagement annulé (désistement, 2026-11-11) ne compte plus parmi les retenus.
+        where: { status: { not: "annulee" } },
+        select: {
+          id: true,
+          status: true,
+          createdAt: true,
+          proposals: { select: { provider: { select: { id: true, firstname: true, lastname: true, avatarPath: true } } }, take: 1 },
+        },
+        orderBy: { createdAt: "asc" },
+      },
       // Uniquement pour dériver contractPrice / escrowHoldStatus côté serveur — jamais
       // renvoyés bruts (voir le return ci-dessous, où le termsSnapshot est retiré).
       contract: {
@@ -34,6 +49,7 @@ export async function GET(
           escrowOperations: { select: { instructionType: true, status: true, pspReference: true } },
           validationMode: true,
           siteManagerId: true,
+          providerId: true,
         },
       },
     },
@@ -76,7 +92,8 @@ export async function GET(
   // en production — le vrai PSP pilote son propre flux.
   const escrowHoldReference =
     holdOp?.status === "pending" && isVirtualPspEnabled() ? (holdOp.pspReference ?? null) : null;
-  const { contract: _contract, ...missionRest } = mission;
+  const { contract: _contract, engagements, ...missionRest } = mission;
+  const isOwner = mission.clientId === userId;
 
   return NextResponse.json({
     ...missionRest,
@@ -84,11 +101,23 @@ export async function GET(
     contractDelaiJours,
     escrowHoldStatus,
     escrowHoldReference,
-    isOwner: mission.clientId === userId,
+    isOwner,
+    // Places de l'annonce (2026-11-10, src/lib/mission-expiry.ts) — publiques : elles disent au
+    // prestataire combien de profils le client cherche et combien il en a déjà retenus.
+    placesRecherchees: placesRecherchees(mission),
+    prestatairesRetenus: mission._count.engagements,
+    // Qui a été retenu : réservé au client.
+    engagements: isOwner
+      ? engagements.map((e) => ({ id: e.id, status: e.status, createdAt: e.createdAt, provider: e.proposals[0]?.provider ?? null }))
+      : undefined,
     // Mode OPR (2026-10-01) : le responsable de chantier désigné sur le CONTRAT ouvre la mission
     // dans sa vue de vérification. L'identifiant du responsable n'est pas exposé à tous.
     isSiteManager:
       !!contract && contract.validationMode === "opr" && !!contract.siteManagerId && contract.siteManagerId === userId,
+    // Prestataire PARTIE au contrat (2026-11-11) — distinct d'un simple candidat ou visiteur.
+    // Sert au bandeau de suivi : la médiation et l'avis ne sont proposés qu'aux deux parties,
+    // seules admises par leurs routes. L'identifiant du prestataire n'est pas exposé pour autant.
+    isContractProvider: !!contract && contract.providerId === userId,
     siteManagerId: mission.clientId === userId ? mission.siteManagerId : undefined,
     clientStats,
   });

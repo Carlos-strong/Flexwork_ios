@@ -33,6 +33,8 @@ const STATUS_LABEL: Record<MissionStatusValue, string> = {
   cloturee: "Clôturée",
   mediation_ouverte: "Médiation ouverte",
   remboursee: "Remboursée",
+  annonce_close: "Candidatures closes",
+  annulee: "Engagement annulé",
 };
 
 type KanbanMission = { id: string; titre: string; status: string; budget: number; client: { email: string }; mediationEnCours: boolean };
@@ -97,7 +99,7 @@ export default function AdminMissionsPage() {
         }
       />
 
-      {error && <div className="rounded-[12px] border border-[#F5C2BE] bg-[#FDEDEC] p-3 text-[13px] text-[#B42318]">{error}</div>}
+      {error && <div className="rounded-[12px] border border-[#F5C2BE] bg-[#FEECEB] p-3 text-[13px] text-[#B42318]">{error}</div>}
 
       <KpiStrip
         items={[
@@ -115,14 +117,14 @@ export default function AdminMissionsPage() {
               <div
                 key={col.status}
                 className={`w-[220px] shrink-0 rounded-[12px] border ${
-                  col.status === "mediation_ouverte" ? "border-[#FCD89A] bg-[#FEF9E7]" : "border-[#E2E0D9] bg-[#FAFAF8]"
+                  col.status === "mediation_ouverte" ? "border-[#FCD89A] bg-[#FEF9E7]" : "border-[#E7E2F0] bg-[#F6F5FA]"
                 }`}
               >
-                <div className="flex items-center justify-between border-b border-[#E2E0D9] px-3 py-2.5">
-                  <span className="truncate text-[11.5px] font-semibold text-[#1A1916]">{col.label}</span>
+                <div className="flex items-center justify-between border-b border-[#E7E2F0] px-3 py-2.5">
+                  <span className="truncate text-[11.5px] font-semibold text-[#191224]">{col.label}</span>
                   <span
                     className={`min-w-[20px] rounded-full px-1.5 py-0.5 text-center text-[10px] font-bold ${
-                      col.items.length ? "bg-[#2D5BE3] text-white" : "bg-[#E2E0D9] text-[#5A5750]"
+                      col.items.length ? "bg-[#4C1D95] text-white" : "bg-[#E7E2F0] text-[#6B6478]"
                     }`}
                   >
                     {col.items.length}
@@ -130,16 +132,16 @@ export default function AdminMissionsPage() {
                 </div>
                 <div className="min-h-[80px] space-y-2 p-2">
                   {col.items.map((m) => (
-                    <div key={m.id} className="rounded-[10px] border border-[#E2E0D9] bg-white p-2.5">
+                    <div key={m.id} className="rounded-[10px] border border-[#E7E2F0] bg-white p-2.5">
                       <div className="flex items-center justify-between">
-                        <span className="font-mono text-[10px] font-semibold text-[#9C9A95]">#{m.id.slice(0, 8)}</span>
+                        <span className="font-mono text-[10px] font-semibold text-[#9A93A8]">#{m.id.slice(0, 8)}</span>
                         {m.mediationEnCours && (
-                          <span className="rounded-full bg-[#FEF3C7] px-1.5 py-0.5 text-[9px] font-bold text-[#B45309]">⚖️ Litige</span>
+                          <span className="rounded-full bg-[#FFF6E3] px-1.5 py-0.5 text-[9px] font-bold text-[#B45309]">⚖️ Litige</span>
                         )}
                       </div>
                       <div className="mt-1 line-clamp-2 text-[12px] font-semibold leading-tight">{m.titre}</div>
-                      <div className="mt-1 truncate text-[11px] text-[#5A5750]">{m.client.email}</div>
-                      <div className="mt-1 text-[11px] font-semibold text-[#1A1916]">{m.budget > 0 ? formatXof(m.budget) : "—"}</div>
+                      <div className="mt-1 truncate text-[11px] text-[#6B6478]">{m.client.email}</div>
+                      <div className="mt-1 text-[11px] font-semibold text-[#191224]">{m.budget > 0 ? formatXof(m.budget) : "—"}</div>
                     </div>
                   ))}
                 </div>
@@ -157,7 +159,7 @@ export default function AdminMissionsPage() {
           padded={false}
         >
           {collusion === null ? (
-            <div className="p-5 text-[13px] text-[#9C9A95]">Chargement…</div>
+            <div className="p-5 text-[13px] text-[#9A93A8]">Chargement…</div>
           ) : collusion.length === 0 ? (
             <div className="p-5">
               <AdminEmpty>Aucune paire suspecte détectée.</AdminEmpty>
@@ -165,14 +167,14 @@ export default function AdminMissionsPage() {
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="border-b border-[#E2E0D9] bg-[#FAFAF8]">
+                <thead className="border-b border-[#E7E2F0] bg-[#F6F5FA]">
                   <tr>
                     <th className={tableHead}>Client</th>
                     <th className={tableHead}>Prestataire</th>
                     <th className={`${tableHead} text-right`}>Opérations</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#E2E0D9]">
+                <tbody className="divide-y divide-[#E7E2F0]">
                   {collusion.map((c) => (
                     <tr key={`${c.clientId}-${c.providerId}`}>
                       <td className={`${tableCell} font-mono text-[11.5px]`}>{c.clientId}</td>

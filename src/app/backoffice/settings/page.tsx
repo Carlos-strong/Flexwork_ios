@@ -66,17 +66,17 @@ export default function SettingsPage() {
       <PublishBar revision={revision} onPublished={load} />
 
       {feedback && (
-        <div className="bg-[#FEF3C7] border border-[#FDE68A] text-[#92400E] rounded-xl px-4 py-2.5 text-[12px]">
+        <div className="bg-[#FFF6E3] border border-[#FDE68A] text-[#92400E] rounded-xl px-4 py-2.5 text-[12px]">
           {feedback}
         </div>
       )}
 
       {groups.map((group) => (
-        <div key={group} className="bg-white border border-[#E2E0D9] rounded-xl p-4 space-y-3">
+        <div key={group} className="bg-white border border-[#E7E2F0] rounded-xl p-4 space-y-3">
           <div>
             <h2 className="text-[13px] font-bold">{GROUP_LABELS[group]?.title ?? group}</h2>
             {GROUP_LABELS[group]?.note && (
-              <p className="mt-1 text-[11px] text-[#9C9A95] max-w-3xl">{GROUP_LABELS[group].note}</p>
+              <p className="mt-1 text-[11px] text-[#9A93A8] max-w-3xl">{GROUP_LABELS[group].note}</p>
             )}
           </div>
 
@@ -99,13 +99,13 @@ function SettingField({ setting, onSave }: { setting: Setting; onSave: (key: str
   return (
     <label className="block">
       <span className="flex items-baseline gap-2 mb-1">
-        <span className="text-[11px] font-semibold text-[#5A5750]">{setting.label}</span>
-        <span className="text-[10px] font-mono text-[#9C9A95]">{setting.key}</span>
+        <span className="text-[11px] font-semibold text-[#6B6478]">{setting.label}</span>
+        <span className="text-[10px] font-mono text-[#9A93A8]">{setting.key}</span>
         {setting.customized && (
           <button
             type="button"
             onClick={() => onSave(setting.key, setting.defaultValue)}
-            className="text-[10px] text-[#2D5BE3] font-semibold hover:underline"
+            className="text-[10px] text-[#4C1D95] font-semibold hover:underline"
             title={`Valeur d’origine : ${setting.defaultValue}`}
           >
             revenir à l’origine
@@ -117,7 +117,7 @@ function SettingField({ setting, onSave }: { setting: Setting; onSave: (key: str
         onChange={(e) => setDraft(e.target.value)}
         onBlur={commit}
         rows={2}
-        className="w-full px-2.5 py-1.5 rounded-lg border border-[#E2E0D9] text-[12px] focus:border-[#2D5BE3] outline-none"
+        className="w-full px-2.5 py-1.5 rounded-lg border border-[#E7E2F0] text-[12px] focus:border-[#4C1D95] outline-none"
       />
     </label>
   );

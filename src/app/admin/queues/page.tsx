@@ -51,7 +51,7 @@ export default function QueuesPage() {
         readOnly
         actions={
           <>
-            {generatedAt && <span className="text-[11.5px] text-[#9C9A95]">mesuré à {new Date(generatedAt).toLocaleTimeString("fr-FR")}</span>}
+            {generatedAt && <span className="text-[11.5px] text-[#9A93A8]">mesuré à {new Date(generatedAt).toLocaleTimeString("fr-FR")}</span>}
             <button onClick={load} className={btnSecondary}>
               <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
               {loading ? "Mesure…" : "Mesurer"}
@@ -96,7 +96,7 @@ export default function QueuesPage() {
       <AdminCard padded={false}>
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="border-b border-[#E2E0D9] bg-[#FAFAF8]">
+            <thead className="border-b border-[#E7E2F0] bg-[#F6F5FA]">
               <tr>
                 <th className={tableHead}>Tâche</th>
                 <th className={tableHead}>Effet</th>
@@ -104,29 +104,29 @@ export default function QueuesPage() {
                 <th className={`${tableHead} text-right`}>En attente</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#E2E0D9]">
+            <tbody className="divide-y divide-[#E7E2F0]">
               {(tasks ?? []).map((t) => (
                 <tr key={t.key} className="align-top">
                   <td className={tableCell}>
                     <div className="font-medium">
                       {t.label}
                       {t.movesMoney && (
-                        <span className="ml-2 rounded-full bg-[#EEF2FD] px-2 py-0.5 text-[10.5px] font-semibold text-[#2D5BE3]">💶 argent</span>
+                        <span className="ml-2 rounded-full bg-[#F0EAFF] px-2 py-0.5 text-[10.5px] font-semibold text-[#4C1D95]">💶 argent</span>
                       )}
                     </div>
-                    <div className="font-mono text-[11px] text-[#9C9A95]">{t.route}</div>
+                    <div className="font-mono text-[11px] text-[#9A93A8]">{t.route}</div>
                   </td>
-                  <td className={`${tableCell} max-w-[360px] text-[#5A5750]`}>{t.effect}</td>
-                  <td className={`${tableCell} whitespace-nowrap text-[#5A5750]`}>{t.schedule}</td>
+                  <td className={`${tableCell} max-w-[360px] text-[#6B6478]`}>{t.effect}</td>
+                  <td className={`${tableCell} whitespace-nowrap text-[#6B6478]`}>{t.schedule}</td>
                   <td className={`${tableCell} text-right`}>
-                    <span className={`text-[16px] font-bold tabular-nums ${t.due > 0 ? "text-[#B45309]" : "text-[#1A7A4A]"}`}>{t.due}</span>
-                    {t.detail && <div className="text-[11px] text-[#9C9A95]">{t.detail}</div>}
+                    <span className={`text-[16px] font-bold tabular-nums ${t.due > 0 ? "text-[#B45309]" : "text-[#3B1578]"}`}>{t.due}</span>
+                    {t.detail && <div className="text-[11px] text-[#9A93A8]">{t.detail}</div>}
                   </td>
                 </tr>
               ))}
               {tasks === null && (
                 <tr>
-                  <td colSpan={4} className="p-5 text-[13px] text-[#9C9A95]">
+                  <td colSpan={4} className="p-5 text-[13px] text-[#9A93A8]">
                     Mesure en cours…
                   </td>
                 </tr>

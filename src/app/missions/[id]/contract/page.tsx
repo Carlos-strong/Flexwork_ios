@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
+import { FileText, Lock } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { SignContractModal } from "@/components/sign-contract-modal";
 import { SignatureQRCode } from "@/components/signature-qrcode";
@@ -12,6 +13,9 @@ import { CONTRACT_STEPS, stepIndexFor } from "@/lib/contract-stepper";
 import { isMissionFundingClosed } from "@/lib/mission-status";
 import { buildContractSections, buildContractParties, contractReference } from "@/lib/contract-clauses";
 import { fetchDedupe } from "@/lib/fetch-dedupe";
+import { initials } from "@/lib/initials";
+import { personFullName } from "@/lib/person-name";
+import { ROLE_DASHBOARD } from "@/lib/role-dashboard";
 
 type TermsSnapshot = {
   // name/city/country/role : ajoutés avec le bloc Parties du modèle de référence
@@ -106,10 +110,10 @@ function Stepper({ stepIndex }: { stepIndex: number }) {
           key={label}
           className={`shrink-0 px-3 py-1.5 rounded-full border text-[12px] font-semibold whitespace-nowrap ${
             i < stepIndex
-              ? "bg-[#008751] text-white border-[#008751]"
+              ? "bg-[#4C1D95] text-white border-[#4C1D95]"
               : i === stepIndex
-                ? "bg-[#0f172a] text-white border-[#0f172a]"
-                : "bg-[#F8FAF9] text-[#94A3B8] border-[#E2E8F0]"
+                ? "bg-[#191224] text-white border-[#191224]"
+                : "bg-[#F6F5FA] text-[#9A93A8] border-[#E7E2F0]"
           }`}
         >
           {label}
@@ -120,14 +124,8 @@ function Stepper({ stepIndex }: { stepIndex: number }) {
 }
 
 function fullNameOf(p: ContractParty | undefined): string | null {
-  const n = [p?.firstname, p?.lastname].filter(Boolean).join(" ").trim();
+  const n = personFullName(p);
   return n || null;
-}
-
-function initialsOf(p: ContractParty | undefined): string {
-  const a = p?.firstname?.trim()?.charAt(0) ?? "";
-  const b = p?.lastname?.trim()?.charAt(0) ?? "";
-  return (`${a}${b}`.toUpperCase()) || "?";
 }
 
 // Carte de signature — même carte pour Client et Prestataire, seuls le rôle, le signataire
@@ -144,7 +142,6 @@ function SignatureCard({
   blockedReason,
   contractId,
   onOpenSigning,
-  buttonClass,
 }: {
   role: "client" | "freelancer";
   roleLabel: string;
@@ -156,27 +153,24 @@ function SignatureCard({
   blockedReason: string | null;
   contractId: string;
   onOpenSigning: () => void;
-  buttonClass: string;
 }) {
+  // Bloc de la colonne « Signatures » (maquette 2026-11-12) : rôle, état, puis le bouton de
+  // signature (soi) ou le QR vérifiable (signé).
   return (
-    <div className="bg-white border border-[#E2E8F0] rounded-xl p-4 lg:p-5">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-[13px] font-semibold">Signature {roleLabel}</h3>
-        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold ${signedAt ? "bg-[#E6F4EE] text-[#008751] border border-[#A7F3D0]" : "bg-[#F1F5F9] text-[#64748B]"}`}>
-          {signedAt ? "Signature vérifiable" : "En attente"}
-        </span>
-      </div>
-
-      <div className="flex items-center gap-2.5 mb-4">
-        <Avatar src={party.avatarPath ? `/api/users/${party.id}/avatar` : null} initials={initialsOf(party)} size={40} />
-        <div>
-          <div className="text-[13px] font-semibold">{fullNameOf(party) ?? roleLabel}</div>
-          <div className="text-[11.5px] text-[#64748B]">{roleLabel}</div>
+    <div className="rounded-2xl bg-[#EFEAF8] p-4">
+      <div className="flex items-center gap-2.5">
+        <Avatar src={party.avatarPath ? `/api/users/${party.id}/avatar` : null} initials={initials(party.firstname, party.lastname)} size={32} />
+        <div className="min-w-0">
+          <div className="text-[13px] text-[#4A4258]">{roleLabel}</div>
+          <div className="text-[12px] text-[#6B6478] truncate">{fullNameOf(party) ?? roleLabel}</div>
         </div>
       </div>
+      <p className={`mt-2 font-display font-bold text-[17px] ${signedAt ? "text-[#047857]" : "text-[#191224]"}`}>
+        {signedAt ? `Signé le ${new Date(signedAt).toLocaleDateString("fr-FR")}` : "En attente"}
+      </p>
 
       {signedAt && signatureRecord ? (
-        <div className="text-center">
+        <div className="mt-3 rounded-xl bg-white p-3 text-center">
           <SignatureQRCode
             contractId={contractId}
             signatureId={signatureRecord.signatureId}
@@ -185,32 +179,29 @@ function SignatureCard({
             signedAt={signatureRecord.signedAt}
             keyFingerprint={signatureRecord.keyFingerprint}
             signedDataHash={signatureRecord.signedDataHash}
-            size={110}
+            size={96}
           />
-          <p className="mt-2.5 text-[11.5px] text-[#64748B]">
-            QR généré le {new Date(signedAt).toLocaleDateString("fr-FR")} à{" "}
-            {new Date(signedAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+          <p className="mt-2 text-[11px] text-[#6B6478]">
+            Signature vérifiable · {new Date(signedAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
           </p>
         </div>
       ) : signedAt ? (
         // Signé, mais le détail cryptographique (POST /api/signature/verify) n'est pas
         // encore revenu — évite un QR vide plutôt que d'en fabriquer un.
-        <p className="text-[13px] text-[#008751]">✓ Signé le {new Date(signedAt).toLocaleString("fr-FR")}</p>
+        <p className="mt-1 text-[12px] text-[#047857]">✓ Signature enregistrée</p>
       ) : isSelf ? (
         <>
           <button
             disabled={!canSignNow}
             onClick={onOpenSigning}
-            className={`w-full h-10 rounded-lg text-white text-[13px] font-semibold transition-colors disabled:opacity-50 ${buttonClass === "btn-primary" ? "bg-[#008751] hover:bg-[#007a49]" : "bg-[#0f172a] hover:bg-black"}`}
+            className="mt-3 w-full py-2.5 rounded-full bg-[#4C1D95] text-white text-[14px] font-bold hover:bg-[#3B1578] transition disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            Signer le contrat
+            Signer en tant que {roleLabel}
           </button>
-          {blockedReason && (
-            <p className="mt-2 text-[11.5px] text-[#94A3B8] text-center">{blockedReason}</p>
-          )}
+          {blockedReason && <p className="mt-2 text-[11.5px] text-[#6B6478] text-center">{blockedReason}</p>}
         </>
       ) : (
-        <p className="text-[13px] text-[#64748B]">En attente</p>
+        <p className="mt-1 text-[12px] text-[#6B6478]">{role === "client" ? "Le client contre-signe après le prestataire." : "Le prestataire signe en premier."}</p>
       )}
     </div>
   );
@@ -230,6 +221,7 @@ export default function ContractPage({ params }: { params: { id: string } }) {
   const router = useRouter();
   const { data: session } = useSession();
   const userId = (session?.user as { id?: string } | undefined)?.id;
+  const userRole = (session?.user as { role?: string } | undefined)?.role;
   // session.user.name n'est PAS un nom d'affichage : NextAuth le fixe au numéro de
   // téléphone (voir src/auth.ts, authorize()). Sans cette requête, le nom par défaut
   // proposé pour signer un contrat aurait été le téléphone du signataire.
@@ -243,6 +235,9 @@ export default function ContractPage({ params }: { params: { id: string } }) {
   const [missionStatus, setMissionStatus] = useState<string | null>(null);
   const [signatures, setSignatures] = useState<SignatureRecord[]>([]);
   const [consent, setConsent] = useState(false);
+  // Acceptation des termes (2026-11-10) : le bouton « Signer » de chaque partie reste inactif
+  // tant qu'elle n'a pas coché « J'ai lu et j'accepte les termes du contrat ».
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [acceptedMontant, setAcceptedMontant] = useState<number | null>(null);
   const [useJalons, setUseJalons] = useState(false);
@@ -264,6 +259,9 @@ export default function ContractPage({ params }: { params: { id: string } }) {
   // quand LE CLIENT vient de signer (2/2 — il signe toujours en dernier, imposé serveur),
   // pour rediriger vers l'étape de financement à la fermeture de la modale.
   const [clientJustSigned, setClientJustSigned] = useState(false);
+  // Prestataire qui vient de signer (1/2) : « Terminer » le ramène à son tableau de bord, en
+  // attendant la contre-signature du client (2026-11-10).
+  const [providerJustSigned, setProviderJustSigned] = useState(false);
 
   // Mémoïsée car `load` l'appelle : sans ça, `load` ne pourrait pas déclarer ses dépendances
   // sans être recréée à chaque rendu, et l'effet de montage partirait en boucle.
@@ -309,6 +307,19 @@ export default function ContractPage({ params }: { params: { id: string } }) {
       .then((d) => d && setFinancing(d))
       .catch(() => {});
   }, [missionId, load]);
+
+  // Client en attente de la signature du prestataire (2026-11-10) : la page se met à jour
+  // d'elle-même quand il signe, au lieu d'exiger un rechargement pour voir le bouton se
+  // débloquer. Rafraîchissement léger, seulement onglet visible et seulement pendant l'attente.
+  const waitingForProvider =
+    !!contract && contract !== "none" && !contract.providerSignedAt && !!userId && userId === contract.clientId;
+  useEffect(() => {
+    if (!waitingForProvider) return;
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") load();
+    }, 15_000);
+    return () => window.clearInterval(timer);
+  }, [waitingForProvider, load]);
 
   // Le mode pilote la génération dès qu'il produit un découpage exploitable. `devis_required`
   // = mode à jalons sans devis à dériver : on repasse la main au formulaire manuel plutôt que
@@ -360,6 +371,10 @@ export default function ContractPage({ params }: { params: { id: string } }) {
   // src/lib/signature.ts) ; le verrouillage automatique à la 2e signature (hash final,
   // ContractAuditEntry) est géré côté serveur.
   function openSigning(role: "client" | "freelancer") {
+    if (!termsAccepted) {
+      setError("Vous devez accepter les termes du contrat avant de signer.");
+      return;
+    }
     if (role === "client" && !consent) {
       setError("Vous devez cocher la case de consentement éclairé avant de signer.");
       return;
@@ -376,81 +391,81 @@ export default function ContractPage({ params }: { params: { id: string } }) {
     });
   }
 
-  if (contract === null) return <div className="min-h-screen bg-[#F8FAF9] flex items-center justify-center text-[13px] text-[#64748B]">Chargement...</div>;
+  if (contract === null) return <div className="min-h-screen bg-[#F6F5FA] flex items-center justify-center text-[13px] text-[#6B6478]">Chargement...</div>;
 
   const stepIndex = stepIndexFor(contract, missionStatus);
 
   if (contract === "none") {
     return (
-      <div className="min-h-screen bg-[#F8FAF9] text-[#0f172a]">
+      <div className="min-h-screen bg-[#F6F5FA] text-[#191224]">
         <div className="fluid-doc [--fw:800px] mx-auto px-4 lg:px-0 py-5">
-          <div className="flex items-center gap-1.5 text-[12px] text-[#64748B] flex-wrap mb-4">
-            <Link href={`/missions/${missionId}`} className="hover:text-[#0f172a]" style={{ textDecoration: "none" }}>Mission</Link>
+          <div className="flex items-center gap-1.5 text-[12px] text-[#6B6478] flex-wrap mb-4">
+            <Link href={`/missions/${missionId}`} className="hover:text-[#191224]" style={{ textDecoration: "none" }}>Mission</Link>
             <span>›</span>
-            <span className="text-[#0f172a] font-medium">Contrat</span>
+            <span className="text-[#191224] font-medium">Contrat</span>
           </div>
 
           <Stepper stepIndex={stepIndex} />
-          <div className="bg-white border border-[#E2E8F0] rounded-xl p-4 lg:p-5">
+          <div className="bg-white border border-[#E7E2F0] rounded-xl p-4 lg:p-5">
             <h1 className="text-[13px] font-semibold mb-3">Contrat de prestation</h1>
-            <p className="text-[13px] text-[#64748B] mb-4">Aucun contrat généré pour cette mission — une proposition doit d&apos;abord être acceptée.</p>
-            {error && <div className="rounded-xl border border-[#FECACA] bg-[#FEF2F2] p-3 text-[13px] text-[#B91C1C] mb-4">{error}</div>}
+            <p className="text-[13px] text-[#6B6478] mb-4">Aucun contrat généré pour cette mission — une proposition doit d&apos;abord être acceptée.</p>
+            {error && <div className="rounded-xl border border-[#FECACA] bg-[#FEECEB] p-3 text-[13px] text-[#B42318] mb-4">{error}</div>}
 
             {/* Mode choisi à la publication : rien à saisir. Le découpage affiché ici est
                 EXACTEMENT celui que le serveur créera (même fonction de dérivation), pas une
                 estimation — le client valide ce qu'il voit. */}
             {derivedFinancing && (
-              <div className="border-t border-[#F1F5F9] pt-3">
+              <div className="border-t border-[#EFEAF8] pt-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <strong className="text-[13px]">Financement — {derivedFinancing.mode!.label}</strong>
-                  <span className="text-[10px] uppercase tracking-wide font-semibold px-1.5 py-0.5 rounded bg-[#E6F4EE] text-[#008751]">
+                  <span className="text-[10px] uppercase tracking-wide font-semibold px-1.5 py-0.5 rounded bg-[#F0EAFF] text-[#4C1D95]">
                     Choisi à la publication
                   </span>
                 </div>
-                <p className="text-[12.5px] text-[#64748B] mt-1 leading-relaxed">{derivedFinancing.mode!.definition}</p>
+                <p className="text-[12.5px] text-[#6B6478] mt-1 leading-relaxed">{derivedFinancing.mode!.definition}</p>
 
                 {derivedFinancing.preview && derivedFinancing.preview.length > 0 ? (
-                  <div className="mt-3 rounded-lg border border-[#E2E8F0] overflow-hidden">
+                  <div className="mt-3 rounded-lg border border-[#E7E2F0] overflow-hidden">
                     {derivedFinancing.preview.map((j, i) => (
                       <div
                         key={i}
-                        className="flex items-center justify-between gap-3 px-3 py-2 text-[12.5px] border-b border-[#F1F5F9] last:border-b-0"
+                        className="flex items-center justify-between gap-3 px-3 py-2 text-[12.5px] border-b border-[#EFEAF8] last:border-b-0"
                       >
-                        <span className="text-[#64748B] shrink-0">#{i + 1}</span>
-                        <span className="flex-1 min-w-0 truncate text-[#0f172a]">{j.titre}</span>
-                        <strong className="text-[#008751] shrink-0">{j.montant.toLocaleString("fr-FR")}</strong>
+                        <span className="text-[#6B6478] shrink-0">#{i + 1}</span>
+                        <span className="flex-1 min-w-0 truncate text-[#191224]">{j.titre}</span>
+                        <strong className="text-[#047857] shrink-0">{j.montant.toLocaleString("fr-FR")}</strong>
                       </div>
                     ))}
-                    <div className="flex items-center justify-between px-3 py-2 text-[12.5px] bg-[#F8FAF9]">
+                    <div className="flex items-center justify-between px-3 py-2 text-[12.5px] bg-[#F6F5FA]">
                       <span className="font-semibold">Total</span>
                       <strong>{derivedFinancing.preview.reduce((s, j) => s + j.montant, 0).toLocaleString("fr-FR")}</strong>
                     </div>
                   </div>
                 ) : derivedFinancing.timeTerms ? (
-                  <div className="mt-3 rounded-lg border border-[#E2E8F0] overflow-hidden text-[12.5px]">
+                  <div className="mt-3 rounded-lg border border-[#E7E2F0] overflow-hidden text-[12.5px]">
                     {[
                       ["Tarif", `${derivedFinancing.timeTerms.rate.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} / ${RATE_UNIT_LABEL[derivedFinancing.timeTerms.rateUnit].one}`],
                       ["Quantité maximale", `${derivedFinancing.timeTerms.maxQuantity.toLocaleString("fr-FR")} ${RATE_UNIT_LABEL[derivedFinancing.timeTerms.rateUnit].many}`],
                       ["Mode de pointage", ATTENDANCE_VALIDATION_LABEL[derivedFinancing.timeTerms.attendanceValidation ?? "partielle"].label],
                     ].map(([k, v]) => (
-                      <div key={k} className="flex items-center justify-between gap-3 px-3 py-2 border-b border-[#F1F5F9]">
-                        <span className="text-[#64748B]">{k}</span>
+                      <div key={k} className="flex items-center justify-between gap-3 px-3 py-2 border-b border-[#EFEAF8]">
+                        <span className="text-[#6B6478]">{k}</span>
                         <strong className="tabular-nums">{v}</strong>
                       </div>
                     ))}
-                    <div className="flex items-center justify-between px-3 py-2 bg-[#F8FAF9]">
+                    <div className="flex items-center justify-between px-3 py-2 bg-[#F6F5FA]">
                       <span className="font-semibold">Plafond séquestré</span>
-                      <strong className="text-[#008751] tabular-nums">{derivedFinancing.timeTerms.maxAmount.toLocaleString("fr-FR")}</strong>
+                      <strong className="text-[#047857] tabular-nums">{derivedFinancing.timeTerms.maxAmount.toLocaleString("fr-FR")}</strong>
                     </div>
                   </div>
                 ) : (
-                  <div className="mt-3 rounded-lg bg-[#F8FAF9] border border-[#E2E8F0] px-3 py-2.5 text-[12px] text-[#64748B]">
+                  <div className="mt-3 rounded-lg bg-[#F6F5FA] border border-[#E7E2F0] px-3 py-2.5 text-[12px] text-[#6B6478]">
                     Paiement unique sur le prix total du contrat — aucun fractionnement.
                   </div>
                 )}
 
-                <div className="mt-3 rounded-lg bg-[#F8FAF9] border border-[#E2E8F0] px-3 py-2.5 text-[12px] text-[#64748B]">
-                  <span className="font-semibold text-[#0f172a]">Avec ce mode : </span>
+                <div className="mt-3 rounded-lg bg-[#F6F5FA] border border-[#E7E2F0] px-3 py-2.5 text-[12px] text-[#6B6478]">
+                  <span className="font-semibold text-[#191224]">Avec ce mode : </span>
                   {derivedFinancing.mode!.family === "temps" ? (
                     <>
                       le plafond sera séquestré une seule fois avant le démarrage ; chaque relevé de présence que vous
@@ -493,7 +508,7 @@ export default function ContractPage({ params }: { params: { id: string } }) {
             )}
 
             {!derivedFinancing && acceptedMontant !== null && (
-              <div className="border-t border-[#F1F5F9] pt-3">
+              <div className="border-t border-[#EFEAF8] pt-3">
                 <label className="flex items-center gap-2 cursor-pointer text-[13px] font-semibold">
                   <input type="checkbox" className="w-auto" checked={useJalons} onChange={(e) => setUseJalons(e.target.checked)} />
                   Fractionner le paiement en jalons (prix total : <span>{acceptedMontant.toLocaleString("fr-FR")}</span>)
@@ -508,24 +523,24 @@ export default function ContractPage({ params }: { params: { id: string } }) {
                           placeholder={`Jalon ${i + 1} — titre`}
                           value={row.titre}
                           onChange={(e) => setJalonRows((rows) => rows.map((r, j) => (j === i ? { ...r, titre: e.target.value } : r)))}
-                          className="flex-[2] h-9 px-2.5 rounded-lg border border-[#E2E8F0] text-[13px] focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751]"
+                          className="flex-[2] h-9 px-2.5 rounded-lg border border-[#E7E2F0] text-[13px] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20 focus:border-[#4C1D95]"
                         />
                         <input
                           type="number"
                           placeholder="Montant"
                           value={row.montant}
                           onChange={(e) => setJalonRows((rows) => rows.map((r, j) => (j === i ? { ...r, montant: e.target.value } : r)))}
-                          className="flex-1 h-9 px-2.5 rounded-lg border border-[#E2E8F0] text-[13px] focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751]"
+                          className="flex-1 h-9 px-2.5 rounded-lg border border-[#E7E2F0] text-[13px] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20 focus:border-[#4C1D95]"
                         />
                         {jalonRows.length > 2 && (
-                          <button type="button" onClick={() => setJalonRows((rows) => rows.filter((_, j) => j !== i))} className="h-9 px-3 rounded-lg border border-[#E2E8F0] bg-white text-[13px] hover:bg-[#F8FAF9]">×</button>
+                          <button type="button" onClick={() => setJalonRows((rows) => rows.filter((_, j) => j !== i))} className="h-9 px-3 rounded-lg border border-[#E7E2F0] bg-white text-[13px] hover:bg-[#F6F5FA]">×</button>
                         )}
                       </div>
                     ))}
-                    <button type="button" onClick={() => setJalonRows((rows) => [...rows, { titre: "", montant: "" }])} className="h-8 px-3 rounded-md border border-[#E2E8F0] bg-white text-[11px] font-medium hover:bg-[#F1F5F9]">
+                    <button type="button" onClick={() => setJalonRows((rows) => [...rows, { titre: "", montant: "" }])} className="h-8 px-3 rounded-md border border-[#E7E2F0] bg-white text-[11px] font-medium hover:bg-[#EFEAF8]">
                       + Ajouter un jalon
                     </button>
-                    <p className={`text-[12.5px] mt-1 ${Math.abs(jalonsTotal - acceptedMontant) < 0.01 ? "text-[#008751]" : "text-[#E8112D]"}`}>
+                    <p className={`text-[12.5px] mt-1 ${Math.abs(jalonsTotal - acceptedMontant) < 0.01 ? "text-[#047857]" : "text-[#B42318]"}`}>
                       Total des jalons : <span>{jalonsTotal.toLocaleString("fr-FR")}</span> / <span>{acceptedMontant.toLocaleString("fr-FR")}</span>
                     </p>
 
@@ -546,8 +561,8 @@ export default function ContractPage({ params }: { params: { id: string } }) {
                     options-gestion-jalons.md) ; ce texte évite au client de devoir déduire
                     lui-même le comportement résultant des 6 combinaisons possibles. Figé à la
                     génération du contrat, comme les jalons eux-mêmes — d'où l'avertissement. */}
-                <div className="mt-3 rounded-lg bg-[#F8FAF9] border border-[#E2E8F0] px-3 py-2.5 text-[12px] text-[#64748B]">
-                  <span className="font-semibold text-[#0f172a]">Avec ces choix : </span>
+                <div className="mt-3 rounded-lg bg-[#F6F5FA] border border-[#E7E2F0] px-3 py-2.5 text-[12px] text-[#6B6478]">
+                  <span className="font-semibold text-[#191224]">Avec ces choix : </span>
                   {useJalons ? (
                     <>
                       chaque jalon sera financé, soumis et validé indépendamment,{" "}
@@ -571,7 +586,7 @@ export default function ContractPage({ params }: { params: { id: string } }) {
               </div>
             )}
 
-            <button onClick={generateContract} disabled={!derivedFinancing && useJalons && !jalonsValid} className="mt-4 h-10 px-5 rounded-lg bg-[#008751] text-white text-[13px] font-semibold hover:bg-[#007a49] transition-colors disabled:opacity-50">
+            <button onClick={generateContract} disabled={!derivedFinancing && useJalons && !jalonsValid} className="mt-4 h-10 px-5 rounded-full bg-[#4C1D95] text-white text-[13px] font-semibold hover:bg-[#3B1578] transition-colors disabled:opacity-50">
               Générer le contrat
             </button>
           </div>
@@ -593,6 +608,9 @@ export default function ContractPage({ params }: { params: { id: string } }) {
   const isClient = userId === contract.clientId;
   const isProvider = userId === contract.providerId;
   const bothSigned = !!contract.clientSignedAt && !!contract.providerSignedAt;
+  // Bloc « Avant de signer » : la partie connectée n'a pas encore signé.
+  const mySignPending = (isClient && !contract.clientSignedAt) || (isProvider && !contract.providerSignedAt);
+  const readyToSign = termsAccepted && (!isClient || consent);
   const clientSignature = signatures.find((s) => s.signerEmail === t.client.email) ?? null;
   const providerSignature = signatures.find((s) => s.signerEmail === t.provider.email) ?? null;
 
@@ -606,32 +624,53 @@ export default function ContractPage({ params }: { params: { id: string } }) {
   // s'affiche après une signature réussie.
   function handleCloseSigning() {
     const advanceToEscrow = clientJustSigned && isClient && bothSigned;
+    const backToDashboard = providerJustSigned && isProvider && !(contract && contract !== "none" && contract.clientSignedAt);
     setClientJustSigned(false);
+    setProviderJustSigned(false);
     setSigningRole(null);
     if (advanceToEscrow) router.push(`/missions/${missionId}/escrow`);
+    else if (backToDashboard) router.push(ROLE_DASHBOARD[userRole ?? ""] ?? "/dashboard");
   }
 
   return (
-    <div className="min-h-screen bg-[#F8FAF9] text-[#0f172a]">
-      <div className="fluid-doc [--fw:800px] mx-auto px-4 lg:px-0 py-5 space-y-4">
-        <div className="flex items-center gap-1.5 text-[12px] text-[#64748B] flex-wrap">
-          <Link href={`/missions/${missionId}`} className="hover:text-[#0f172a]" style={{ textDecoration: "none" }}>Mission</Link>
+    <div className="min-h-screen bg-[#F6F5FA] text-[#191224]">
+      <div className="fluid-doc [--fw:1200px] mx-auto px-4 lg:px-6 py-5 space-y-4">
+        <div className="flex items-center gap-1.5 text-[12px] text-[#6B6478] flex-wrap">
+          <Link href={`/missions/${missionId}`} className="hover:text-[#191224]" style={{ textDecoration: "none" }}>Mission</Link>
           <span>›</span>
-          <span className="text-[#0f172a] font-medium">Contrat</span>
+          <span className="text-[#191224] font-medium">Contrat</span>
         </div>
 
         <Stepper stepIndex={stepIndex} />
 
         {noInsurance && (
-          <div className="rounded-xl border border-[#FECACA] bg-[#FEF2F2] p-3.5 text-[13px] text-[#B91C1C] leading-relaxed">
+          <div className="rounded-xl border border-[#FECACA] bg-[#FEECEB] p-3.5 text-[13px] text-[#B42318] leading-relaxed">
             <strong>⚠️ Avertissement :</strong> Ce prestataire n&apos;a déclaré <strong>aucune assurance</strong> de
             responsabilité civile professionnelle. En cas de dommage pendant les travaux, aucune indemnisation par une
             assurance ne sera possible.
           </div>
         )}
 
+        {/* Le prestataire signe en premier (imposé par POST /api/signature/sign) : tant qu'il ne
+            l'a pas fait, le client le voit d'emblée — sa case de consentement ne pouvait rien
+            déclencher, sans que rien ne dise pourquoi (2026-11-10). */}
+        {isClient && !contract.providerSignedAt && (
+          <div role="status" className="flex items-start gap-3 rounded-xl border border-[#BFDBFE] bg-[#EAF1FF] p-4">
+            <span aria-hidden className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#DBEAFE] text-[16px]">
+              ✍️
+            </span>
+            <div className="min-w-0 text-[13px] leading-relaxed">
+              <p className="font-semibold text-[#191224]">Étape 1/2 — en attente de la signature du prestataire.</p>
+              <p className="text-[#4A4258]">
+                Le prestataire signe en premier ; il a été notifié. Vous pourrez contre-signer dès sa signature : vous serez
+                prévenu et cette page se mettra à jour d&apos;elle-même.
+              </p>
+            </div>
+          </div>
+        )}
+
         {contract.providerSignedAt && !contract.clientSignedAt && (
-          <div className="rounded-xl border border-[#FDE68A] bg-[#FFFBEB] p-3.5 text-[13px] text-[#92400E] leading-relaxed flex items-start gap-2">
+          <div className="rounded-xl border border-[#FDE68A] bg-[#FFF6E3] p-3.5 text-[13px] text-[#92400E] leading-relaxed flex items-start gap-2">
             <span className="shrink-0">⏳</span>
             <span>
               <strong>Signature du prestataire reçue.</strong> Le client dispose de 48&nbsp;h pour contre-signer ;
@@ -640,169 +679,232 @@ export default function ContractPage({ params }: { params: { id: string } }) {
           </div>
         )}
 
-        <div className="bg-white border border-[#E2E8F0] rounded-xl p-4 lg:p-5">
-          <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
-            <div>
-              <h1 className="text-[13px] font-semibold">Contrat de prestation de services</h1>
-              <div className="text-[11px] text-[#94A3B8] font-mono mt-0.5">Référence {contractReference(contract.id)}</div>
-            </div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-[#FEF3C7] text-[#D97706] text-[11px] font-semibold border border-[#FDE68A]">Outil généré par Flexwork</span>
+        {/* Maquette « Contrat client & prestataire » (2026-11-12) : le document à gauche, la
+            colonne « Signatures » à droite. Contenu du contrat (parties, articles, tableau des
+            jalons) et logique de signature inchangés. */}
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_330px] items-start">
+          <article className="min-w-0 rounded-3xl border border-[#E7E2F0] bg-white overflow-hidden">
+            <header className="flex items-start justify-between gap-3 border-b border-[#E7E2F0] px-5 py-5 lg:px-7">
+              <div className="min-w-0">
+                <p className="kicker">Contrat de prestation — Flexwork</p>
+                <h1 className="font-display font-extrabold text-[#191224] leading-tight mt-1" style={{ fontSize: "clamp(22px, 2.6vw, 28px)" }}>
+                  Contrat client &amp; prestataire
+                </h1>
+                <p className="mt-1 text-[12px] text-[#9A93A8] font-mono">Référence {contractReference(contract.id)}</p>
+              </div>
               <a
                 href={`/api/missions/${missionId}/contract/document?format=pdf`}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-[#0f172a] text-white text-[12px] font-semibold hover:bg-black transition"
+                title="Télécharger le contrat (PDF)"
+                aria-label="Télécharger le contrat (PDF)"
+                className="shrink-0 grid place-items-center w-10 h-10 rounded-xl text-[#4C1D95] hover:bg-[#F0EAFF] transition"
               >
-                ⬇ PDF
+                <FileText className="w-6 h-6" aria-hidden />
               </a>
-            </div>
-          </div>
+            </header>
 
-          {/* Bloc « LE CLIENT » / « ET LE PRESTATAIRE » + préambule — en-tête du modèle de référence. */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-            {[parties.client, parties.provider].map((party) => (
-              <div key={party.heading} className="rounded-xl border border-[#E2E8F0] bg-[#F8FAF9] p-3.5">
-                <div className="text-[10px] font-bold tracking-widest text-[#94A3B8] uppercase">{party.heading}</div>
-                <div className="text-[13px] font-semibold text-[#0f172a] mt-1">{party.name}</div>
-                <dl className="mt-2 space-y-0.5">
-                  {party.lines.map((l) => (
-                    <div key={l.label} className="flex gap-2 text-[11.5px]">
-                      <dt className="text-[#94A3B8] shrink-0 w-[68px]">{l.label}</dt>
-                      <dd className="text-[#475569] min-w-0 break-words">{l.value}</dd>
+            <div className="px-5 py-6 lg:px-7 space-y-6 text-[14px] leading-relaxed text-[#191224]">
+              {/* Parties — en-tête du modèle de référence. */}
+              <section>
+                <h2 className="font-bold text-[15px] mb-2">Parties</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {[parties.client, parties.provider].map((party) => (
+                    <div key={party.heading} className="rounded-2xl bg-[#F6F5FA] p-4">
+                      <div className="text-[11px] font-bold tracking-widest text-[#6B6478] uppercase">{party.heading}</div>
+                      <div className="font-bold mt-1">{party.name}</div>
+                      <dl className="mt-1.5 space-y-0.5">
+                        {party.lines.map((l) => (
+                          <div key={l.label} className="flex gap-2 text-[12.5px]">
+                            <dt className="text-[#6B6478] shrink-0 w-[72px]">{l.label}</dt>
+                            <dd className="min-w-0 break-words">{l.value}</dd>
+                          </div>
+                        ))}
+                      </dl>
                     </div>
                   ))}
-                </dl>
-              </div>
-            ))}
-          </div>
-          <p className="text-[12.5px] text-[#475569] italic mb-5">{parties.preamble}</p>
+                </div>
+                <p className="mt-3 text-[13px] text-[#4A4258] italic">{parties.preamble}</p>
+              </section>
 
-          <div className="text-[13px] leading-relaxed space-y-4 mb-5">
-            {sections.filter((s) => s.table || s.paragraphs.some((p) => p.trim())).map((s) => (
-              <div key={s.title}>
-                <h3 className="text-[#008751] font-semibold text-[13px] mb-1.5">{s.title}</h3>
-                {s.paragraphs.filter((p) => p.trim()).map((p, i) => (
-                  <p key={i} className="text-[#475569]">{p}</p>
-                ))}
-                {s.table && (
-                  <div className="overflow-x-auto mt-2.5 rounded-lg border border-[#E2E8F0]">
-                    <table className="w-full text-[12px]">
-                      <thead>
-                        <tr className="bg-[#F8FAF9] text-[10px] tracking-widest text-[#64748B] uppercase">
-                          {s.table.columns.map((c) => (
-                            <th key={c} className="text-left font-semibold py-2 px-3 whitespace-nowrap">{c}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {s.table.rows.map((row, ri) => (
-                          <tr key={ri} className="border-t border-[#F1F5F9]">
-                            {row.map((cell, ci) => (
-                              <td key={ci} className={`py-2 px-3 ${ci === 3 ? "font-semibold text-[#0f172a] whitespace-nowrap" : "text-[#475569]"}`}>{cell}</td>
+              {sections.filter((s) => s.table || s.paragraphs.some((p) => p.trim())).map((s) => (
+                <section key={s.title}>
+                  <h2 className="font-bold text-[15px] mb-1">{s.title}</h2>
+                  {s.paragraphs.filter((p) => p.trim()).map((p, i) => (
+                    <p key={i}>{p}</p>
+                  ))}
+                  {s.table && (
+                    <div className="overflow-x-auto mt-3 rounded-2xl border border-[#E7E2F0]">
+                      <table className="w-full text-[13px]">
+                        <thead>
+                          <tr className="bg-[#EFEAF8] text-[11px] tracking-widest text-[#6B6478] uppercase">
+                            {s.table.columns.map((c) => (
+                              <th key={c} className="text-left font-semibold py-2.5 px-3 whitespace-nowrap bg-transparent">{c}</th>
                             ))}
                           </tr>
-                        ))}
-                        <tr className="border-t border-[#E2E8F0] bg-[#F8FAF9]">
-                          <td colSpan={s.table.columns.length - 1} className="py-2 px-3 text-[11px] font-bold tracking-widest text-[#64748B] uppercase">{s.table.totalLabel}</td>
-                          <td className="py-2 px-3 font-bold text-[#008751] whitespace-nowrap">{s.table.totalValue}</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
+                        </thead>
+                        <tbody>
+                          {s.table.rows.map((row, ri) => (
+                            <tr key={ri} className="border-t border-[#EFEAF8] hover:bg-transparent">
+                              {row.map((cell, ci) => (
+                                <td key={ci} className={`py-2.5 px-3 ${ci === 3 ? "font-bold whitespace-nowrap" : ""}`}>{cell}</td>
+                              ))}
+                            </tr>
+                          ))}
+                          <tr className="border-t border-[#E7E2F0] bg-[#F6F5FA] hover:bg-[#F6F5FA]">
+                            <td colSpan={s.table.columns.length - 1} className="py-2.5 px-3 font-bold">{s.table.totalLabel}</td>
+                            <td className="py-2.5 px-3 font-extrabold text-[#047857] whitespace-nowrap">{s.table.totalValue}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </section>
+              ))}
 
-          {error && <div className="rounded-xl border border-[#FECACA] bg-[#FEF2F2] p-3 text-[13px] text-[#B91C1C] mb-4">{error}</div>}
+              {error && <div className="rounded-2xl border border-[#FECACA] bg-[#FEECEB] p-3 text-[13px] text-[#B42318]">{error}</div>}
 
-          {isClient && !contract.clientSignedAt && (
-            <div className="border-t-2 border-[#E2E8F0] pt-4">
-              <label className="flex items-start gap-2 cursor-pointer text-[13px]">
-                <input
-                  type="checkbox"
-                  className="w-auto mt-0.5"
-                  checked={consent}
-                  onChange={(e) => {
-                    setConsent(e.target.checked);
-                    if (e.target.checked && noInsurance) acknowledgeNoInsurance();
-                  }}
-                />
-                <span><strong>J&apos;ai compris et je choisis ce prestataire</strong> en pleine connaissance de cause.</span>
-              </label>
+              {/* Acceptation — encadré du modèle. */}
+              {mySignPending && (
+                <div className="rounded-2xl border border-[#E7E2F0] p-4 space-y-3">
+                  <label className="flex items-start gap-3 cursor-pointer text-[14px] mb-0 font-normal">
+                    <input
+                      type="checkbox"
+                      className="w-5 h-5 mt-0.5 shrink-0"
+                      checked={termsAccepted}
+                      onChange={(e) => {
+                        setTermsAccepted(e.target.checked);
+                        if (e.target.checked) setError(null);
+                      }}
+                    />
+                    <span>
+                      J&apos;ai lu et j&apos;accepte l&apos;ensemble des termes du présent contrat, y compris le prix, le délai,
+                      les modalités de paiement sous séquestre et de règlement des litiges.
+                    </span>
+                  </label>
+                  {isClient && (
+                    <label className="flex items-start gap-3 cursor-pointer text-[14px] mb-0 font-normal">
+                      <input
+                        type="checkbox"
+                        className="w-5 h-5 mt-0.5 shrink-0"
+                        checked={consent}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setConsent(checked);
+                          if (checked && noInsurance) acknowledgeNoInsurance();
+                        }}
+                      />
+                      <span>J&apos;ai compris et je choisis ce prestataire en pleine connaissance de cause.</span>
+                    </label>
+                  )}
+                  <p className="pl-8 text-[12.5px] text-[#6B6478]">
+                    {waitingForProvider
+                      ? "Le prestataire signe en premier : votre bouton de signature s'activera dès sa signature."
+                      : readyToSign
+                        ? "✓ Termes acceptés : signez depuis la colonne « Signatures »."
+                        : isClient
+                          ? "Cochez les deux cases pour activer votre bouton de signature."
+                          : "Acceptez les termes du contrat pour activer votre bouton de signature."}
+                  </p>
+                </div>
+              )}
             </div>
-          )}
+          </article>
+
+          {/* Colonne « Signatures » */}
+          <aside className="space-y-4 lg:sticky lg:top-20">
+            <div className="rounded-3xl border border-[#E7E2F0] bg-white p-5 space-y-3">
+              <h2 className="font-display font-bold text-[18px] text-[#191224]">Signatures</h2>
+              <SignatureCard
+                role="client"
+                roleLabel="Client"
+                party={contract.client}
+                signedAt={contract.clientSignedAt}
+                signatureRecord={clientSignature}
+                isSelf={isClient}
+                canSignNow={!!contract.providerSignedAt && termsAccepted && consent}
+                // Ordre imposé aussi côté serveur (POST /api/signature/sign) : le prestataire
+                // signe en premier, le client contre-signe en dernier.
+                blockedReason={
+                  !contract.providerSignedAt
+                    ? "Le prestataire signe en premier ; le client contre-signe ensuite."
+                    : !termsAccepted || !consent
+                      ? "Acceptez d'abord les termes du contrat (ci-dessus)."
+                      : null
+                }
+                contractId={contract.id}
+                onOpenSigning={() => openSigning("client")}
+              />
+              <SignatureCard
+                role="freelancer"
+                roleLabel="Prestataire"
+                party={contract.provider}
+                signedAt={contract.providerSignedAt}
+                signatureRecord={providerSignature}
+                isSelf={isProvider}
+                canSignNow={termsAccepted}
+                blockedReason={termsAccepted ? null : "Acceptez d'abord les termes du contrat (ci-dessus)."}
+                contractId={contract.id}
+                onOpenSigning={() => openSigning("freelancer")}
+              />
+              <p className="text-[12px] text-[#6B6478]">
+                Le prestataire signe en premier, puis le client contre-signe sous 48&nbsp;h.
+              </p>
+
+              {/* Financement : client seulement, après la double signature. Mission close ou
+                  remboursée : plus rien à financer (règle partagée avec le serveur,
+                  isMissionFundingClosed). */}
+              {isClient && !isMissionFundingClosed(missionStatus) &&
+                (bothSigned ? (
+                  <Link
+                    href={`/missions/${missionId}/escrow`}
+                    className="flex items-center justify-center w-full py-3 rounded-full bg-[#047857] text-white text-[15px] font-bold hover:bg-[#065F46]"
+                    style={{ textDecoration: "none" }}
+                  >
+                    Procéder au paiement sous séquestre
+                  </Link>
+                ) : (
+                  <button type="button" disabled className="w-full py-3 rounded-full bg-[#6B6478] text-white text-[15px] font-bold opacity-80 cursor-not-allowed">
+                    Aller au financement
+                  </button>
+                ))}
+
+              {/* Prestataire ayant signé (1/2), en attente du client : « Terminer » le ramène à
+                  son tableau de bord (la fenêtre de signature se referme). */}
+              {isProvider && !!contract.providerSignedAt && !contract.clientSignedAt && (
+                <div className="rounded-2xl bg-[#E7F7EF] p-3">
+                  <p className="text-[13px] font-bold text-[#065F46]">✓ Vous avez signé le contrat</p>
+                  <p className="mt-0.5 text-[12px] text-[#065F46]">En attente de la contre-signature du client : vous serez prévenu.</p>
+                  <button
+                    type="button"
+                    onClick={() => router.push(ROLE_DASHBOARD[userRole ?? ""] ?? "/dashboard")}
+                    className="mt-2 w-full py-2.5 rounded-full bg-[#191224] text-white text-[13px] font-bold hover:bg-black"
+                  >
+                    Terminer
+                  </button>
+                </div>
+              )}
+
+              {bothSigned && isProvider && !isMissionFundingClosed(missionStatus) && (
+                <p className="text-[12.5px] text-[#6B6478]">Les deux signatures sont en place. Le client procède maintenant à la mise sous séquestre du paiement.</p>
+              )}
+              {bothSigned && isMissionFundingClosed(missionStatus) && (
+                <p className="text-[12.5px] text-[#6B6478]">
+                  {missionStatus === "remboursee"
+                    ? "Mission remboursée — le séquestre a été rendu au client, aucun financement n'est attendu."
+                    : "Mission close — aucun financement n'est attendu."}
+                </p>
+              )}
+            </div>
+
+            {!bothSigned && (
+              <p className="flex items-start gap-2 rounded-2xl bg-[#FFF6E3] px-4 py-3 text-[14px] text-[#B45309]">
+                <Lock className="w-4 h-4 mt-0.5 shrink-0" aria-hidden />
+                Sans double signature, le financement reste bloqué.
+              </p>
+            )}
+          </aside>
         </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <SignatureCard
-            role="client"
-            roleLabel="Client"
-            party={contract.client}
-            signedAt={contract.clientSignedAt}
-            signatureRecord={clientSignature}
-            isSelf={isClient}
-            canSignNow={!!contract.providerSignedAt}
-            // Ordre imposé aussi côté serveur (POST /api/signature/sign) : le prestataire
-            // signe en premier, le client contre-signe en dernier.
-            blockedReason={!contract.providerSignedAt ? "Le prestataire signe en premier ; le client contre-signe ensuite." : null}
-            contractId={contract.id}
-            onOpenSigning={() => openSigning("client")}
-            buttonClass="btn-primary"
-          />
-          <SignatureCard
-            role="freelancer"
-            roleLabel="Prestataire"
-            party={contract.provider}
-            signedAt={contract.providerSignedAt}
-            signatureRecord={providerSignature}
-            isSelf={isProvider}
-            canSignNow={true}
-            blockedReason={null}
-            contractId={contract.id}
-            onOpenSigning={() => openSigning("freelancer")}
-            buttonClass="btn-secondary"
-          />
-        </div>
-
-        {!bothSigned && (
-          <p className="text-center text-[11.5px] text-[#94A3B8]">
-            Les deux signatures sont requises pour activer la mise sous séquestre du paiement.
-          </p>
-        )}
-
-        {/* Mission close ou remboursée : il n'y a plus rien à financer, le bouton disparaît.
-            Il s'affichait jusqu'au 16/09/2026 sur une mission déjà clôturée, invitant le client
-            à payer un dossier soldé. La règle est partagée avec le serveur
-            (isMissionFundingClosed) plutôt que réécrite ici : les deux gardes doivent tomber
-            ensemble, sinon l'écran et l'API divergent de nouveau. */}
-        {bothSigned && isClient && !isMissionFundingClosed(missionStatus) && (
-          <div className="text-center">
-            <Link href={`/missions/${missionId}/escrow`} className="inline-flex h-10 px-5 rounded-lg bg-[#008751] text-white text-[13px] font-semibold items-center hover:bg-[#007a49]" style={{ textDecoration: "none" }}>
-              Procéder au paiement sous séquestre
-            </Link>
-          </div>
-        )}
-
-        {bothSigned && isMissionFundingClosed(missionStatus) && (
-          <p className="text-center text-[11.5px] text-[#64748B]">
-            {missionStatus === "remboursee"
-              ? "Mission remboursée — le séquestre a été rendu au client, aucun financement n'est attendu."
-              : "Mission clôturée — aucun financement n'est attendu."}
-          </p>
-        )}
-
-        {/* Le paiement sous séquestre est financé par le CLIENT, jamais par le prestataire :
-            le bouton « Procéder au paiement » ci-dessus est réservé au client. Le prestataire
-            voit un simple statut d'attente. (Le serveur refuse déjà le HOLD côté prestataire —
-            POST /api/missions/[id]/escrow/hold vérifie contract.clientId — c'était un défaut
-            d'affichage seul.) */}
-        {bothSigned && isProvider && !isMissionFundingClosed(missionStatus) && (
-          <p className="text-center text-[11.5px] text-[#64748B]">
-            Les deux signatures sont en place. Le client procède maintenant à la mise sous séquestre du paiement.
-          </p>
-        )}
 
         {signingRole && (
           <SignContractModal
@@ -818,10 +920,17 @@ export default function ContractPage({ params }: { params: { id: string } }) {
             // redirige automatiquement le client vers le séquestre après sa 2ᵉ signature
             // (recommandation #2 — voir sa définition plus haut).
             onClose={handleCloseSigning}
+            doneHint={
+              signingRole === "freelancer" && !contract.clientSignedAt
+                ? "Le client a été notifié et va contre-signer le contrat. Vous serez prévenu dès sa signature."
+                : undefined
+            }
+            doneLabel={signingRole === "freelancer" && !contract.clientSignedAt ? "Terminer et revenir au tableau de bord" : "Terminer"}
             // Marque la signature client (2/2) pour l'avancement automatique, puis
             // rafraîchit le contrat (les deux signatures apparaissent derrière la modale).
             onSigned={() => {
               if (signingRole === "client") setClientJustSigned(true);
+              if (signingRole === "freelancer") setProviderJustSigned(true);
               load();
             }}
           />

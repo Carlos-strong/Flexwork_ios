@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { kycBlockFor } from "@/lib/kyc-policy";
 import { GigSignatureService } from "@/lib/gig-signature";
+import { InvalidPassphraseError } from "@/lib/signature";
 import { isOrderExpired, refundExpiredOrder, PROVIDER_SIGN_DEADLINE_HOURS } from "@/lib/gig-expiry";
 import { notifyBoth } from "@/lib/notify";
 
@@ -80,13 +81,22 @@ export async function POST(req: Request, { params }: { params: Promise<{ orderId
     return NextResponse.json({ error: "Ce certificat ne vous appartient pas" }, { status: 403 });
   }
 
-  const result = await GigSignatureService.signOrder({
-    orderId,
-    certificateId,
-    passphrase,
-    signerIp: req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || undefined,
-    signerUserAgent: req.headers.get("user-agent") || undefined,
-  });
+  let result: Awaited<ReturnType<typeof GigSignatureService.signOrder>>;
+  try {
+    result = await GigSignatureService.signOrder({
+      orderId,
+      certificateId,
+      passphrase,
+      signerIp: req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || undefined,
+      signerUserAgent: req.headers.get("user-agent") || undefined,
+    });
+  } catch (error) {
+    // Passphrase erronée : 400 lisible au lieu du message brut d'AES-GCM (voir src/lib/signature.ts).
+    if (error instanceof InvalidPassphraseError) {
+      return NextResponse.json({ error: error.message, code: "invalid_passphrase" }, { status: 400 });
+    }
+    throw error;
+  }
 
   if (result.role === "CLIENT" && !result.isLocked) {
     // 1/2 — le client achète : mise sous séquestre du montant (instruction HOLD) + statut.

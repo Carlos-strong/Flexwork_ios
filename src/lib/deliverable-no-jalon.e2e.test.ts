@@ -117,7 +117,10 @@ describe("Triptyque livrable — contrat SANS jalon (mission entière)", () => {
     proposalId = (await p.json()).id;
 
     authAs(clientId);
-    expect((await acceptPost(postReq({}), { params: Promise.resolve({ id: missionId, proposalId }) })).status).toBe(200);
+    const acc = await acceptPost(postReq({}), { params: Promise.resolve({ id: missionId, proposalId }) });
+    expect(acc.status).toBe(200);
+    // Le parcours se poursuit sur l'ENGAGEMENT créé pour le prestataire retenu (2026-11-10).
+    missionId = (await acc.json()).engagementId;
 
     // Contrat SANS jalon : pas de champ `jalons` dans le body — comportement historique.
     const c = await contractPost(postReq({}), { params: Promise.resolve({ id: missionId }) });

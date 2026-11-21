@@ -36,9 +36,9 @@ type Payload = {
 const STATE_LABEL: Record<string, { label: string; cls: string }> = {
   non_finance: { label: "À financer", cls: "bg-zinc-100 text-zinc-600" },
   financement_en_attente: { label: "Financement en attente", cls: "bg-amber-50 text-amber-700" },
-  sequestre: { label: "Sous séquestre", cls: "bg-[#f0faf5] text-[#008751]" },
+  sequestre: { label: "Sous séquestre", cls: "bg-[#E7F7EF] text-[#047857]" },
   partiellement_libere: { label: "Partiellement versé", cls: "bg-blue-50 text-blue-700" },
-  totalement_libere: { label: "Totalement versé", cls: "bg-[#f0faf5] text-[#008751]" },
+  totalement_libere: { label: "Totalement versé", cls: "bg-[#E7F7EF] text-[#047857]" },
   cloture: { label: "Clôturé", cls: "bg-zinc-900 text-white" },
 };
 
@@ -92,7 +92,7 @@ export default function ClientPaiementsSection() {
         ].map((t) => (
           <div key={t.label} className="bg-white rounded-[16px] border border-gray-100 p-4">
             <div className="text-[11px] uppercase tracking-widest text-zinc-400 font-semibold">{t.label}</div>
-            <div className="text-[18px] font-bold text-[#0A1931] mt-1 tabular-nums">{fcfa(t.value)}</div>
+            <div className="text-[18px] font-bold text-[#191224] mt-1 tabular-nums">{fcfa(t.value)}</div>
             <div className="text-[11px] text-zinc-400 mt-0.5">{t.hint}</div>
           </div>
         ))}
@@ -118,7 +118,7 @@ export default function ClientPaiementsSection() {
             >
               <div className="flex items-start justify-between gap-3 flex-wrap">
                 <div className="min-w-0">
-                  <div className="text-[14px] font-semibold text-[#0A1931] truncate">{i.titre}</div>
+                  <div className="text-[14px] font-semibold text-[#191224] truncate">{i.titre}</div>
                   <div className="flex items-center gap-2 mt-1 flex-wrap">
                     <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${st.cls}`}>{st.label}</span>
                     {i.isTimeContract && <span className="text-[11px] text-zinc-400">Au temps</span>}
@@ -131,7 +131,7 @@ export default function ClientPaiementsSection() {
                   </div>
                 </div>
                 <div className="text-right shrink-0">
-                  <div className="text-[13px] font-semibold text-[#0A1931] tabular-nums">
+                  <div className="text-[13px] font-semibold text-[#191224] tabular-nums">
                     {fcfa(i.released, i.currency)} <span className="text-zinc-400 font-normal">/ {fcfa(i.contractual, i.currency)}</span>
                   </div>
                   <div className="text-[11px] text-zinc-400 tabular-nums">
@@ -140,7 +140,7 @@ export default function ClientPaiementsSection() {
                 </div>
               </div>
               <div className="mt-2 h-1 rounded-full bg-zinc-100 overflow-hidden" aria-hidden>
-                <div className="h-full bg-[#008751] rounded-full" style={{ width: `${part}%` }} />
+                <div className="h-full bg-[#4C1D95] rounded-full" style={{ width: `${part}%` }} />
               </div>
             </Link>
           );

@@ -155,7 +155,7 @@ export function LocalisationTab({
               aria-pressed={workModes.includes(option.value)}
               className={`h-9 px-4 rounded-full text-[13px] font-medium border transition ${
                 workModes.includes(option.value)
-                  ? "bg-[#008751] border-[#008751] text-white"
+                  ? "bg-[#4C1D95] border-[#4C1D95] text-white"
                   : "bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50"
               }`}
             >
@@ -182,7 +182,7 @@ export function LocalisationTab({
               aria-pressed={deplacement.includes(option.value)}
               className={`h-9 px-4 rounded-full text-[13px] font-medium border transition ${
                 deplacement.includes(option.value)
-                  ? "bg-[#008751] border-[#008751] text-white"
+                  ? "bg-[#4C1D95] border-[#4C1D95] text-white"
                   : "bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50"
               }`}
             >

@@ -45,8 +45,8 @@ export function GigServiceCard({
         {badge && <div className="pointer-events-none absolute left-2 top-2 z-20">{badge}</div>}
       </div>
       <div className="flex flex-1 flex-col p-4">
-        <span className="self-start rounded-full bg-[#F7F7F5] px-2.5 py-1 text-[11px] font-semibold text-[#0A1931] truncate max-w-full">{domaine}</span>
-        <h3 className="mt-2 text-[15px] font-semibold leading-snug text-[#0A1931] line-clamp-2 group-hover:text-[#E85A24] transition">
+        <span className="self-start rounded-full bg-[#F6F5FA] px-2.5 py-1 text-[11px] font-semibold text-[#191224] truncate max-w-full">{domaine}</span>
+        <h3 className="mt-2 text-[15px] font-semibold leading-snug text-[#191224] line-clamp-2 group-hover:text-[#5B21B6] transition">
           {href ? (
             <Link href={href} className="after:absolute after:inset-0 focus-visible:outline-none" style={{ textDecoration: "none", color: "inherit" }}>
               {titre}
@@ -58,7 +58,7 @@ export function GigServiceCard({
         <div className="mt-auto pt-3 flex flex-wrap items-end justify-between gap-2">
           <p className="text-[12px] text-zinc-500">
             À partir de
-            <span className="block text-[16px] font-bold text-[#0A1931]">
+            <span className="block text-[16px] font-bold text-[#191224]">
               {prixDepart.toLocaleString("fr-FR")} {currency}
             </span>
           </p>

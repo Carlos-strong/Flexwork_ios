@@ -95,7 +95,7 @@ export default function GigCatalog({ onPurchased }: { onPurchased: (orderId: str
   if (selectedId) {
     return (
       <div className="space-y-4">
-        <button onClick={() => setSelectedId(null)} className="inline-flex items-center gap-1.5 text-[12.5px] text-zinc-500 hover:text-[#0A1931]">
+        <button onClick={() => setSelectedId(null)} className="inline-flex items-center gap-1.5 text-[12.5px] text-zinc-500 hover:text-[#191224]">
           <ArrowLeft className="w-3.5 h-3.5" /> Retour au catalogue
         </button>
 
@@ -108,15 +108,15 @@ export default function GigCatalog({ onPurchased }: { onPurchased: (orderId: str
         ) : (
           <div className="grid gap-5 lg:grid-cols-[1fr_340px]">
             <div className="bg-white rounded-[20px] border border-gray-100 p-6 lg:p-8 min-w-0">
-              <span className="px-2.5 py-1 rounded-full bg-[#F7F7F5] text-[#0A1931] text-[11px] font-semibold">{detail.domaine}</span>
-              <h2 className="text-[22px] font-bold text-[#0A1931] mt-3">{detail.titre}</h2>
+              <span className="px-2.5 py-1 rounded-full bg-[#F6F5FA] text-[#191224] text-[11px] font-semibold">{detail.domaine}</span>
+              <h2 className="text-[22px] font-bold text-[#191224] mt-3">{detail.titre}</h2>
               <div className="mt-2 flex items-center gap-2 text-[13px] text-zinc-600">
                 {detail.provider.avatarUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element -- route d'avatar de l'application
                   <img src={detail.provider.avatarUrl} alt="" className="h-7 w-7 rounded-full object-cover" />
                 ) : null}
                 Proposé par
-                <a href={`/profil/${detail.provider.id}`} className="font-semibold text-[#0A1931] hover:underline">
+                <a href={`/profil/${detail.provider.id}`} className="font-semibold text-[#191224] hover:underline">
                   {detail.provider.name}
                 </a>
               </div>
@@ -139,13 +139,13 @@ export default function GigCatalog({ onPurchased }: { onPurchased: (orderId: str
                 </div>
               )}
 
-              <h3 className="mt-6 text-[15px] font-bold text-[#0A1931]">À propos de ce service</h3>
+              <h3 className="mt-6 text-[15px] font-bold text-[#191224]">À propos de ce service</h3>
               <p className="mt-2 text-[14px] text-zinc-600 leading-relaxed whitespace-pre-line">{detail.description}</p>
 
               {detail.tags.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 mt-5">
                   {detail.tags.map((t) => (
-                    <span key={t} className="px-2 py-0.5 rounded-full bg-[#f0faf5] text-[#008751] text-[11px] font-medium">
+                    <span key={t} className="px-2 py-0.5 rounded-full bg-[#F0EAFF] text-[#4C1D95] text-[11px] font-medium">
                       {t}
                     </span>
                   ))}
@@ -154,7 +154,7 @@ export default function GigCatalog({ onPurchased }: { onPurchased: (orderId: str
             </div>
 
             <div className="space-y-3 lg:sticky lg:top-4 h-fit">
-              {error && <div className="rounded-lg border border-[#FECACA] bg-[#FEF2F2] p-3 text-[13px] text-[#B91C1C]">{error}</div>}
+              {error && <div className="rounded-lg border border-[#FECACA] bg-[#FEECEB] p-3 text-[13px] text-[#B42318]">{error}</div>}
               {detail.isOwn ? (
                 // Son propre service (2026-11-09) — typiquement après « Commander » sur sa page
                 // publique, déconnecté, puis connexion : on le dit clairement, sans formules ni
@@ -167,7 +167,7 @@ export default function GigCatalog({ onPurchased }: { onPurchased: (orderId: str
                   </p>
                   <a
                     href="/profile?tab=services"
-                    className="mt-4 inline-flex h-10 items-center rounded-lg bg-[#0A1931] px-4 text-[13px] font-semibold text-white hover:bg-[#1e293b]"
+                    className="mt-4 inline-flex h-10 items-center rounded-full bg-[#191224] px-4 text-[13px] font-semibold text-white hover:bg-[#2A2338]"
                     style={{ textDecoration: "none" }}
                   >
                     Gérer mes services
@@ -186,9 +186,9 @@ export default function GigCatalog({ onPurchased }: { onPurchased: (orderId: str
                 />
               )}
               <div className="flex items-start gap-3 rounded-2xl border border-gray-100 bg-white p-4">
-                <Shield className="w-4 h-4 mt-0.5 text-[#008751] shrink-0" />
+                <Shield className="w-4 h-4 mt-0.5 text-[#4C1D95] shrink-0" />
                 <p className="text-[12.5px] text-zinc-600 leading-relaxed">
-                  <span className="font-semibold text-[#0A1931]">Paiement sous séquestre.</span> Les fonds ne sont versés qu&apos;après
+                  <span className="font-semibold text-[#191224]">Paiement sous séquestre.</span> Les fonds ne sont versés qu&apos;après
                   validation de la livraison ; remboursés si le prestataire ne signe pas sous 24 h.
                 </p>
               </div>
@@ -216,10 +216,10 @@ export default function GigCatalog({ onPurchased }: { onPurchased: (orderId: str
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Rechercher un service : logo, site web, plomberie…"
             aria-label="Rechercher un service"
-            className="w-full h-11 pl-9 pr-3 rounded-full border border-gray-200 bg-white text-[14px] focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751]"
+            className="w-full h-11 pl-9 pr-3 rounded-full border border-gray-200 bg-white text-[14px] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20 focus:border-[#4C1D95]"
           />
         </div>
-        <button type="submit" className="h-11 px-5 rounded-full bg-[#0A1931] text-white text-[13px] font-semibold">
+        <button type="submit" className="h-11 px-5 rounded-full bg-[#191224] text-white text-[13px] font-semibold">
           Rechercher
         </button>
       </form>
@@ -246,7 +246,7 @@ export default function GigCatalog({ onPurchased }: { onPurchased: (orderId: str
                   images={g.images}
                   prixDepart={g.prixDepart}
                   currency={g.currency}
-                  footer={<span className="text-[12px] font-medium text-[#E85A24]">{g.provider.name}</span>}
+                  footer={<span className="text-[12px] font-medium text-[#5B21B6]">{g.provider.name}</span>}
                 />
               </button>
             </li>

@@ -1,14 +1,12 @@
 "use client";
 
 import { Fragment, useCallback, useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { X, ChevronDown, ChevronUp } from "lucide-react";
 import DashboardLayout, { providerNav, type DashboardUser } from "@/components/dashboard/DashboardLayout";
-import { useSidebarBadges } from "@/components/dashboard/useSidebarBadges";
 import { useUserIdentity } from "@/components/user-identity";
-import { providerUrl } from "@/lib/provider-urls";
 import { missionsHrefForRole, type Role } from "@/lib/role-dashboard";
 import { fetchDedupe } from "@/lib/fetch-dedupe";
 import MissionTracker from "@/components/mission-tracker";
@@ -27,6 +25,7 @@ import {
 } from "@/components/mission-history-table";
 import { canHoldJalonSequential } from "@/lib/jalons";
 import ProviderProofSubmissionModal from "@/components/deliverable/ProviderProofSubmissionModal";
+import { personFullName } from "@/lib/person-name";
 
 type Jalon = {
   id: string; ordre: number; titre: string; montant: number; status: string;
@@ -77,7 +76,7 @@ const MISSION_DELIVERABLE_STATUS_LABEL: Record<string, string> = {
 
 // Utilisateur affiché dans le sidebar/navbar le temps que l'identité réelle (UserIdentityProvider)
 // soit chargée — même convention que la page devis sœur (missions/[id]/devis/page.tsx).
-const FALLBACK_USER: DashboardUser = { initials: "PR", name: "Prestataire", role: "Prestataire", avatarGradient: "from-[#FF7A00] to-[#E8112D]" };
+const FALLBACK_USER: DashboardUser = { initials: "PR", name: "Prestataire", role: "Prestataire", avatarGradient: "from-[#6D28D9] to-[#B42318]" };
 
 // Une "ligne" de la table récapitulative — un jalon réel, ou (contrat sans jalon) la mission
 // entière traitée comme une ligne unique #01, pour présenter exactement le même écran dans
@@ -135,12 +134,10 @@ function openProofsSince(attachments: Attachment[], decisions: { createdAt: stri
 export default function DeliverablePage() {
   const params = useParams();
   const missionId = params.id as string;
-  const router = useRouter();
   const { data: session } = useSession();
   const userId = (session?.user as { id?: string } | undefined)?.id;
   const role = (session?.user as { role?: Role } | undefined)?.role;
   const missionsHref = missionsHrefForRole(role);
-  const badgeCounts = useSidebarBadges("prestataire");
 
   // Identité réelle partagée — chargée UNE fois au niveau racine (UserIdentityProvider), pas
   // à chaque montage ; photo via /api/users/me (avatarUrl null si absente → initiales).
@@ -202,7 +199,7 @@ export default function DeliverablePage() {
       .then((r) => (r.ok ? r.json() : null))
       .then((c) => {
         if (!c?.client) return;
-        const name = [c.client.firstname, c.client.lastname].filter(Boolean).join(" ") || "Client";
+        const name = personFullName(c.client) || "Client";
         setInterlocutor({ id: c.client.id, name, avatarPath: c.client.avatarPath ?? null });
       })
       .catch(() => {});
@@ -537,18 +534,18 @@ export default function DeliverablePage() {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-[#F8FAF9] text-[#0f172a] flex items-center justify-center px-4">
-        <div className="max-w-[560px] w-full bg-white border border-[#E2E8F0] rounded-xl p-8 text-center">
+      <div className="min-h-screen bg-[#F6F5FA] text-[#191224] flex items-center justify-center px-4">
+        <div className="max-w-[560px] w-full bg-white border border-[#E7E2F0] rounded-xl p-8 text-center">
           <div className="text-[48px] mb-4">✅</div>
-          <h1 className="text-[18px] font-bold text-[#008751] mb-2">Livrable soumis avec succès !</h1>
-          <p className="text-[13px] text-[#64748B] mb-5">
+          <h1 className="text-[18px] font-bold text-[#4C1D95] mb-2">Livrable soumis avec succès !</h1>
+          <p className="text-[13px] text-[#6B6478] mb-5">
             Le client va être notifié. La mission passe en statut &quot;Livrable soumis&quot;.
           </p>
           <div className="flex items-center justify-center gap-3">
-            <Link href={`/missions/${missionId}`} className="h-10 px-5 rounded-lg bg-[#008751] text-white text-[13px] font-semibold flex items-center hover:bg-[#007a49]" style={{ textDecoration: "none" }}>
+            <Link href={`/missions/${missionId}`} className="h-10 px-5 rounded-full bg-[#4C1D95] text-white text-[13px] font-semibold flex items-center hover:bg-[#3B1578]" style={{ textDecoration: "none" }}>
               Voir la mission
             </Link>
-            <Link href={missionsHref} className="h-10 px-5 rounded-lg border border-[#E2E8F0] bg-white text-[13px] font-medium flex items-center hover:bg-[#F8FAF9]" style={{ textDecoration: "none" }}>
+            <Link href={missionsHref} className="h-10 px-5 rounded-lg border border-[#E7E2F0] bg-white text-[13px] font-medium flex items-center hover:bg-[#F6F5FA]" style={{ textDecoration: "none" }}>
               Toutes les missions
             </Link>
           </div>
@@ -557,8 +554,8 @@ export default function DeliverablePage() {
     );
   }
 
-  if (jalons === null) return <div className="min-h-screen bg-[#F8FAF9] flex items-center justify-center text-[13px] text-[#64748B]">Chargement...</div>;
-  if (jalons.length === 0 && mission === null) return <div className="min-h-screen bg-[#F8FAF9] flex items-center justify-center text-[13px] text-[#64748B]">Chargement...</div>;
+  if (jalons === null) return <div className="min-h-screen bg-[#F6F5FA] flex items-center justify-center text-[13px] text-[#6B6478]">Chargement...</div>;
+  if (jalons.length === 0 && mission === null) return <div className="min-h-screen bg-[#F6F5FA] flex items-center justify-center text-[13px] text-[#6B6478]">Chargement...</div>;
 
   // ── Lignes de la table récapitulative : un jalon réel, ou (sans jalon) la mission entière
   //    traitée comme une ligne unique #01 — même écran dans les deux cas.
@@ -682,34 +679,31 @@ export default function DeliverablePage() {
   // atteinte depuis la rubrique "Missions" du dashboard prestataire (MissionsSection "Voir").
   return (
     <DashboardLayout
-      mode="prestataire"
       user={user}
       navItems={providerNav(role ?? "expert_digital")}
       activeNav="missions"
-      onNavChange={(id) => router.push(providerUrl(role ?? "expert_digital", id))}
-      badgeCounts={badgeCounts}
       title="Gestion des livrables"
     >
-      <div className="fluid-doc [--fw:860px] mx-auto space-y-4 text-[#0f172a]">
+      <div className="fluid-doc [--fw:860px] mx-auto space-y-4 text-[#191224]">
         {/* Bandeau d'évolution de la mission — même tracker que /missions/[id] (côté prestataire). */}
         <MissionTracker missionId={missionId} />
 
-        <div className="flex items-center gap-1.5 text-[12px] text-[#64748B] flex-wrap">
-          <Link href={`/missions/${missionId}`} className="hover:text-[#0f172a]" style={{ textDecoration: "none" }}>Mission</Link>
+        <div className="flex items-center gap-1.5 text-[12px] text-[#6B6478] flex-wrap">
+          <Link href={`/missions/${missionId}`} className="hover:text-[#191224]" style={{ textDecoration: "none" }}>Mission</Link>
           <span>›</span>
-          <span className="text-[#0f172a] font-medium">Livrable</span>
+          <span className="text-[#191224] font-medium">Livrable</span>
         </div>
 
-        <div className="bg-white border border-[#E2E8F0] rounded-xl p-4 lg:p-5 flex items-center justify-between gap-3 flex-wrap">
+        <div className="bg-white border border-[#E7E2F0] rounded-xl p-4 lg:p-5 flex items-center justify-between gap-3 flex-wrap">
           <div>
             <h1 className="text-[13px] font-semibold">Gestion des livrables — Mode Freelance</h1>
-            <p className="text-[12px] text-[#64748B] mt-0.5">
+            <p className="text-[12px] text-[#6B6478] mt-0.5">
               Table {rows.length === 1 ? "jalon" : "jalons"} avec {rows.reduce((s, r) => s + r.attachments.length, 0)} preuve(s) — {rows[0]?.statusLabel ?? "—"}
             </p>
           </div>
         </div>
 
-        {error && !openRow && <div className="rounded-xl border border-[#FECACA] bg-[#FEF2F2] p-3 text-[13px] text-[#B91C1C]">{error}</div>}
+        {error && !openRow && <div className="rounded-xl border border-[#FECACA] bg-[#FEECEB] p-3 text-[13px] text-[#B42318]">{error}</div>}
 
         {/* En-tête carte par ligne — refonte complète (2026-09-04, remplace l'ancienne table
             # / JALON / PREUVES / STATUT / PROGRESSION / ACTION). Chaque carte : ligne méta
@@ -720,7 +714,7 @@ export default function DeliverablePage() {
             récente, pas encore suivie d'une nouvelle soumission qui la "consoliderait"). Le
             dropdown "Historique" (RowHistoryTable) reste inchangé, toujours déplié sous la
             carte via le chevron. */}
-        <div className="bg-white border border-[#E2E8F0] rounded-xl overflow-hidden divide-y divide-[#F1F5F9]">
+        <div className="bg-white border border-[#E7E2F0] rounded-xl overflow-hidden divide-y divide-[#EFEAF8]">
           {rows.map((row) => {
             const rowScopeKey = row.scope.kind === "jalon" ? row.scope.jalonId : null;
             const rowCheckpoints = checkpoints.filter((c) => c.jalonId === rowScopeKey);
@@ -762,16 +756,16 @@ export default function DeliverablePage() {
                 <div className="p-4 lg:p-5">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex flex-wrap items-center gap-2 text-[12px]">
-                      <span className="font-mono font-bold text-[#0f172a]">#{String(row.ordre).padStart(2, "0")}</span>
+                      <span className="font-mono font-bold text-[#191224]">#{String(row.ordre).padStart(2, "0")}</span>
                       {professionalType && (
                         <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-[#ede9fe] text-[#6d28d9] text-[11.5px] font-medium whitespace-nowrap">
                           {PROFESSIONAL_TYPE_LABEL[professionalType] ?? professionalType}
                         </span>
                       )}
-                      <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-[#FEF3C7] text-[#92400E] text-[11.5px] font-medium whitespace-nowrap">
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-[#FFF6E3] text-[#92400E] text-[11.5px] font-medium whitespace-nowrap">
                         {row.statusLabel}
                       </span>
-                      <span className="text-[#64748B] whitespace-nowrap">
+                      <span className="text-[#6B6478] whitespace-nowrap">
                         {row.attachments.length} preuve{row.attachments.length !== 1 ? "s" : ""} total
                       </span>
                     </div>
@@ -784,14 +778,14 @@ export default function DeliverablePage() {
                       {row.canSubmitProofs ? (
                         <button
                           onClick={() => openVerification(row.key)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#008751] text-white text-[11.5px] font-semibold hover:bg-[#007a49] shrink-0"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#4C1D95] text-white text-[11.5px] font-semibold hover:bg-[#3B1578] shrink-0"
                           title="Ajouter / soumettre des preuves pour finir la progression"
                         >
                           Soumettre preuve
                         </button>
                       ) : observed >= 100 ? (
                         <span
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#0A1931] text-white text-[11.5px] font-semibold whitespace-nowrap shrink-0"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#191224] text-white text-[11.5px] font-semibold whitespace-nowrap shrink-0"
                           title="Progression validée à 100 % — mission clôturée"
                         >
                           Mission Clôturée
@@ -806,39 +800,39 @@ export default function DeliverablePage() {
                             // réel avant d'ouvrir le dropdown (l'autre partie a pu agir).
                             if (expanding) reload();
                           }}
-                          className="w-7 h-7 rounded-full border border-[#E2E8F0] flex items-center justify-center hover:bg-[#F8FAF9] shrink-0"
+                          className="w-7 h-7 rounded-full border border-[#E7E2F0] flex items-center justify-center hover:bg-[#F6F5FA] shrink-0"
                           title="Historique preuves & validations partielles"
                         >
-                          {expandedHistory[row.key] ? <ChevronUp className="w-3.5 h-3.5 text-[#64748B]" /> : <ChevronDown className="w-3.5 h-3.5 text-[#64748B]" />}
+                          {expandedHistory[row.key] ? <ChevronUp className="w-3.5 h-3.5 text-[#6B6478]" /> : <ChevronDown className="w-3.5 h-3.5 text-[#6B6478]" />}
                         </button>
                       )}
                     </div>
                   </div>
 
-                  <h3 className="mt-2.5 text-[14.5px] font-semibold text-[#0f172a]">{row.titre}</h3>
-                  {row.rejectionNote && <div className="text-[11.5px] text-[#E8112D] mt-0.5">Motif : {row.rejectionNote}</div>}
+                  <h3 className="mt-2.5 text-[14.5px] font-semibold text-[#191224]">{row.titre}</h3>
+                  {row.rejectionNote && <div className="text-[11.5px] text-[#B42318] mt-0.5">Motif : {row.rejectionNote}</div>}
 
                   {/* Avis du client sur les preuves de ce tour — le prestataire voit quelles
                       preuves sont validées / en attente / rejetées (raison + motif + demande de
                       nouvelle preuve) avant de resoumettre (2026-09-05). */}
                   {hasClientFeedback && (
-                    <div className="mt-2.5 rounded-xl border border-[#F1F5F9] bg-[#FAFBFB] px-3 py-2.5">
+                    <div className="mt-2.5 rounded-xl border border-[#EFEAF8] bg-[#F6F5FA] px-3 py-2.5">
                       <div className="flex flex-wrap items-center gap-2 text-[11px]">
-                        <span className="font-semibold text-[#0f172a]">Avis du client sur ce tour :</span>
+                        <span className="font-semibold text-[#191224]">Avis du client sur ce tour :</span>
                         {openValidated.length > 0 && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#DCFCE7] text-[#166534] border border-[#BBF7D0] font-semibold">✓ {openValidated.length} validée{openValidated.length > 1 ? "s" : ""}</span>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#E7F7EF] text-[#047857] border border-[#BBF7D0] font-semibold">✓ {openValidated.length} validée{openValidated.length > 1 ? "s" : ""}</span>
                         )}
                         {openRejected.length > 0 && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#FEE2E2] text-[#991B1B] border border-[#FECACA] font-semibold">✗ {openRejected.length} rejetée{openRejected.length > 1 ? "s" : ""}</span>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#FEECEB] text-[#991B1B] border border-[#FECACA] font-semibold">✗ {openRejected.length} rejetée{openRejected.length > 1 ? "s" : ""}</span>
                         )}
                         {openPending > 0 && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#F1F5F9] text-[#475569] border border-[#E2E8F0]">{openPending} en attente</span>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#EFEAF8] text-[#4A4258] border border-[#E7E2F0]">{openPending} en attente</span>
                         )}
                       </div>
                       {openRejected.length > 0 && (
                         <div className="mt-2 space-y-1.5">
                           {openRejected.map((p) => (
-                            <div key={p.id} className="rounded-lg bg-[#FEF2F2] border border-[#FECACA] px-2.5 py-1.5 text-[11.5px] text-[#991B1B]">
+                            <div key={p.id} className="rounded-lg bg-[#FEECEB] border border-[#FECACA] px-2.5 py-1.5 text-[11.5px] text-[#991B1B]">
                               <div className="flex items-center justify-between gap-2 flex-wrap">
                                 <span className="truncate font-medium">{p.fileName ?? p.note ?? `Preuve ${p.category}`}</span>
                                 <span className="shrink-0 font-semibold">{p.rejectionReason ?? "Preuve non conforme"}</span>
@@ -862,7 +856,7 @@ export default function DeliverablePage() {
                   />
                 </div>
                 {hasHistory && expandedHistory[row.key] && (
-                  <div className="bg-[#FAFBFB] overflow-x-auto">
+                  <div className="bg-[#F6F5FA] overflow-x-auto">
                     {/* Lecture seule (Voir) dans le dropdown : l'action de soumission vit
                         désormais dans l'en-tête de la carte ("Soumettre preuve"), plus dans la
                         colonne ACTION du sous-tableau (signalé 2026-09-05). */}
@@ -886,7 +880,7 @@ export default function DeliverablePage() {
           })}
         </div>
 
-        <Link href={`/missions/${missionId}`} className="inline-block text-[#64748B] text-[13px]" style={{ textDecoration: "none" }}>
+        <Link href={`/missions/${missionId}`} className="inline-block text-[#6B6478] text-[13px]" style={{ textDecoration: "none" }}>
           ← Retour au détail de la mission
         </Link>
       </div>
@@ -955,15 +949,15 @@ export default function DeliverablePage() {
       {viewingBatch && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3" role="dialog" aria-modal="true">
           <div className="absolute inset-0 bg-black/30" onClick={() => setViewingBatch(null)} />
-          <div className="relative w-full max-w-[480px] max-h-[80vh] overflow-y-auto bg-white rounded-2xl shadow-2xl border border-[#E2E8F0] p-5">
+          <div className="relative w-full max-w-[480px] max-h-[80vh] overflow-y-auto bg-white rounded-2xl shadow-2xl border border-[#E7E2F0] p-5">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h2 className="font-bold text-[15px]">Preuves soumises — lecture seule</h2>
-                <p className="text-[11.5px] text-[#64748B] mt-0.5">
+                <p className="text-[11.5px] text-[#6B6478] mt-0.5">
                   Soumission partielle déjà écoulée, non modifiable depuis cet aperçu.
                 </p>
               </div>
-              <button onClick={() => setViewingBatch(null)} className="p-1.5 rounded-full hover:bg-[#F1F5F9] shrink-0" aria-label="Fermer">
+              <button onClick={() => setViewingBatch(null)} className="p-1.5 rounded-full hover:bg-[#EFEAF8] shrink-0" aria-label="Fermer">
                 <X className="w-4 h-4" />
               </button>
             </div>

@@ -22,9 +22,9 @@ export default async function PopularServices() {
     <section className="py-12 lg:py-16 bg-white">
       <div className="page-shell">
         <div className="flex flex-wrap items-end justify-between gap-4 mb-8 lg:mb-10">
-          <h2 className="text-[30px] md:text-[40px] leading-[1.1] font-semibold text-[#0A1931]">{section.title ?? 'Services populaires'}</h2>
+          <h2 className="text-[30px] md:text-[40px] leading-[1.1] font-semibold text-[#191224]">{section.title ?? 'Services populaires'}</h2>
           {section.ctaText && (
-            <Link href={section.ctaLink ?? '/recherche'} className="text-base font-semibold text-[#E85A24] hover:underline">
+            <Link href={section.ctaLink ?? '/recherche'} className="text-base font-semibold text-[#5B21B6] hover:underline">
               {section.ctaText}
             </Link>
           )}
@@ -58,12 +58,12 @@ export default async function PopularServices() {
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={s.imageUrl} loading="lazy" className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition duration-700" alt="" />
               ) : (
-                <div className={`absolute inset-0 bg-gradient-to-br ${s.color ?? 'from-[#0A1931] to-[#8B2E86]'}`} />
+                <div className={`absolute inset-0 bg-gradient-to-br ${s.color ?? 'from-[#191224] to-[#8B2E86]'}`} />
               )}
               <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-transparent" />
               <div className="relative h-full p-4 lg:p-5 flex items-end justify-between gap-2 text-white">
                 <p className="font-semibold text-[15px] lg:text-base leading-tight">{s.label}</p>
-                <span className="w-8 h-8 shrink-0 rounded-full bg-white/20 backdrop-blur grid place-items-center group-hover:bg-white group-hover:text-[#0A1931] transition" aria-hidden>↗</span>
+                <span className="w-8 h-8 shrink-0 rounded-full bg-white/20 backdrop-blur grid place-items-center group-hover:bg-white group-hover:text-[#191224] transition" aria-hidden>↗</span>
               </div>
             </Link>
           ))}

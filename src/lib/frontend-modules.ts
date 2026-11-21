@@ -182,7 +182,7 @@ export const FRONTEND_MODULES: FrontendModule[] = [
     summary: "Palette, rayons, styles globaux.",
     drives: [],
     missing:
-      "Les couleurs sont des valeurs littérales dans les classes Tailwind de chaque composant (bg-[#FF6B35] et consorts), compilées au build. Les rendre éditables exige de les extraire d’abord en variables CSS — un chantier de refonte, pas un écran d’administration.",
+      "Les couleurs sont des valeurs littérales dans les classes Tailwind de chaque composant (bg-[#6D28D9] et consorts), compilées au build. Les rendre éditables exige de les extraire d’abord en variables CSS — un chantier de refonte, pas un écran d’administration.",
   },
   {
     id: "logos",
@@ -265,14 +265,6 @@ export const FRONTEND_MODULES: FrontendModule[] = [
       "Les rôles se posent en base (User.adminRole) et aucun écran ne les attribue. C’est volontaire : un administrateur qui peut s’octroyer un rôle supprime la séparation des pouvoirs que ces rôles instituent (§13). Si l’écran est fait un jour, il ne devra pas vivre sous le rôle `frontend`.",
   },
 ];
-
-export const FRONTEND_MODULE_GROUPS = [
-  "Vue d’ensemble",
-  "Référentiel métier",
-  "Contenu du site",
-  "Apparence",
-  "Système",
-] as const;
 
 export function activeModules(): FrontendModule[] {
   return FRONTEND_MODULES.filter((m) => m.state === "actif");

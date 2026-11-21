@@ -41,13 +41,13 @@ export default function ConfidentialitePage() {
             d: "Le traitement des données personnelles respecte la loi béninoise n° 2009-09 sur la protection des données à caractère personnel et la réglementation de l'Autorité de Protection des Données Personnelles (APDP).",
           },
         ].map((s) => (
-          <div key={s.t} className="bg-white border border-[#E2E8F0] rounded-2xl p-6">
-            <h2 className="font-bold text-[#0f172a] mb-2">{s.t}</h2>
-            <p className="text-sm text-[#64748B] leading-relaxed">{s.d}</p>
+          <div key={s.t} className="bg-white border border-[#E7E2F0] rounded-2xl p-6">
+            <h2 className="font-bold text-[#191224] mb-2">{s.t}</h2>
+            <p className="text-sm text-[#6B6478] leading-relaxed">{s.d}</p>
           </div>
         ))}
 
-        <p className="text-xs text-[#94A3B8]">
+        <p className="text-xs text-[#9A93A8]">
           Note : cette page décrit le modèle de traitement retenu. La version contractuelle finale de la politique de
           confidentialité doit être validée par un avocat avant mise en production (prérequis juridique).
         </p>

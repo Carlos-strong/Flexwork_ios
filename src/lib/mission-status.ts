@@ -29,6 +29,9 @@ export const MISSION_STATUSES = [
   // « Brouillon » partout — liste, détail, tableaux de bord. Pire qu'un trou visuel, c'était un
   // contresens : un dossier soldé passait pour un dossier jamais publié.
   "remboursee",
+  "annonce_close",
+  // Engagement annulé avant la signature complète (désistement / retrait, 2026-11-11).
+  "annulee",
 ] as const;
 
 export type MissionStatusValue = (typeof MISSION_STATUSES)[number];
@@ -43,7 +46,7 @@ export type MissionStatusValue = (typeof MISSION_STATUSES)[number];
 // deux, sinon l'écran et le serveur finissent par diverger — ce fut exactement le cas jusqu'au
 // 16/09/2026 : la page proposait « Procéder au paiement sous séquestre » sur une mission
 // clôturée, et le serveur l'aurait accepté si aucun HOLD antérieur n'était en vol.
-export const MISSION_FUNDING_CLOSED_STATUSES = ["cloturee", "remboursee"] as const;
+export const MISSION_FUNDING_CLOSED_STATUSES = ["cloturee", "remboursee", "annulee"] as const;
 
 export function isMissionFundingClosed(status: string | null | undefined): boolean {
   return !!status && (MISSION_FUNDING_CLOSED_STATUSES as readonly string[]).includes(status);
@@ -51,7 +54,7 @@ export function isMissionFundingClosed(status: string | null | undefined): boole
 
 export const MISSION_STATUS_STYLE: Record<MissionStatusValue, { bg: string; text: string; dot: string; label: string }> = {
   brouillon: { bg: "bg-gray-100", text: "text-gray-500", dot: "bg-gray-400", label: "Brouillon" },
-  publiee: { bg: "bg-[#f0faf5]", text: "text-[#008751]", dot: "bg-[#008751]", label: "Ouverte aux candidatures" },
+  publiee: { bg: "bg-[#F0EAFF]", text: "text-[#4C1D95]", dot: "bg-[#4C1D95]", label: "Ouverte aux candidatures" },
   proposition_acceptee: { bg: "bg-amber-50", text: "text-amber-700", dot: "bg-amber-400", label: "Proposition acceptée" },
   contrat_genere: { bg: "bg-amber-50", text: "text-amber-700", dot: "bg-amber-400", label: "Contrat généré" },
   contrat_signe: { bg: "bg-amber-50", text: "text-amber-700", dot: "bg-amber-400", label: "Contrat signé" },
@@ -59,13 +62,18 @@ export const MISSION_STATUS_STYLE: Record<MissionStatusValue, { bg: string; text
   en_cours: { bg: "bg-blue-50", text: "text-blue-700", dot: "bg-blue-500", label: "Travail en cours" },
   livrable_soumis: { bg: "bg-blue-50", text: "text-blue-700", dot: "bg-blue-500", label: "Livrable soumis" },
   validee: { bg: "bg-emerald-50", text: "text-emerald-700", dot: "bg-emerald-500", label: "Retenue de garantie en cours" },
-  mediation_ouverte: { bg: "bg-red-50", text: "text-[#E8112D]", dot: "bg-[#E8112D]", label: "Médiation en cours" },
+  mediation_ouverte: { bg: "bg-red-50", text: "text-[#B42318]", dot: "bg-[#B42318]", label: "Médiation en cours" },
   cloturee: { bg: "bg-gray-900", text: "text-white", dot: "bg-white", label: "Terminée" },
   // Délibérément PAS « Terminée », et délibérément pas le noir de `cloturee` : le schéma pose
   // `remboursee` comme un état à part précisément pour qu'un abandon ne passe pas pour une
   // réussite (voir prisma/schema.prisma, enum MissionStatus). L'ardoise reprend le ton déjà
   // utilisé par la console financière pour « Remboursé aux clients ».
-  remboursee: { bg: "bg-slate-100", text: "text-[#475569]", dot: "bg-[#64748B]", label: "Remboursée" },
+  remboursee: { bg: "bg-slate-100", text: "text-[#4A4258]", dot: "bg-[#6B6478]", label: "Remboursée" },
+  // Annonce échue (2026-11-10) : plus de candidatures ; les engagements suivent leur cours.
+  annonce_close: { bg: "bg-slate-100", text: "text-[#4A4258]", dot: "bg-[#9A93A8]", label: "Candidatures closes" },
+  // Engagement annulé (2026-11-11) : désistement du prestataire ou retrait par le client, avant
+  // la signature complète — aucun fonds n'a été engagé.
+  annulee: { bg: "bg-[#FEECEB]", text: "text-[#B42318]", dot: "bg-[#B42318]", label: "Désistement" },
 };
 
 // Libellés de l'écran de VALIDATION CLIENT (ValidationClientView) : ils disent au client ce
@@ -78,8 +86,8 @@ export const MISSION_STATUS_STYLE: Record<MissionStatusValue, { bg: string; text
 // Ici et non dans le composant, pour rester testable en pur (vitest, environment "node") — même
 // convention que src/lib/contract-stepper.ts.
 const MISSION_ESCROW_STATUS: Record<string, { label: string; color: string }> = {
-  fonds_sous_sequestre: { label: "Financé — en attente du prestataire", color: "text-[#008751]" },
-  en_cours: { label: "Financé — en attente du prestataire", color: "text-[#008751]" },
+  fonds_sous_sequestre: { label: "Financé — en attente du prestataire", color: "text-[#047857]" },
+  en_cours: { label: "Financé — en attente du prestataire", color: "text-[#4C1D95]" },
   livrable_soumis: { label: "À valider", color: "text-[#B45309]" },
 };
 

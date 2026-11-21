@@ -28,6 +28,8 @@ const NOTIFICATION_LABELS: Record<string, string> = {
   candidature_recue: "Nouvelle candidature",
   candidature_acceptee: "Candidature acceptée",
   candidature_refusee: "Candidature non retenue",
+  candidature_reserve: "En liste de réserve",
+  engagement_annule: "Désistement",
   devis_soumis: "Devis reçu",
   devis_revision_demandee: "Révision demandée",
   devis_valide: "Devis validé",

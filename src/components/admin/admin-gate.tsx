@@ -57,13 +57,13 @@ export async function AdminGate({ space, children }: { space: AdminSpace; childr
 
 function Notice({ title, body, action }: { title: string; body: string; action: { href: string; label: string } }) {
   return (
-    <div className="min-h-screen bg-[#F4F3EF] flex items-center justify-center px-4">
-      <div className="max-w-[440px] w-full bg-white border border-[#E2E0D9] rounded-[16px] p-6 text-center shadow-sm">
-        <div className="text-[15px] font-semibold text-[#1A1916]">{title}</div>
-        <p className="mt-2 text-[12.5px] leading-relaxed text-[#5A5750]">{body}</p>
+    <div className="min-h-screen bg-[#EFEAF8] flex items-center justify-center px-4">
+      <div className="max-w-[440px] w-full bg-white border border-[#E7E2F0] rounded-[16px] p-6 text-center shadow-sm">
+        <div className="text-[15px] font-semibold text-[#191224]">{title}</div>
+        <p className="mt-2 text-[12.5px] leading-relaxed text-[#6B6478]">{body}</p>
         <Link
           href={action.href}
-          className="mt-4 inline-flex items-center h-10 px-4 rounded-lg bg-[#2D5BE3] text-white text-[13px] font-semibold"
+          className="mt-4 inline-flex items-center h-10 px-4 rounded-full bg-[#4C1D95] text-white text-[13px] font-semibold"
           style={{ textDecoration: "none" }}
         >
           {action.label}

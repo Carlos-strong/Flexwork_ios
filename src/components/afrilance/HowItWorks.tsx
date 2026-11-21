@@ -27,17 +27,17 @@ export default function HowItWorks() {
         </div>
 
         <div>
-          <h2 className="text-[30px] md:text-[40px] leading-[1.1] font-semibold text-[#0A1931]">
+          <h2 className="text-[30px] md:text-[40px] leading-[1.1] font-semibold text-[#191224]">
             De la mission au paiement, sans surprise
           </h2>
           <ol className="mt-8 lg:mt-10 space-y-6 lg:space-y-8">
             {STEPS.map((s, i) => (
               <li key={s.t} className="flex gap-4">
-                <span className="w-9 h-9 shrink-0 rounded-full border-2 border-[#0A1931] text-[#0A1931] grid place-items-center font-semibold text-sm">
+                <span className="w-9 h-9 shrink-0 rounded-full border-2 border-[#191224] text-[#191224] grid place-items-center font-semibold text-sm">
                   {i + 1}
                 </span>
                 <div>
-                  <h3 className="text-base lg:text-lg font-semibold text-[#0A1931]">{s.t}</h3>
+                  <h3 className="text-base lg:text-lg font-semibold text-[#191224]">{s.t}</h3>
                   <p className="mt-1 text-[15px] text-gray-600 leading-relaxed">{s.d}</p>
                 </div>
               </li>
@@ -46,14 +46,14 @@ export default function HowItWorks() {
           <div className="mt-8 lg:mt-10 flex flex-wrap gap-3">
             <Link
               href="/signup"
-              className="bg-[#FF6B35] hover:bg-[#E85A24] text-white px-6 py-3 rounded-lg font-semibold transition"
+              className="bg-[#6D28D9] hover:bg-[#5B21B6] text-white px-6 py-3 rounded-full font-semibold transition"
               style={{ textDecoration: 'none' }}
             >
               Créer un compte
             </Link>
             <Link
               href="/comment-ca-marche"
-              className="border-2 border-[#0A1931] text-[#0A1931] hover:bg-[#0A1931] hover:text-white px-6 py-2.5 rounded-lg font-semibold transition"
+              className="border-2 border-[#191224] text-[#191224] hover:bg-[#2A2338] hover:text-white px-6 py-2.5 rounded-lg font-semibold transition"
               style={{ textDecoration: 'none' }}
             >
               Voir le détail

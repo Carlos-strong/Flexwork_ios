@@ -43,7 +43,7 @@ type ErrorKind = "account_exists" | "duplicate" | "too_many_requests" | "network
 const PUBLIC_EMAIL_DOMAINS = ["gmail.com", "yahoo.fr", "yahoo.com", "hotmail.fr", "hotmail.com", "outlook.fr", "outlook.com", "live.fr"];
 
 const fieldClass =
-  "mt-1.5 w-full h-11 rounded-xl border border-[#E2E8F0] px-3.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751] transition";
+  "mt-1.5 w-full h-11 rounded-xl border border-[#E7E2F0] px-3.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20 focus:border-[#4C1D95] transition";
 const labelClass = "text-[12px] font-medium text-zinc-700";
 
 export function InscriptionScreens() {
@@ -149,11 +149,11 @@ export function InscriptionScreens() {
     return (
       <div className="flex-1 flex items-center justify-center p-4 md:p-8 lg:p-12">
         <div className="w-full max-w-[520px]">
-          <span className="inline-flex px-2.5 py-1 rounded-full bg-[#E6F4EE] text-[#008751] text-[11px] font-semibold">
+          <span className="inline-flex px-2.5 py-1 rounded-full bg-[#F0EAFF] text-[#4C1D95] text-[11px] font-semibold">
             Inscription en 2 étapes • Sans mot de passe
           </span>
 
-          <h1 className="mt-4 text-[28px] md:text-[32px] leading-[1.05] font-bold tracking-tight text-[#0A1931]">
+          <h1 className="mt-4 text-[28px] md:text-[32px] leading-[1.05] font-bold tracking-tight text-[#191224]">
             Proposez vos services,
             <br />
             trouvez vos missions.
@@ -170,8 +170,8 @@ export function InscriptionScreens() {
               { titre: "Métiers", detail: "domaine → métier → compétences" },
               { titre: "Séquestre", detail: "fonds libérés après votre validation" },
             ].map((b) => (
-              <div key={b.titre} className="rounded-xl border border-[#E2E8F0] p-3 bg-white">
-                <div className="font-semibold text-[#0A1931]">{b.titre}</div>
+              <div key={b.titre} className="rounded-xl border border-[#E7E2F0] p-3 bg-white">
+                <div className="font-semibold text-[#191224]">{b.titre}</div>
                 <div className="text-zinc-500 mt-0.5 leading-4">{b.detail}</div>
               </div>
             ))}
@@ -185,13 +185,13 @@ export function InscriptionScreens() {
                 setError(null);
                 setScreen("identite");
               }}
-              className="h-11 px-5 rounded-xl bg-[#008751] text-white text-sm font-semibold hover:bg-[#006e42] transition"
+              className="h-11 px-5 rounded-full bg-[#4C1D95] text-white text-sm font-semibold hover:bg-[#3B1578] transition"
             >
               Créer un compte
             </button>
             <Link
               href={signinHref}
-              className="h-11 px-5 inline-flex items-center justify-center rounded-xl bg-white border border-[#E2E8F0] text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+              className="h-11 px-5 inline-flex items-center justify-center rounded-xl bg-white border border-[#E7E2F0] text-sm font-medium text-zinc-700 hover:bg-zinc-50"
             >
               Se connecter
             </Link>
@@ -212,17 +212,17 @@ export function InscriptionScreens() {
   // ── P2 — Étape 1/2 : identité ───────────────────────────────────────────────────────────
   return (
     <div className="flex-1 flex items-center justify-center p-4 md:p-8 lg:p-12">
-      <div className="w-full max-w-[560px] bg-white border border-[#E2E8F0] rounded-xl p-6 md:p-8">
+      <div className="w-full max-w-[560px] bg-white border border-[#E7E2F0] rounded-xl p-6 md:p-8">
         <div className="flex items-center justify-between mb-6 gap-3">
-          <h2 className="text-[18px] font-semibold text-[#0A1931]">Étape 1/2 — Identité</h2>
+          <h2 className="text-[18px] font-semibold text-[#191224]">Étape 1/2 — Identité</h2>
           <span className="shrink-0 text-[11px] px-2 py-1 rounded-full bg-slate-100 text-zinc-600">
             Sans mot de passe • OTP uniquement
           </span>
         </div>
 
         {fromUnknownEmail && !error && (
-          <div role="status" className="mb-5 px-4 py-3 rounded-xl bg-[#eefaf4] border border-[#008751]/20 text-[13px] text-zinc-700">
-            Aucun compte n&apos;existe encore avec <span className="font-semibold text-[#0A1931]">{fromUnknownEmail}</span>.
+          <div role="status" className="mb-5 px-4 py-3 rounded-xl bg-[#F0EAFF] border border-[#4C1D95]/20 text-[13px] text-zinc-700">
+            Aucun compte n&apos;existe encore avec <span className="font-semibold text-[#191224]">{fromUnknownEmail}</span>.
             Créez le vôtre : vous reviendrez ensuite à votre mission pour la publier.
           </div>
         )}
@@ -230,7 +230,7 @@ export function InscriptionScreens() {
           <div role="alert" className="mb-5 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-[13px]">
             <div className="font-bold text-amber-800 mb-1">⚠️ Compte existant</div>
             <p className="text-zinc-700">Un compte existe déjà avec cet email ou ce téléphone.</p>
-            <Link href={signinHref} className="inline-flex items-center gap-1 mt-2 text-[#008751] font-semibold hover:underline">
+            <Link href={signinHref} className="inline-flex items-center gap-1 mt-2 text-[#4C1D95] font-semibold hover:underline">
               → Se connecter
             </Link>
           </div>
@@ -259,15 +259,15 @@ export function InscriptionScreens() {
         <form onSubmit={handleSubmit}>
           <div className="grid md:grid-cols-2 gap-4">
             <div>
-              <label htmlFor="firstname" className={labelClass}>Prénom <span className="text-[#E8112D]">*</span></label>
+              <label htmlFor="firstname" className={labelClass}>Prénom <span className="text-[#B42318]">*</span></label>
               <input id="firstname" name="firstname" type="text" required autoComplete="given-name" placeholder="Koffi" className={fieldClass} />
             </div>
             <div>
-              <label htmlFor="lastname" className={labelClass}>Nom <span className="text-[#E8112D]">*</span></label>
+              <label htmlFor="lastname" className={labelClass}>Nom <span className="text-[#B42318]">*</span></label>
               <input id="lastname" name="lastname" type="text" required autoComplete="family-name" placeholder="Adjovi" className={fieldClass} />
             </div>
             <div>
-              <label htmlFor="country" className={labelClass}>Pays <span className="text-[#E8112D]">*</span></label>
+              <label htmlFor="country" className={labelClass}>Pays <span className="text-[#B42318]">*</span></label>
               <select
                 id="country"
                 name="country"
@@ -283,14 +283,14 @@ export function InscriptionScreens() {
               </select>
             </div>
             <div>
-              <label htmlFor="city" className={labelClass}>Ville <span className="text-[#E8112D]">*</span></label>
+              <label htmlFor="city" className={labelClass}>Ville <span className="text-[#B42318]">*</span></label>
               <input id="city" name="city" type="text" required autoComplete="address-level2" placeholder="Cotonou" className={fieldClass} />
             </div>
             <div className="md:col-span-2">
-              <label htmlFor="phone" className={labelClass}>Téléphone <span className="text-[#E8112D]">*</span></label>
-              <div className="mt-1.5 flex items-stretch h-11 rounded-xl border border-[#E2E8F0] bg-white overflow-hidden focus-within:ring-2 focus-within:ring-[#008751]/20 focus-within:border-[#008751] transition">
+              <label htmlFor="phone" className={labelClass}>Téléphone <span className="text-[#B42318]">*</span></label>
+              <div className="mt-1.5 flex items-stretch h-11 rounded-xl border border-[#E7E2F0] bg-white overflow-hidden focus-within:ring-2 focus-within:ring-[#4C1D95]/20 focus-within:border-[#4C1D95] transition">
                 <span
-                  className="flex items-center gap-1.5 pl-3.5 pr-2.5 border-r border-[#E2E8F0] bg-[#F8FAF9] text-sm font-medium text-zinc-600 shrink-0"
+                  className="flex items-center gap-1.5 pl-3.5 pr-2.5 border-r border-[#E7E2F0] bg-[#F6F5FA] text-sm font-medium text-zinc-600 shrink-0"
                   title={`Indicatif ${selectedCountry.name}`}
                 >
                   <span aria-hidden="true">{selectedCountry.flag}</span>
@@ -311,7 +311,7 @@ export function InscriptionScreens() {
               </p>
             </div>
             <div className="md:col-span-2">
-              <label htmlFor="email" className={labelClass}>Email <span className="text-[#E8112D]">*</span></label>
+              <label htmlFor="email" className={labelClass}>Email <span className="text-[#B42318]">*</span></label>
               <input
                 id="email"
                 name="email"
@@ -327,7 +327,7 @@ export function InscriptionScreens() {
                 className={fieldClass}
               />
               {showsProEmailNudge && (
-                <div className="mt-2 rounded-lg bg-[#FEF3C7] border border-amber-200 p-2.5 text-[11px] flex items-start justify-between gap-2">
+                <div className="mt-2 rounded-lg bg-[#FFF6E3] border border-amber-200 p-2.5 text-[11px] flex items-start justify-between gap-2">
                   <span className="text-zinc-700">
                     ⚠️ Une adresse professionnelle inspire davantage confiance aux donneurs d&apos;ordre.
                     Vous pouvez continuer avec celle-ci.
@@ -335,14 +335,14 @@ export function InscriptionScreens() {
                   <button
                     type="button"
                     onClick={() => setPublicEmailAccepted(true)}
-                    className="shrink-0 px-2 py-1 rounded-lg bg-[#0f172a] text-white text-[10px]"
+                    className="shrink-0 px-2 py-1 rounded-full bg-[#191224] text-white text-[10px]"
                   >
                     Continuer avec cet email
                   </button>
                 </div>
               )}
               {isPublicEmail && publicEmailAccepted && (
-                <p className="mt-2 text-[11px] text-[#008751]">✓ Adresse acceptée — vous pourrez la changer plus tard.</p>
+                <p className="mt-2 text-[11px] text-[#4C1D95]">✓ Adresse acceptée — vous pourrez la changer plus tard.</p>
               )}
             </div>
           </div>
@@ -351,12 +351,12 @@ export function InscriptionScreens() {
           <input type="hidden" name="address" value="" />
 
           <label className="mt-5 flex items-start gap-2 cursor-pointer">
-            <input type="checkbox" name="cgvAccepted" required className="mt-0.5 w-4 h-4 rounded border-zinc-300 text-[#008751] focus:ring-[#008751]" />
+            <input type="checkbox" name="cgvAccepted" required className="mt-0.5 w-4 h-4 rounded border-zinc-300 text-[#4C1D95] focus:ring-[#4C1D95]" />
             <span className="text-[12px] text-zinc-500 leading-relaxed">
               J&apos;accepte les{" "}
-              <Link href="/cgu" className="text-[#008751] underline font-medium">conditions générales</Link>{" "}
+              <Link href="/cgu" className="text-[#4C1D95] underline font-medium">conditions générales</Link>{" "}
               et la{" "}
-              <Link href="/confidentialite" className="text-[#008751] underline font-medium">politique de confidentialité</Link>
+              <Link href="/confidentialite" className="text-[#4C1D95] underline font-medium">politique de confidentialité</Link>
               {" "}— version {CURRENT_TERMS.version}, en vigueur depuis le{" "}
               {new Date(CURRENT_TERMS.effectiveAt).toLocaleDateString("fr-FR")}.
             </span>
@@ -366,14 +366,14 @@ export function InscriptionScreens() {
             <button
               type="button"
               onClick={() => setScreen("splash")}
-              className="h-11 px-4 rounded-xl border border-[#E2E8F0] text-sm text-zinc-700 hover:bg-zinc-50"
+              className="h-11 px-4 rounded-xl border border-[#E7E2F0] text-sm text-zinc-700 hover:bg-zinc-50"
             >
               Retour
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="h-11 px-6 rounded-xl bg-[#008751] text-white text-sm font-semibold hover:bg-[#006e42] transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="h-11 px-6 rounded-full bg-[#4C1D95] text-white text-sm font-semibold hover:bg-[#3B1578] transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {submitting ? "Création en cours…" : showsProEmailNudge ? "Continuer avec cet email" : "Créer un compte → OTP"}
             </button>
@@ -381,8 +381,8 @@ export function InscriptionScreens() {
         </form>
 
         {/* Où va l'utilisateur ensuite — dit une fois, honnêtement, plutôt que découvert. */}
-        <div className="mt-6 rounded-xl bg-[#F8FAF9] border border-[#E2E8F0] p-4 text-[11px] leading-5 text-zinc-600">
-          <div className="font-semibold text-[#0A1931]">Ce qui suit</div>
+        <div className="mt-6 rounded-xl bg-[#F6F5FA] border border-[#E7E2F0] p-4 text-[11px] leading-5 text-zinc-600">
+          <div className="font-semibold text-[#191224]">Ce qui suit</div>
           <ul className="mt-1 list-disc ml-4 space-y-0.5">
             <li>Un code à 6 chiffres part par email — étape 2/2, il expire en 5 minutes.</li>
             <li>Le compte s&apos;ouvre en client : publier une mission ne demande rien de plus.</li>
@@ -392,7 +392,7 @@ export function InscriptionScreens() {
         </div>
 
         <div className="flex items-center justify-center gap-2 pt-5 mt-5 border-t border-zinc-100 text-[11px] text-zinc-400">
-          <Shield className="w-3.5 h-3.5 text-[#008751]" />
+          <Shield className="w-3.5 h-3.5 text-[#4C1D95]" />
           Paiement sécurisé par séquestre — les fonds ne sont libérés qu&apos;après validation
         </div>
       </div>

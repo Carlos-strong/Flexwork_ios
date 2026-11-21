@@ -51,42 +51,42 @@ export default function DevisDocumentPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-[#F8FAF9] flex items-center justify-center px-4">
-        <p className="text-[13px] text-[#64748B] text-center">{error}</p>
+      <div className="min-h-screen bg-[#F6F5FA] flex items-center justify-center px-4">
+        <p className="text-[13px] text-[#6B6478] text-center">{error}</p>
       </div>
     );
   }
   if (!doc) {
-    return <div className="min-h-screen bg-[#F8FAF9] flex items-center justify-center text-[13px] text-[#64748B]">Chargement…</div>;
+    return <div className="min-h-screen bg-[#F6F5FA] flex items-center justify-center text-[13px] text-[#6B6478]">Chargement…</div>;
   }
 
   return (
-    <div className="min-h-screen bg-[#F8FAF9] text-[#0f172a]">
+    <div className="min-h-screen bg-[#F6F5FA] text-[#191224]">
       <div className="fluid-doc [--fw:860px] mx-auto px-4 lg:px-0 py-5 space-y-4">
-        <div className="flex items-center gap-1.5 text-[12px] text-[#64748B] flex-wrap">
-          <Link href={`/missions/${missionId}`} className="hover:text-[#0f172a]" style={{ textDecoration: "none" }}>Mission</Link>
+        <div className="flex items-center gap-1.5 text-[12px] text-[#6B6478] flex-wrap">
+          <Link href={`/missions/${missionId}`} className="hover:text-[#191224]" style={{ textDecoration: "none" }}>Mission</Link>
           <span>›</span>
-          <span className="text-[#0f172a] font-medium">Devis</span>
+          <span className="text-[#191224] font-medium">Devis</span>
         </div>
 
-        <div className="bg-white border border-[#E2E8F0] rounded-xl overflow-hidden">
+        <div className="bg-white border border-[#E7E2F0] rounded-xl overflow-hidden">
           {/* En-tête : identité du document + export, même disposition que l'écran du contrat. */}
-          <div className="px-4 lg:px-6 py-4 border-b border-[#E2E8F0] flex flex-wrap items-center justify-between gap-3">
+          <div className="px-4 lg:px-6 py-4 border-b border-[#E7E2F0] flex flex-wrap items-center justify-between gap-3">
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <FileText className="w-4 h-4 text-[#008751] shrink-0" />
+                <FileText className="w-4 h-4 text-[#4C1D95] shrink-0" />
                 <h1 className="text-[16px] font-bold">{doc.titre}</h1>
                 <span
                   className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold border ${
                     definitif
-                      ? "bg-[#DCFCE7] text-[#166534] border-[#BBF7D0]"
-                      : "bg-[#FEF3C7] text-[#92400E] border-[#FCD34D]"
+                      ? "bg-[#E7F7EF] text-[#047857] border-[#BBF7D0]"
+                      : "bg-[#FFF6E3] text-[#92400E] border-[#FCD34D]"
                   }`}
                 >
                   {definitif ? "Prix arrêté" : "En négociation"}
                 </span>
               </div>
-              <p className="text-[12px] text-[#64748B] mt-1">
+              <p className="text-[12px] text-[#6B6478] mt-1">
                 Référence {doc.reference} • {doc.missionTitre}
               </p>
             </div>
@@ -94,7 +94,7 @@ export default function DevisDocumentPage() {
               href={pdfUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="shrink-0 inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-[#008751] text-white text-[13px] font-semibold hover:bg-[#007a49]"
+              className="shrink-0 inline-flex items-center gap-1.5 h-9 px-4 rounded-full bg-[#4C1D95] text-white text-[13px] font-semibold hover:bg-[#3B1578]"
               style={{ textDecoration: "none" }}
             >
               <Download className="w-3.5 h-3.5" />
@@ -103,7 +103,7 @@ export default function DevisDocumentPage() {
           </div>
 
           <div className="px-4 lg:px-6 py-5 space-y-6">
-            <p className="text-[12.5px] leading-relaxed bg-[#F8FAF9] border border-[#E2E8F0] rounded-lg px-3 py-2.5">{doc.mention}</p>
+            <p className="text-[12.5px] leading-relaxed bg-[#F6F5FA] border border-[#E7E2F0] rounded-lg px-3 py-2.5">{doc.mention}</p>
 
             {/* Parties */}
             <div className="grid gap-4 sm:grid-cols-2">
@@ -111,15 +111,15 @@ export default function DevisDocumentPage() {
                 { heading: "Le client", party: doc.client },
                 { heading: "Le prestataire", party: doc.provider },
               ].map(({ heading, party }) => (
-                <div key={heading} className="border border-[#E2E8F0] rounded-lg overflow-hidden">
-                  <div className="px-3 py-2 bg-[#F8FAF9] border-b border-[#E2E8F0]">
-                    <div className="text-[10.5px] uppercase tracking-wide font-bold text-[#64748B]">{heading}</div>
+                <div key={heading} className="border border-[#E7E2F0] rounded-lg overflow-hidden">
+                  <div className="px-3 py-2 bg-[#F6F5FA] border-b border-[#E7E2F0]">
+                    <div className="text-[10.5px] uppercase tracking-wide font-bold text-[#6B6478]">{heading}</div>
                     <div className="text-[13px] font-semibold">{party.name}</div>
                   </div>
-                  <dl className="divide-y divide-[#F1F5F9]">
+                  <dl className="divide-y divide-[#EFEAF8]">
                     {party.lines.map((l) => (
                       <div key={l.label} className="px-3 py-1.5 flex gap-3 text-[12px]">
-                        <dt className="text-[#64748B] w-[86px] shrink-0">{l.label}</dt>
+                        <dt className="text-[#6B6478] w-[86px] shrink-0">{l.label}</dt>
                         <dd className="m-0 min-w-0 break-words">{l.value}</dd>
                       </div>
                     ))}
@@ -131,10 +131,10 @@ export default function DevisDocumentPage() {
             {/* Détail chiffré */}
             <div>
               <h2 className="text-[13px] font-semibold mb-2">Détail du chiffrage</h2>
-              <div className="overflow-x-auto border border-[#E2E8F0] rounded-lg">
+              <div className="overflow-x-auto border border-[#E7E2F0] rounded-lg">
                 <table className="w-full text-[12.5px] min-w-[620px]">
                   <thead>
-                    <tr className="bg-[#F8FAF9] text-[#64748B] text-[11px] uppercase tracking-wide">
+                    <tr className="bg-[#F6F5FA] text-[#6B6478] text-[11px] uppercase tracking-wide">
                       <th className="text-left font-bold px-3 py-2">#</th>
                       <th className="text-left font-bold px-3 py-2">Poste</th>
                       <th className="text-right font-bold px-3 py-2">Qté</th>
@@ -146,14 +146,14 @@ export default function DevisDocumentPage() {
                   </thead>
                   <tbody>
                     {doc.lines.map((l) => (
-                      <tr key={l.numero} className="border-t border-[#F1F5F9]">
-                        <td className="px-3 py-2 text-[#64748B] font-mono">{l.numero}</td>
+                      <tr key={l.numero} className="border-t border-[#EFEAF8]">
+                        <td className="px-3 py-2 text-[#6B6478] font-mono">{l.numero}</td>
                         <td className="px-3 py-2 font-medium">{l.description}</td>
                         <td className="px-3 py-2 text-right tabular-nums">{l.quantite}</td>
-                        <td className="px-3 py-2 text-[#64748B]">{l.unite}</td>
-                        <td className="px-3 py-2 text-right tabular-nums text-[#64748B]">{l.prixUnitaire}</td>
+                        <td className="px-3 py-2 text-[#6B6478]">{l.unite}</td>
+                        <td className="px-3 py-2 text-right tabular-nums text-[#6B6478]">{l.prixUnitaire}</td>
                         <td className="px-3 py-2 text-right tabular-nums font-semibold">{l.montant}</td>
-                        <td className="px-3 py-2 text-[#64748B]">{l.echeance}</td>
+                        <td className="px-3 py-2 text-[#6B6478]">{l.echeance}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -163,30 +163,30 @@ export default function DevisDocumentPage() {
 
             {/* Totaux + conditions */}
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="border border-[#E2E8F0] rounded-lg overflow-hidden">
-                <div className="px-3 py-2 bg-[#F8FAF9] border-b border-[#E2E8F0] text-[10.5px] uppercase tracking-wide font-bold text-[#64748B]">
+              <div className="border border-[#E7E2F0] rounded-lg overflow-hidden">
+                <div className="px-3 py-2 bg-[#F6F5FA] border-b border-[#E7E2F0] text-[10.5px] uppercase tracking-wide font-bold text-[#6B6478]">
                   Récapitulatif
                 </div>
-                <dl className="divide-y divide-[#F1F5F9]">
+                <dl className="divide-y divide-[#EFEAF8]">
                   {doc.totals.map((t) => (
                     <div
                       key={t.label}
-                      className={`px-3 py-2 flex items-center justify-between gap-3 text-[12.5px] ${t.emphasis ? "bg-[#F8FAF9] font-bold" : ""}`}
+                      className={`px-3 py-2 flex items-center justify-between gap-3 text-[12.5px] ${t.emphasis ? "bg-[#F6F5FA] font-bold" : ""}`}
                     >
-                      <dt className={t.emphasis ? "" : "text-[#64748B]"}>{t.label}</dt>
+                      <dt className={t.emphasis ? "" : "text-[#6B6478]"}>{t.label}</dt>
                       <dd className="m-0 tabular-nums">{t.value}</dd>
                     </div>
                   ))}
                 </dl>
               </div>
-              <div className="border border-[#E2E8F0] rounded-lg overflow-hidden">
-                <div className="px-3 py-2 bg-[#F8FAF9] border-b border-[#E2E8F0] text-[10.5px] uppercase tracking-wide font-bold text-[#64748B]">
+              <div className="border border-[#E7E2F0] rounded-lg overflow-hidden">
+                <div className="px-3 py-2 bg-[#F6F5FA] border-b border-[#E7E2F0] text-[10.5px] uppercase tracking-wide font-bold text-[#6B6478]">
                   Conditions
                 </div>
-                <dl className="divide-y divide-[#F1F5F9]">
+                <dl className="divide-y divide-[#EFEAF8]">
                   {doc.conditions.map((c) => (
                     <div key={c.label} className="px-3 py-2 flex gap-3 text-[12.5px]">
-                      <dt className="text-[#64748B] w-[120px] shrink-0">{c.label}</dt>
+                      <dt className="text-[#6B6478] w-[120px] shrink-0">{c.label}</dt>
                       <dd className="m-0 min-w-0">{c.value}</dd>
                     </div>
                   ))}
@@ -197,7 +197,7 @@ export default function DevisDocumentPage() {
             {doc.notes && (
               <div>
                 <h2 className="text-[13px] font-semibold mb-2">Message du prestataire</h2>
-                <p className="text-[12.5px] text-[#475569] leading-relaxed whitespace-pre-wrap">{doc.notes}</p>
+                <p className="text-[12.5px] text-[#4A4258] leading-relaxed whitespace-pre-wrap">{doc.notes}</p>
               </div>
             )}
 
@@ -205,14 +205,14 @@ export default function DevisDocumentPage() {
               <h2 className="text-[13px] font-semibold mb-2">Mentions</h2>
               <ul className="space-y-1.5 pl-4 list-disc">
                 {doc.mentionsLegales.map((m, i) => (
-                  <li key={i} className="text-[12px] text-[#64748B] leading-relaxed">{m}</li>
+                  <li key={i} className="text-[12px] text-[#6B6478] leading-relaxed">{m}</li>
                 ))}
               </ul>
             </div>
           </div>
         </div>
 
-        <Link href={`/missions/${missionId}`} className="inline-block text-[12px] text-[#64748B] hover:text-[#0f172a]" style={{ textDecoration: "none" }}>
+        <Link href={`/missions/${missionId}`} className="inline-block text-[12px] text-[#6B6478] hover:text-[#191224]" style={{ textDecoration: "none" }}>
           ← Retour au détail de la mission
         </Link>
       </div>

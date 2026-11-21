@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { fetchDedupe } from "@/lib/fetch-dedupe";
 import { ShoppingCart } from "lucide-react";
 import { Avatar } from "@/components/avatar";
+import { timeAgo } from "@/lib/time-ago";
 
 // ---------------------------------------------------------------------------
 // Liste des commandes Gig — servie aux DEUX rubriques « Offres » du sidebar :
@@ -51,25 +52,13 @@ const STATUS_LABEL: Record<"provider" | "client", Record<string, string>> = {
 };
 
 const ORDER_STATUS_STYLE: Record<string, string> = {
-  created: "bg-[#DBEAFE] text-[#1E40AF] border-[#BFDBFE]",
+  created: "bg-[#DBEAFE] text-[#1D4ED8] border-[#BFDBFE]",
   client_signed: "bg-[#FEF9C3] text-[#854D0E] border-[#FDE68A]",
-  active: "bg-[#DCFCE7] text-[#166534] border-[#BBF7D0]",
-  completed: "bg-[#0A1931] text-white border-[#0A1931]",
-  cancelled: "bg-[#FEE2E2] text-[#B91C1C] border-[#FECACA]",
-  refunded: "bg-[#F3F4F6] text-[#4B5563] border-[#E5E7EB]",
+  active: "bg-[#E7F7EF] text-[#047857] border-[#BBF7D0]",
+  completed: "bg-[#191224] text-white border-[#191224]",
+  cancelled: "bg-[#FEECEB] text-[#B42318] border-[#FECACA]",
+  refunded: "bg-[#EFEAF8] text-[#4A4258] border-[#E7E2F0]",
 };
-
-function timeAgo(iso: string): string {
-  const diffMin = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
-  if (diffMin < 1) return "à l'instant";
-  if (diffMin < 60) return `Il y a ${diffMin} min`;
-  const diffH = Math.floor(diffMin / 60);
-  if (diffH < 24) return `Il y a ${diffH}h`;
-  const diffJ = Math.floor(diffH / 24);
-  if (diffJ === 1) return "Hier";
-  if (diffJ < 7) return `Il y a ${diffJ}j`;
-  return new Date(iso).toLocaleDateString("fr-FR");
-}
 
 export default function GigOrdersPanel({
   as = "provider",
@@ -105,15 +94,15 @@ export default function GigOrdersPanel({
 
   const statCards = [
     { label: "Commandes", value: stats.total, sub: "au total", color: "border-gray-800", text: "" },
-    { label: "À signer", value: stats.aSigner, sub: isClient ? "en attente de vous" : "sous 24h", color: "border-[#FF6B35]", text: "text-[#FF6B35]" },
-    { label: "Engagées", value: stats.actives, sub: "livraison en cours", color: "border-[#1B9C6A]", text: "text-[#1B9C6A]" },
-    { label: "Terminées", value: stats.terminees, sub: "livrées", color: "border-[#0A1931]", text: "" },
+    { label: "À signer", value: stats.aSigner, sub: isClient ? "en attente de vous" : "sous 24h", color: "border-[#6D28D9]", text: "text-[#6D28D9]" },
+    { label: "Engagées", value: stats.actives, sub: "livraison en cours", color: "border-[#4C1D95]", text: "text-[#4C1D95]" },
+    { label: "Terminées", value: stats.terminees, sub: "livrées", color: "border-[#191224]", text: "" },
   ];
 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-[18px] font-extrabold text-[#0A1931]">{isClient ? "Mes commandes" : "Commandes reçues"}</h2>
+        <h2 className="text-[18px] font-extrabold text-[#191224]">{isClient ? "Mes commandes" : "Commandes reçues"}</h2>
         <p className="text-[13px] text-gray-500 mt-1">
           {isClient
             ? "Les Gigs que vous avez achetés. Vous signez en premier — les fonds passent alors sous séquestre — puis le prestataire accepte sous 24h, sinon vous êtes remboursé automatiquement."
@@ -125,14 +114,14 @@ export default function GigOrdersPanel({
         {statCards.map((s) => (
           <div key={s.label} className={`bg-white rounded-[16px] p-4 border-l-4 ${s.color} shadow-[0_1px_3px_rgba(0,0,0,0.05)]`}>
             <div className="text-[11px] font-bold tracking-widest text-gray-400 uppercase">{s.label}</div>
-            <div className="text-[24px] font-extrabold mt-1 text-[#0A1931]">{s.value}</div>
+            <div className="text-[24px] font-extrabold mt-1 text-[#191224]">{s.value}</div>
             <div className={`text-[11px] mt-1 ${s.text || "text-gray-400"}`}>{s.sub}</div>
           </div>
         ))}
       </div>
 
       {stats.ca > 0 && (
-        <div className="bg-[#f0faf5] border border-[#008751]/20 rounded-[16px] px-4 py-3 text-[13px] text-[#065f46]">
+        <div className="bg-[#F0EAFF] border border-[#4C1D95]/20 rounded-[16px] px-4 py-3 text-[13px] text-[#065f46]">
           💰 <strong>{stats.ca.toLocaleString("fr-FR")} FCFA</strong> {isClient ? "de commandes engagées ou terminées." : "de commandes engagées ou terminées."}
         </div>
       )}
@@ -152,7 +141,7 @@ export default function GigOrdersPanel({
       ) : (
         <div className="flex flex-col gap-3">
           {orders.map((o) => (
-            <div key={o.id} className="group bg-white rounded-[20px] p-5 border border-gray-100 hover:shadow-lg hover:border-orange-100 transition-all flex flex-col sm:flex-row sm:items-center gap-4">
+            <div key={o.id} className="group bg-white rounded-[20px] p-5 border border-gray-100 hover:shadow-lg hover:border-violet-100 transition-all flex flex-col sm:flex-row sm:items-center gap-4">
               <div className="flex-1 min-w-0">
                 <div className="flex justify-between items-start gap-3">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -163,16 +152,16 @@ export default function GigOrdersPanel({
                   </div>
                   <span className="text-[10px] text-gray-400 font-medium whitespace-nowrap">{timeAgo(o.createdAt)}</span>
                 </div>
-                <h3 className="font-bold text-[14px] mt-3 leading-snug group-hover:text-[#FF6B35] transition-colors line-clamp-2">{o.titre}</h3>
+                <h3 className="font-bold text-[14px] mt-3 leading-snug group-hover:text-[#6D28D9] transition-colors line-clamp-2">{o.titre}</h3>
                 <div className="text-[12px] text-gray-500 mt-1 flex items-center gap-2">
                   <span className="truncate">{o.domaine}</span>
                   <span className="w-1 h-1 bg-gray-300 rounded-full shrink-0" />
-                  <span className="font-bold text-[#0A1931] shrink-0">{o.montant.toLocaleString("fr-FR")} {o.currency}</span>
+                  <span className="font-bold text-[#191224] shrink-0">{o.montant.toLocaleString("fr-FR")} {o.currency}</span>
                 </div>
                 <div className="flex items-center gap-2 mt-4">
-                  <Avatar src={o.counterpart.avatarUrl} initials={o.counterpart.name.charAt(0)} size={28} gradient="from-[#FF7A00] to-[#E8112D]" />
+                  <Avatar src={o.counterpart.avatarUrl} initials={o.counterpart.name.charAt(0)} size={28} gradient="from-[#6D28D9] to-[#B42318]" />
                   <div className="text-[12px]">
-                    <span className="font-semibold text-[#0A1931]">{o.counterpart.name}</span>{" "}
+                    <span className="font-semibold text-[#191224]">{o.counterpart.name}</span>{" "}
                     <span className="text-gray-400">· {isClient ? "prestataire" : "commande"}</span>
                   </div>
                 </div>
@@ -180,7 +169,7 @@ export default function GigOrdersPanel({
               <div className="sm:w-[150px] shrink-0">
                 <button
                   onClick={() => onOpenOrder(o.id)}
-                  className="w-full bg-[#0A1931] hover:bg-black text-white rounded-full py-2 text-[12px] font-bold transition text-center"
+                  className="w-full bg-[#191224] hover:bg-black text-white rounded-full py-2 text-[12px] font-bold transition text-center"
                 >
                   Voir la commande
                 </button>

@@ -1,4 +1,5 @@
 import type { DevisData } from "@/lib/devis";
+import { personFullName } from "@/lib/person-name";
 
 export type DevisRevisionPayload = {
   id: string;
@@ -37,6 +38,17 @@ export type DevisProposalPayload = {
   // GET /api/missions/[id]/proposals (pas par le flux de candidature lui-même).
   averageRating?: number | null;
   offersSent?: number;
+  // Cartes « Candidatures reçues » (2026-11-11) — missions menées à terme et compétences
+  // déclarées du candidat (GET /api/missions/[id]/proposals uniquement).
+  missionsCompleted?: number;
+  skills?: string[];
+  // Candidature RETENUE (2026-11-11) : son engagement et l'état de signature de son contrat —
+  // renvoyés dans `retained` par GET /api/missions/[id]/proposals (client propriétaire).
+  engagement?: {
+    id: string;
+    status: string;
+    contract: { clientSignedAt: string | null; providerSignedAt: string | null } | null;
+  };
   revisions: DevisRevisionPayload[];
 };
 
@@ -44,7 +56,7 @@ export function authorDisplayName(author: {
   firstname: string | null;
   lastname: string | null;
 }): string {
-  const name = [author.firstname, author.lastname].filter(Boolean).join(" ");
+  const name = personFullName(author);
   return name || "Prestataire";
 }
 

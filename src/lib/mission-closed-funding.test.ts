@@ -16,10 +16,12 @@ import { MISSION_STATUSES } from "@/lib/mission-status";
 import { MISSION_FUNDING_CLOSED_STATUSES, isMissionFundingClosed } from "@/lib/mission-status";
 
 describe("isMissionFundingClosed", () => {
-  it("ferme le financement sur une mission clôturée et sur une mission remboursée", () => {
+  it("ferme le financement sur une mission clôturée, remboursée, ou un engagement annulé", () => {
     expect(isMissionFundingClosed("cloturee")).toBe(true);
     expect(isMissionFundingClosed("remboursee")).toBe(true);
-    expect([...MISSION_FUNDING_CLOSED_STATUSES]).toEqual(["cloturee", "remboursee"]);
+    // Engagement annulé par un désistement (2026-11-11) : il ne doit jamais être financé.
+    expect(isMissionFundingClosed("annulee")).toBe(true);
+    expect([...MISSION_FUNDING_CLOSED_STATUSES]).toEqual(["cloturee", "remboursee", "annulee"]);
   });
 
   it("laisse passer TOUS les autres statuts du cycle — la règle ne ferme que la fin", () => {
@@ -30,6 +32,7 @@ describe("isMissionFundingClosed", () => {
     expect(encoreOuverts).toContain("contrat_signe");
     expect(encoreOuverts).toContain("validee");
     expect(encoreOuverts).not.toContain("cloturee");
+    expect(encoreOuverts).not.toContain("annulee");
   });
 
   it("une absence de statut n'est pas une clôture — la page interroge avant d'avoir la réponse", () => {

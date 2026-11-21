@@ -27,7 +27,7 @@ export default async function BadgePage({ searchParams }: { searchParams: { retu
       <div className="mx-auto fluid-form [--fw:720px] space-y-5">
         <BackLink href={back.href} label={back.label} />
         <div>
-          <h1 className="text-[22px] font-bold text-[#0A1931]">Badge « Vérifié »</h1>
+          <h1 className="text-[22px] font-bold text-[#191224]">Badge « Vérifié »</h1>
           <p className="mt-1 text-[13px] text-zinc-500">
             Demande instruite par un administrateur KYC, sur la base de votre diplôme d&apos;État déclaré.
           </p>

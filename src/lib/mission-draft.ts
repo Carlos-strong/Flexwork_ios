@@ -62,6 +62,8 @@ export type MissionDraft = {
   siteManagerIdentifier?: string;
   maxRevisionRounds: string;
   dateExpiration: string;
+  // Durée de publication (2026-11-10) — optionnelle pour relire les anciens brouillons.
+  dureePublicationJours?: string;
   currency: string;
   savedAt: string;
 };

@@ -12,6 +12,7 @@ import { Avatar } from "@/components/avatar";
 import { ServiceOrderPanel } from "@/components/gig/ServiceOrderPanel";
 import { GigImageCarousel } from "@/components/gig/GigImageCarousel";
 import { safeCallbackUrl } from "@/lib/safe-callback";
+import { personFullName } from "@/lib/person-name";
 
 // Page PUBLIQUE d'un service (Gig), 2026-11-08.
 //
@@ -60,7 +61,7 @@ export default async function ServicePage({ params, searchParams }: Params) {
   const isOwner = (session?.user as { id?: string } | undefined)?.id === gig.providerId;
   const view = serializeGig(gig);
   const p = gig.provider;
-  const name = [p.firstname, p.lastname].filter(Boolean).join(" ") || "Prestataire";
+  const name = personFullName(p) || "Prestataire";
   const initials = `${p.firstname?.[0] ?? ""}${p.lastname?.[0] ?? ""}`.toUpperCase() || "?";
   const reviews = await prisma.review.aggregate({
     where: { targetId: p.id, suspendu: false },
@@ -72,24 +73,24 @@ export default async function ServicePage({ params, searchParams }: Params) {
     returnTo && returnTo !== "/" ? { href: returnTo, label: "Revenir à la page précédente" } : { href: "/", label: "Retour à l'accueil" };
 
   return (
-    <div className="min-h-screen bg-[#F8FAF9]">
+    <div className="min-h-screen bg-[#F6F5FA]">
       <div className="page-shell py-8 lg:py-12 space-y-5">
         <BackLink href={back.href} label={back.label} />
 
         <div className="grid gap-5 lg:grid-cols-[1fr_360px] items-start">
-          <article className="min-w-0 rounded-2xl border border-[#E2E8F0] bg-white p-5 sm:p-7 shadow-sm">
-            <span className="rounded-full bg-[#F7F7F5] px-2.5 py-1 text-[11px] font-semibold text-[#0A1931]">{view.domaine}</span>
-            <h1 className="mt-3 text-[24px] lg:text-[28px] font-bold leading-tight text-[#0f172a]">{view.titre}</h1>
+          <article className="min-w-0 rounded-2xl border border-[#E7E2F0] bg-white p-5 sm:p-7 shadow-sm">
+            <span className="rounded-full bg-[#F6F5FA] px-2.5 py-1 text-[11px] font-semibold text-[#191224]">{view.domaine}</span>
+            <h1 className="mt-3 text-[24px] lg:text-[28px] font-bold leading-tight text-[#191224]">{view.titre}</h1>
 
             {/* Prestataire */}
             <Link
               href={`/profil/${p.id}?returnTo=${encodeURIComponent(`/services/${gig.id}`)}`}
-              className="mt-4 inline-flex items-center gap-3 rounded-xl pr-3 hover:bg-[#F8FAF9]"
+              className="mt-4 inline-flex items-center gap-3 rounded-xl pr-3 hover:bg-[#F6F5FA]"
               style={{ textDecoration: "none" }}
             >
-              <Avatar src={p.avatarPath ? `/api/users/${p.id}/avatar` : null} initials={initials} size={44} gradient="from-[#008751] to-[#FCD116]" />
+              <Avatar src={p.avatarPath ? `/api/users/${p.id}/avatar` : null} initials={initials} size={44} gradient="from-[#4C1D95] to-[#8B5CF6]" />
               <span className="min-w-0">
-                <span className="block text-[14px] font-semibold text-[#0f172a]">
+                <span className="block text-[14px] font-semibold text-[#191224]">
                   {name}{" "}
                   {p.country && (
                     <span role="img" aria-label={countryName(p.country) ?? p.country}>
@@ -97,7 +98,7 @@ export default async function ServicePage({ params, searchParams }: Params) {
                     </span>
                   )}
                 </span>
-                <span className="block text-[13px] text-[#64748B]">
+                <span className="block text-[13px] text-[#6B6478]">
                   {reviews._count.note > 0 && reviews._avg.note != null ? (
                     <>
                       <span className="text-[#F7C948]">★</span> {reviews._avg.note.toFixed(1)} ({reviews._count.note} avis)
@@ -129,53 +130,53 @@ export default async function ServicePage({ params, searchParams }: Params) {
               </div>
             )}
 
-            <h2 className="mt-7 text-[17px] font-bold text-[#0f172a]">À propos de ce service</h2>
-            <p className="mt-2 whitespace-pre-line text-[15px] leading-relaxed text-[#475569]">{view.description}</p>
+            <h2 className="mt-7 text-[17px] font-bold text-[#191224]">À propos de ce service</h2>
+            <p className="mt-2 whitespace-pre-line text-[15px] leading-relaxed text-[#4A4258]">{view.description}</p>
 
             {view.packages.length > 0 && (
               <>
-                <h2 className="mt-7 text-[17px] font-bold text-[#0f172a]">Comparer les formules</h2>
+                <h2 className="mt-7 text-[17px] font-bold text-[#191224]">Comparer les formules</h2>
                 <div className="mt-3 overflow-x-auto">
                   <table className="w-full min-w-[480px] text-left text-[13px]">
                     <thead>
-                      <tr className="border-b border-[#E2E8F0] text-[#64748B]">
+                      <tr className="border-b border-[#E7E2F0] text-[#6B6478]">
                         <th className="py-2 pr-3 font-medium" />
                         {view.packages.map((pk) => (
-                          <th key={pk.tier} scope="col" className="py-2 px-3 font-semibold text-[#0f172a] capitalize">
+                          <th key={pk.tier} scope="col" className="py-2 px-3 font-semibold text-[#191224] capitalize">
                             {pk.tier}
                           </th>
                         ))}
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#E2E8F0]">
+                    <tbody className="divide-y divide-[#E7E2F0]">
                       <tr>
-                        <th scope="row" className="py-2 pr-3 font-medium text-[#64748B]">Formule</th>
+                        <th scope="row" className="py-2 pr-3 font-medium text-[#6B6478]">Formule</th>
                         {view.packages.map((pk) => (
-                          <td key={pk.tier} className="py-2 px-3 font-medium text-[#0f172a]">{pk.titre}</td>
+                          <td key={pk.tier} className="py-2 px-3 font-medium text-[#191224]">{pk.titre}</td>
                         ))}
                       </tr>
                       <tr>
-                        <th scope="row" className="py-2 pr-3 font-medium text-[#64748B]">Inclus</th>
+                        <th scope="row" className="py-2 pr-3 font-medium text-[#6B6478]">Inclus</th>
                         {view.packages.map((pk) => (
-                          <td key={pk.tier} className="py-2 px-3 align-top text-[#475569]">{pk.description}</td>
+                          <td key={pk.tier} className="py-2 px-3 align-top text-[#4A4258]">{pk.description}</td>
                         ))}
                       </tr>
                       <tr>
-                        <th scope="row" className="py-2 pr-3 font-medium text-[#64748B]">Délai</th>
+                        <th scope="row" className="py-2 pr-3 font-medium text-[#6B6478]">Délai</th>
                         {view.packages.map((pk) => (
                           <td key={pk.tier} className="py-2 px-3">{pk.delaiJours} j</td>
                         ))}
                       </tr>
                       <tr>
-                        <th scope="row" className="py-2 pr-3 font-medium text-[#64748B]">Révisions</th>
+                        <th scope="row" className="py-2 pr-3 font-medium text-[#6B6478]">Révisions</th>
                         {view.packages.map((pk) => (
                           <td key={pk.tier} className="py-2 px-3">{pk.revisions}</td>
                         ))}
                       </tr>
                       <tr>
-                        <th scope="row" className="py-2 pr-3 font-medium text-[#64748B]">Prix</th>
+                        <th scope="row" className="py-2 pr-3 font-medium text-[#6B6478]">Prix</th>
                         {view.packages.map((pk) => (
-                          <td key={pk.tier} className="py-2 px-3 font-bold text-[#0f172a]">
+                          <td key={pk.tier} className="py-2 px-3 font-bold text-[#191224]">
                             {pk.prix.toLocaleString("fr-FR")} {view.currency}
                           </td>
                         ))}
@@ -189,7 +190,7 @@ export default async function ServicePage({ params, searchParams }: Params) {
             {view.tags.length > 0 && (
               <ul className="mt-6 flex flex-wrap gap-1.5" aria-label="Mots-clés">
                 {view.tags.map((t) => (
-                  <li key={t} className="rounded-full bg-[#f0faf5] px-2.5 py-0.5 text-[12px] font-medium text-[#008751]">
+                  <li key={t} className="rounded-full bg-[#F0EAFF] px-2.5 py-0.5 text-[12px] font-medium text-[#4C1D95]">
                     {t}
                   </li>
                 ))}
@@ -199,12 +200,12 @@ export default async function ServicePage({ params, searchParams }: Params) {
 
           <aside className="space-y-3 lg:sticky lg:top-6">
             {isOwner ? (
-              <div className="rounded-2xl border border-[#E2E8F0] bg-white p-5 text-[13px] text-[#475569]">
-                <p className="font-semibold text-[#0f172a]">C&apos;est votre service.</p>
+              <div className="rounded-2xl border border-[#E7E2F0] bg-white p-5 text-[13px] text-[#4A4258]">
+                <p className="font-semibold text-[#191224]">C&apos;est votre service.</p>
                 <p className="mt-1">Les clients le voient tel quel.</p>
                 <Link
                   href="/profile?tab=services"
-                  className="mt-4 inline-flex h-10 items-center rounded-full bg-[#0f172a] px-4 text-[13px] font-semibold text-white"
+                  className="mt-4 inline-flex h-10 items-center rounded-full bg-[#191224] px-4 text-[13px] font-semibold text-white"
                   style={{ textDecoration: "none" }}
                 >
                   Gérer mes services
@@ -218,17 +219,17 @@ export default async function ServicePage({ params, searchParams }: Params) {
                 fallback={{ prix: view.prixDepart, delaiJours: view.delaiJours }}
               />
             )}
-            <div className="flex gap-3 rounded-2xl border border-[#E2E8F0] bg-white p-4">
+            <div className="flex gap-3 rounded-2xl border border-[#E7E2F0] bg-white p-4">
               <span aria-hidden className="text-[18px]">
                 🛡️
               </span>
-              <p className="text-[12.5px] leading-relaxed text-[#475569]">
-                <span className="font-semibold text-[#0f172a]">Paiement sous séquestre.</span> Vous payez à la commande ; le prestataire
+              <p className="text-[12.5px] leading-relaxed text-[#4A4258]">
+                <span className="font-semibold text-[#191224]">Paiement sous séquestre.</span> Vous payez à la commande ; le prestataire
                 n&apos;est payé qu&apos;une fois la livraison validée, et vous êtes remboursé s&apos;il ne signe pas sous 24 h.
               </p>
             </div>
             {gig._count.orders > 0 && (
-              <p className="px-1 text-[12px] text-[#64748B]">
+              <p className="px-1 text-[12px] text-[#6B6478]">
                 {gig._count.orders} commande{gig._count.orders > 1 ? "s" : ""} passée{gig._count.orders > 1 ? "s" : ""} sur Flexwork.
               </p>
             )}

@@ -213,7 +213,7 @@ export function DomainesTab({
         <input type="hidden" value={mainDomain} readOnly />
         {mainDomain && !taxonomy.metierLabel && (
           <p className="mb-3 text-[12px] text-zinc-500">
-            Métier enregistré : <span className="font-medium text-[#0A1931]">{mainDomain}</span>. Resélectionnez-le
+            Métier enregistré : <span className="font-medium text-[#191224]">{mainDomain}</span>. Resélectionnez-le
             ci-dessous pour le modifier ou choisir vos compétences.
           </p>
         )}
@@ -229,7 +229,7 @@ export function DomainesTab({
         />
 
         {insuranceRequired && (
-          <div role="note" className="mt-4 rounded-xl border border-amber-200 bg-[#FEF3C7] p-3.5">
+          <div role="note" className="mt-4 rounded-xl border border-amber-200 bg-[#FFF6E3] p-3.5">
             <p className="text-[13px] font-semibold text-amber-900">🚨 Assurance obligatoire pour ce métier</p>
             <p className="mt-1 text-[12px] leading-5 text-zinc-700">
               Ce métier est classé à risque élevé. Une assurance RC Pro effective sera exigée{" "}
@@ -282,7 +282,7 @@ export function DomainesTab({
                   type="button"
                   onClick={() => removeCompetence(value)}
                   title="Retirer cette compétence"
-                  className="h-9 px-3 rounded-full text-[13px] font-medium border border-[#008751] bg-[#008751] text-white"
+                  className="h-9 px-3 rounded-full text-[13px] font-medium border border-[#4C1D95] bg-[#4C1D95] text-white"
                 >
                   {value} ✕
                 </button>

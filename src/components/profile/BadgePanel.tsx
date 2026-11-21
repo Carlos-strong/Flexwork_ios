@@ -31,7 +31,7 @@ type BadgeState = {
 const STATUS_DISPLAY: Record<string, { label: string; className: string; icon: string }> = {
   non_demande: { label: "Non demandé", className: "bg-zinc-100 text-zinc-600", icon: "—" },
   en_attente: { label: "En attente d'instruction", className: "bg-amber-100 text-amber-800", icon: "⏳" },
-  accorde: { label: "Badge accordé", className: "bg-[#008751]/10 text-[#008751]", icon: "✅" },
+  accorde: { label: "Badge accordé", className: "bg-[#4C1D95]/10 text-[#4C1D95]", icon: "✅" },
   refuse: { label: "Demande refusée", className: "bg-red-100 text-red-700", icon: "✕" },
 };
 
@@ -97,7 +97,7 @@ export function BadgePanel() {
     <div className="space-y-5">
       <div className="bg-white rounded-[20px] border border-gray-100 p-6">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-[15px] font-semibold text-[#0A1931]">Statut du badge</h2>
+          <h2 className="text-[15px] font-semibold text-[#191224]">Statut du badge</h2>
           <span className={`rounded-full px-3 py-1 text-[12px] font-semibold ${display.className}`}>
             {display.icon} {display.label}
           </span>
@@ -106,11 +106,11 @@ export function BadgePanel() {
         <dl className="mt-4 grid sm:grid-cols-2 gap-3 text-[12px]">
           <div>
             <dt className="text-zinc-400">Demande déposée le</dt>
-            <dd className="text-[#0A1931]">{formatDate(state?.badgeRequestedAt)}</dd>
+            <dd className="text-[#191224]">{formatDate(state?.badgeRequestedAt)}</dd>
           </div>
           <div>
             <dt className="text-zinc-400">Décision rendue le</dt>
-            <dd className="text-[#0A1931]">{formatDate(state?.badgeDecidedAt)}</dd>
+            <dd className="text-[#191224]">{formatDate(state?.badgeDecidedAt)}</dd>
           </div>
         </dl>
 
@@ -146,7 +146,7 @@ export function BadgePanel() {
               type="button"
               onClick={requestBadge}
               disabled={submitting || state?.eligible === false}
-              className="h-10 px-5 rounded-full bg-[#008751] text-white text-[13px] font-semibold hover:bg-[#006e43] transition disabled:opacity-50"
+              className="h-10 px-5 rounded-full bg-[#4C1D95] text-white text-[13px] font-semibold hover:bg-[#3B1578] transition disabled:opacity-50"
             >
               {submitting ? "Envoi..." : status === "refuse" ? "Renouveler ma demande" : "Demander le badge"}
             </button>
@@ -167,11 +167,11 @@ export function BadgePanel() {
       </div>
 
       <div className="bg-white rounded-[20px] border border-gray-100 p-6">
-        <h2 className="text-[15px] font-semibold text-[#0A1931]">Ce que le badge apporte</h2>
+        <h2 className="text-[15px] font-semibold text-[#191224]">Ce que le badge apporte</h2>
         <ul className="mt-3 space-y-2">
           {BENEFITS.map((benefit) => (
             <li key={benefit} className="flex items-start gap-2 text-[13px] text-zinc-600">
-              <span className="mt-0.5 text-[#008751]">•</span>
+              <span className="mt-0.5 text-[#4C1D95]">•</span>
               {benefit}
             </li>
           ))}

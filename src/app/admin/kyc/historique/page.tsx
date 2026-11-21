@@ -74,7 +74,7 @@ export default function KycHistoryPage() {
   }
 
   return (
-    <div className="text-[#1A1916]">
+    <div className="text-[#191224]">
       <div className="space-y-5">
         <AdminPageHeader
           icon="🪪"
@@ -83,27 +83,27 @@ export default function KycHistoryPage() {
           readOnly={!canAct}
         />
 
-        <div className="rounded-xl border border-[#E2E0D9] bg-white p-3.5 text-[12.5px] text-[#5A5750] leading-relaxed">
+        <div className="rounded-xl border border-[#E7E2F0] bg-white p-3.5 text-[12.5px] text-[#6B6478] leading-relaxed">
           Consultez toutes les décisions KYC passées (validations / rejets, par dossier ou par
-          document). Une validation potentiellement erronée peut être <strong className="text-[#1A1916]">révoquée</strong> :
+          document). Une validation potentiellement erronée peut être <strong className="text-[#191224]">révoquée</strong> :
           le document repasse en attente et l&apos;état du compte est resynchronisé automatiquement.
         </div>
 
-        {feedback && <div className="rounded-xl border border-[#FDE68A] bg-[#FFFBEB] p-3 text-[13px] text-[#92400E]">{feedback}</div>}
+        {feedback && <div className="rounded-xl border border-[#FDE68A] bg-[#FFF6E3] p-3 text-[13px] text-[#92400E]">{feedback}</div>}
 
-        <div className="bg-white border border-[#E2E0D9] rounded-xl overflow-hidden">
-          <div className="p-4 lg:p-5 border-b border-[#E2E0D9]">
+        <div className="bg-white border border-[#E7E2F0] rounded-xl overflow-hidden">
+          <div className="p-4 lg:p-5 border-b border-[#E7E2F0]">
             <h3 className="text-[13px] font-semibold">Historique des validations ({history?.length ?? "…"})</h3>
           </div>
           {history === null ? (
-            <p className="p-4 lg:p-5 text-[13px] text-[#5A5750]">Chargement…</p>
+            <p className="p-4 lg:p-5 text-[13px] text-[#6B6478]">Chargement…</p>
           ) : history.length === 0 ? (
-            <p className="p-4 lg:p-5 text-[13px] text-[#5A5750]">Aucune validation pour le moment.</p>
+            <p className="p-4 lg:p-5 text-[13px] text-[#6B6478]">Aucune validation pour le moment.</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-[13px]">
                 <thead>
-                  <tr className="text-[11px] tracking-widest text-[#5A5750] uppercase bg-[#FAFAF8] border-y border-[#E2E0D9]">
+                  <tr className="text-[11px] tracking-widest text-[#6B6478] uppercase bg-[#F6F5FA] border-y border-[#E7E2F0]">
                     <th className="text-left py-2.5 px-4 lg:px-5 font-semibold">Utilisateur</th>
                     <th className="text-left py-2.5 px-3 font-semibold">Document</th>
                     <th className="text-left py-2.5 px-3 font-semibold">Statut</th>
@@ -118,23 +118,23 @@ export default function KycHistoryPage() {
                     const isVerified = h.status === "verifie";
                     const isRejected = h.status === "rejete";
                     const badgeClass = isVerified
-                      ? "bg-[#DCFCE7] text-[#166534]"
+                      ? "bg-[#E7F7EF] text-[#047857]"
                       : isRejected
-                        ? "bg-[#FEE2E2] text-[#B91C1C]"
+                        ? "bg-[#FEECEB] text-[#B42318]"
                         : "bg-[#FEF9C3] text-[#854D0E]";
                     return (
-                      <tr key={h.docId} className="border-b border-[#F4F3EF] last:border-0">
-                        <td className="py-2.5 px-4 lg:px-5 text-[#5A5750]">
+                      <tr key={h.docId} className="border-b border-[#EFEAF8] last:border-0">
+                        <td className="py-2.5 px-4 lg:px-5 text-[#6B6478]">
                           {h.user.email}
                           <br />
-                          <span className="text-[11px] text-[#9C9A95]">{h.user.tel}</span>
+                          <span className="text-[11px] text-[#9A93A8]">{h.user.tel}</span>
                           <br />
-                          <span className="text-[11px] text-[#9C9A95]">KYC : <strong className="text-[#1A1916]">{h.user.kycStatus}</strong></span>
+                          <span className="text-[11px] text-[#9A93A8]">KYC : <strong className="text-[#191224]">{h.user.kycStatus}</strong></span>
                         </td>
-                        <td className="py-2.5 px-3 text-[#5A5750]">{DOC_LABEL[h.type] ?? h.type}</td>
+                        <td className="py-2.5 px-3 text-[#6B6478]">{DOC_LABEL[h.type] ?? h.type}</td>
                         <td className="py-2.5 px-3"><span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold ${badgeClass}`}>{isVerified ? "Validé" : isRejected ? "Rejeté" : "En attente"}</span></td>
-                        <td className="py-2.5 px-3 text-[#5A5750]">{h.reviewedBy ?? "—"}</td>
-                        <td className="py-2.5 px-3 text-[12px] text-[#5A5750]">{h.reviewedAt ? new Date(h.reviewedAt).toLocaleString("fr-FR") : "—"}</td>
+                        <td className="py-2.5 px-3 text-[#6B6478]">{h.reviewedBy ?? "—"}</td>
+                        <td className="py-2.5 px-3 text-[12px] text-[#6B6478]">{h.reviewedAt ? new Date(h.reviewedAt).toLocaleString("fr-FR") : "—"}</td>
                         <td className="py-2.5 px-3">
                           <input
                             type="text"
@@ -142,7 +142,7 @@ export default function KycHistoryPage() {
                             disabled={!canAct}
                             value={revokeInputs[h.docId] ?? ""}
                             onChange={(e) => setRevokeInputs((prev) => ({ ...prev, [h.docId]: e.target.value }))}
-                            className="min-w-[150px] h-8 px-2.5 rounded-md border border-[#E2E0D9] text-[12px] focus:outline-none focus:ring-2 focus:ring-[#2D5BE3]/20 focus:border-[#2D5BE3] disabled:bg-[#FAFAF8] disabled:text-[#9C9A95]"
+                            className="min-w-[150px] h-8 px-2.5 rounded-md border border-[#E7E2F0] text-[12px] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20 focus:border-[#4C1D95] disabled:bg-[#F6F5FA] disabled:text-[#9A93A8]"
                           />
                         </td>
                         <td className="py-2.5 px-4 lg:px-5">
@@ -150,12 +150,12 @@ export default function KycHistoryPage() {
                             <button
                               disabled={revokingId === h.docId}
                               onClick={() => revokeDecision(h)}
-                              className="h-8 px-3 rounded-md border border-[#FECACA] bg-white text-[#DC2626] text-[11.5px] font-medium hover:bg-[#FEF2F2] disabled:opacity-50"
+                              className="h-8 px-3 rounded-md border border-[#FECACA] bg-white text-[#B42318] text-[11.5px] font-medium hover:bg-[#FEECEB] disabled:opacity-50"
                             >
                               {revokingId === h.docId ? "…" : "Révoquer"}
                             </button>
                           ) : (
-                            <span className="text-[12px] text-[#9C9A95]">Consultation</span>
+                            <span className="text-[12px] text-[#9A93A8]">Consultation</span>
                           )}
                         </td>
                       </tr>

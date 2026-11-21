@@ -9,7 +9,7 @@ import { CHANTIER_ROLES } from "@/lib/age-gate";
 //
 // Pourquoi une route distincte de /api/admin/kyc/queue : la file KYC ne liste que les
 // dossiers `kycStatus = "en_attente"`, alors que candidater exige un KYC *vérifié*
-// (requireVerifiedKyc en tête de POST /api/missions/[id]/proposals et .../devis). Les
+// (holdCandidatureForKyc, src/lib/proposal-drafts.ts, en tête de POST /api/missions/[id]/proposals et .../devis). Les
 // comptes réellement concernés par l'exigence de garant sont donc, par construction, absents
 // de la file : le drapeau devenait inatteignable dès le dossier validé. Cette route expose
 // la population pertinente, sans filtre de statut (2026-09-09).

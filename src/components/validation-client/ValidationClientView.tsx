@@ -62,6 +62,9 @@ import {
   type Rejection,
   type HistoryAttachment,
 } from "@/components/mission-history-table";
+import { parseLatLng } from "@/lib/proof-format";
+import { initialsFromName } from "@/lib/initials";
+import { personFullName } from "@/lib/person-name";
 
 type Mission = {
   id: string; titre: string; budget: number; currency: string; status: string; isOwner: boolean;
@@ -117,12 +120,12 @@ type Attachment = ProofLike & { mimeType: string | null };
 type ProofRejectPayload = { reason: string; motif: string; requestNewProof: boolean };
 
 const JALON_STATUS: Record<string, { label: string; color: string }> = {
-  en_attente: { label: "En attente de financement", color: "text-[#64748B]" },
-  fonds_sous_sequestre: { label: "Financé — en attente du prestataire", color: "text-[#008751]" },
+  en_attente: { label: "En attente de financement", color: "text-[#6B6478]" },
+  fonds_sous_sequestre: { label: "Financé — en attente du prestataire", color: "text-[#047857]" },
   livrable_soumis: { label: "À valider", color: "text-[#B45309]" },
-  valide: { label: "Validé — libération en cours", color: "text-[#008751]" },
-  rejete: { label: "Rejeté — en attente de resoumission", color: "text-[#E8112D]" },
-  libere: { label: "Payé", color: "text-[#008751]" },
+  valide: { label: "Validé — libération en cours", color: "text-[#047857]" },
+  rejete: { label: "Rejeté — en attente de resoumission", color: "text-[#B42318]" },
+  libere: { label: "Payé", color: "text-[#047857]" },
 };
 
 type Row = {
@@ -147,16 +150,6 @@ type Row = {
   verificationNote: string | null;
 };
 
-// Lit "lat,long" (POST .../deliverable, category "geolocation" — coordonnées réelles via
-// navigator.geolocation, jamais inventées) en deux nombres finis, ou null si le format est
-// inattendu — jamais de coordonnées bidon affichées sur un lien de carte.
-function parseLatLng(note: string | null): { lat: number; lng: number } | null {
-  if (!note) return null;
-  const [latStr, lngStr] = note.split(",");
-  const lat = Number(latStr);
-  const lng = Number(lngStr);
-  return Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : null;
-}
 
 // Même lot de preuves ? (comparaison par id, insensible aux nouvelles références d'objets après
 // un `reload`) — permet de retrouver la version ("01-V1") d'un lot relu depuis le dropdown.
@@ -746,7 +739,7 @@ export function ValidationClientView({
   }
 
 
-  if (!mission || jalons === null) return <div className="py-16 text-center text-[13px] text-[#64748B]">Chargement...</div>;
+  if (!mission || jalons === null) return <div className="py-16 text-center text-[13px] text-[#6B6478]">Chargement...</div>;
 
   const usesJalons = jalons.length > 0;
   const currency = mission.currency;
@@ -757,7 +750,7 @@ export function ValidationClientView({
         titre: j.titre,
         montant: j.montant,
         currency,
-        statusLabel: (JALON_STATUS[j.status] ?? { label: j.status, color: "text-[#64748B]" }).label,
+        statusLabel: (JALON_STATUS[j.status] ?? { label: j.status, color: "text-[#6B6478]" }).label,
         canDecide: j.status === "livrable_soumis",
         declaredProgress: j.declaredProgress,
         observedProgress: j.observedProgress,
@@ -789,16 +782,11 @@ export function ValidationClientView({
   const totalMontant = rows.reduce((s, r) => s + r.montant, 0) || 1;
 
   // Noms et initiales des deux parties, affichés dans l'en-tête de la modale.
-  const initialsOf = (name: string, fallback: string) => {
-    const parts = name.trim().split(/\s+/).filter(Boolean);
-    if (parts.length === 0) return fallback;
-    return (parts[0][0] + (parts[1]?.[0] ?? "")).toUpperCase();
-  };
   const clientDisplayName = identity?.name ?? "Client";
-  const clientInitials = identity?.initials ?? initialsOf(clientDisplayName, "CL");
+  const clientInitials = identity?.initials ?? initialsFromName(clientDisplayName, "CL");
   const providerDisplayName =
-    [providerParty?.firstname, providerParty?.lastname].filter(Boolean).join(" ") || "Prestataire";
-  const providerInitials = initialsOf(providerDisplayName, "PR");
+    personFullName(providerParty) || "Prestataire";
+  const providerInitials = initialsFromName(providerDisplayName, "PR");
 
   // Le message "Seul le client peut déclencher les mouvements d'escrow" reste porté par la
   // page hôte (déjà affiché une fois pour toute la section escrow) — pas de doublon ici.
@@ -809,11 +797,11 @@ export function ValidationClientView({
 
   return (
     <div>
-      <div className="bg-white border border-[#E2E8F0] rounded-xl overflow-hidden">
-        <div className="px-4 lg:px-5 py-3 border-b border-[#F1F5F9] flex items-center justify-between gap-3">
+      <div className="bg-white border border-[#E7E2F0] rounded-xl overflow-hidden">
+        <div className="px-4 lg:px-5 py-3 border-b border-[#EFEAF8] flex items-center justify-between gap-3">
           <div>
             <h2 className="text-[13px] font-semibold">{estResponsable ? "Vérification OPR" : "Validation Client"}</h2>
-            <p className="text-[12px] text-[#64748B] mt-0.5">
+            <p className="text-[12px] text-[#6B6478] mt-0.5">
               {estResponsable
                 ? "Responsable chantier — appréciez les preuves, constatez l'avancement, puis transmettez au client"
                 : opr
@@ -826,7 +814,7 @@ export function ValidationClientView({
           {rowsToDecide.length > 0 && (
             <button
               onClick={() => openVerification(rowsToDecide[0].key)}
-              className="px-4 py-2 rounded-full bg-[#FEF3C7] border border-[#FCD34D] text-[13px] text-[#92400E] font-medium shrink-0 hover:brightness-95"
+              className="px-4 py-2 rounded-full bg-[#FFF6E3] border border-[#FCD34D] text-[13px] text-[#92400E] font-medium shrink-0 hover:brightness-95"
             >
               {estResponsable ? "Vérifier" : "Apprécier"} • À traiter{rowsToDecide.length > 1 ? ` (${rowsToDecide.length})` : ""}
             </button>
@@ -937,7 +925,7 @@ export function ValidationClientView({
             const transmis = !!row.verifiedAt;
 
             return (
-              <div key={row.key} className="rounded-xl border border-[#E2E8F0] bg-white overflow-hidden">
+              <div key={row.key} className="rounded-xl border border-[#E7E2F0] bg-white overflow-hidden">
                 {/* En-tête TOUJOURS visible — même modèle que la carte prestataire
                     (mission-history-table.tsx / missions/[id]/deliverable) : badge domaine +
                     statut + preuves total, titre, montant + conversion EUR + barre bicolore.
@@ -947,7 +935,7 @@ export function ValidationClientView({
                 <div className="p-4 lg:p-5">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex flex-wrap items-center gap-2 text-[12px]">
-                      <span className="font-mono font-bold text-[#0f172a]">#{String(row.ordre).padStart(2, "0")}</span>
+                      <span className="font-mono font-bold text-[#191224]">#{String(row.ordre).padStart(2, "0")}</span>
                       {mission.professionalType && (
                         <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-[#ede9fe] text-[#6d28d9] text-[11.5px] font-medium whitespace-nowrap">
                           {PROFESSIONAL_TYPE_LABEL[mission.professionalType] ?? mission.professionalType}
@@ -961,30 +949,30 @@ export function ValidationClientView({
                       {opr && row.canDecide ? (
                         <span
                           className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11.5px] font-medium whitespace-nowrap ${
-                            transmis ? "bg-[#DBEAFE] border border-[#BFDBFE] text-[#1E40AF]" : "bg-[#FEF3C7] border border-[#FCD34D] text-[#92400E]"
+                            transmis ? "bg-[#DBEAFE] border border-[#BFDBFE] text-[#1D4ED8]" : "bg-[#FFF6E3] border border-[#FCD34D] text-[#92400E]"
                           }`}
                         >
                           {transmis ? "Vérifié — validation définitive attendue" : "En vérification (responsable chantier)"}
                         </span>
                       ) : row.canDecide && rowCheckpoints.length > 0 ? (
-                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11.5px] font-medium whitespace-nowrap bg-[#DBEAFE] border border-[#BFDBFE] text-[#1E40AF]">
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11.5px] font-medium whitespace-nowrap bg-[#DBEAFE] border border-[#BFDBFE] text-[#1D4ED8]">
                           Partiellement validé
                         </span>
                       ) : (
-                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11.5px] font-medium whitespace-nowrap ${row.canDecide ? "bg-[#FEF3C7] border border-[#FCD34D] text-[#92400E]" : "bg-[#F1F5F9] text-[#475569]"}`}>
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11.5px] font-medium whitespace-nowrap ${row.canDecide ? "bg-[#FFF6E3] border border-[#FCD34D] text-[#92400E]" : "bg-[#EFEAF8] text-[#4A4258]"}`}>
                           {row.statusLabel}
                         </span>
                       )}
-                      <span className="text-[#64748B] whitespace-nowrap">
+                      <span className="text-[#6B6478] whitespace-nowrap">
                         {row.attachments.length} preuve{row.attachments.length !== 1 ? "s" : ""} total
                       </span>
-                      <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#F1F5F9] text-[#64748B] border border-[#E2E8F0] whitespace-nowrap">{pctOfTotal}% du total</span>
+                      <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#EFEAF8] text-[#6B6478] border border-[#E7E2F0] whitespace-nowrap">{pctOfTotal}% du total</span>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
                       {row.canDecide && (
                         <button
                           onClick={() => (isOpen ? closeDecision() : openVerification(row.key))}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#FEF3C7] border border-[#FCD34D] text-[#92400E] text-[11.5px] font-semibold hover:brightness-95"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#FFF6E3] border border-[#FCD34D] text-[#92400E] text-[11.5px] font-semibold hover:brightness-95"
                         >
                           <BadgeCheck className="w-3.5 h-3.5" />
                           {verifyLabel}
@@ -1002,7 +990,7 @@ export function ValidationClientView({
                           <button
                             disabled={savingDecision}
                             onClick={() => (jalonId ? validateJalon(jalonId) : handleRelease())}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#008751] text-white text-[11.5px] font-semibold hover:bg-[#007a49] disabled:opacity-50"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#4C1D95] text-white text-[11.5px] font-semibold hover:bg-[#3B1578] disabled:opacity-50"
                           >
                             {/* Le montant annoncé est celui réellement transmis au PSP, retenue
                                 de garantie DÉDUITE — pas le montant nominal du jalon. Sans
@@ -1028,19 +1016,19 @@ export function ValidationClientView({
                             // réel avant d'ouvrir le dropdown (l'autre partie a pu agir).
                             if (expanding) reload();
                           }}
-                          className="w-7 h-7 rounded-full border border-[#E2E8F0] flex items-center justify-center hover:bg-[#F8FAF9] shrink-0"
+                          className="w-7 h-7 rounded-full border border-[#E7E2F0] flex items-center justify-center hover:bg-[#F6F5FA] shrink-0"
                           title="Historique preuves & validations partielles"
                         >
-                          {expandedHistory[row.key] ? <ChevronUp className="w-3.5 h-3.5 text-[#64748B]" /> : <ChevronDown className="w-3.5 h-3.5 text-[#64748B]" />}
+                          {expandedHistory[row.key] ? <ChevronUp className="w-3.5 h-3.5 text-[#6B6478]" /> : <ChevronDown className="w-3.5 h-3.5 text-[#6B6478]" />}
                         </button>
                       )}
                     </div>
                   </div>
 
-                  <h3 className="mt-2.5 text-[14.5px] font-semibold text-[#0f172a]">{row.titre}</h3>
+                  <h3 className="mt-2.5 text-[14.5px] font-semibold text-[#191224]">{row.titre}</h3>
                   {/* Observations transmises par le responsable de chantier (mode OPR). */}
                   {opr && row.canDecide && transmis && (
-                    <p className="mt-1.5 text-[12px] text-[#1E40AF] bg-[#EFF6FF] border border-[#BFDBFE] rounded-lg px-2.5 py-1.5">
+                    <p className="mt-1.5 text-[12px] text-[#1D4ED8] bg-[#EAF1FF] border border-[#BFDBFE] rounded-lg px-2.5 py-1.5">
                       Vérifié par le responsable chantier le {new Date(row.verifiedAt!).toLocaleDateString("fr-FR")}
                       {row.verificationNote ? ` — « ${row.verificationNote} »` : ""}
                       {estResponsable ? " · transmis au client." : ""}
@@ -1061,7 +1049,7 @@ export function ValidationClientView({
                     modale de lecture + décision sur CE lot. canSubmitProofs reste false : le
                     client ne soumet jamais de preuve. */}
                 {hasHistory && expandedHistory[row.key] && (
-                  <div className="bg-[#FAFBFB] overflow-x-auto">
+                  <div className="bg-[#F6F5FA] overflow-x-auto">
                     <RowHistoryTable
                       rows={clientHistoryRows}
                       montant={row.montant}
@@ -1158,7 +1146,7 @@ export function ValidationClientView({
       {/* Toast de confirmation — maquette Flexwork-Modal-Appreciation-Preuves.html
           (2026-09-08), auto-masqué après 3s (showToast). */}
       {toast && (
-        <div className="fixed bottom-4 right-4 z-[60] max-w-[320px] rounded-xl bg-[#0f172a] text-white shadow-2xl px-4 py-3 flex items-start gap-2 text-[12.5px]">
+        <div className="fixed bottom-4 right-4 z-[60] max-w-[320px] rounded-xl bg-[#191224] text-white shadow-2xl px-4 py-3 flex items-start gap-2 text-[12.5px]">
           <span className="flex-1">{toast}</span>
           <button onClick={() => setToast(null)} className="shrink-0 w-5 h-5 rounded-full bg-white/15 hover:bg-white/25 flex items-center justify-center text-[11px]" aria-label="Fermer">
             ✕

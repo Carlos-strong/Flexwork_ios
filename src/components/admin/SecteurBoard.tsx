@@ -27,8 +27,8 @@ export interface SecteurBoardCategorie {
 
 const COLUMN_TONE: Record<string, { head: string; chip: string }> = {
   digital: { head: "bg-[#E0F2FE] text-[#0369A1]", chip: "border-[#BAE6FD]" },
-  btp: { head: "bg-[#FEF3C7] text-[#B45309]", chip: "border-[#FDE68A]" },
-  services: { head: "bg-[#DCFCE7] text-[#15803D]", chip: "border-[#BBF7D0]" },
+  btp: { head: "bg-[#FFF6E3] text-[#B45309]", chip: "border-[#FDE68A]" },
+  services: { head: "bg-[#E7F7EF] text-[#047857]", chip: "border-[#BBF7D0]" },
 };
 
 export default function SecteurBoard({
@@ -59,8 +59,8 @@ export default function SecteurBoard({
   return (
     <section className="space-y-3">
       <div>
-        <h3 className="text-[16px] font-semibold text-[#1A1916]">Secteurs de la marketplace</h3>
-        <p className="text-[13px] text-[#5A5750]">
+        <h3 className="text-[16px] font-semibold text-[#191224]">Secteurs de la marketplace</h3>
+        <p className="text-[13px] text-[#6B6478]">
           Chaque catégorie appartient à un seul secteur. Retirer une catégorie d&apos;un secteur la remet en « non classée »
           — elle n&apos;est pas supprimée.
         </p>
@@ -77,17 +77,17 @@ export default function SecteurBoard({
           const tone = COLUMN_TONE[s.value];
 
           return (
-            <div key={s.value} className="rounded-[16px] border border-[#E2E0D9] bg-white shadow-sm overflow-hidden flex flex-col">
+            <div key={s.value} className="rounded-[16px] border border-[#E7E2F0] bg-white shadow-sm overflow-hidden flex flex-col">
               <div className={`px-4 py-3 flex items-center justify-between ${tone.head}`}>
                 <span className="text-[13px] font-bold uppercase tracking-wide">{s.label}</span>
                 <span className="text-[12px] font-semibold">{members.length}</span>
               </div>
-              <p className="px-4 pt-2 text-[11.5px] text-[#9C9A95]">{s.hint}</p>
+              <p className="px-4 pt-2 text-[11.5px] text-[#9A93A8]">{s.hint}</p>
 
               <ul className="px-3 py-2 space-y-1.5 flex-1 max-h-72 overflow-y-auto">
-                {members.length === 0 && <li className="px-1 py-2 text-[12.5px] text-[#9C9A95]">Aucune catégorie.</li>}
+                {members.length === 0 && <li className="px-1 py-2 text-[12.5px] text-[#9A93A8]">Aucune catégorie.</li>}
                 {members.map((c) => (
-                  <li key={c.id} className={`flex items-center gap-2 rounded-[10px] border ${tone.chip} px-3 py-1.5 text-[13px] text-[#1A1916]`}>
+                  <li key={c.id} className={`flex items-center gap-2 rounded-[10px] border ${tone.chip} px-3 py-1.5 text-[13px] text-[#191224]`}>
                     <span className="flex-1 min-w-0 truncate">
                       {c.icon && <span className="mr-1.5">{c.icon}</span>}
                       {c.libelle}
@@ -96,7 +96,7 @@ export default function SecteurBoard({
                       <button
                         onClick={() => run(`rm-${c.id}`, c, null)}
                         disabled={busy !== null}
-                        className="text-[12px] text-[#9C9A95] hover:text-[#C0392B] disabled:opacity-40"
+                        className="text-[12px] text-[#9A93A8] hover:text-[#B42318] disabled:opacity-40"
                         title={`Retirer « ${c.libelle} » du secteur ${s.label} (elle redevient non classée)`}
                         aria-label={`Retirer ${c.libelle} du secteur ${s.label}`}
                       >
@@ -108,11 +108,11 @@ export default function SecteurBoard({
               </ul>
 
               {!readOnly && (
-                <div className="p-3 border-t border-[#E2E0D9] flex gap-2">
+                <div className="p-3 border-t border-[#E7E2F0] flex gap-2">
                   <select
                     value={pick[s.value] ?? ""}
                     onChange={(e) => setPick((p) => ({ ...p, [s.value]: e.target.value }))}
-                    className="flex-1 min-w-0 rounded-[10px] border border-[#E2E0D9] bg-white px-2 py-2 text-[12px] text-[#1A1916] outline-none focus:border-[#2D5BE3]"
+                    className="flex-1 min-w-0 rounded-[10px] border border-[#E7E2F0] bg-white px-2 py-2 text-[12px] text-[#191224] outline-none focus:border-[#4C1D95]"
                     aria-label={`Catégorie à ajouter au secteur ${s.label}`}
                   >
                     <option value="">Ajouter une catégorie…</option>
@@ -130,7 +130,7 @@ export default function SecteurBoard({
                       setPick((p) => ({ ...p, [s.value]: "" }));
                     }}
                     disabled={!chosen || busy !== null}
-                    className="rounded-[10px] bg-[#2D5BE3] px-3 py-2 text-[12px] font-semibold text-white hover:bg-[#1F4DD4] disabled:opacity-50"
+                    className="rounded-full bg-[#4C1D95] px-3 py-2 text-[12px] font-semibold text-white hover:bg-[#3B1578] disabled:opacity-50"
                   >
                     {busy === `add-${s.value}` ? "…" : "Ajouter"}
                   </button>
@@ -142,7 +142,7 @@ export default function SecteurBoard({
       </div>
 
       {unclassified.length > 0 && (
-        <div className="rounded-[12px] border border-[#FED7AA] bg-[#FFF7ED] px-4 py-3">
+        <div className="rounded-[12px] border border-[#FED7AA] bg-[#F0EAFF] px-4 py-3">
           <div className="text-[13px] font-semibold text-[#9A3412]">
             {unclassified.length} catégorie(s) non classée(s) — elles n&apos;apparaissent sous aucun secteur
           </div>

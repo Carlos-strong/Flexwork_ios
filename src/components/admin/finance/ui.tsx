@@ -10,12 +10,12 @@ export const dateTime = (iso: string | null) =>
 export type Tone = "green" | "amber" | "red" | "blue" | "slate" | "dark";
 
 const TONE_CLASS: Record<Tone, string> = {
-  green: "bg-[#E6F4EE] text-[#00623A]",
-  amber: "bg-[#FFFBEB] text-[#92400E]",
-  red: "bg-[#FEF2F2] text-[#B91C1C]",
-  blue: "bg-[#EFF6FF] text-[#1E40AF]",
-  slate: "bg-[#F4F3EF] text-[#5A5750]",
-  dark: "bg-[#1A1916] text-white",
+  green: "bg-[#F0EAFF] text-[#3B1578]",
+  amber: "bg-[#FFF6E3] text-[#92400E]",
+  red: "bg-[#FEECEB] text-[#B42318]",
+  blue: "bg-[#EAF1FF] text-[#1D4ED8]",
+  slate: "bg-[#EFEAF8] text-[#6B6478]",
+  dark: "bg-[#191224] text-white",
 };
 
 export function Chip({ tone, children, className = "" }: { tone: Tone; children: React.ReactNode; className?: string }) {
@@ -71,12 +71,13 @@ export const MISSION_STATUS: Record<string, string> = {
   cloturee: "Clôturée",
   mediation_ouverte: "Médiation ouverte",
   remboursee: "Remboursée",
+  annonce_close: "Candidatures closes",
 };
 
 export const SEVERITY: Record<string, { label: string; tone: Tone; dot: string }> = {
-  critical: { label: "Critique", tone: "red", dot: "bg-[#DC2626]" },
+  critical: { label: "Critique", tone: "red", dot: "bg-[#B42318]" },
   warning: { label: "À traiter", tone: "amber", dot: "bg-[#D97706]" },
-  info: { label: "Info", tone: "slate", dot: "bg-[#9C9A95]" },
+  info: { label: "Info", tone: "slate", dot: "bg-[#9A93A8]" },
 };
 
 export const ANOMALY: Record<string, { label: string; action: string }> = {
@@ -106,10 +107,10 @@ export const ACTION_ERROR: Record<string, string> = {
 };
 
 export const inputCls =
-  "w-full h-9 px-2.5 rounded-lg border border-[#E2E0D9] bg-white text-[13px] focus:outline-none focus:ring-2 focus:ring-[#2D5BE3]/20 focus:border-[#2D5BE3]";
+  "w-full h-9 px-2.5 rounded-lg border border-[#E7E2F0] bg-white text-[13px] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20 focus:border-[#4C1D95]";
 
 export const selectCls =
-  "h-9 px-2.5 rounded-lg border border-[#E2E0D9] bg-white text-[12.5px] focus:outline-none focus:ring-2 focus:ring-[#2D5BE3]/20 focus:border-[#2D5BE3]";
+  "h-9 px-2.5 rounded-lg border border-[#E7E2F0] bg-white text-[12.5px] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20 focus:border-[#4C1D95]";
 
 // ── Journal des échanges PSP ─────────────────────────────────────────────────────────────────
 export const PSP_EVENT: Record<string, string> = {

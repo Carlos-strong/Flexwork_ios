@@ -7,12 +7,14 @@
 //   - /missions/[id] (détail) : le client propriétaire d'une mission engagée affiche déjà
 //     ClientValidationWorkspace (chrome), le détail prestataire reste inchangé ;
 //   - /deliverable et /devis : déjà enveloppées dans leur propre DashboardLayout ;
-//   - /validation-client : simple redirection serveur vers /missions/[id].
+//   - /validation-client : simple redirection serveur vers /missions/[id] ;
+//   - /publique : page publique (2026-11-11), ouverte aux visiteurs — MissionPageShell les
+//     renverrait vers /signin.
 // MissionPageShell redirige aussi les visiteurs non connectés vers /signin.
 import { usePathname } from "next/navigation";
 import MissionPageShell from "@/components/dashboard/MissionPageShell";
 
-const ALREADY_CHROMED = ["/deliverable", "/devis", "/validation-client"] as const;
+const ALREADY_CHROMED = ["/deliverable", "/devis", "/validation-client", "/publique"] as const;
 
 const SECTION_TITLE: Record<string, string> = {
   proposals: "Propositions",

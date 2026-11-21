@@ -6,6 +6,7 @@ import { checkBalanceInvariants, type InvariantViolation } from "@/lib/escrow-in
 import { IN_FLIGHT_STATUSES, netHeldAmount } from "@/lib/escrow-instructions";
 import { totalRetentionAmount } from "@/lib/jalons";
 import { buildPayableLabeler } from "@/lib/payable-labels";
+import { personFullName } from "@/lib/person-name";
 
 // Console financière de l'administration (2026-09-15) — tous les flux du séquestre, lus depuis le
 // registre unique (`PspEscrowOperation`) et les créances (`Payable`).
@@ -203,7 +204,7 @@ const INSTRUCTION_LABEL: Record<string, string> = {
 const PARTY_SELECT = { id: true, firstname: true, lastname: true, email: true } as const;
 
 function partyOf(u: { id: string; firstname: string | null; lastname: string | null; email: string | null }): PartyRef {
-  const name = [u.firstname, u.lastname].filter(Boolean).join(" ").trim();
+  const name = personFullName(u);
   return { id: u.id, name: name || u.email || "—", email: u.email };
 }
 

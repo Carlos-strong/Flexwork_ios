@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
+import { publicationExpiry } from "@/lib/mission-expiry";
 import { clientPublicationRight } from "@/lib/kyc-policy";
 import { announcePublication, publishBlocker } from "@/lib/mission-publish";
 
@@ -30,6 +31,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
       financingModeKey: true,
       timeRate: true,
       timeMaxQuantity: true,
+      dureePublicationJours: true,
     },
   });
   // Mission d'un autre client : même réponse qu'une mission inexistante — l'existence d'un
@@ -54,7 +56,9 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   // notifient) qu'une seule fois.
   const { count } = await prisma.mission.updateMany({
     where: { id: mission.id, clientId: userId, status: "brouillon" },
-    data: { status: "publiee", publicationRequestedAt: null },
+    // La période de candidature court à partir de CETTE publication (2026-11-10) : un brouillon
+    // retenu faute de KYC garde toute sa durée.
+    data: { status: "publiee", publicationRequestedAt: null, dateExpiration: publicationExpiry(new Date(), mission.dureePublicationJours) },
   });
   if (count === 0) {
     return NextResponse.json({ error: "mission_not_draft" }, { status: 409 });

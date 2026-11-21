@@ -200,7 +200,7 @@ function Reveal({ delay = 0, children }: { delay?: number; children: React.React
 // Titre de section en deux temps : préfixe discret, sujet appuyé — même texte qu'avant.
 function SectionTitle({ prefix, subject }: { prefix: string; subject: string }) {
   return (
-    <h2 className="text-xl sm:text-[26px] font-semibold leading-tight tracking-tight text-[#0A1931]">
+    <h2 className="text-xl sm:text-[26px] font-semibold leading-tight tracking-tight text-[#191224]">
       <span className="text-gray-400">{prefix} : </span>
       {subject}
     </h2>
@@ -252,7 +252,7 @@ function Hero({
           <p className="mt-4 max-w-xl text-base sm:text-lg leading-relaxed text-white/80">{subtitle}</p>
           <Link
             href="/comment-ca-marche"
-            className="group mt-8 inline-flex items-center gap-2.5 rounded-full bg-white py-2 pl-2 pr-5 text-sm font-semibold text-[#0A1931] shadow-lg shadow-black/20 transition hover:-translate-y-0.5 hover:shadow-xl"
+            className="group mt-8 inline-flex items-center gap-2.5 rounded-full bg-white py-2 pl-2 pr-5 text-sm font-semibold text-[#191224] shadow-lg shadow-black/20 transition hover:-translate-y-0.5 hover:shadow-xl"
           >
             <span className="grid h-8 w-8 place-items-center rounded-full text-white transition group-hover:scale-105" style={{ backgroundColor: theme.mid }}>
               <CirclePlay className="w-4 h-4" aria-hidden />
@@ -314,7 +314,7 @@ function Pill({
       className={`group snap-start shrink-0 flex items-center gap-3 rounded-full py-2 pl-2 pr-5 ring-1 transition duration-300 hover:-translate-y-0.5 ${
         active
           ? "text-white ring-transparent shadow-lg"
-          : "bg-white text-[#0A1931] ring-black/[0.07] shadow-[0_1px_2px_rgba(15,23,42,0.06)] hover:shadow-[0_10px_24px_-8px_rgba(15,23,42,0.18)]"
+          : "bg-white text-[#191224] ring-black/[0.07] shadow-[0_1px_2px_rgba(15,23,42,0.06)] hover:shadow-[0_10px_24px_-8px_rgba(15,23,42,0.18)]"
       }`}
       style={active ? { backgroundColor: theme.deep } : undefined}
     >
@@ -351,10 +351,10 @@ function MetierLink({ metier, count, theme }: { metier: LandingMetier; count: nu
         <MetierIcon libelle={metier.libelle} className="w-5 h-5" />
       </span>
       <span className="relative min-w-0 flex-1">
-        <span className="block truncate text-[15px] font-semibold text-[#0A1931]">{metier.libelle}</span>
+        <span className="block truncate text-[15px] font-semibold text-[#191224]">{metier.libelle}</span>
         {count > 0 && <span className="block text-[13px] text-gray-500">{count} compétences</span>}
       </span>
-      <span className="relative grid h-8 w-8 shrink-0 place-items-center rounded-full bg-gray-50 text-gray-400 transition duration-300 group-hover:bg-[#0A1931] group-hover:text-white">
+      <span className="relative grid h-8 w-8 shrink-0 place-items-center rounded-full bg-gray-50 text-gray-400 transition duration-300 group-hover:bg-[#2A2338] group-hover:text-white">
         <ArrowRight className="w-4 h-4 transition group-hover:translate-x-0.5" aria-hidden />
       </span>
     </Link>
@@ -404,13 +404,13 @@ function MetierCard({
             <ArrowRight className="w-5 h-5 transition group-hover:translate-x-0.5" aria-hidden />
           </div>
         </div>
-        <h3 className="mt-4 text-lg font-semibold leading-snug text-[#0A1931] transition group-hover:opacity-80">{metier.libelle}</h3>
+        <h3 className="mt-4 text-lg font-semibold leading-snug text-[#191224] transition group-hover:opacity-80">{metier.libelle}</h3>
       </Link>
       {shown.length > 0 && (
         <ul className="mt-3 space-y-2">
           {shown.map((c) => (
             <li key={c}>
-              <Link href={competenceHref(metier.id, c)} className="text-[15px] text-gray-500 transition hover:text-[#0A1931]">
+              <Link href={competenceHref(metier.id, c)} className="text-[15px] text-gray-500 transition hover:text-[#191224]">
                 {c}
               </Link>
             </li>

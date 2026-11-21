@@ -6,6 +6,7 @@ import Link from "next/link";
 import { PROFESSIONAL_TYPE_LABELS } from "@/lib/provider-options";
 import { useSession } from "next-auth/react";
 import { MISSION_STATUS_STYLE } from "@/lib/mission-status";
+import { applicationDeadlineLabel, isOpenForApplications } from "@/lib/mission-expiry";
 import { missionsHrefForRole, candidaturesHrefForRole, type Role } from "@/lib/role-dashboard";
 import { canAttachLivrable, DELIVERABLE_SUBMITTABLE_STATUSES } from "@/lib/attachments";
 import { DevisPanel, FixedPricePanel } from "@/components/devis/devis-panel";
@@ -26,6 +27,12 @@ import { riskLevelLabel } from "@/lib/metier-risk";
 import { ATTENDANCE_VALIDATION_LABEL, RATE_UNIT_LABEL } from "@/lib/spot-time";
 import { PublicMissionView } from "@/components/mission/PublicMissionView";
 import type { PublicMission } from "@/lib/public-mission";
+import { personFullName } from "@/lib/person-name";
+import { ArrowRight, Calendar, Clock, MapPin, ShieldCheck } from "lucide-react";
+import { Avatar } from "@/components/avatar";
+import { categoryColor } from "@/components/dashboard/proto-ui";
+import { proposalDraftFromPayload } from "@/lib/proposal-draft-restore";
+import { heldCandidatureHref } from "@/components/dashboard/nav";
 
 type OfferDetail = {
   id: string;
@@ -68,9 +75,11 @@ type MissionDetail = {
   insuranceRequired: boolean;
   status: string;
   clientId: string;
-  client: { id: string; firstname: string | null; lastname: string | null; avatarPath: string | null } | null;
+  client: { id: string; firstname: string | null; lastname: string | null; avatarPath: string | null; country?: string | null; kycStatus?: string | null; createdAt?: string } | null;
   createdAt: string;
   isOwner: boolean;
+  ville?: string | null;
+  quartier?: string | null;
   professionalType: string | null;
   requiredLevel: string | null;
   budgetType: string | null;
@@ -83,6 +92,17 @@ type MissionDetail = {
   tags: string[];
   maxRevisionRounds: number;
   dateExpiration: string | null;
+  // Annonce et engagements (2026-11-10).
+  parentMissionId?: string | null;
+  parentMission?: { id: string; titre: string } | null;
+  placesRecherchees?: number;
+  prestatairesRetenus?: number;
+  engagements?: {
+    id: string;
+    status: string;
+    createdAt: string;
+    provider: { id: string; firstname: string | null; lastname: string | null; avatarPath: string | null } | null;
+  }[];
 };
 
 // Libellés alignés sur les filières (source unique : src/lib/provider-options.ts). Le client
@@ -137,9 +157,13 @@ export default function MissionDetailPage() {
   // `?candidater=1` (2026-11-03) : bouton « Candidater » des cartes de l'accueil. Le visiteur
   // passe par la connexion (ou l'inscription) et revient ici avec le formulaire déjà ouvert.
   const [wantsToApply, setWantsToApply] = useState(false);
+  // `?chat=1` (2026-11-11) : bouton « Ouvrir le chat » des cartes de candidature — la bulle de
+  // messagerie avec le candidat ciblé (`providerId`) s'ouvre directement.
+  const [wantsChat, setWantsChat] = useState(false);
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
     setRequestedProviderId(q.get("providerId"));
+    setWantsChat(q.get("chat") === "1");
     setWantsToApply(q.get("candidater") === "1");
   }, []);
   const { data: session, status: sessionStatus } = useSession();
@@ -180,6 +204,9 @@ export default function MissionDetailPage() {
   const [applyError, setApplyError] = useState<string | null>(null);
   // Refus `kyc_not_verified` : la seule issue est la vérification d'identité — un lien y mène.
   const [applyNeedsKyc, setApplyNeedsKyc] = useState(false);
+  // Candidature retenue faute de KYC vérifié, mais ENREGISTRÉE en brouillon côté serveur
+  // (src/lib/proposal-drafts.ts) : on le dit au lieu d'afficher un refus (2026-11-09).
+  const [kycDraftSaved, setKycDraftSaved] = useState(false);
   const [applySuccessMsg, setApplySuccessMsg] = useState<string | null>(null);
   // Blocage par profil incomplet (garant/assurance manquant) — même mécanisme que
   // la page devis (src/app/missions/[id]/devis/page.tsx, mode QUOTE) : distinct de `applyError`, il
@@ -197,7 +224,30 @@ export default function MissionDetailPage() {
   useEffect(() => {
     if (myProposal !== null) return;
     const draft = loadProposalDraft(missionId);
-    if (!draft) return;
+    if (!draft) {
+      // Pas de brouillon sur cet appareil : peut-être une candidature retenue faute de KYC,
+      // enregistrée côté serveur depuis un autre appareil.
+      let stale = false;
+      fetch(`/api/proposal-drafts?missionId=${encodeURIComponent(missionId)}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d: { kycVerified: boolean; items: { kind: string; payload: Record<string, unknown> }[] } | null) => {
+          const item = d?.items.find((i) => i.kind === "proposal");
+          if (stale || !item) return;
+          const restored = proposalDraftFromPayload(item.payload);
+          saveProposalDraft(missionId, restored);
+          setApplyAmount(restored.montant > 0 ? String(restored.montant) : "");
+          setApplyDelay(restored.delaiPropose ? String(restored.delaiPropose) : "");
+          setApplyMessage(restored.message);
+          if (restored.financingModeKey) setApplyModeKey(restored.financingModeKey);
+          setKycDraftSaved(!d!.kycVerified);
+          setRestoredFromDraft(true);
+          setApplying(true);
+        })
+        .catch(() => {});
+      return () => {
+        stale = true;
+      };
+    }
     // Un brouillon enregistré à la main peut n'avoir aucun montant (montant: 0) : le champ
     // reste alors vide, plutôt que d'afficher un « 0 » que le candidat devrait effacer.
     setApplyAmount(draft.montant > 0 ? String(draft.montant) : "");
@@ -206,6 +256,22 @@ export default function MissionDetailPage() {
     if (draft.financingModeKey) setApplyModeKey(draft.financingModeKey);
     setRestoredFromDraft(true);
     setApplying(true);
+  }, [myProposal, missionId]);
+
+  // Candidature en attente de la vérification d'identité (brouillon serveur) : quel que soit
+  // l'appareil d'où le formulaire a été restauré, on le dit, et l'envoi devient une mise à jour.
+  useEffect(() => {
+    if (myProposal !== null) return;
+    let stale = false;
+    fetch(`/api/proposal-drafts?missionId=${encodeURIComponent(missionId)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { kycVerified: boolean; items: { kind: string }[] } | null) => {
+        if (!stale && d && !d.kycVerified && d.items.some((i) => i.kind === "proposal")) setKycDraftSaved(true);
+      })
+      .catch(() => {});
+    return () => {
+      stale = true;
+    };
   }, [myProposal, missionId]);
 
   // Mission publiée avant 2026-10-01 avec un mode fixe/jalons : point de départ du choix, que
@@ -256,6 +322,7 @@ export default function MissionDetailPage() {
     setApplySubmitting(true);
     setApplyError(null);
     setApplyNeedsKyc(false);
+    setKycDraftSaved(false);
     setBlockedByProfile(null);
     const res = await fetch(`/api/missions/${missionId}/proposals`, {
       method: "POST",
@@ -301,6 +368,16 @@ export default function MissionDetailPage() {
         kyc_not_verified: "Votre identité doit être vérifiée avant de candidater.",
         payment_mode_invalid: "Ce modèle de paiement n'est pas proposé — choisissez prix fixe ou par jalons.",
       };
+      // KYC non vérifié : la candidature est enregistrée en brouillon (serveur, et sur cet
+      // appareil) — elle partira telle quelle une fois l'identité vérifiée.
+      if (data.error === "kyc_not_verified" && (data as { draftSaved?: boolean }).draftSaved) {
+        saveProposalDraft(missionId, { montant, delaiPropose, message: applyMessage.trim(), financingModeKey: applyModeKey ?? undefined });
+        setKycDraftSaved(true);
+        // Direction la page des brouillons, qui dit en tête que la candidature n'est PAS partie
+        // et permet de la modifier (2026-11-09).
+        router.push(heldCandidatureHref(role, missionId));
+        return;
+      }
       setApplyError(messages[data.error ?? ""] ?? "Échec de l'envoi de la candidature.");
       setApplyNeedsKyc(data.error === "kyc_not_verified");
       return;
@@ -347,6 +424,13 @@ export default function MissionDetailPage() {
     setRespondingOffer(false);
     if (!res.ok) {
       setOfferRespondError("Échec de l'envoi de votre réponse. Réessayez.");
+      return;
+    }
+    // Offre acceptée : le prestataire est retenu, son parcours se poursuit sur l'ENGAGEMENT
+    // créé pour lui (2026-11-10) — l'offre et la candidature l'y ont suivi.
+    const { engagementId } = (await res.json().catch(() => ({}))) as { engagementId?: string | null };
+    if (action === "accept" && engagementId) {
+      router.push(`/missions/${engagementId}`);
       return;
     }
     await loadMyOffer();
@@ -451,27 +535,27 @@ export default function MissionDetailPage() {
   useEffect(() => {
     if (!wantsToApply || applyIntentHandled || !mission || myProposal === undefined) return;
     setApplyIntentHandled(true);
-    if (mission.budgetType !== "QUOTE" && !mission.isOwner && !isClient && myProposal === null && mission.status === "publiee") setApplying(true);
+    if (mission.budgetType !== "QUOTE" && !mission.isOwner && !isClient && myProposal === null && isOpenForApplications(mission)) setApplying(true);
     requestAnimationFrame(() => document.getElementById("candidater")?.scrollIntoView({ behavior: "smooth", block: "start" }));
   }, [wantsToApply, applyIntentHandled, mission, myProposal, isClient]);
 
-  if (loading) return <div className="min-h-screen bg-[#F8FAF9] flex items-center justify-center text-[13px] text-[#64748B]">Chargement...</div>;
+  if (loading) return <div className="min-h-screen bg-[#F6F5FA] flex items-center justify-center text-[13px] text-[#6B6478]">Chargement...</div>;
   // Visiteur non connecté : l'API répond 401, la mission reste donc nulle — annoncer
   // « Mission introuvable » désignait alors une cause fausse (la mission existe, c'est la
   // session qui manque) et laissait l'utilisateur sans moyen d'aller plus loin. On l'envoie
   // se connecter, avec retour sur cette mission.
   if (!mission && sessionStatus === "unauthenticated") {
     // Venu par « Candidater » : direction la connexion sans étape intermédiaire (effet plus haut).
-    if (wantsToApply) return <div className="min-h-screen bg-[#F8FAF9] flex items-center justify-center text-[13px] text-[#64748B]">Redirection vers la connexion...</div>;
-    if (publicMission === undefined) return <div className="min-h-screen bg-[#F8FAF9] flex items-center justify-center text-[13px] text-[#64748B]">Chargement...</div>;
+    if (wantsToApply) return <div className="min-h-screen bg-[#F6F5FA] flex items-center justify-center text-[13px] text-[#6B6478]">Redirection vers la connexion...</div>;
+    if (publicMission === undefined) return <div className="min-h-screen bg-[#F6F5FA] flex items-center justify-center text-[13px] text-[#6B6478]">Chargement...</div>;
     if (publicMission) return <PublicMissionView mission={publicMission} />;
     // Mission non publique (engagée, clôturée…) : seules ses parties la consultent, connectées.
     return (
-      <div className="min-h-screen bg-[#F8FAF9] flex flex-col items-center justify-center gap-3 px-4 text-center">
-        <p className="text-[13px] text-[#64748B]">Connectez-vous pour consulter cette mission.</p>
+      <div className="min-h-screen bg-[#F6F5FA] flex flex-col items-center justify-center gap-3 px-4 text-center">
+        <p className="text-[13px] text-[#6B6478]">Connectez-vous pour consulter cette mission.</p>
         <Link
           href={`/signin?callbackUrl=${encodeURIComponent(selfHref)}`}
-          className="inline-flex h-10 px-5 rounded-lg bg-[#008751] text-white text-[13px] font-semibold items-center"
+          className="inline-flex h-10 px-5 rounded-full bg-[#4C1D95] text-white text-[13px] font-semibold items-center"
           style={{ textDecoration: "none" }}
         >
           Se connecter
@@ -479,7 +563,7 @@ export default function MissionDetailPage() {
       </div>
     );
   }
-  if (!mission) return <div className="min-h-screen bg-[#F8FAF9] flex items-center justify-center text-[13px] text-[#64748B]">Mission introuvable.</div>;
+  if (!mission) return <div className="min-h-screen bg-[#F6F5FA] flex items-center justify-center text-[13px] text-[#6B6478]">Mission introuvable.</div>;
 
   // Le CLIENT PROPRIÉTAIRE d'une mission ENGAGÉE (contrat existant, hors brouillon/publiée)
   // voit directement la vue « Validation Client » (vérification des preuves/livrables) dans
@@ -514,14 +598,14 @@ export default function MissionDetailPage() {
   let interlocutor: { id: string; name: string; avatarPath: string | null } | null = null;
   if (!mission.isOwner && mission.client) {
     if (myProposal && isProposalEngaged(myProposal.status)) {
-      const name = [mission.client.firstname, mission.client.lastname].filter(Boolean).join(" ") || "Client";
+      const name = personFullName(mission.client) || "Client";
       interlocutor = { id: mission.client.id, name, avatarPath: mission.client.avatarPath };
     }
   } else if (mission.isOwner && proposals) {
     const targeted = requestedProviderId ? proposals.find((p) => p.provider.id === requestedProviderId) : null;
     const candidate = targeted ?? (proposals.length === 1 ? proposals[0] : null);
     if (candidate && isProposalEngaged(candidate.status)) {
-      const name = [candidate.provider.firstname, candidate.provider.lastname].filter(Boolean).join(" ") || "Prestataire";
+      const name = personFullName(candidate.provider) || "Prestataire";
       interlocutor = { id: candidate.provider.id, name, avatarPath: candidate.provider.avatarPath ?? null };
     }
   }
@@ -536,136 +620,167 @@ export default function MissionDetailPage() {
   const backLabel = !isClient && !mission.isOwner ? "Retour aux candidatures" : "Retour aux missions";
 
   return (
-    <div className="min-h-screen bg-[#F8FAF9] text-[#0f172a]">
-      <div className="fluid-doc [--fw:900px] mx-auto px-4 lg:px-0 pb-[110px] lg:pb-10 pt-5 space-y-4">
+    <div className="min-h-screen bg-[#F6F5FA] text-[#191224]">
+      <div className="fluid-doc [--fw:1200px] mx-auto px-4 lg:px-6 pb-[110px] lg:pb-10 pt-5 space-y-4">
         {/* Bandeau d'évolution de la mission — synchronisé sur le statut réel (client +
             prestataire), voir mission-tracker.tsx */}
         <MissionTracker missionId={mission.id} />
 
         {/* Fil d'Ariane */}
-        <div className="flex items-center gap-1.5 text-[12px] text-[#64748B] flex-wrap">
-          <Link href={missionsHref} className="hover:text-[#0f172a]" style={{ textDecoration: "none" }}>Missions</Link>
+        <div className="flex items-center gap-1.5 text-[12px] text-[#6B6478] flex-wrap">
+          <Link href={missionsHref} className="hover:text-[#191224]" style={{ textDecoration: "none" }}>Missions</Link>
           <span>›</span>
-          <span className="text-[#0f172a] font-medium">{mission.titre}</span>
+          <span className="text-[#191224] font-medium">{mission.titre}</span>
         </div>
 
-        {/* En-tête */}
-        <div className="bg-white border border-[#E2E8F0] rounded-xl p-4 lg:p-5">
-          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-[16px] lg:text-[18px] font-bold tracking-tight">{mission.titre}</h1>
-                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full ${st.bg} ${st.text} text-[11px] font-semibold tracking-wide`}>
-                  <span className={`w-1.5 h-1.5 rounded-full ${st.dot}`} /> {st.label.toUpperCase()}
-                </span>
-              </div>
-              <div className="mt-2 flex items-center gap-2 text-[12px] text-[#94A3B8]">
-                Publiée le {new Date(mission.createdAt).toLocaleDateString("fr-FR")}
-                {mission.isOwner && proposalsCount !== null && (
-                  <span>• {proposalsCount} candidature{proposalsCount > 1 ? "s" : ""}</span>
+        {/* Maquette « fiche mission » (2026-11-11) : contenu principal à gauche, encadrés
+            « Paiement protégé » et « Date limite » à droite. Toutes les sections d'action
+            (candidature, devis, offre, pièces jointes, séquestre…) suivent dans la colonne
+            principale, inchangées. */}
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_300px] items-start">
+        <div className="min-w-0 space-y-4">
+
+        {/* Fiche : en-tête dégradé + budget + description + conditions */}
+        <article className="bg-white border border-[#E7E2F0] rounded-3xl overflow-hidden">
+          <header className="p-5 lg:p-7 text-white" style={{ background: `linear-gradient(120deg, ${categoryColor(mission.domaine || mission.titre)}, #0f766e)` }}>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 text-[12px] font-bold bg-black/25 px-2.5 py-1 rounded-full">
+                <span className="w-1.5 h-1.5 rounded-full bg-white" aria-hidden /> {st.label}{mission.domaine ? ` • ${mission.domaine.replace(/[-_]+/g, " ")}` : ""}
+              </span>
+              <span className="text-[11px] font-semibold bg-black/20 px-2 py-1 rounded-full">ID #{mission.id.slice(-8).toUpperCase()}</span>
+            </div>
+            <h1 className="font-display font-extrabold leading-[1.08] mt-3" style={{ fontSize: "clamp(24px, 3.6vw, 40px)" }}>{mission.titre}</h1>
+            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[13px] font-medium text-white/90">
+              {(mission.ville || mission.client?.country) && (
+                <span className="inline-flex items-center gap-1"><MapPin className="w-4 h-4" aria-hidden />{[mission.quartier, mission.ville].filter(Boolean).join(", ") || mission.client?.country}</span>
+              )}
+              <span className="inline-flex items-center gap-1"><Clock className="w-4 h-4" aria-hidden />{mission.contractDelaiJours ?? mission.delaiJours} jour{(mission.contractDelaiJours ?? mission.delaiJours) > 1 ? "s" : ""}{mission.contractDelaiJours ? " (contrat)" : ""}</span>
+              <span className="inline-flex items-center gap-1"><Calendar className="w-4 h-4" aria-hidden />Publiée le {new Date(mission.createdAt).toLocaleDateString("fr-FR")}</span>
+              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold ${mission.riskLevel === "high" ? "bg-[#FEECEB] text-[#B42318]" : mission.riskLevel === "medium" ? "bg-[#FFF6E3] text-[#B45309]" : "bg-white/20 text-white"}`}>
+                Risque {riskLevelLabel(mission.riskLevel).toLowerCase()}
+              </span>
+              {mission.insuranceRequired && <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-[#FEECEB] text-[#B42318]">Assurance obligatoire</span>}
+            </div>
+          </header>
+
+          <div className="p-5 lg:p-6 space-y-5">
+            {/* Budget + candidatures */}
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                {/* Dès qu'une proposition est acceptée (contrat généré), le montant affiché est le
+                    prix CONVENU (montant de la contre-proposition acceptée, figé au contrat), pas le
+                    budget initialement publié — synchronisé sur le statut de la mission. */}
+                <div className="text-[12px] text-[#6B6478]">
+                  {mission.contractPrice
+                    ? "Prix convenu (contrat)"
+                    : mission.budgetType === "QUOTE" ? "Budget indicatif" : "Budget publié"}
+                </div>
+                <div className="font-display font-extrabold text-[#047857] leading-none mt-1" style={{ fontSize: "clamp(26px, 3.2vw, 34px)" }}>
+                  {(mission.contractPrice ?? mission.budget).toLocaleString("fr-FR")} {mission.currency === "XOF" ? "FCFA" : mission.currency}
+                </div>
+                {!mission.contractPrice && timeTermsOf(mission) && mission.timeRate && (
+                  <div className="text-[13px] text-[#6B6478] mt-1">
+                    Plafond — {mission.timeRate.toLocaleString("fr-FR")} / {timeTermsOf(mission)!.unit.one} × {timeTermsOf(mission)!.maxQuantity}
+                  </div>
                 )}
               </div>
-            </div>
-            <div className="hidden sm:flex items-center gap-2 text-[11px] text-[#64748B]">
-              <span className="px-2 py-1 rounded-md bg-[#F8FAF9] border border-[#E2E8F0]">ID #{mission.id.slice(-8).toUpperCase()}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Stat grid — Budget / Délai / Risque */}
-        <div className="bg-white border border-[#E2E8F0] rounded-xl p-4 lg:p-5">
-          <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-[#F1F5F9]">
-            <div className="py-3 sm:py-1 sm:px-4 first:pl-0">
-              <div className="text-[11px] font-semibold tracking-widest text-[#64748B] uppercase mb-1">Budget</div>
-              <div className="text-[22px] font-bold text-[#008751] leading-none">
-                {(mission.contractPrice ?? mission.budget).toLocaleString("fr-FR")} <span className="text-[13px] font-semibold">{mission.currency}</span>
-              </div>
-              {/* Dès qu'une proposition est acceptée (contrat généré), le montant affiché est le
-                  prix CONVENU (montant de la contre-proposition acceptée, figé au contrat), pas le
-                  budget initialement publié — synchronisé sur le statut de la mission. */}
-              <div className="text-[11px] text-[#94A3B8] mt-1">
-                {mission.contractPrice
-                  ? "Prix convenu (contrat)"
-                  : timeTermsOf(mission) && mission.timeRate
-                    ? `Plafond — ${mission.timeRate.toLocaleString("fr-FR")} / ${timeTermsOf(mission)!.unit.one} × ${timeTermsOf(mission)!.maxQuantity}`
-                    : mission.budgetType === "QUOTE" ? "Budget indicatif" : "Budget publié"}
-              </div>
-            </div>
-            <div className="py-3 sm:py-1 sm:px-6">
-              <div className="text-[11px] font-semibold tracking-widest text-[#64748B] uppercase mb-1">Délai</div>
-              <div className="text-[22px] font-bold text-[#008751] leading-none">
-                {mission.contractDelaiJours ?? mission.delaiJours} <span className="text-[14px] font-semibold">jour{(mission.contractDelaiJours ?? mission.delaiJours) > 1 ? "s" : ""}</span>
-              </div>
-              <div className="text-[11px] text-[#94A3B8] mt-1">{mission.contractDelaiJours ? "Délai convenu (contrat)" : "Délai souhaité"}</div>
-            </div>
-            <div className="py-3 sm:py-1 sm:px-6 last:pr-0">
-              <div className="text-[11px] font-semibold tracking-widest text-[#64748B] uppercase mb-1">Risque</div>
-              <div className={`inline-flex mt-1 px-2.5 py-1 rounded-full text-[11px] font-bold border items-center gap-1.5 ${mission.riskLevel === "high" ? "bg-[#FEE2E2] text-[#B91C1C] border-[#FECACA]" : mission.riskLevel === "medium" ? "bg-[#FEF3C7] text-[#D97706] border-[#FDE68A]" : "bg-[#E6F4EE] text-[#008751] border-[#A7F3D0]"}`}>
-                {riskLevelLabel(mission.riskLevel).toUpperCase()}
-              </div>
-              {mission.insuranceRequired && <div className="text-[11px] text-[#B91C1C] mt-2">Assurance obligatoire</div>}
-            </div>
-          </div>
-        </div>
-
-        {/* Description */}
-        <div className="bg-white border border-[#E2E8F0] rounded-xl p-4 lg:p-5">
-          <h3 className="text-[13px] font-semibold mb-3">Description mission</h3>
-          <p className="text-[13px] leading-[1.6] text-[#475569] whitespace-pre-wrap">{mission.description}</p>
-          <div className="mt-4 space-y-2.5 text-[13px]">
-            <div className="flex gap-2"><span className="font-semibold min-w-[110px] text-[#0f172a]">Domaine :</span><span className="text-[#475569]">{mission.domaine}</span></div>
-            {mission.professionalType && (
-              <div className="flex gap-2"><span className="font-semibold min-w-[110px] text-[#0f172a]">Recherché :</span><span className="text-[#475569]">{PROFESSIONAL_TYPE_LABEL[mission.professionalType] ?? mission.professionalType}{mission.requiredLevel ? ` — Niveau ${mission.requiredLevel}` : ""}</span></div>
-            )}
-            {mission.budgetType && (
-              <div className="flex gap-2"><span className="font-semibold min-w-[110px] text-[#0f172a]">Rémunération :</span><span className="text-[#475569]">{BUDGET_TYPE_LABEL[mission.budgetType] ?? mission.budgetType}</span></div>
-            )}
-            {/* Le mode retenu par le client à la publication fait partie des conditions de la
-                mission au même titre que la rémunération — il décide de QUAND le prestataire
-                est payé. Les missions publiées avant son introduction n'en ont pas : rien ne
-                s'affiche alors, plutôt qu'un régime par défaut inventé. */}
-            {/* Au temps, le mode fait partie des conditions publiées. Sinon, fixe ou par jalons
-                se décide dans le devis du prestataire (2026-10-01) — le dire, plutôt que
-                d'afficher un mode publié qui ne gouvernera plus le contrat. */}
-            {/* Vérification / validation : condition d'exécution publiée — le prestataire sait,
-                avant de candidater, qui constatera son travail. */}
-            <div className="flex gap-2">
-              <span className="font-semibold min-w-[110px] text-[#0f172a]">Vérification :</span>
-              <span className="text-[#475569]" title={VALIDATION_MODE_LABEL[mission.validationMode ?? "client"].definition}>
-                {mission.validationMode === "opr"
-                  ? "OPR / responsable chantier — il vérifie, le client valide définitivement"
-                  : "Par le client lui-même"}
-              </span>
-            </div>
-            {getFinancingMode(mission.financingModeKey ?? "")?.family === "temps" ? (
-              <>
-                <div className="flex gap-2"><span className="font-semibold min-w-[110px] text-[#0f172a]">Financement :</span><span className="text-[#475569]">{getFinancingMode(mission.financingModeKey ?? "")!.label}</span></div>
-                {/* Mode de pointage : condition publiée au même titre que le tarif — il dit au
-                    prestataire si un relevé pourra être payé en partie. */}
-                <div className="flex gap-2">
-                  <span className="font-semibold min-w-[110px] text-[#0f172a]">Pointage :</span>
-                  <span className="text-[#475569]" title={ATTENDANCE_VALIDATION_LABEL[mission.attendanceValidation ?? "partielle"].definition}>
-                    {ATTENDANCE_VALIDATION_LABEL[mission.attendanceValidation ?? "partielle"].label}
-                  </span>
+              {mission.isOwner && mission.status === "publiee" && (
+                <div className="text-right">
+                  {proposalsCount !== null && <div className="text-[14px] font-bold text-[#191224]">{proposalsCount} candidature{proposalsCount > 1 ? "s" : ""}</div>}
+                  <Link href={`/missions/${mission.id}/proposals`} className="mt-2 inline-flex px-4 py-2 rounded-full bg-[#4C1D95] text-white text-[13px] font-bold hover:bg-[#3B1578]" style={{ textDecoration: "none" }}>
+                    {mission.budgetType === "QUOTE" ? "Voir les devis reçus" : "Voir les candidatures"}
+                  </Link>
                 </div>
-              </>
-            ) : mission.budgetType ? (
-              <div className="flex gap-2"><span className="font-semibold min-w-[110px] text-[#0f172a]">Paiement :</span><span className="text-[#475569]">Prix fixe ou par jalons — proposé par le prestataire dans son devis</span></div>
-            ) : null}
-          </div>
-          {mission.tags && mission.tags.length > 0 && (
-            <div className="mt-4 flex flex-wrap gap-2">
-              {mission.tags.map((tag) => (
-                <span key={tag} className="inline-flex px-2.5 py-1 rounded-full bg-[#F1F5F9] border border-[#E2E8F0] text-[#475569] text-[11px] font-medium">{tag}</span>
-              ))}
+              )}
             </div>
-          )}
-        </div>
+
+            {/* Engagement : la mission d'UN prestataire retenu sur une annonce (2026-11-10). */}
+            {mission.parentMission && (
+              <p className="text-[13px] text-[#4A4258]">
+                Engagement issu de l&apos;annonce{" "}
+                <Link href={`/missions/${mission.parentMission.id}`} className="font-semibold text-[#4C1D95] hover:underline">
+                  « {mission.parentMission.titre} »
+                </Link>
+              </p>
+            )}
+            {/* Annonce : période de candidature et places (2026-11-10). */}
+            {!mission.parentMissionId && (mission.status === "publiee" || mission.status === "annonce_close") && (
+              <AnnonceFacts mission={mission} />
+            )}
+
+            <p className="text-[15px] leading-[1.65] text-[#191224] whitespace-pre-wrap">{mission.description}</p>
+
+            {/* Conditions publiées */}
+            <div>
+              <h2 className="font-display font-bold text-[16px] text-[#191224] mb-3">Conditions de la mission</h2>
+              <dl className="grid sm:grid-cols-2 gap-2 text-[13px]">
+                <Condition label="Domaine" value={mission.domaine} />
+                {mission.professionalType && (
+                  <Condition label="Recherché" value={`${PROFESSIONAL_TYPE_LABEL[mission.professionalType] ?? mission.professionalType}${mission.requiredLevel ? ` — Niveau ${mission.requiredLevel}` : ""}`} />
+                )}
+                {mission.budgetType && <Condition label="Rémunération" value={BUDGET_TYPE_LABEL[mission.budgetType] ?? mission.budgetType} />}
+                {/* Vérification / validation : condition d'exécution publiée — le prestataire sait,
+                    avant de candidater, qui constatera son travail. */}
+                <Condition
+                  label="Vérification"
+                  title={VALIDATION_MODE_LABEL[mission.validationMode ?? "client"].definition}
+                  value={mission.validationMode === "opr" ? "OPR / responsable chantier — il vérifie, le client valide définitivement" : "Par le client lui-même"}
+                />
+                {/* Au temps, le mode fait partie des conditions publiées. Sinon, fixe ou par jalons
+                    se décide dans le devis du prestataire (2026-10-01). */}
+                {getFinancingMode(mission.financingModeKey ?? "")?.family === "temps" ? (
+                  <>
+                    <Condition label="Financement" value={getFinancingMode(mission.financingModeKey ?? "")!.label} />
+                    <Condition
+                      label="Pointage"
+                      title={ATTENDANCE_VALIDATION_LABEL[mission.attendanceValidation ?? "partielle"].definition}
+                      value={ATTENDANCE_VALIDATION_LABEL[mission.attendanceValidation ?? "partielle"].label}
+                    />
+                  </>
+                ) : mission.budgetType ? (
+                  <Condition label="Paiement" value="Prix fixe ou par jalons — proposé par le prestataire dans son devis" />
+                ) : null}
+              </dl>
+              {mission.tags && mission.tags.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {mission.tags.map((tag) => (
+                    <span key={tag} className="inline-flex px-2.5 py-1 rounded-full bg-[#EFEAF8] text-[#4A4258] text-[12px] font-medium">{tag}</span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Client de la mission */}
+            {mission.client && (
+              <div className="rounded-2xl bg-[#EFEAF8] p-4 flex items-center gap-3">
+                <Avatar
+                  src={mission.client.avatarPath ? `/api/users/${mission.client.id}/avatar` : null}
+                  initials={((mission.client.firstname?.[0] ?? "") + (mission.client.lastname?.[0] ?? "")).toUpperCase() || "C"}
+                  gradient="from-[#4C1D95] to-[#6D28D9]"
+                  size={44}
+                />
+                <div className="min-w-0">
+                  <div className="font-bold text-[15px] text-[#191224]">{personFullName(mission.client) || "Client"}{mission.isOwner ? " (vous)" : ""}</div>
+                  <div className="text-[13px] text-[#6B6478] flex flex-wrap gap-x-1.5">
+                    {mission.client.kycStatus === "verifie" && <span className="inline-flex items-center gap-1 font-semibold text-[#047857]"><ShieldCheck className="w-3.5 h-3.5" aria-hidden />Identité vérifiée</span>}
+                    {mission.client.createdAt && <span>{mission.client.kycStatus === "verifie" ? "• " : ""}Membre depuis {new Date(mission.client.createdAt).toLocaleDateString("fr-FR", { month: "long", year: "numeric" })}</span>}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {mission.isOwner && mission.status === "publiee" && (
+              <Link href={`/missions/${mission.id}/proposals`} className="flex items-center justify-center gap-2 w-full py-3.5 rounded-full bg-[#4C1D95] text-white text-[15px] font-bold hover:bg-[#3B1578]" style={{ textDecoration: "none" }}>
+                {mission.budgetType === "QUOTE" ? "Gérer les devis" : "Gérer les candidatures"} <ArrowRight className="w-4 h-4" aria-hidden />
+              </Link>
+            )}
+          </div>
+        </article>
 
         {/* Mode devis (QUOTE) */}
         {mission.budgetType === "QUOTE" && !mission.isOwner && !isClient && (myProposal === undefined ? (
-          <div className="bg-white border border-[#E2E8F0] rounded-xl p-4 lg:p-5">
-            <p className="text-[13px] text-[#64748B]">Chargement de votre candidature...</p>
+          <div className="bg-white border border-[#E7E2F0] rounded-xl p-4 lg:p-5">
+            <p className="text-[13px] text-[#6B6478]">Chargement de votre candidature...</p>
           </div>
         ) : (
           <div id="candidater" className="scroll-mt-20">
@@ -674,7 +789,7 @@ export default function MissionDetailPage() {
             maxRounds={mission.maxRevisionRounds ?? 3}
             proposal={myProposal}
             isClient={false}
-            canSubmit={mission.status === "publiee"}
+            canSubmit={isOpenForApplications(mission)}
             onChanged={loadMyProposal}
             currency={mission.currency}
           />
@@ -684,16 +799,16 @@ export default function MissionDetailPage() {
         {/* Compte en mode client sur la mission d'un autre (2026-11-03) : candidater exige
             l'espace prestataire. Sans cet encadré, un visiteur inscrit depuis « Candidater »
             revenait sur une mission sans aucune action possible ni explication. */}
-        {isClient && !isAdmin && !mission.isOwner && mission.status === "publiee" && (
-          <div id="candidater" className="scroll-mt-20 bg-white border border-[#E2E8F0] rounded-xl p-4 lg:p-5">
+        {isClient && !isAdmin && !mission.isOwner && isOpenForApplications(mission) && (
+          <div id="candidater" className="scroll-mt-20 bg-white border border-[#E7E2F0] rounded-xl p-4 lg:p-5">
             <h3 className="text-[13px] font-semibold mb-1">Candidater à cette mission</h3>
-            <p className="text-[13px] text-[#64748B] mb-3">
+            <p className="text-[13px] text-[#6B6478] mb-3">
               Votre compte est en mode client. Ouvrez votre espace prestataire — même compte, aucune nouvelle
               inscription — puis revenez ici pour proposer votre prix.
             </p>
             <Link
               href={`/devenir-prestataire?returnTo=${encodeURIComponent(`/missions/${missionId}?candidater=1`)}`}
-              className="inline-flex h-10 px-5 rounded-lg bg-[#008751] text-white text-[13px] font-semibold items-center hover:bg-[#007a49]"
+              className="inline-flex h-10 px-5 rounded-full bg-[#4C1D95] text-white text-[13px] font-semibold items-center hover:bg-[#3B1578]"
               style={{ textDecoration: "none" }}
             >
               Ouvrir mon espace prestataire
@@ -704,8 +819,8 @@ export default function MissionDetailPage() {
         {/* Candidater à prix fixe/taux (hors mode QUOTE) — pendant du bloc DevisPanel
             ci-dessus pour le mode devis. N'apparaît que si aucune candidature n'existe
             encore (myProposal === null) et que la mission accepte des candidatures. */}
-        {mission.budgetType !== "QUOTE" && !mission.isOwner && !isClient && myProposal === null && mission.status === "publiee" && (
-          <div id="candidater" className="scroll-mt-20 bg-white border border-[#E2E8F0] rounded-xl p-4 lg:p-5">
+        {mission.budgetType !== "QUOTE" && !mission.isOwner && !isClient && myProposal === null && isOpenForApplications(mission) && (
+          <div id="candidater" className="scroll-mt-20 bg-white border border-[#E7E2F0] rounded-xl p-4 lg:p-5">
             <h3 className="text-[13px] font-semibold mb-2">Candidater à cette mission</h3>
 
             {/* quoteMode={false} : hors mode devis il n'y a aucune ligne à dériver en jalons —
@@ -714,8 +829,8 @@ export default function MissionDetailPage() {
             {timeTermsOf(mission) ? (
               <>
                 <FinancingModeNotice modeKey={mission.financingModeKey} quoteMode={false} className="mb-3" />
-                <p className="mb-3 -mt-1 text-[12px] text-[#475569] rounded-lg border border-[#E2E8F0] bg-[#F8FAF9] px-3 py-2">
-                  <strong className="text-[#0f172a]">Mode de pointage : {ATTENDANCE_VALIDATION_LABEL[mission.attendanceValidation ?? "partielle"].label}.</strong>{" "}
+                <p className="mb-3 -mt-1 text-[12px] text-[#4A4258] rounded-lg border border-[#E7E2F0] bg-[#F6F5FA] px-3 py-2">
+                  <strong className="text-[#191224]">Mode de pointage : {ATTENDANCE_VALIDATION_LABEL[mission.attendanceValidation ?? "partielle"].label}.</strong>{" "}
                   {ATTENDANCE_VALIDATION_LABEL[mission.attendanceValidation ?? "partielle"].definition}
                 </p>
               </>
@@ -725,7 +840,18 @@ export default function MissionDetailPage() {
               applying && <PaymentModelPicker value={applyModeKey} onChange={setApplyModeKey} quoteMode={false} className="mb-3" />
             )}
 
-            {restoredFromDraft && !blockedByProfile && (
+            {kycDraftSaved && (
+              <div role="status" className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900 space-y-2 mb-3">
+                <p className="font-semibold">Candidature enregistrée — en attente de la vérification de votre identité.</p>
+                <p>
+                  Elle sera envoyée automatiquement au client dès que votre identité sera vérifiée : vous n&apos;aurez rien
+                  à refaire. D&apos;ici là, vous pouvez la modifier ci-dessous puis cliquer « Mettre à jour ma candidature ».
+                </p>
+                <Link href="/kyc" className="inline-block font-semibold underline">Vérifier mon identité</Link>
+              </div>
+            )}
+
+            {restoredFromDraft && !blockedByProfile && !kycDraftSaved && (
               <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800 mb-3">
                 {/* Formulation neutre depuis l'ajout du bouton d'enregistrement manuel : le
                     brouillon ne vient plus forcément d'un blocage pour profil incomplet, il
@@ -754,15 +880,15 @@ export default function MissionDetailPage() {
 
             {!applying ? (
               <>
-                <p className="text-[13px] text-[#64748B] mb-3">Proposez votre prix pour cette mission.</p>
-                <button onClick={() => setApplying(true)} className="inline-flex h-10 px-5 rounded-lg bg-[#008751] text-white text-[13px] font-semibold items-center hover:bg-[#007a49]">
+                <p className="text-[13px] text-[#6B6478] mb-3">Proposez votre prix pour cette mission.</p>
+                <button onClick={() => setApplying(true)} className="inline-flex h-10 px-5 rounded-full bg-[#4C1D95] text-white text-[13px] font-semibold items-center hover:bg-[#3B1578]">
                   Candidater
                 </button>
               </>
             ) : (
               <div className="space-y-3">
                 <div>
-                  <label className="block text-[12px] font-medium text-[#475569] mb-1">
+                  <label className="block text-[12px] font-medium text-[#4A4258] mb-1">
                     {timeTermsOf(mission) ? `Votre tarif par ${timeTermsOf(mission)!.unit.one} (${mission.currency}) *` : `Votre prix (${mission.currency}) *`}
                   </label>
                   <input
@@ -776,10 +902,10 @@ export default function MissionDetailPage() {
                         ? String(mission.timeRate ?? "Ex: 7500")
                         : mission.budget ? String(mission.budget) : "Ex: 85000"
                     }
-                    className="w-full h-10 px-3 rounded-lg border border-[#E2E8F0] text-[13px] focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751]"
+                    className="w-full h-10 px-3 rounded-lg border border-[#E7E2F0] text-[13px] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20 focus:border-[#4C1D95]"
                   />
                   {timeTermsOf(mission) && (
-                    <p className="text-[11px] text-[#64748B] mt-1 tabular-nums">
+                    <p className="text-[11px] text-[#6B6478] mt-1 tabular-nums">
                       {Number(applyAmount) > 0
                         ? `Plafond du contrat : ${Math.round(Number(applyAmount) * timeTermsOf(mission)!.maxQuantity).toLocaleString("fr-FR")} ${mission.currency} (${timeTermsOf(mission)!.maxQuantity} ${timeTermsOf(mission)!.unit.many} maximum). Seul le temps constaté vous sera versé.`
                         : `Mission au temps : ${timeTermsOf(mission)!.maxQuantity} ${timeTermsOf(mission)!.unit.many} maximum. Le client séquestre le plafond avant le démarrage.`}
@@ -787,27 +913,27 @@ export default function MissionDetailPage() {
                   )}
                 </div>
                 <div>
-                  <label className="block text-[12px] font-medium text-[#475569] mb-1">Votre délai (en jours) — optionnel</label>
+                  <label className="block text-[12px] font-medium text-[#4A4258] mb-1">Votre délai (en jours) — optionnel</label>
                   <input
                     type="number"
                     min={1}
                     value={applyDelay}
                     onChange={(e) => { setApplyDelay(e.target.value); setDraftSavedMsg(null); }}
                     placeholder={mission.delaiJours ? String(mission.delaiJours) : "Ex: 30"}
-                    className="w-full h-10 px-3 rounded-lg border border-[#E2E8F0] text-[13px] focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751]"
+                    className="w-full h-10 px-3 rounded-lg border border-[#E7E2F0] text-[13px] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20 focus:border-[#4C1D95]"
                   />
-                  <p className="text-[11px] text-[#94A3B8] mt-1">
+                  <p className="text-[11px] text-[#9A93A8] mt-1">
                     Sans indication, le délai de la mission ({mission.delaiJours} jours) s&apos;appliquera au contrat.
                   </p>
                 </div>
                 <div>
-                  <label className="block text-[12px] font-medium text-[#475569] mb-1">Message (optionnel)</label>
+                  <label className="block text-[12px] font-medium text-[#4A4258] mb-1">Message (optionnel)</label>
                   <textarea
                     value={applyMessage}
                     onChange={(e) => { setApplyMessage(e.target.value.slice(0, 2000)); setDraftSavedMsg(null); }}
                     rows={3}
                     placeholder="Présentez-vous, votre expérience, votre disponibilité..."
-                    className="w-full px-3 py-2 rounded-lg border border-[#E2E8F0] text-[13px] resize-y focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751]"
+                    className="w-full px-3 py-2 rounded-lg border border-[#E7E2F0] text-[13px] resize-y focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20 focus:border-[#4C1D95]"
                   />
                 </div>
                 {applySuccessMsg && <p className="text-[12px] text-emerald-700">{applySuccessMsg}</p>}
@@ -824,13 +950,13 @@ export default function MissionDetailPage() {
                   </p>
                 )}
                 <div className="flex flex-wrap gap-2">
-                  <button disabled={applySubmitting || !!applySuccessMsg} onClick={submitProposal} className="h-10 px-5 rounded-lg bg-[#008751] text-white text-[13px] font-semibold hover:bg-[#007a49] disabled:opacity-50">
-                    {applySubmitting ? "Envoi..." : "Envoyer ma candidature"}
+                  <button disabled={applySubmitting || !!applySuccessMsg} onClick={submitProposal} className="h-10 px-5 rounded-full bg-[#047857] text-white text-[13px] font-semibold hover:bg-[#065F46] disabled:opacity-50">
+                    {applySubmitting ? "Envoi..." : kycDraftSaved ? "Mettre à jour ma candidature" : "Envoyer ma candidature"}
                   </button>
-                  <button disabled={applySubmitting || !!applySuccessMsg} onClick={saveProposalDraftNow} className="h-10 px-5 rounded-lg border border-[#E2E8F0] bg-white text-[13px] font-medium hover:bg-[#F8FAF9] disabled:opacity-50">
+                  <button disabled={applySubmitting || !!applySuccessMsg} onClick={saveProposalDraftNow} className="h-10 px-5 rounded-lg border border-[#E7E2F0] bg-white text-[13px] font-medium hover:bg-[#F6F5FA] disabled:opacity-50">
                     Enregistrer brouillon
                   </button>
-                  <button disabled={applySubmitting || !!applySuccessMsg} onClick={() => { setApplying(false); setApplyError(null); setApplyNeedsKyc(false); }} className="h-10 px-5 rounded-lg border border-[#E2E8F0] bg-white text-[13px] font-medium hover:bg-[#F8FAF9]">
+                  <button disabled={applySubmitting || !!applySuccessMsg} onClick={() => { setApplying(false); setApplyError(null); setApplyNeedsKyc(false); }} className="h-10 px-5 rounded-lg border border-[#E7E2F0] bg-white text-[13px] font-medium hover:bg-[#F6F5FA]">
                     Annuler
                   </button>
                 </div>
@@ -844,27 +970,27 @@ export default function MissionDetailPage() {
             client a explicitement fait progresser une proposition (voir POST
             /api/missions/[id]/proposals/[proposalId]/offer). */}
         {!mission.isOwner && !isClient && myOffer && (
-          <div className="bg-white border border-[#E2E8F0] rounded-xl p-4 lg:p-5">
+          <div className="bg-white border border-[#E7E2F0] rounded-xl p-4 lg:p-5">
             <div className="flex items-center justify-between">
               <h3 className="text-[13px] font-semibold">Offre reçue</h3>
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#FEF3C7] text-[#D97706] text-[11px] font-semibold border border-[#FDE68A]">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#FFF6E3] text-[#D97706] text-[11px] font-semibold border border-[#FDE68A]">
                 {OFFER_STATUS_LABEL[myOffer.status] ?? myOffer.status}
               </span>
             </div>
-            <p className="mt-3 text-[13px] font-semibold text-[#0f172a]">{myOffer.titre}</p>
+            <p className="mt-3 text-[13px] font-semibold text-[#191224]">{myOffer.titre}</p>
             <div className="mt-2 flex items-center justify-between text-[13px]">
-              <span className="text-[#64748B]">Montant proposé</span>
-              <strong className="font-fraunces text-[#008751] text-[16px]">{myOffer.montant.toLocaleString("fr-FR")} {myOffer.currency}</strong>
+              <span className="text-[#6B6478]">Montant proposé</span>
+              <strong className="font-fraunces text-[#047857] text-[16px]">{myOffer.montant.toLocaleString("fr-FR")} {myOffer.currency}</strong>
             </div>
-            {myOffer.description && <p className="mt-2 text-[13px] text-[#475569] leading-relaxed">{myOffer.description}</p>}
-            <p className="mt-2 text-[11px] text-[#94A3B8]">Envoyée le {new Date(myOffer.sentAt ?? myOffer.createdAt).toLocaleDateString("fr-FR")}</p>
-            {offerRespondError && <div className="mt-2 rounded-lg border border-[#FECACA] bg-[#FEF2F2] p-2.5 text-[12px] text-[#B91C1C]">{offerRespondError}</div>}
+            {myOffer.description && <p className="mt-2 text-[13px] text-[#4A4258] leading-relaxed">{myOffer.description}</p>}
+            <p className="mt-2 text-[11px] text-[#9A93A8]">Envoyée le {new Date(myOffer.sentAt ?? myOffer.createdAt).toLocaleDateString("fr-FR")}</p>
+            {offerRespondError && <div className="mt-2 rounded-lg border border-[#FECACA] bg-[#FEECEB] p-2.5 text-[12px] text-[#B42318]">{offerRespondError}</div>}
             {myOffer.status === "envoyee" && (
               <div className="flex gap-2 mt-3">
-                <button disabled={respondingOffer} onClick={() => respondToOffer("accept")} className="h-10 px-5 rounded-lg bg-[#008751] text-white text-[13px] font-semibold hover:bg-[#007a49] disabled:opacity-50">
+                <button disabled={respondingOffer} onClick={() => respondToOffer("accept")} className="h-10 px-5 rounded-full bg-[#4C1D95] text-white text-[13px] font-semibold hover:bg-[#3B1578] disabled:opacity-50">
                   {respondingOffer ? "…" : "Accepter l'offre"}
                 </button>
-                <button disabled={respondingOffer} onClick={() => respondToOffer("decline")} className="h-10 px-5 rounded-lg border border-[#E2E8F0] bg-white text-[13px] font-medium hover:bg-[#F8FAF9] disabled:opacity-50">
+                <button disabled={respondingOffer} onClick={() => respondToOffer("decline")} className="h-10 px-5 rounded-lg border border-[#E7E2F0] bg-white text-[13px] font-medium hover:bg-[#F6F5FA] disabled:opacity-50">
                   Refuser
                 </button>
               </div>
@@ -892,26 +1018,26 @@ export default function MissionDetailPage() {
         )}
 
         {/* Pièces jointes */}
-        <div className="bg-white border border-[#E2E8F0] rounded-xl p-4 lg:p-5">
+        <div className="bg-white border border-[#E7E2F0] rounded-xl p-4 lg:p-5">
           <h3 className="text-[13px] font-semibold flex items-center gap-2">Pièces jointes</h3>
 
-          {attachError && <div className="mt-3 rounded-lg border border-[#FDE68A] bg-[#FFFBEB] p-2.5 text-[12px] text-[#92400E]">{attachError}</div>}
+          {attachError && <div className="mt-3 rounded-lg border border-[#FDE68A] bg-[#FFF6E3] p-2.5 text-[12px] text-[#92400E]">{attachError}</div>}
 
           {attachments === null ? (
-            <p className="mt-3 text-[13px] text-[#64748B]">Chargement...</p>
+            <p className="mt-3 text-[13px] text-[#6B6478]">Chargement...</p>
           ) : attachments.length === 0 ? (
-            <div className="mt-4 flex gap-3 p-3 rounded-xl bg-[#F8FAF9] border border-dashed border-[#E2E8F0]">
-              <div className="w-9 h-9 rounded-lg bg-white border border-[#E2E8F0] flex items-center justify-center shrink-0 text-[#94A3B8]">📄</div>
-              <div className="text-[13px] font-medium text-[#475569]">Aucune pièce jointe pour l&apos;instant.</div>
+            <div className="mt-4 flex gap-3 p-3 rounded-xl bg-[#F6F5FA] border border-dashed border-[#E7E2F0]">
+              <div className="w-9 h-9 rounded-lg bg-white border border-[#E7E2F0] flex items-center justify-center shrink-0 text-[#9A93A8]">📄</div>
+              <div className="text-[13px] font-medium text-[#4A4258]">Aucune pièce jointe pour l&apos;instant.</div>
             </div>
           ) : (
-            <ul className="mt-3 space-y-0 divide-y divide-[#F1F5F9]">
+            <ul className="mt-3 space-y-0 divide-y divide-[#EFEAF8]">
               {attachments.map((a) => (
                 <li key={a.id} className="flex items-center justify-between py-2.5 gap-3">
-                  <a href={a.url} target="_blank" rel="noreferrer" className="text-[#008751] text-[13px] font-semibold" style={{ textDecoration: "none" }}>
+                  <a href={a.url} target="_blank" rel="noreferrer" className="text-[#4C1D95] text-[13px] font-semibold" style={{ textDecoration: "none" }}>
                     {a.fileName ?? "Fichier"}
                   </a>
-                  <span className="text-[#94A3B8] text-[11px] shrink-0">{a.uploaderEmail ?? "?"} · {new Date(a.createdAt).toLocaleDateString("fr-FR")}</span>
+                  <span className="text-[#9A93A8] text-[11px] shrink-0">{a.uploaderEmail ?? "?"} · {new Date(a.createdAt).toLocaleDateString("fr-FR")}</span>
                 </li>
               ))}
             </ul>
@@ -919,13 +1045,13 @@ export default function MissionDetailPage() {
 
           {canUploadAttachment ? (
             <div className="mt-4">
-              <label className="inline-flex h-9 px-4 rounded-lg border border-[#E2E8F0] bg-white text-[13px] font-medium items-center cursor-pointer hover:bg-[#F8FAF9]">
+              <label className="inline-flex h-9 px-4 rounded-lg border border-[#E7E2F0] bg-white text-[13px] font-medium items-center cursor-pointer hover:bg-[#F6F5FA]">
                 {uploadingAttachment ? "Envoi..." : "+ Joindre un fichier"}
                 <input type="file" accept="image/jpeg,image/png,application/pdf" onChange={handleAttachmentUpload} disabled={uploadingAttachment} style={{ display: "none" }} />
               </label>
             </div>
           ) : (
-            <p className="mt-3 text-[12px] text-[#94A3B8] italic flex items-start gap-1.5">
+            <p className="mt-3 text-[12px] text-[#9A93A8] italic flex items-start gap-1.5">
               ℹ️ L&apos;ajout de pièces jointes sera possible une fois une proposition acceptée (évite le travail-test gratuit).
             </p>
           )}
@@ -948,28 +1074,23 @@ export default function MissionDetailPage() {
         {/* Actions (desktop) */}
         <div className="hidden lg:flex items-center flex-wrap gap-2 pt-2">
           <div className="flex items-center gap-2 flex-wrap">
-            {mission.isOwner && mission.status === "publiee" && (
-              <Link href={`/missions/${mission.id}/proposals`} className="inline-flex h-10 px-5 rounded-lg border border-[#E2E8F0] bg-white text-[13px] font-medium items-center hover:bg-[#F8FAF9]" style={{ textDecoration: "none" }}>
-                {mission.budgetType === "QUOTE" ? "Voir les devis reçus" : "Voir les propositions"}
-              </Link>
-            )}
             {mission.status !== "brouillon" && mission.status !== "publiee" && (
-              <Link href={`/missions/${mission.id}/contract`} className="inline-flex h-10 px-5 rounded-lg bg-[#008751] text-white text-[13px] font-semibold items-center hover:bg-[#007a49]" style={{ textDecoration: "none" }}>
+              <Link href={`/missions/${mission.id}/contract`} className="inline-flex h-10 px-5 rounded-full bg-[#4C1D95] text-white text-[13px] font-semibold items-center hover:bg-[#3B1578]" style={{ textDecoration: "none" }}>
                 Voir le contrat
               </Link>
             )}
             {DELIVERABLE_ACTIVE_STATUSES.has(mission.status) && !mission.isOwner && (
-              <Link href={`/missions/${mission.id}/deliverable`} className="inline-flex h-10 px-5 rounded-lg bg-[#0f172a] text-white text-[13px] font-semibold items-center hover:bg-black" style={{ textDecoration: "none" }}>
+              <Link href={`/missions/${mission.id}/deliverable`} className="inline-flex h-10 px-5 rounded-full bg-[#191224] text-white text-[13px] font-semibold items-center hover:bg-black" style={{ textDecoration: "none" }}>
                 Soumettre le livrable
               </Link>
             )}
             {ESCROW_ACTIVE_STATUSES.has(mission.status) && mission.isOwner && (
-              <Link href={`/missions/${mission.id}/escrow`} className="inline-flex h-10 px-5 rounded-lg bg-[#0f172a] text-white text-[13px] font-semibold items-center hover:bg-black" style={{ textDecoration: "none" }}>
+              <Link href={`/missions/${mission.id}/escrow`} className="inline-flex h-10 px-5 rounded-full bg-[#191224] text-white text-[13px] font-semibold items-center hover:bg-black" style={{ textDecoration: "none" }}>
                 Paiement sous séquestre
               </Link>
             )}
             {mission.status === "cloturee" && (
-              <Link href={`/missions/${mission.id}/reviews`} className="inline-flex h-10 px-5 rounded-lg border border-[#E2E8F0] bg-white text-[13px] font-medium items-center hover:bg-[#F8FAF9]" style={{ textDecoration: "none" }}>
+              <Link href={`/missions/${mission.id}/reviews`} className="inline-flex h-10 px-5 rounded-lg border border-[#E7E2F0] bg-white text-[13px] font-medium items-center hover:bg-[#F6F5FA]" style={{ textDecoration: "none" }}>
                 Donner un avis
               </Link>
             )}
@@ -977,7 +1098,7 @@ export default function MissionDetailPage() {
         </div>
 
         <div className="hidden lg:block">
-          <Link href={backHref} className="text-[#64748B] text-[13px]" style={{ textDecoration: "none" }}>
+          <Link href={backHref} className="text-[#6B6478] text-[13px]" style={{ textDecoration: "none" }}>
             ← {backLabel}
           </Link>
         </div>
@@ -995,25 +1116,29 @@ export default function MissionDetailPage() {
           <div className="pt-2">
             <Link
               href={`/missions/${mission.id}/contract`}
-              className="flex items-center justify-center gap-2 h-12 w-full rounded-xl bg-[#0f172a] text-white text-[13px] font-semibold hover:bg-black transition-colors"
+              className="flex items-center justify-center gap-2 h-12 w-full rounded-xl bg-[#191224] text-white text-[13px] font-semibold hover:bg-black transition-colors"
               style={{ textDecoration: "none" }}
             >
               Accéder au pilotage de la mission →
             </Link>
           </div>
         )}
+        </div>{/* fin colonne principale */}
+
+        <MissionAside mission={mission} isOwner={mission.isOwner} canApply={!mission.isOwner && !isClient && isOpenForApplications(mission)} />
+        </div>{/* fin grille */}
       </div>
 
       {/* Barre d'action fixe — mobile uniquement */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-[#E2E8F0] p-3 z-40" style={{ boxShadow: "0 -8px 24px rgba(15,23,42,0.06)" }}>
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-[#E7E2F0] p-3 z-40" style={{ boxShadow: "0 -8px 24px rgba(15,23,42,0.06)" }}>
         <div className="flex items-center justify-between gap-3">
           <div>
-            <div className="text-[11px] uppercase tracking-widest text-[#64748B] font-semibold">{mission.budgetType === "QUOTE" ? "Devis" : "Budget"}</div>
-            <div className="text-[18px] font-bold text-[#008751] leading-none mt-0.5">
+            <div className="text-[11px] uppercase tracking-widest text-[#6B6478] font-semibold">{mission.budgetType === "QUOTE" ? "Devis" : "Budget"}</div>
+            <div className="text-[18px] font-bold text-[#047857] leading-none mt-0.5">
               {highlightAmount.toLocaleString("fr-FR")} <span className="text-[12px] font-semibold">{mission.currency}</span>
             </div>
           </div>
-          <Link href={backHref} className="h-11 px-6 rounded-xl border border-[#E2E8F0] text-[#64748B] text-[13px] font-medium inline-flex items-center" style={{ textDecoration: "none" }}>
+          <Link href={backHref} className="h-11 px-6 rounded-xl border border-[#E7E2F0] text-[#6B6478] text-[13px] font-medium inline-flex items-center" style={{ textDecoration: "none" }}>
             {backLabel}
           </Link>
         </div>
@@ -1026,8 +1151,110 @@ export default function MissionDetailPage() {
           interlocutorId={interlocutor.id}
           interlocutorName={interlocutor.name}
           interlocutorAvatarPath={interlocutor.avatarPath}
+          initialOpen={wantsChat}
         />
       )}
     </div>
+  );
+}
+
+// Faits de l'annonce (2026-11-10) : jusqu'à quand elle reçoit des candidatures, combien de
+// prestataires le client recherche et combien il en a déjà retenus — et, pour le client, la
+// liste des prestataires retenus avec un lien vers leur engagement.
+function AnnonceFacts({ mission }: { mission: MissionDetail }) {
+  const deadline = mission.status === "annonce_close" ? "Candidatures closes" : applicationDeadlineLabel(mission.dateExpiration);
+  const places = mission.placesRecherchees ?? 1;
+  const retenus = mission.prestatairesRetenus ?? 0;
+  const engagements = mission.engagements ?? [];
+  return (
+    <div className="mt-3 space-y-2">
+      <div className="flex flex-wrap gap-2 text-[12px]">
+        {deadline && (
+          <span
+            className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-semibold ${
+              isOpenForApplications(mission) ? "border-[#4C1D95]/25 bg-[#4C1D95]/5 text-[#4C1D95]" : "border-[#E7E2F0] bg-[#F6F5FA] text-[#6B6478]"
+            }`}
+          >
+            🗓 {deadline}
+          </span>
+        )}
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-[#E7E2F0] bg-[#F6F5FA] px-2.5 py-1 font-semibold text-[#3F3850]">
+          👥 {places} prestataire{places > 1 ? "s" : ""} recherché{places > 1 ? "s" : ""} · {retenus} retenu{retenus > 1 ? "s" : ""}
+        </span>
+      </div>
+      {!mission.isOwner && retenus >= places && isOpenForApplications(mission) && (
+        <p className="text-[12px] text-[#6B6478]">
+          Le client a déjà retenu le nombre de prestataires recherchés. L&apos;annonce reste ouverte jusqu&apos;à sa date limite.
+        </p>
+      )}
+      {mission.isOwner && engagements.length > 0 && (
+        <ul className="space-y-1.5" aria-label="Prestataires retenus">
+          {engagements.map((e) => {
+            const name = [e.provider?.firstname, e.provider?.lastname].filter(Boolean).join(" ") || "Prestataire";
+            const est = MISSION_STATUS_STYLE[e.status as keyof typeof MISSION_STATUS_STYLE] ?? MISSION_STATUS_STYLE.brouillon;
+            return (
+              <li key={e.id}>
+                <Link
+                  href={`/missions/${e.id}`}
+                  className="flex items-center justify-between gap-3 rounded-lg border border-[#E7E2F0] px-3 py-2 text-[13px] hover:bg-[#F6F5FA]"
+                  style={{ textDecoration: "none" }}
+                >
+                  <span className="font-semibold text-[#191224]">{name}</span>
+                  <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${est.bg} ${est.text}`}>{est.label}</span>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function Condition({ label, value, title }: { label: string; value: string; title?: string }) {
+  return (
+    <div className="rounded-xl border border-[#E7E2F0] px-3 py-2.5">
+      <dt className="text-[11px] font-semibold uppercase tracking-wider text-[#6B6478]">{label}</dt>
+      <dd className="mt-0.5 text-[#191224] font-medium" title={title}>{value}</dd>
+    </div>
+  );
+}
+
+// Colonne latérale de la maquette (2026-11-11). « Paiement protégé » ne promet que ce que la
+// plateforme fait réellement : séquestre avant démarrage, libération à la validation, médiation.
+function MissionAside({ mission, isOwner, canApply }: { mission: MissionDetail; isOwner: boolean; canApply: boolean }) {
+  const deadline = mission.status === "publiee" && mission.dateExpiration ? new Date(mission.dateExpiration) : null;
+  return (
+    <aside className="space-y-4 lg:sticky lg:top-20">
+      <div className="bg-white border border-[#E7E2F0] rounded-3xl p-5">
+        <ShieldCheck className="w-6 h-6 text-[#047857]" aria-hidden />
+        <h2 className="font-display font-bold text-[17px] text-[#191224] mt-2">Paiement protégé</h2>
+        <p className="text-[13px] text-[#6B6478] mt-1">Fonds séquestrés avant démarrage. Libération à la validation de chaque jalon.</p>
+        <ul className="mt-3 space-y-2 text-[13px] text-[#191224]">
+          <li>✓ Aucun versement sans validation du client</li>
+          <li>✓ Médiation en cas de litige</li>
+          <li>✓ Contrat signé par les deux parties</li>
+        </ul>
+      </div>
+      {deadline && (
+        <div className="rounded-3xl p-5 text-white bg-[#4C1D95]">
+          <div className="font-display font-bold text-[16px]">Date limite : {deadline.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}</div>
+          <p className="text-[13px] text-white/85 mt-1.5">
+            {isOwner
+              ? "Comparez les candidatures et retenez un prestataire avant cette date."
+              : "Les candidatures sont reçues jusqu'à cette date."}
+          </p>
+          {isOwner ? (
+            <Link href={`/missions/${mission.id}/proposals`} className="mt-3 inline-flex px-4 py-2 rounded-full bg-white text-[#4C1D95] text-[13px] font-bold hover:bg-[#F0EAFF]" style={{ textDecoration: "none" }}>
+              Comparer les profils
+            </Link>
+          ) : canApply ? (
+            <a href="#candidater" className="mt-3 inline-flex px-4 py-2 rounded-full bg-white text-[#4C1D95] text-[13px] font-bold hover:bg-[#F0EAFF]" style={{ textDecoration: "none" }}>
+              Candidater
+            </a>
+          ) : null}
+        </div>
+      )}
+    </aside>
   );
 }

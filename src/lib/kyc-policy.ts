@@ -1,3 +1,5 @@
+import type { KycStatus } from "@prisma/client";
+import { openAnnonceWhere } from "@/lib/mission-expiry";
 import { prisma } from "@/lib/db";
 
 // Politique KYC par étape (2026-11-02) — remplace « le KYC conditionne la publication ».
@@ -41,7 +43,8 @@ export async function clientPublicationRight(userId: string): Promise<Publicatio
       message: "Votre vérification d'identité a été refusée : renvoyez vos justificatifs pour publier une mission.",
     };
   }
-  const published = await prisma.mission.count({ where: { clientId: userId, status: "publiee" } });
+  // Annonces encore OUVERTES seulement (2026-11-10) : une annonce échue ne compte plus.
+  const published = await prisma.mission.count({ where: { clientId: userId, ...openAnnonceWhere() } });
   if (published >= UNVERIFIED_PUBLISHED_LIMIT) {
     return {
       ok: false,
@@ -63,11 +66,30 @@ const STEP_MESSAGES: Record<SensitiveStep, string> = {
 };
 
 /**
- * Étape sensible : `null` si le compte est vérifié, sinon le refus à renvoyer en 403. Le code
- * d'erreur reste `kyc_not_verified`, déjà traduit par les écrans.
+ * Refus KYC d'une étape sensible, renvoyé en 403 (2026-11-10 : enrichi). `error` reste
+ * `kyc_not_verified` dans tous les cas, déjà traduit par les écrans ; `kycStatus` et
+ * `actionUrl` permettent à l'écran de dire OÙ en est la vérification et d'y mener le client,
+ * au lieu d'un « Échec » muet.
  */
-export async function kycBlockFor(userId: string, step: SensitiveStep): Promise<KycBlock | null> {
+export type SensitiveStepBlock = KycBlock & { kycStatus: KycStatus | null; actionUrl: string };
+
+/** URL de la vérification d'identité. */
+export const KYC_ACTION_URL = "/kyc";
+
+/**
+ * Étape sensible : `null` si le compte est vérifié, sinon le refus à renvoyer en 403.
+ */
+export async function kycBlockFor(userId: string, step: SensitiveStep): Promise<SensitiveStepBlock | null> {
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { kycStatus: true } });
   if (user?.kycStatus === "verifie") return null;
-  return { error: "kyc_not_verified", message: STEP_MESSAGES[step] };
+  const kycStatus = user?.kycStatus ?? null;
+  if (kycStatus === "rejete") {
+    return {
+      error: "kyc_not_verified",
+      message: `${STEP_MESSAGES[step]} Votre précédente vérification a été refusée : renvoyez vos justificatifs.`,
+      kycStatus,
+      actionUrl: KYC_ACTION_URL,
+    };
+  }
+  return { error: "kyc_not_verified", message: STEP_MESSAGES[step], kycStatus, actionUrl: KYC_ACTION_URL };
 }

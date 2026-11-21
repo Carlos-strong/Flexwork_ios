@@ -1,13 +1,10 @@
 /**
- * Plafond de candidatures (2026-09-23) — `Mission.maxCandidatures`.
+ * Annonce : période de candidature et prestataires recherchés (2026-11-10).
  *
- * Le plafond était jusqu'ici saisi, stocké, et jamais appliqué : l'écran de confirmation
- * promettait « vous recevrez jusqu'à 5 devis » sans qu'aucun mécanisme ne le tienne.
- *
- * Il vit dans `checkCandidatureEligibility`, garde PARTAGÉE par les deux voies de candidature
- * (proposition à prix et devis en mode QUOTE) : le poser dans une seule route reviendrait à
- * laisser l'autre porte ouverte. Ces tests vérifient le comptage, ce qui libère une place, et
- * le cas du prestataire déjà en lice.
+ * `Mission.maxCandidatures` n'est plus un plafond de candidatures (2026-09-23 → 2026-11-10) :
+ * c'est le nombre de prestataires que le client RETIENDRA. Seule la date limite de candidature
+ * ferme l'annonce. Ces tests vérifient la garde partagée (`checkCandidatureEligibility`) et ce
+ * que la liste des missions dit au prestataire.
  */
 
 import { describe, expect, it, beforeAll, afterAll, vi } from "vitest";
@@ -23,7 +20,14 @@ const as = (userId: string | null) => {
   mockAuth.mockResolvedValue(userId ? { user: { id: userId } } : null);
 };
 
-type ListedMission = { id: string; candidaturesCount: number; candidaturesClosed: boolean };
+type ListedMission = {
+  id: string;
+  candidaturesCount: number;
+  placesRecherchees: number;
+  prestatairesRetenus: number;
+  placesRestantes: number;
+  dejaCandidat: boolean;
+};
 
 async function listOpenMissions(): Promise<ListedMission[]> {
   const res = await listMissions();
@@ -33,13 +37,12 @@ async function listOpenMissions(): Promise<ListedMission[]> {
 const RUN = Date.now();
 let clientId = "";
 const providerIds: string[] = [];
-let missionId = "";
 
-async function makeMission(maxCandidatures: number | null) {
+async function makeMission(maxCandidatures: number | null, dateExpiration: Date | null = null) {
   const mission = await prisma.mission.create({
     data: {
       clientId,
-      titre: "Mission plafond",
+      titre: "Mission annonce",
       description: "Description suffisamment longue pour la validation.",
       domaine: "Plomberie",
       mode: "distance", // évite garants et assurance : on teste le plafond, rien d'autre
@@ -47,9 +50,9 @@ async function makeMission(maxCandidatures: number | null) {
       delaiJours: 5,
       status: "publiee",
       maxCandidatures,
+      dateExpiration,
     },
   });
-  missionId = mission.id;
   return mission;
 }
 
@@ -81,104 +84,62 @@ afterAll(async () => {
   await prisma.user.deleteMany({ where: { id: { in: [clientId, ...providerIds] } } });
 });
 
-describe("plafond appliqué", () => {
-  it("laisse candidater tant que le plafond n'est pas atteint", async () => {
-    const mission = await makeMission(2);
-    await apply(mission.id, providerIds[0], "envoyee");
-    expect(await checkCandidatureEligibility(mission, providerIds[1])).toEqual({ ok: true });
-  });
-
-  it("refuse une fois le plafond atteint, avec un message qui l'explique", async () => {
-    const mission = await makeMission(2);
+describe("le nombre de prestataires recherchés ne limite plus les candidatures", () => {
+  it("laisse candidater au-delà du nombre recherché", async () => {
+    const mission = await makeMission(1);
     await apply(mission.id, providerIds[0], "envoyee");
     await apply(mission.id, providerIds[1], "envoyee");
-
-    const result = await checkCandidatureEligibility(mission, providerIds[2]);
-    expect(result.ok).toBe(false);
-    if (result.ok) return;
-    expect(result.status).toBe(409);
-    expect(result.error).toBe("candidatures_closed");
-    expect(result.message).toContain("2");
-  });
-
-  it("n'applique aucun plafond quand la mission n'en fixe pas", async () => {
-    const mission = await makeMission(null);
-    for (const id of providerIds.slice(0, 3)) await apply(mission.id, id, "envoyee");
-    expect(await checkCandidatureEligibility(mission, providerIds[3])).toEqual({ ok: true });
-  });
-});
-
-describe("ce qui libère une place", () => {
-  it("ne compte pas une candidature refusée — elle a libéré sa place", async () => {
-    const mission = await makeMission(2);
-    await apply(mission.id, providerIds[0], "envoyee");
-    await apply(mission.id, providerIds[1], "refusee");
     expect(await checkCandidatureEligibility(mission, providerIds[2])).toEqual({ ok: true });
   });
 
-  it("ne compte pas une négociation définitivement annulée", async () => {
-    const mission = await makeMission(2);
-    await apply(mission.id, providerIds[0], "envoyee");
-    await apply(mission.id, providerIds[1], "annulee_definitive");
-    expect(await checkCandidatureEligibility(mission, providerIds[2])).toEqual({ ok: true });
-  });
-
-  it("compte en revanche une candidature acceptée", async () => {
+  it("laisse candidater même une fois les places pourvues — seule la date ferme l'annonce", async () => {
     const mission = await makeMission(1);
-    await apply(mission.id, providerIds[0], "acceptee");
-    const result = await checkCandidatureEligibility(mission, providerIds[1]);
-    expect(result.ok).toBe(false);
+    const engagement = await prisma.mission.create({
+      data: { clientId, titre: "Engagement", description: "x", domaine: "Plomberie", mode: "distance", budget: 1, delaiJours: 5, status: "proposition_acceptee", parentMissionId: mission.id },
+    });
+    await apply(engagement.id, providerIds[0], "acceptee");
+    expect(await checkCandidatureEligibility(mission, providerIds[1])).toEqual({ ok: true });
+    // …mais pas le prestataire déjà retenu.
+    expect(await checkCandidatureEligibility(mission, providerIds[0])).toMatchObject({ ok: false, error: "already_applied" });
   });
 });
 
-describe("le prestataire déjà en lice", () => {
-  it("n'est pas bloqué par le plafond qu'il occupe lui-même", async () => {
-    const mission = await makeMission(1);
-    await apply(mission.id, providerIds[0], "envoyee");
-    // Il est dedans : il ne cherche pas à entrer. Le bloquer l'empêcherait de réviser.
+describe("la date limite de candidature", () => {
+  it("ferme l'annonce une fois passée", async () => {
+    const mission = await makeMission(null, new Date(Date.now() - 60_000));
+    expect(await checkCandidatureEligibility(mission, providerIds[0])).toMatchObject({ ok: false, status: 409, error: "mission_expired" });
+  });
+
+  it("laisse candidater tant qu'elle n'est pas atteinte", async () => {
+    const mission = await makeMission(null, new Date(Date.now() + 86_400_000));
     expect(await checkCandidatureEligibility(mission, providerIds[0])).toEqual({ ok: true });
   });
 });
 
-describe("visibilité du plafond dans la liste des missions", () => {
-  it("annonce la fermeture au prestataire AVANT qu'il rédige sa proposition", async () => {
-    const mission = await makeMission(1);
-    await apply(mission.id, providerIds[0], "envoyee");
-
+describe("ce que la liste des missions dit au prestataire", () => {
+  it("annonce les places recherchées et les prestataires déjà retenus", async () => {
+    const mission = await makeMission(3);
+    await prisma.mission.create({
+      data: { clientId, titre: "Engagement", description: "x", domaine: "Plomberie", mode: "distance", budget: 1, delaiJours: 5, status: "proposition_acceptee", parentMissionId: mission.id },
+    });
     as(providerIds[1]);
-    const items = await listOpenMissions();
-    const item = items.find((m) => m.id === mission.id)!;
-    expect(item.candidaturesCount).toBe(1);
-    expect(item.candidaturesClosed).toBe(true);
+    const item = (await listOpenMissions()).find((m) => m.id === mission.id)!;
+    expect(item).toMatchObject({ placesRecherchees: 3, prestatairesRetenus: 1, placesRestantes: 2 });
   });
 
-  it("ne la déclare pas fermée pour celui qui occupe déjà une place", async () => {
-    const mission = await makeMission(1);
-    await apply(mission.id, providerIds[0], "envoyee");
-
-    as(providerIds[0]);
-    const item = (await listOpenMissions()).find((m) => m.id === mission.id)!;
-    expect(item.candidaturesClosed).toBe(false);
-  });
-
-  it("laisse ouverte une mission sans plafond, quel que soit le nombre de candidats", async () => {
-    const mission = await makeMission(null);
-    for (const id of providerIds.slice(0, 3)) await apply(mission.id, id, "envoyee");
-
-    as(providerIds[3]);
-    const item = (await listOpenMissions()).find((m) => m.id === mission.id)!;
-    expect(item.candidaturesClosed).toBe(false);
-    expect(item.candidaturesCount).toBe(3);
+  it("n'affiche plus une annonce échue", async () => {
+    const mission = await makeMission(null, new Date(Date.now() - 60_000));
+    as(providerIds[1]);
+    expect((await listOpenMissions()).find((m) => m.id === mission.id)).toBeUndefined();
   });
 
   it("ne compte pas les candidatures refusées dans le total affiché", async () => {
     const mission = await makeMission(3);
     await apply(mission.id, providerIds[0], "envoyee");
     await apply(mission.id, providerIds[1], "refusee");
-
     as(providerIds[2]);
     const item = (await listOpenMissions()).find((m) => m.id === mission.id)!;
     expect(item.candidaturesCount).toBe(1);
-    expect(item.candidaturesClosed).toBe(false);
+    expect(item.dejaCandidat).toBe(false);
   });
 });

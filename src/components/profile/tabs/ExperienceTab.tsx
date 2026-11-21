@@ -19,10 +19,19 @@
 // Les redévelopper ici aurait créé deux écrans de déclaration à maintenir, avec deux façons
 // de sceller la même chose.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { hasRequiredGarants } from "@/lib/garant-rules";
+import {
+  canReachStep,
+  experienceSteps,
+  isSectionComplete,
+  resumeStep,
+  validateYears,
+  type ExperienceStepKey,
+} from "@/lib/experience-steps";
+import { useUserIdentity } from "@/components/user-identity";
 import { QualificationPicker } from "@/components/profile/tabs/QualificationPicker";
 import { PortfolioEditor } from "@/components/profile/PortfolioEditor";
 import { countryName, diplomaCountryGroups } from "@/lib/world-countries";
@@ -33,7 +42,6 @@ const DIPLOMA_COUNTRY_GROUPS = diplomaCountryGroups();
 import {
   Field,
   ProfileCard,
-  SaveRow,
   btnPrimary,
   btnSecondary,
   inputClass,
@@ -176,10 +184,13 @@ export function ExperienceTab({
   onSaved,
   onCompletionChanged,
   showPortfolio = true,
+  onFinished,
 }: {
   profile: ProviderProfile | null;
   onSaved: (profile: ProviderProfile) => void;
   onCompletionChanged: () => void;
+  /** Appelé par « Valider la section », une fois toutes les étapes obligatoires faites. */
+  onFinished?: () => void;
   /** Faux dans la vue « profil complet », où « Portfolio et CV » est une rubrique à part. */
   showPortfolio?: boolean;
 }) {
@@ -218,6 +229,8 @@ export function ExperienceTab({
 
   // ── Garants (personnes ressources) ────────────────────────────────────────────────────
   const [garants, setGarants] = useState<Garant[]>([]);
+  const [garantsLoaded, setGarantsLoaded] = useState(false);
+  const [declLoaded, setDeclLoaded] = useState(false);
   const [garantMsg, setGarantMsg] = useState<{ text: string; ok: boolean } | null>(null);
   const [editingGarantId, setEditingGarantId] = useState<string | null>(null);
   const [editNom, setEditNom] = useState("");
@@ -240,13 +253,17 @@ export function ExperienceTab({
     fetch("/api/profile/garants")
       .then((r) => (r.ok ? r.json() : { items: [] }))
       .then((d) => setGarants(d.items ?? []))
-      .catch(() => setGarants([]));
+      .catch(() => setGarants([]))
+      .finally(() => setGarantsLoaded(true));
   }, []);
 
   // Les déclarations ne se chargent qu'une fois le profil connu : `GET /api/declarations`
   // exige un `profileId`, et sans profil il n'y a rien à lire.
   useEffect(() => {
-    if (!profile?.id) return;
+    if (!profile?.id) {
+      setDeclLoaded(true);
+      return;
+    }
     fetch(`/api/declarations?profileId=${encodeURIComponent(profile.id)}`)
       .then((r) => (r.ok ? r.json() : { items: [] }))
       .then((d) => {
@@ -259,8 +276,48 @@ export function ExperienceTab({
       .catch(() => {
         setDiplomas([]);
         setExperiences([]);
-      });
+      })
+      .finally(() => setDeclLoaded(true));
   }, [profile?.id]);
+
+  // ── Parcours en étapes (2026-11-09) ───────────────────────────────────────────────────
+  // Une rubrique à la fois, validée avant la suivante, jusqu'à l'étape « Validation ». Les
+  // règles sont celles du barème serveur (src/lib/experience-steps.ts).
+  const identity = useUserIdentity();
+  const steps = useMemo(
+    () =>
+      experienceSteps({
+        declaredLevel: profile?.declaredLevel,
+        declaredExperienceYears: profile?.declaredExperienceYears,
+        experiencesCount: experiences.length,
+        diplomasCount: diplomas.length,
+        portfolioCount: profile?.portfolioUrls?.length ?? 0,
+        hasCv: !!profile?.cvUrl,
+        garants,
+        garantRequired: identity?.garantRequired ?? false,
+        showPortfolio,
+      }),
+    [profile, experiences.length, diplomas.length, garants, identity?.garantRequired, showPortfolio],
+  );
+  const [step, setStep] = useState<ExperienceStepKey | null>(null);
+  const wizardRef = useRef<HTMLDivElement>(null);
+  // Reprise : une fois les déclarations et les garants chargés, on ouvre la première étape
+  // obligatoire non faite — ou la validation si tout est fait.
+  useEffect(() => {
+    if (step === null && declLoaded && garantsLoaded) setStep(resumeStep(steps));
+  }, [step, declLoaded, garantsLoaded, steps]);
+  const current = step ?? "niveau";
+  const currentIndex = steps.findIndex((s) => s.key === current);
+  const currentStep = steps[currentIndex];
+  const prevStep = currentIndex > 0 ? steps[currentIndex - 1] : null;
+  const nextStep = currentIndex < steps.length - 1 ? steps[currentIndex + 1] : null;
+  const complete = isSectionComplete(steps);
+
+  function goTo(key: ExperienceStepKey) {
+    if (!canReachStep(steps, key)) return;
+    setStep(key);
+    wizardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 
   useEffect(() => {
     if (!returnTo || redirectStartedRef.current || !hasRequiredGarants(garants)) return;
@@ -276,6 +333,19 @@ export function ExperienceTab({
       setLevelMsg({ text: "Choisissez votre niveau professionnel.", ok: false });
       return;
     }
+    // Années OBLIGATOIRES (2026-11-09) : c'est le critère que compte le barème serveur ; un
+    // niveau seul laissait l'étape « enregistrée » mais jamais comptée comme faite.
+    const yearsCheck = validateYears(years);
+    if (!yearsCheck.ok) {
+      setLevelMsg({ text: yearsCheck.message, ok: false });
+      return;
+    }
+    // Déjà enregistré tel quel : on passe à la suite sans requête.
+    if (declaredLevel === (profile?.declaredLevel ?? "") && yearsCheck.value === profile?.declaredExperienceYears) {
+      setLevelMsg(null);
+      if (nextStep) goTo(nextStep.key);
+      return;
+    }
     setLevelSaving(true);
     setLevelMsg(null);
     const res = await fetch("/api/profile", {
@@ -283,16 +353,18 @@ export function ExperienceTab({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         declaredLevel,
-        // `0` est une réponse valide (« débutant ») : on n'omet la clé que si le champ est
-        // réellement vide.
-        declaredExperienceYears: years === "" ? undefined : Number(years),
+        // `0` est une réponse valide (« débutant »).
+        declaredExperienceYears: yearsCheck.value,
       }),
     });
     setLevelSaving(false);
     if (res.ok) {
       onSaved(await res.json());
       onCompletionChanged();
-      setLevelMsg({ text: "Niveau et expérience enregistrés.", ok: true });
+      setLevelMsg(null);
+      // Étape suivante : l'étape « Niveau » est faite dès cet enregistrement.
+      setStep("experiences");
+      wizardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
       return;
     }
     const data = await res.json().catch(() => ({}));
@@ -500,8 +572,65 @@ export function ExperienceTab({
         </div>
       )}
 
+
+
+
+
+
+
+      {/* Parcours en étapes : une rubrique à la fois, validée avant la suivante. */}
+      <div ref={wizardRef} className="scroll-mt-20">
+        <ol aria-label="Étapes de l'expérience" className="flex flex-wrap gap-2">
+          {steps.map((s, i) => {
+            const active = s.key === current;
+            const reachable = canReachStep(steps, s.key);
+            return (
+              <li key={s.key}>
+                <button
+                  type="button"
+                  onClick={() => goTo(s.key)}
+                  disabled={!reachable}
+                  aria-current={active ? "step" : undefined}
+                  className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-[12.5px] font-medium transition disabled:cursor-not-allowed disabled:opacity-40 ${
+                    active
+                      ? "border-[#4C1D95] bg-[#4C1D95] text-white"
+                      : s.done
+                        ? "border-[#4C1D95]/30 bg-[#4C1D95]/5 text-[#3B1578] hover:bg-[#4C1D95]/10"
+                        : "border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50"
+                  }`}
+                >
+                  <span
+                    aria-hidden
+                    className={`flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold ${
+                      active ? "bg-white/20" : s.done ? "bg-[#047857] text-white" : "bg-zinc-100"
+                    }`}
+                  >
+                    {s.done && !active ? "✓" : i + 1}
+                  </span>
+                  {s.label}
+                  {!s.required && s.key !== "validation" && <span className={active ? "text-white/70" : "text-zinc-400"}>(facultatif)</span>}
+                  <span className="sr-only">{s.done ? " — faite" : s.required ? " — obligatoire" : ""}</span>
+                </button>
+              </li>
+            );
+          })}
+        </ol>
+        <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-zinc-100" aria-hidden>
+          <div className="h-full rounded-full bg-[#4C1D95] transition-all" style={{ width: `${((currentIndex + 1) / steps.length) * 100}%` }} />
+        </div>
+        <p className="mt-2 text-[12px] text-zinc-500">
+          {/* « Expérience · » : distinct du compteur des étapes du profil, affiché au-dessus. */}
+          Expérience · étape {currentIndex + 1} sur {steps.length}
+        </p>
+      </div>
+
+      {step === null ? (
+        <div className="rounded-2xl border border-zinc-100 bg-white p-6 text-[13px] text-zinc-400">Chargement…</div>
+      ) : (
+        <>
+          {current === "niveau" && (
       <ProfileCard title="Niveau et années d'expérience">
-        <form onSubmit={saveLevel} className="space-y-4">
+        <form id="xp-level-form" onSubmit={saveLevel} noValidate className="space-y-4">
           <div className="grid sm:grid-cols-2 gap-4">
             <Field label="Niveau professionnel" htmlFor="declaredLevel" required>
               <select
@@ -519,7 +648,7 @@ export function ExperienceTab({
                 ))}
               </select>
             </Field>
-            <Field label="Années d'expérience" htmlFor="years">
+            <Field label="Années d'expérience" htmlFor="years" required hint="0 si vous débutez.">
               <input
                 id="years"
                 type="number"
@@ -529,13 +658,19 @@ export function ExperienceTab({
                 onChange={(e) => setYears(e.target.value)}
                 className={inputClass}
                 placeholder="5"
+                required
               />
             </Field>
           </div>
-          <SaveRow saving={levelSaving} message={levelMsg} label="Enregistrer le niveau" />
+          {levelMsg && (
+            <p role={levelMsg.ok ? "status" : "alert"} className={`text-[13px] ${levelMsg.ok ? "text-emerald-700" : "text-red-600"}`}>
+              {levelMsg.text}
+            </p>
+          )}
         </form>
       </ProfileCard>
-
+          )}
+          {current === "experiences" && (
       <ProfileCard
         title="Expériences professionnelles"
         description="Chaque ajout crée une déclaration horodatée et chaînée. Une correction crée une nouvelle déclaration, l'ancienne reste consultable."
@@ -553,7 +688,7 @@ export function ExperienceTab({
                 return (
                   <li key={xp.id} className="rounded-xl border border-zinc-100 bg-zinc-50 px-4 py-3">
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-[14px] font-semibold text-[#0A1931]">{xp.role}</p>
+                      <p className="text-[14px] font-semibold text-[#191224]">{xp.role}</p>
                       <span
                         className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
                           xp.clientType === "COMPANY" ? "bg-blue-50 text-blue-700" : "bg-amber-50 text-amber-700"
@@ -586,7 +721,7 @@ export function ExperienceTab({
         {experiences.length >= MAX_EXPERIENCES ? (
           <p className="text-[13px] text-zinc-500">
             Limite de {MAX_EXPERIENCES} expériences atteinte. Pour en modifier la liste, passez par{" "}
-            <Link href="/declarations" className="font-medium text-[#008751] underline">
+            <Link href="/declarations" className="font-medium text-[#4C1D95] underline">
               mes déclarations
             </Link>
             .
@@ -594,7 +729,7 @@ export function ExperienceTab({
         ) : (
         <form onSubmit={addExperience} className="space-y-4">
           {experiences.length > 0 && (
-            <p className="text-[13px] font-semibold text-[#0A1931]">Ajouter une expérience</p>
+            <p className="text-[13px] font-semibold text-[#191224]">Ajouter une expérience</p>
           )}
           {/* Type de client EN TÊTE : il décide des champs qui suivent. Pour un Particulier,
               employeur et période sont retirés du formulaire (2026-11-07) — un chantier chez un
@@ -650,7 +785,7 @@ export function ExperienceTab({
                       type="checkbox"
                       checked={xpOngoing}
                       onChange={(e) => setXpOngoing(e.target.checked)}
-                      className="accent-[#008751]"
+                      className="accent-[#4C1D95]"
                     />
                     Expérience en cours
                   </label>
@@ -665,7 +800,7 @@ export function ExperienceTab({
               name="description"
               rows={3}
               maxLength={3000}
-              className="w-full px-3 py-2.5 rounded-xl border border-zinc-200 text-[14px] focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751] transition"
+              className="w-full px-3 py-2.5 rounded-xl border border-zinc-200 text-[14px] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20 focus:border-[#4C1D95] transition"
               placeholder="Ce que vous avez réalisé, avec quels moyens."
             />
           </Field>
@@ -678,7 +813,8 @@ export function ExperienceTab({
         </form>
         )}
       </ProfileCard>
-
+          )}
+          {current === "diplomes" && (
       <ProfileCard
         title="Diplômes et certifications"
         description="Le diplôme d'État est le pivot du badge « Vérifié » : il rend une demande éligible."
@@ -688,14 +824,14 @@ export function ExperienceTab({
             {diplomas.map((d) => (
               <li key={d.id} className="flex items-center justify-between gap-3 rounded-xl bg-zinc-50 px-4 py-3">
                 <div>
-                  <p className="text-[13px] font-medium text-[#0A1931]">{d.qualificationName}</p>
+                  <p className="text-[13px] font-medium text-[#191224]">{d.qualificationName}</p>
                   <p className="text-[12px] text-zinc-500">
                     {[d.specialty, countryName(d.country) ?? d.institution, d.year].filter(Boolean).join(" · ")}
                   </p>
                 </div>
                 <span
                   className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-semibold ${
-                    d.isStateIssued ? "bg-[#008751]/10 text-[#008751]" : "bg-zinc-100 text-zinc-500"
+                    d.isStateIssued ? "bg-[#4C1D95]/10 text-[#4C1D95]" : "bg-zinc-100 text-zinc-500"
                   }`}
                 >
                   {d.isStateIssued ? "Diplôme d'État" : "Déclaratif"}
@@ -706,7 +842,7 @@ export function ExperienceTab({
         )}
 
         <form onSubmit={addDiploma} className="space-y-4">
-          {diplomas.length > 0 && <p className="text-[13px] font-semibold text-[#0A1931]">Ajouter un diplôme ou une certification</p>}
+          {diplomas.length > 0 && <p className="text-[13px] font-semibold text-[#191224]">Ajouter un diplôme ou une certification</p>}
           {/* `key` : remonté après chaque ajout, le sélecteur repart vide (type, intitulé…). */}
           <QualificationPicker key={declFormKey} metierId={profile?.metierId} mainDomain={profile?.mainDomain} />
           <div className="grid sm:grid-cols-2 gap-4">
@@ -748,13 +884,13 @@ export function ExperienceTab({
           )}
         </form>
       </ProfileCard>
-
-      {showPortfolio && (
-        <ProfileCard title="Portfolio et CV" description="Photos de réalisations, liens externes et CV au format PDF.">
+          )}
+          {current === "portfolio" && (
+              <ProfileCard title="Portfolio et CV" description="Photos de réalisations, liens externes et CV au format PDF.">
           <PortfolioEditor profile={profile} onSaved={onSaved} />
         </ProfileCard>
-      )}
-
+          )}
+          {current === "garants" && (
       <ProfileCard
         title="Personnes ressources (garants)"
         description="Un garant obligatoire est exigé pour candidater aux missions en présentiel ou hybride quand l'Admin KYC l'a activé pour votre compte."
@@ -779,9 +915,9 @@ export function ExperienceTab({
                 ) : (
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <p className="text-[13px] font-medium text-[#0A1931]">
+                      <p className="text-[13px] font-medium text-[#191224]">
                         {g.nom}
-                        {g.obligatoire && <span className="ml-2 text-[11px] font-semibold text-[#008751]">Obligatoire</span>}
+                        {g.obligatoire && <span className="ml-2 text-[11px] font-semibold text-[#4C1D95]">Obligatoire</span>}
                       </p>
                       <p className="text-[12px] text-zinc-500">{g.tel}</p>
                     </div>
@@ -825,12 +961,105 @@ export function ExperienceTab({
         )}
         {garantMsg && <p className="mt-3 text-[12px] text-red-600">{garantMsg.text}</p>}
       </ProfileCard>
+          )}
+          {current === "validation" && (
+            <ProfileCard title="Validation de la section Expérience" description="Vérifiez chaque rubrique avant de valider.">
+              <ul className="space-y-2">
+                {steps
+                  .filter((s) => s.key !== "validation")
+                  .map((s) => (
+                    <li key={s.key} className="flex items-start justify-between gap-3 rounded-xl border border-zinc-100 px-4 py-3">
+                      <div className="flex items-start gap-3">
+                        <span
+                          aria-hidden
+                          className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${
+                            s.done ? "bg-[#047857] text-white" : s.required ? "bg-red-100 text-red-700" : "bg-zinc-100 text-zinc-500"
+                          }`}
+                        >
+                          {s.done ? "✓" : s.required ? "!" : "–"}
+                        </span>
+                        <div>
+                          <p className="text-[14px] font-medium text-[#191224]">
+                            {s.label}
+                            {!s.required && <span className="ml-1.5 text-[12px] font-normal text-zinc-400">facultatif</span>}
+                          </p>
+                          <p className={`text-[12.5px] ${s.done ? "text-zinc-500" : s.required ? "text-red-600" : "text-zinc-500"}`}>
+                            {s.done ? "Complété." : (s.missing ?? "Non renseigné.")}
+                          </p>
+                        </div>
+                      </div>
+                      <button type="button" onClick={() => goTo(s.key)} className="shrink-0 text-[12.5px] font-medium text-[#4C1D95] hover:underline">
+                        {s.done ? "Modifier" : "Compléter"}
+                      </button>
+                    </li>
+                  ))}
+              </ul>
+              {complete ? (
+                <div role="status" className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-[13px] text-emerald-900">
+                  <p className="font-semibold">Toutes les rubriques obligatoires sont complètes.</p>
+                  <p className="mt-0.5">Validez la section pour passer à la suite de votre profil.</p>
+                </div>
+              ) : (
+                <div role="alert" className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-900">
+                  Complétez les rubriques marquées « ! » pour valider la section.
+                </div>
+              )}
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  disabled={!complete}
+                  onClick={() => {
+                    onCompletionChanged();
+                    onFinished?.();
+                  }}
+                  className={btnPrimary}
+                >
+                  Valider la section Expérience
+                </button>
+                <Link href="/declarations" className={btnSecondary}>
+                  Déclarations détaillées (assurance, références…)
+                </Link>
+              </div>
+            </ProfileCard>
+          )}
 
-      <ProfileCard title="Déclarations détaillées" description="Assurance RC Pro, références, pièces jointes et historique complet.">
-        <Link href="/declarations" className={btnSecondary}>
-          Ouvrir mes déclarations
-        </Link>
-      </ProfileCard>
+          {/* Navigation entre les étapes */}
+          {current !== "validation" && (
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              {prevStep ? (
+                <button type="button" onClick={() => goTo(prevStep.key)} className={btnSecondary}>
+                  ← Précédent
+                </button>
+              ) : (
+                <span />
+              )}
+              <div className="flex flex-col items-end gap-1">
+                {current === "niveau" ? (
+                  <button type="submit" form="xp-level-form" disabled={levelSaving} className={btnPrimary}>
+                    {levelSaving ? "Enregistrement..." : "Enregistrer et continuer →"}
+                  </button>
+                ) : (
+                  nextStep && (
+                    <button
+                      type="button"
+                      onClick={() => goTo(nextStep.key)}
+                      disabled={currentStep.required && !currentStep.done}
+                      className={btnPrimary}
+                    >
+                      {/* Libellé explicite : le profil a son propre « Continuer » (étape suivante du
+                          profil) ; celui-ci mène à la sous-étape suivante de l'Expérience. */}
+                      {currentStep.done || currentStep.required ? "Suivant" : "Passer"} : {nextStep.label} →
+                    </button>
+                  )
+                )}
+                {currentStep.required && !currentStep.done && current !== "niveau" && currentStep.missing && (
+                  <p className="text-[12px] text-zinc-500">{currentStep.missing}</p>
+                )}
+              </div>
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }

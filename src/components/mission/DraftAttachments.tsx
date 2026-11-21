@@ -145,7 +145,7 @@ export function DraftAttachments({
         type="button"
         onClick={() => inputRef.current?.click()}
         disabled={busy || full}
-        className="w-full p-4 border border-dashed border-zinc-300 rounded-xl text-[13px] text-zinc-500 hover:border-[#008751] hover:text-[#008751] disabled:opacity-50 disabled:cursor-not-allowed transition"
+        className="w-full p-4 border border-dashed border-zinc-300 rounded-xl text-[13px] text-zinc-500 hover:border-[#4C1D95] hover:text-[#4C1D95] disabled:opacity-50 disabled:cursor-not-allowed transition"
       >
         {busy ? "Envoi en cours..." : full ? `Maximum ${MAX_FILES} fichiers atteint` : "📎 Ajouter des fichiers"}
       </button>
@@ -154,7 +154,7 @@ export function DraftAttachments({
       </p>
 
       {msg && (
-        <p className={`mt-2 text-[12px] font-medium ${msg.ok ? "text-[#166534]" : "text-red-600"}`}>{msg.text}</p>
+        <p className={`mt-2 text-[12px] font-medium ${msg.ok ? "text-[#047857]" : "text-red-600"}`}>{msg.text}</p>
       )}
 
       {items.length > 0 && (

@@ -87,12 +87,12 @@ export default function MenusPage() {
       <PublishBar revision={revision} onPublished={load} />
 
       {feedback && (
-        <div className="bg-[#FEF3C7] border border-[#FDE68A] text-[#92400E] rounded-xl px-4 py-2.5 text-[12px]">
+        <div className="bg-[#FFF6E3] border border-[#FDE68A] text-[#92400E] rounded-xl px-4 py-2.5 text-[12px]">
           {feedback}
         </div>
       )}
 
-      <p className="text-[12px] text-[#5A5750] max-w-3xl">
+      <p className="text-[12px] text-[#6B6478] max-w-3xl">
         Les destinations proposées sont les {LINKABLE_ROUTES.length} pages publiques réellement servies
         par l’application. Une adresse absente de cette liste est refusée à l’enregistrement : c’est ce
         qui empêche un menu de se remplir de liens morts.
@@ -100,20 +100,20 @@ export default function MenusPage() {
 
       <div className="grid lg:grid-cols-2 gap-3 items-start">
         {menus.map((menu) => (
-          <div key={menu.key} className="bg-white border border-[#E2E0D9] rounded-xl overflow-hidden">
-            <div className="px-4 py-2.5 border-b border-[#E2E0D9] flex items-center gap-2">
+          <div key={menu.key} className="bg-white border border-[#E7E2F0] rounded-xl overflow-hidden">
+            <div className="px-4 py-2.5 border-b border-[#E7E2F0] flex items-center gap-2">
               <p className="text-[13px] font-bold">{menu.label}</p>
-              <span className="text-[11px] font-mono text-[#9C9A95]">{menu.key}</span>
-              <span className="ml-auto text-[11px] text-[#9C9A95]">{menu.items.length} entrées</span>
+              <span className="text-[11px] font-mono text-[#9A93A8]">{menu.key}</span>
+              <span className="ml-auto text-[11px] text-[#9A93A8]">{menu.items.length} entrées</span>
             </div>
 
             <div className="p-3 space-y-1.5">
               {menu.items.map((item) => (
-                <div key={item.id} className="rounded-lg border border-[#E2E0D9] px-2.5 py-2 space-y-1.5">
+                <div key={item.id} className="rounded-lg border border-[#E7E2F0] px-2.5 py-2 space-y-1.5">
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => patch(item.id, { status: item.status === "publie" ? "desactive" : "publie" })}
-                      className={`text-[13px] leading-none ${item.status === "publie" ? "text-[#166534]" : "text-[#C9C6BE]"}`}
+                      className={`text-[13px] leading-none ${item.status === "publie" ? "text-[#047857]" : "text-[#D4CCE3]"}`}
                       title={item.status === "publie" ? "Masquer" : "Afficher"}
                     >
                       ●
@@ -122,7 +122,7 @@ export default function MenusPage() {
                     <StatusBadge status={item.status} />
                     <button
                       onClick={() => remove(item.id)}
-                      className="ml-auto text-[#C9C6BE] hover:text-[#B91C1C] text-[14px] leading-none px-1"
+                      className="ml-auto text-[#D4CCE3] hover:text-[#B42318] text-[14px] leading-none px-1"
                     >
                       ×
                     </button>
@@ -134,7 +134,7 @@ export default function MenusPage() {
                       value={item.href}
                       onChange={(e) => patch(item.id, { href: e.target.value })}
                       style={ROUTE_FONT}
-                      className="h-7 w-44 shrink-0 px-1.5 rounded border border-[#E2E0D9] text-[11px] bg-white"
+                      className="h-7 w-44 shrink-0 px-1.5 rounded border border-[#E7E2F0] text-[11px] bg-white"
                     >
                       {!LINKABLE_ROUTES.includes(item.href) && <option value={item.href}>{item.href}</option>}
                       {LINKABLE_ROUTES.map((route) => (
@@ -180,7 +180,7 @@ function EditableText({
       onChange={(e) => setDraft(e.target.value)}
       onBlur={commit}
       onKeyDown={(e) => e.key === "Enter" && commit()}
-      className="flex-1 min-w-0 h-7 px-2 rounded border border-transparent hover:border-[#E2E0D9] focus:border-[#2D5BE3] text-[12px] bg-transparent outline-none"
+      className="flex-1 min-w-0 h-7 px-2 rounded border border-transparent hover:border-[#E7E2F0] focus:border-[#4C1D95] text-[12px] bg-transparent outline-none"
     />
   );
 }
@@ -194,13 +194,13 @@ function AddMenuItem({ onAdd }: { onAdd: (label: string, href: string) => void }
         value={label}
         onChange={(e) => setLabel(e.target.value)}
         placeholder="Libellé"
-        className="flex-1 min-w-0 h-8 px-2 rounded-lg border border-dashed border-[#D6D3CB] text-[12px] outline-none focus:border-[#2D5BE3]"
+        className="flex-1 min-w-0 h-8 px-2 rounded-lg border border-dashed border-[#D6D3CB] text-[12px] outline-none focus:border-[#4C1D95]"
       />
       <select
         value={href}
         onChange={(e) => setHref(e.target.value)}
         style={ROUTE_FONT}
-        className="h-8 w-40 shrink-0 px-1.5 rounded-lg border border-[#E2E0D9] text-[11px] bg-white"
+        className="h-8 w-40 shrink-0 px-1.5 rounded-lg border border-[#E7E2F0] text-[11px] bg-white"
       >
         {LINKABLE_ROUTES.map((route) => (
           <option key={route} value={route}>
@@ -214,7 +214,7 @@ function AddMenuItem({ onAdd }: { onAdd: (label: string, href: string) => void }
           onAdd(label.trim(), href);
           setLabel("");
         }}
-        className="h-8 px-3 rounded-lg bg-[#1A1916] text-white text-[11px] font-bold shrink-0"
+        className="h-8 px-3 rounded-full bg-[#191224] text-white text-[11px] font-bold shrink-0"
       >
         Ajouter
       </button>

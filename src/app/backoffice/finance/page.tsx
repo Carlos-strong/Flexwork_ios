@@ -80,7 +80,7 @@ export default function BackOfficeFinancePage() {
             <AdminCard title="Par canal" padded={false}>
               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead className="border-b border-[#E2E0D9] bg-[#FAFAF8]">
+                  <thead className="border-b border-[#E7E2F0] bg-[#F6F5FA]">
                     <tr>
                       <th className={tableHead}>Canal</th>
                       <th className={`${tableHead} text-right`}>Versé</th>
@@ -88,10 +88,10 @@ export default function BackOfficeFinancePage() {
                       <th className={`${tableHead} text-right`}>Détenu</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#E2E0D9]">
+                  <tbody className="divide-y divide-[#E7E2F0]">
                     <tr>
                       <td className={tableCell}>
-                        Missions <span className="text-[11px] text-[#9C9A95]">· {snap.missions.contracts} contrats</span>
+                        Missions <span className="text-[11px] text-[#9A93A8]">· {snap.missions.contracts} contrats</span>
                       </td>
                       <td className={`${tableCell} text-right tabular-nums`}>{formatXof(snap.missions.funded)}</td>
                       <td className={`${tableCell} text-right tabular-nums`}>{formatXof(snap.missions.released)}</td>
@@ -99,7 +99,7 @@ export default function BackOfficeFinancePage() {
                     </tr>
                     <tr>
                       <td className={tableCell}>
-                        Gigs <span className="text-[11px] text-[#9C9A95]">· {snap.gigs.orders} commandes</span>
+                        Gigs <span className="text-[11px] text-[#9A93A8]">· {snap.gigs.orders} commandes</span>
                       </td>
                       <td className={`${tableCell} text-right tabular-nums`}>{formatXof(snap.gigs.funded)}</td>
                       <td className={`${tableCell} text-right tabular-nums`}>{formatXof(snap.gigs.released)}</td>
@@ -108,7 +108,7 @@ export default function BackOfficeFinancePage() {
                   </tbody>
                 </table>
               </div>
-              <div className="border-t border-[#E2E0D9] px-5 py-3 text-[12px] text-[#5A5750]">
+              <div className="border-t border-[#E7E2F0] px-5 py-3 text-[12px] text-[#6B6478]">
                 Dû au prestataire {formatXof(snap.missions.owedToProvider)} · gelé {formatXof(snap.missions.blocked)} · retenue{" "}
                 {formatXof(snap.missions.retained)} · restituable {formatXof(snap.missions.refundable)}
                 {snap.missions.missing > 0 && <span className="font-semibold text-[#B42318]"> · non couvert {formatXof(snap.missions.missing)}</span>}
@@ -118,7 +118,7 @@ export default function BackOfficeFinancePage() {
             <AdminCard title="Sommes dues" subtitle="Payables par statut." padded={false}>
               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <tbody className="divide-y divide-[#E2E0D9]">
+                  <tbody className="divide-y divide-[#E7E2F0]">
                     {Object.entries(snap.payables).map(([status, v]) => (
                       <tr key={status}>
                         <td className={tableCell}>{PAYABLE_STATUS[status]?.label ?? status}</td>
@@ -152,16 +152,16 @@ export default function BackOfficeFinancePage() {
               </div>
             ) : (
               <>
-                <div className="flex flex-wrap gap-2 border-b border-[#E2E0D9] px-5 py-3">
+                <div className="flex flex-wrap gap-2 border-b border-[#E7E2F0] px-5 py-3">
                   {Object.entries(bySeverity).map(([sev, n]) => (
-                    <span key={sev} className="rounded-full border border-[#E2E0D9] bg-[#FAFAF8] px-2.5 py-0.5 text-[11.5px] font-semibold text-[#5A5750]">
+                    <span key={sev} className="rounded-full border border-[#E7E2F0] bg-[#F6F5FA] px-2.5 py-0.5 text-[11.5px] font-semibold text-[#6B6478]">
                       {SEVERITY[sev]?.label ?? sev} · {n}
                     </span>
                   ))}
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full">
-                    <tbody className="divide-y divide-[#E2E0D9]">
+                    <tbody className="divide-y divide-[#E7E2F0]">
                       {Object.entries(byKind).map(([kind, v]) => (
                         <tr key={kind}>
                           <td className={tableCell}>{ANOMALY[kind]?.label ?? kind}</td>

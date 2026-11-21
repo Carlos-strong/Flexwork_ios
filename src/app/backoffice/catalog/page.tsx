@@ -49,9 +49,9 @@ interface Metier {
 // Le palier de risque se lit d'un coup d'œil sur la liste (2026-09-24) : c'est la conséquence
 // « assurance obligatoire » qui est codée par la couleur, parce que c'est elle qui engage.
 const RISK_BADGE: Record<string, string> = {
-  low: "bg-[#F4F3EF] text-[#5A5750]",
-  medium: "bg-[#FEF3C7] text-[#D97706]",
-  high: "bg-[#FEE2E2] text-[#B91C1C]",
+  low: "bg-[#EFEAF8] text-[#6B6478]",
+  medium: "bg-[#FFF6E3] text-[#D97706]",
+  high: "bg-[#FEECEB] text-[#B42318]",
 };
 
 // Le libellé du marqueur d'âge, écrit UNE fois : il sert au badge, à l'infobulle et au message
@@ -69,10 +69,10 @@ const OPR_HINT =
 // en attente — elle n'apparaîtra sous aucun pôle de la marketplace tant qu'elle le reste.
 const SECTEUR_BADGE: Record<string, string> = {
   digital: "bg-[#E0F2FE] text-[#0369A1]",
-  btp: "bg-[#FEF3C7] text-[#B45309]",
-  services: "bg-[#DCFCE7] text-[#15803D]",
+  btp: "bg-[#FFF6E3] text-[#B45309]",
+  services: "bg-[#E7F7EF] text-[#047857]",
 };
-const SECTEUR_UNSET_BADGE = "bg-[#FFEDD5] text-[#C2410C]";
+const SECTEUR_UNSET_BADGE = "bg-[#F0EAFF] text-[#C2410C]";
 
 interface ServiceItem {
   id: string;
@@ -310,24 +310,24 @@ export default function BackOfficeCatalogPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h2 className="text-[22px] font-semibold tracking-[-0.02em] text-[#1A1916]">Taxonomie</h2>
-        <p className="text-[14px] text-[#5A5750]">
+        <h2 className="text-[22px] font-semibold tracking-[-0.02em] text-[#191224]">Taxonomie</h2>
+        <p className="text-[14px] text-[#6B6478]">
           Hiérarchie : Secteur → Catégorie → Métier → Service
         </p>
       </div>
 
       {readOnly && (
-        <div className="rounded-[12px] border border-[#E2E0D9] bg-[#FAFAF8] px-4 py-3 text-[13px] text-[#5A5750]">
+        <div className="rounded-[12px] border border-[#E7E2F0] bg-[#F6F5FA] px-4 py-3 text-[13px] text-[#6B6478]">
           👁️ Lecture seule : votre rôle consulte la taxonomie sans la modifier. L’ajout, la modification et la
           suppression sont réservés au rôle « Éditeur du site ».
         </div>
       )}
       {loadError && (
-        <div className="rounded-[12px] border border-[#F5C6C0] bg-[#FDF0EE] px-4 py-3 text-[13px] text-[#C0392B]">{loadError}</div>
+        <div className="rounded-[12px] border border-[#F5C6C0] bg-[#FDF0EE] px-4 py-3 text-[13px] text-[#B42318]">{loadError}</div>
       )}
       {notice && (
         <div
-          className={`rounded-[12px] border px-4 py-3 text-[13px] flex items-center justify-between gap-3 ${notice.tone === "ok" ? "border-[#BBE3CB] bg-[#EDF8F1] text-[#1A7A4A]" : "border-[#F5C6C0] bg-[#FDF0EE] text-[#C0392B]"}`}
+          className={`rounded-[12px] border px-4 py-3 text-[13px] flex items-center justify-between gap-3 ${notice.tone === "ok" ? "border-[#BBE3CB] bg-[#EDF8F1] text-[#065F46]" : "border-[#F5C6C0] bg-[#FDF0EE] text-[#B42318]"}`}
         >
           <span>{notice.text}</span>
           <button onClick={() => setNotice(null)} className="text-[12px] opacity-70 hover:opacity-100">✕</button>
@@ -342,10 +342,10 @@ export default function BackOfficeCatalogPage() {
       {/* Arborescence visuelle */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Colonne 1 — Catégories */}
-        <div className="rounded-[16px] border border-[#E2E0D9] overflow-hidden bg-white shadow-sm">
-          <div className="px-4 py-3 border-b border-[#E2E0D9] bg-[#FAFAF8] flex items-center justify-between">
-            <h3 className="font-semibold text-[14px] text-[#1A1916]">Catégories</h3>
-            <span className="text-[12px] text-[#5A5750]">{categories.length}</span>
+        <div className="rounded-[16px] border border-[#E7E2F0] overflow-hidden bg-white shadow-sm">
+          <div className="px-4 py-3 border-b border-[#E7E2F0] bg-[#F6F5FA] flex items-center justify-between">
+            <h3 className="font-semibold text-[14px] text-[#191224]">Catégories</h3>
+            <span className="text-[12px] text-[#6B6478]">{categories.length}</span>
           </div>
           <div className="overflow-y-auto max-h-80">
             {loading && categories.length === 0 ? (
@@ -353,9 +353,9 @@ export default function BackOfficeCatalogPage() {
                 {[1, 2, 3].map((i) => <div key={i} className="animate-pulse h-10 rounded-[10px] bg-[#F5F5F0]" />)}
               </div>
             ) : categories.map((cat) => (
-              <div key={cat.id} className="flex items-center border-b border-[#E2E0D9] last:border-b-0 group">
+              <div key={cat.id} className="flex items-center border-b border-[#E7E2F0] last:border-b-0 group">
                 {editCat?.id === cat.id ? (
-                  <span className={`flex-1 inline-flex items-center gap-1 px-4 py-3 text-[14px] ${selected?.id === cat.id ? "bg-[#EEF2FD]" : ""}`}>
+                  <span className={`flex-1 inline-flex items-center gap-1 px-4 py-3 text-[14px] ${selected?.id === cat.id ? "bg-[#F0EAFF]" : ""}`}>
                     <input value={editCat.libelle} onChange={(e) => setEditCat((p) => p ? { ...p, libelle: e.target.value } : null)} className="flex-1 min-w-0 rounded border px-1 text-xs" autoFocus onKeyDown={(e) => e.key === "Enter" && saveCategory()} />
                     <select
                       value={editCat.secteur}
@@ -366,7 +366,7 @@ export default function BackOfficeCatalogPage() {
                       <option value="">Non classée</option>
                       {SECTEURS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
                     </select>
-                    <label className="inline-flex items-center gap-1 text-[11px] text-[#5A5750] whitespace-nowrap" title={AGE_CHECK_HINT}>
+                    <label className="inline-flex items-center gap-1 text-[11px] text-[#6B6478] whitespace-nowrap" title={AGE_CHECK_HINT}>
                       <input
                         type="checkbox"
                         checked={editCat.requiresAgeCheck}
@@ -374,7 +374,7 @@ export default function BackOfficeCatalogPage() {
                       />
                       Âge requis
                     </label>
-                    <label className="inline-flex items-center gap-1 text-[11px] text-[#5A5750] whitespace-nowrap" title={OPR_HINT}>
+                    <label className="inline-flex items-center gap-1 text-[11px] text-[#6B6478] whitespace-nowrap" title={OPR_HINT}>
                       <input
                         type="checkbox"
                         checked={editCat.allowsOprVerification}
@@ -382,17 +382,17 @@ export default function BackOfficeCatalogPage() {
                       />
                       OPR
                     </label>
-                    <button onClick={saveCategory} disabled={saving} className="text-xs text-[#1A7A4A] hover:underline">✓</button>
-                    <button onClick={() => setEditCat(null)} className="text-xs text-[#5A5750] hover:underline">✕</button>
+                    <button onClick={saveCategory} disabled={saving} className="text-xs text-[#3B1578] hover:underline">✓</button>
+                    <button onClick={() => setEditCat(null)} className="text-xs text-[#6B6478] hover:underline">✕</button>
                   </span>
                 ) : (
                   <button
                     onClick={() => handleSelectCategory(cat)}
-                    className={`flex-1 text-left px-4 py-3 text-[14px] transition-colors hover:bg-[#EEF2FD] ${selected?.id === cat.id ? "bg-[#EEF2FD] font-medium text-[#1A1916]" : "text-[#1A1916]"}`}
+                    className={`flex-1 text-left px-4 py-3 text-[14px] transition-colors hover:bg-[#F0EAFF] ${selected?.id === cat.id ? "bg-[#F0EAFF] font-medium text-[#191224]" : "text-[#191224]"}`}
                   >
                     {cat.icon && <span className="mr-1.5">{cat.icon}</span>}
                     {cat.libelle}
-                    <span className="ml-2 text-[12px] text-[#5A5750]">({cat._count?.metiers ?? cat.metiers?.length ?? 0})</span>
+                    <span className="ml-2 text-[12px] text-[#6B6478]">({cat._count?.metiers ?? cat.metiers?.length ?? 0})</span>
                     <span
                       className={`ml-2 inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold align-middle uppercase ${cat.secteur ? SECTEUR_BADGE[cat.secteur] ?? SECTEUR_UNSET_BADGE : SECTEUR_UNSET_BADGE}`}
                       title={SECTEURS.find((s) => s.value === cat.secteur)?.hint ?? "Aucun secteur : à classer."}
@@ -405,7 +405,7 @@ export default function BackOfficeCatalogPage() {
                       </span>
                     )}
                     {cat.allowsOprVerification && (
-                      <span className="ml-2 inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold align-middle bg-[#FEF3C7] text-[#92400E]" title={OPR_HINT}>
+                      <span className="ml-2 inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold align-middle bg-[#FFF6E3] text-[#92400E]" title={OPR_HINT}>
                         OPR
                       </span>
                     )}
@@ -413,8 +413,8 @@ export default function BackOfficeCatalogPage() {
                 )}
                 {!readOnly && !editCat && (
                   <span className="flex pr-2 gap-0.5">
-                    <button onClick={() => setEditCat({ id: cat.id, libelle: cat.libelle, requiresAgeCheck: cat.requiresAgeCheck === true, allowsOprVerification: cat.allowsOprVerification === true, secteur: cat.secteur ?? "" })} className="p-1 text-xs text-[#5A5750] hover:text-[#1A1916]" title="Modifier">✏️</button>
-                    <button onClick={() => setConfirmDelete({ id: cat.id, type: "category", label: cat.libelle })} className="p-1 text-xs text-[#5A5750] hover:text-[#C0392B]" title="Supprimer">🗑️</button>
+                    <button onClick={() => setEditCat({ id: cat.id, libelle: cat.libelle, requiresAgeCheck: cat.requiresAgeCheck === true, allowsOprVerification: cat.allowsOprVerification === true, secteur: cat.secteur ?? "" })} className="p-1 text-xs text-[#6B6478] hover:text-[#191224]" title="Modifier">✏️</button>
+                    <button onClick={() => setConfirmDelete({ id: cat.id, type: "category", label: cat.libelle })} className="p-1 text-xs text-[#6B6478] hover:text-[#B42318]" title="Supprimer">🗑️</button>
                   </span>
                 )}
               </div>
@@ -422,12 +422,12 @@ export default function BackOfficeCatalogPage() {
           </div>
           {/* Ajout catégorie */}
           {!readOnly && (
-          <div className="p-3 border-t border-[#E2E0D9] space-y-2">
+          <div className="p-3 border-t border-[#E7E2F0] space-y-2">
             <input
               value={newCat.libelle}
               onChange={(e) => setNewCat((p) => ({ ...p, libelle: e.target.value }))}
               placeholder="Nom de la catégorie…"
-              className="w-full rounded-[10px] border border-[#E2E0D9] bg-white px-3 py-2 text-[12px] text-[#1A1916] focus:border-[#2D5BE3] focus:ring-1 focus:ring-[#2D5BE3] outline-none placeholder:text-[#9C9A95]"
+              className="w-full rounded-[10px] border border-[#E7E2F0] bg-white px-3 py-2 text-[12px] text-[#191224] focus:border-[#4C1D95] focus:ring-1 focus:ring-[#4C1D95] outline-none placeholder:text-[#9A93A8]"
               onKeyDown={(e) => e.key === "Enter" && addCategory()}
             />
             <div className="flex gap-2">
@@ -435,19 +435,19 @@ export default function BackOfficeCatalogPage() {
                 value={newCat.icon}
                 onChange={(e) => setNewCat((p) => ({ ...p, icon: e.target.value }))}
                 placeholder="Icône"
-                className="w-16 rounded-[10px] border border-[#E2E0D9] bg-white px-2 py-2 text-[12px] text-center text-[#1A1916] focus:border-[#2D5BE3] focus:ring-1 focus:ring-[#2D5BE3] outline-none placeholder:text-[#9C9A95]"
+                className="w-16 rounded-[10px] border border-[#E7E2F0] bg-white px-2 py-2 text-[12px] text-center text-[#191224] focus:border-[#4C1D95] focus:ring-1 focus:ring-[#4C1D95] outline-none placeholder:text-[#9A93A8]"
               />
               <input
                 value={newCat.description}
                 onChange={(e) => setNewCat((p) => ({ ...p, description: e.target.value }))}
                 placeholder="Description (facultatif)"
-                className="flex-1 rounded-[10px] border border-[#E2E0D9] bg-white px-3 py-2 text-[12px] text-[#1A1916] focus:border-[#2D5BE3] focus:ring-1 focus:ring-[#2D5BE3] outline-none placeholder:text-[#9C9A95]"
+                className="flex-1 rounded-[10px] border border-[#E7E2F0] bg-white px-3 py-2 text-[12px] text-[#191224] focus:border-[#4C1D95] focus:ring-1 focus:ring-[#4C1D95] outline-none placeholder:text-[#9A93A8]"
               />
             </div>
             <select
               value={newCat.secteur}
               onChange={(e) => setNewCat((p) => ({ ...p, secteur: e.target.value }))}
-              className="w-full rounded-[10px] border border-[#E2E0D9] bg-white px-3 py-2 text-[12px] text-[#1A1916] focus:border-[#2D5BE3] focus:ring-1 focus:ring-[#2D5BE3] outline-none"
+              className="w-full rounded-[10px] border border-[#E7E2F0] bg-white px-3 py-2 text-[12px] text-[#191224] focus:border-[#4C1D95] focus:ring-1 focus:ring-[#4C1D95] outline-none"
             >
               <option value="">Secteur : non classée</option>
               {SECTEURS.map((s) => <option key={s.value} value={s.value}>Secteur : {s.label}</option>)}
@@ -456,14 +456,14 @@ export default function BackOfficeCatalogPage() {
               <button
                 onClick={addCategory}
                 disabled={adding || !newCat.libelle.trim()}
-                className="flex-1 rounded-[10px] bg-[#2D5BE3] px-3 py-2 text-[12px] font-semibold text-white hover:bg-[#1F4DD4] disabled:opacity-50 transition-colors"
+                className="flex-1 rounded-full bg-[#4C1D95] px-3 py-2 text-[12px] font-semibold text-white hover:bg-[#3B1578] disabled:opacity-50 transition-colors"
               >
                 {adding ? "…" : "+ Ajouter"}
               </button>
             </div>
             {/* Le marqueur se pose DÈS la création : c'est en nommant la catégorie qu'on sait à
                 quel travail elle expose, et une case oubliée reste invisible pendant des mois. */}
-            <label className="flex items-start gap-2 text-[11px] text-[#5A5750]" title={AGE_CHECK_HINT}>
+            <label className="flex items-start gap-2 text-[11px] text-[#6B6478]" title={AGE_CHECK_HINT}>
               <input
                 type="checkbox"
                 className="mt-0.5"
@@ -471,11 +471,11 @@ export default function BackOfficeCatalogPage() {
                 onChange={(e) => setNewCat((p) => ({ ...p, requiresAgeCheck: e.target.checked }))}
               />
               <span>
-                <span className="font-semibold text-[#1A1916]">Barrière d&apos;âge</span> — la catégorie exige une
+                <span className="font-semibold text-[#191224]">Barrière d&apos;âge</span> — la catégorie exige une
                 date de naissance établie.
               </span>
             </label>
-            <label className="flex items-start gap-2 text-[11px] text-[#5A5750]" title={OPR_HINT}>
+            <label className="flex items-start gap-2 text-[11px] text-[#6B6478]" title={OPR_HINT}>
               <input
                 type="checkbox"
                 className="mt-0.5"
@@ -483,7 +483,7 @@ export default function BackOfficeCatalogPage() {
                 onChange={(e) => setNewCat((p) => ({ ...p, allowsOprVerification: e.target.checked }))}
               />
               <span>
-                <span className="font-semibold text-[#1A1916]">Vérification OPR</span> — le client peut confier la
+                <span className="font-semibold text-[#191224]">Vérification OPR</span> — le client peut confier la
                 vérification à un responsable chantier.
               </span>
             </label>
@@ -492,22 +492,22 @@ export default function BackOfficeCatalogPage() {
         </div>
 
         {/* Colonne 2 — Métiers */}
-        <div className="rounded-[16px] border border-[#E2E0D9] overflow-hidden bg-white shadow-sm">
-          <div className="px-4 py-3 border-b border-[#E2E0D9] bg-[#FAFAF8]">
-            <h3 className="font-semibold text-[14px] text-[#1A1916]">
+        <div className="rounded-[16px] border border-[#E7E2F0] overflow-hidden bg-white shadow-sm">
+          <div className="px-4 py-3 border-b border-[#E7E2F0] bg-[#F6F5FA]">
+            <h3 className="font-semibold text-[14px] text-[#191224]">
               Métiers
-              {selected && <span className="ml-1 text-[#5A5750] font-normal">— {selected.libelle}</span>}
+              {selected && <span className="ml-1 text-[#6B6478] font-normal">— {selected.libelle}</span>}
             </h3>
           </div>
           <div className="overflow-y-auto max-h-80">
             {!selected ? (
-              <p className="p-4 text-[14px] text-[#5A5750]">Sélectionnez une catégorie{readOnly ? "" : " pour voir et ajouter ses métiers"}</p>
+              <p className="p-4 text-[14px] text-[#6B6478]">Sélectionnez une catégorie{readOnly ? "" : " pour voir et ajouter ses métiers"}</p>
             ) : (selected.metiers ?? []).length === 0 ? (
-              <p className="p-4 text-[14px] text-[#5A5750]">Aucun métier</p>
+              <p className="p-4 text-[14px] text-[#6B6478]">Aucun métier</p>
             ) : (selected.metiers ?? []).map((m) => (
-              <div key={m.id} className="flex items-center border-b border-[#E2E0D9] last:border-b-0 group">
+              <div key={m.id} className="flex items-center border-b border-[#E7E2F0] last:border-b-0 group">
                 {editMetier?.id === m.id ? (
-                  <span className={`flex-1 inline-flex items-center gap-1 px-4 py-3 text-[14px] ${selectedMetier?.id === m.id ? "bg-[#EEF2FD]" : ""}`}>
+                  <span className={`flex-1 inline-flex items-center gap-1 px-4 py-3 text-[14px] ${selectedMetier?.id === m.id ? "bg-[#F0EAFF]" : ""}`}>
                     <input value={editMetier.libelle} onChange={(e) => setEditMetier((p) => p ? { ...p, libelle: e.target.value } : null)} className="flex-1 rounded border px-1 text-xs" autoFocus onKeyDown={(e) => e.key === "Enter" && saveMetier()} />
                     <select
                       value={editMetier.riskLevel}
@@ -519,13 +519,13 @@ export default function BackOfficeCatalogPage() {
                         <option key={r.value} value={r.value}>{r.label}</option>
                       ))}
                     </select>
-                    <button onClick={saveMetier} disabled={saving} className="text-xs text-[#1A7A4A] hover:underline">✓</button>
-                    <button onClick={() => setEditMetier(null)} className="text-xs text-[#5A5750] hover:underline">✕</button>
+                    <button onClick={saveMetier} disabled={saving} className="text-xs text-[#3B1578] hover:underline">✓</button>
+                    <button onClick={() => setEditMetier(null)} className="text-xs text-[#6B6478] hover:underline">✕</button>
                   </span>
                 ) : (
                   <button
                     onClick={() => handleSelectMetier(m)}
-                    className={`flex-1 text-left px-4 py-3 text-[14px] transition-colors hover:bg-[#EEF2FD] ${selectedMetier?.id === m.id ? "bg-[#EEF2FD] font-medium text-[#1A1916]" : "text-[#1A1916]"}`}
+                    className={`flex-1 text-left px-4 py-3 text-[14px] transition-colors hover:bg-[#F0EAFF] ${selectedMetier?.id === m.id ? "bg-[#F0EAFF] font-medium text-[#191224]" : "text-[#191224]"}`}
                   >
                     {m.libelle}
                     <span
@@ -538,28 +538,28 @@ export default function BackOfficeCatalogPage() {
                 )}
                 {!readOnly && !editMetier && (
                   <span className="flex pr-2 gap-0.5">
-                    <button onClick={() => setEditMetier({ id: m.id, libelle: m.libelle, riskLevel: m.riskLevel ?? "low" })} className="p-1 text-xs text-[#5A5750] hover:text-[#1A1916]" title="Modifier">✏️</button>
-                    <button onClick={() => setConfirmDelete({ id: m.id, type: "metier", label: m.libelle })} className="p-1 text-xs text-[#5A5750] hover:text-[#C0392B]" title="Supprimer">🗑️</button>
+                    <button onClick={() => setEditMetier({ id: m.id, libelle: m.libelle, riskLevel: m.riskLevel ?? "low" })} className="p-1 text-xs text-[#6B6478] hover:text-[#191224]" title="Modifier">✏️</button>
+                    <button onClick={() => setConfirmDelete({ id: m.id, type: "metier", label: m.libelle })} className="p-1 text-xs text-[#6B6478] hover:text-[#B42318]" title="Supprimer">🗑️</button>
                   </span>
                 )}
               </div>
             ))}
           </div>
           {!readOnly && selected && (
-            <div className="p-3 border-t border-[#E2E0D9]">
+            <div className="p-3 border-t border-[#E7E2F0]">
               <div className="flex gap-2">
                 <input
                   value={newMetier.libelle}
                   onChange={(e) => setNewMetier({ ...newMetier, libelle: e.target.value })}
                   placeholder="Nom du métier…"
-                  className="flex-1 rounded-[10px] border border-[#E2E0D9] bg-white px-3 py-2 text-[12px] text-[#1A1916] focus:border-[#2D5BE3] focus:ring-1 focus:ring-[#2D5BE3] outline-none placeholder:text-[#9C9A95]"
+                  className="flex-1 rounded-[10px] border border-[#E7E2F0] bg-white px-3 py-2 text-[12px] text-[#191224] focus:border-[#4C1D95] focus:ring-1 focus:ring-[#4C1D95] outline-none placeholder:text-[#9A93A8]"
                   onKeyDown={(e) => e.key === "Enter" && addMetier()}
                 />
                 <select
                   value={newMetier.riskLevel}
                   onChange={(e) => setNewMetier({ ...newMetier, riskLevel: e.target.value })}
                   aria-label="Palier de risque du nouveau métier"
-                  className="rounded-[10px] border border-[#E2E0D9] bg-white px-2 py-2 text-[12px] text-[#1A1916] focus:border-[#2D5BE3] outline-none"
+                  className="rounded-[10px] border border-[#E7E2F0] bg-white px-2 py-2 text-[12px] text-[#191224] focus:border-[#4C1D95] outline-none"
                 >
                   {RISK_LEVELS.map((r) => (
                     <option key={r.value} value={r.value}>{r.label}</option>
@@ -568,12 +568,12 @@ export default function BackOfficeCatalogPage() {
                 <button
                   onClick={addMetier}
                   disabled={addingMetier || !newMetier.libelle.trim()}
-                  className="rounded-[10px] bg-[#2D5BE3] px-3 py-2 text-[12px] font-semibold text-white hover:bg-[#1F4DD4] disabled:opacity-50 transition-colors"
+                  className="rounded-full bg-[#4C1D95] px-3 py-2 text-[12px] font-semibold text-white hover:bg-[#3B1578] disabled:opacity-50 transition-colors"
                 >
                   {addingMetier ? "…" : "+"}
                 </button>
               </div>
-              <p className="mt-1.5 text-[11px] text-[#5A5750]">
+              <p className="mt-1.5 text-[11px] text-[#6B6478]">
                 Risque « {riskLevelLabel(newMetier.riskLevel)} » :{" "}
                 {RISK_LEVELS.find((r) => r.value === newMetier.riskLevel)?.hint}
               </p>
@@ -582,40 +582,40 @@ export default function BackOfficeCatalogPage() {
         </div>
 
         {/* Colonne 3 — Services */}
-        <div className="rounded-[16px] border border-[#E2E0D9] overflow-hidden bg-white shadow-sm">
-          <div className="px-4 py-3 border-b border-[#E2E0D9] bg-[#FAFAF8] flex items-center justify-between">
-            <h3 className="font-semibold text-[14px] text-[#1A1916]">
+        <div className="rounded-[16px] border border-[#E7E2F0] overflow-hidden bg-white shadow-sm">
+          <div className="px-4 py-3 border-b border-[#E7E2F0] bg-[#F6F5FA] flex items-center justify-between">
+            <h3 className="font-semibold text-[14px] text-[#191224]">
               Services
-              {selectedMetier && <span className="ml-1 text-[#5A5750] font-normal">— {selectedMetier.libelle}</span>}
+              {selectedMetier && <span className="ml-1 text-[#6B6478] font-normal">— {selectedMetier.libelle}</span>}
             </h3>
-            <span className="text-[12px] text-[#5A5750]">{services.length}</span>
+            <span className="text-[12px] text-[#6B6478]">{services.length}</span>
           </div>
           <div className="overflow-y-auto max-h-60">
             {!selectedMetier ? (
-              <p className="p-4 text-[14px] text-[#5A5750]">Sélectionnez un métier pour voir ses services{readOnly ? "" : " et en ajouter"}.</p>
+              <p className="p-4 text-[14px] text-[#6B6478]">Sélectionnez un métier pour voir ses services{readOnly ? "" : " et en ajouter"}.</p>
             ) : loadingServices ? (
               <div className="p-3 space-y-2">
                 {[1, 2].map((i) => <div key={i} className="animate-pulse h-8 rounded-[10px] bg-[#F5F5F0]" />)}
               </div>
             ) : services.length === 0 ? (
-              <p className="p-4 text-[14px] text-[#5A5750]">Aucun service</p>
+              <p className="p-4 text-[14px] text-[#6B6478]">Aucun service</p>
             ) : services.map((s) => (
-              <div key={s.id} className="px-4 py-2.5 text-[14px] border-b border-[#E2E0D9] last:border-b-0 flex items-center justify-between group">
+              <div key={s.id} className="px-4 py-2.5 text-[14px] border-b border-[#E7E2F0] last:border-b-0 flex items-center justify-between group">
                 {editService?.id === s.id ? (
                   <span className="flex-1 flex gap-1 items-center">
                     <input value={editService.libelle} onChange={(e) => setEditService((p) => p ? { ...p, libelle: e.target.value } : null)} className="flex-1 rounded border px-1 text-xs" autoFocus onKeyDown={(e) => e.key === "Enter" && saveService()} />
                     <input value={editService.dureeEstimee} onChange={(e) => setEditService((p) => p ? { ...p, dureeEstimee: e.target.value } : null)} type="number" className="w-14 rounded border px-1 text-xs text-center" placeholder="min" />
-                    <button onClick={saveService} disabled={saving} className="text-xs text-[#1A7A4A] hover:underline">✓</button>
-                    <button onClick={() => setEditService(null)} className="text-xs text-[#5A5750] hover:underline">✕</button>
+                    <button onClick={saveService} disabled={saving} className="text-xs text-[#3B1578] hover:underline">✓</button>
+                    <button onClick={() => setEditService(null)} className="text-xs text-[#6B6478] hover:underline">✕</button>
                   </span>
                 ) : (
                   <>
-                    <span className="text-[#1A1916]">• {s.libelle}</span>
+                    <span className="text-[#191224]">• {s.libelle}</span>
                     <span className="flex items-center gap-2">
-                      {s.dureeEstimee && <span className="text-[12px] text-[#5A5750]">{s.dureeEstimee} min</span>}
+                      {s.dureeEstimee && <span className="text-[12px] text-[#6B6478]">{s.dureeEstimee} min</span>}
                       {!readOnly && <span className="flex gap-0.5">
-                        <button onClick={() => setEditService({ id: s.id, libelle: s.libelle, dureeEstimee: s.dureeEstimee?.toString() || "" })} className="p-0.5 text-xs text-[#5A5750] hover:text-[#1A1916]" title="Modifier">✏️</button>
-                        <button onClick={() => setConfirmDelete({ id: s.id, type: "service", label: s.libelle })} className="p-0.5 text-xs text-[#5A5750] hover:text-[#C0392B]" title="Supprimer">🗑️</button>
+                        <button onClick={() => setEditService({ id: s.id, libelle: s.libelle, dureeEstimee: s.dureeEstimee?.toString() || "" })} className="p-0.5 text-xs text-[#6B6478] hover:text-[#191224]" title="Modifier">✏️</button>
+                        <button onClick={() => setConfirmDelete({ id: s.id, type: "service", label: s.libelle })} className="p-0.5 text-xs text-[#6B6478] hover:text-[#B42318]" title="Supprimer">🗑️</button>
                       </span>}
                     </span>
                   </>
@@ -624,19 +624,19 @@ export default function BackOfficeCatalogPage() {
             ))}
           </div>
           {!readOnly && selectedMetier && (
-            <div className="p-3 border-t border-[#E2E0D9] space-y-2">
+            <div className="p-3 border-t border-[#E7E2F0] space-y-2">
               <input
                 value={newService.libelle}
                 onChange={(e) => setNewService((p) => ({ ...p, libelle: e.target.value }))}
                 placeholder="Nom du service…"
-                className="w-full rounded-[10px] border border-[#E2E0D9] bg-white px-3 py-2 text-[12px] text-[#1A1916] focus:border-[#2D5BE3] focus:ring-1 focus:ring-[#2D5BE3] outline-none placeholder:text-[#9C9A95]"
+                className="w-full rounded-[10px] border border-[#E7E2F0] bg-white px-3 py-2 text-[12px] text-[#191224] focus:border-[#4C1D95] focus:ring-1 focus:ring-[#4C1D95] outline-none placeholder:text-[#9A93A8]"
                 onKeyDown={(e) => e.key === "Enter" && addService()}
               />
               <input
                 value={newService.description}
                 onChange={(e) => setNewService((p) => ({ ...p, description: e.target.value }))}
                 placeholder="Description (facultatif)"
-                className="w-full rounded-[10px] border border-[#E2E0D9] bg-white px-3 py-2 text-[12px] text-[#1A1916] focus:border-[#2D5BE3] focus:ring-1 focus:ring-[#2D5BE3] outline-none placeholder:text-[#9C9A95]"
+                className="w-full rounded-[10px] border border-[#E7E2F0] bg-white px-3 py-2 text-[12px] text-[#191224] focus:border-[#4C1D95] focus:ring-1 focus:ring-[#4C1D95] outline-none placeholder:text-[#9A93A8]"
               />
               <div className="flex gap-2">
                 <input
@@ -644,12 +644,12 @@ export default function BackOfficeCatalogPage() {
                   onChange={(e) => setNewService((p) => ({ ...p, dureeEstimee: e.target.value }))}
                   placeholder="Durée (min)"
                   type="number"
-                  className="w-20 rounded-[10px] border border-[#E2E0D9] bg-white px-2 py-2 text-[12px] text-center text-[#1A1916] focus:border-[#2D5BE3] focus:ring-1 focus:ring-[#2D5BE3] outline-none"
+                  className="w-20 rounded-[10px] border border-[#E7E2F0] bg-white px-2 py-2 text-[12px] text-center text-[#191224] focus:border-[#4C1D95] focus:ring-1 focus:ring-[#4C1D95] outline-none"
                 />
                 <button
                   onClick={addService}
                   disabled={addingService || !newService.libelle.trim()}
-                  className="flex-1 rounded-[10px] bg-[#2D5BE3] px-3 py-2 text-[12px] font-semibold text-white hover:bg-[#1F4DD4] disabled:opacity-50 transition-colors"
+                  className="flex-1 rounded-full bg-[#4C1D95] px-3 py-2 text-[12px] font-semibold text-white hover:bg-[#3B1578] disabled:opacity-50 transition-colors"
                 >
                   {addingService ? "…" : "+ Ajouter"}
                 </button>
@@ -661,15 +661,15 @@ export default function BackOfficeCatalogPage() {
 
       {/* Confirmation de suppression */}
       {confirmDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#1A1916]/40 backdrop-blur-sm">
-          <div className="rounded-[16px] border border-[#E2E0D9] bg-white p-6 max-w-sm w-full shadow-[0_4px_24px_rgba(0,0,0,0.08)]">
-            <h3 className="font-semibold text-[#1A1916] mb-2">Confirmer la suppression</h3>
-            <p className="text-[14px] text-[#5A5750] mb-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#191224]/40 backdrop-blur-sm">
+          <div className="rounded-[16px] border border-[#E7E2F0] bg-white p-6 max-w-sm w-full shadow-[0_4px_24px_rgba(0,0,0,0.08)]">
+            <h3 className="font-semibold text-[#191224] mb-2">Confirmer la suppression</h3>
+            <p className="text-[14px] text-[#6B6478] mb-4">
               Supprimer <strong>{confirmDelete.label}</strong> {confirmDelete.type === "category" ? "et tous ses métiers/services" : confirmDelete.type === "metier" ? "et ses services" : ""} ?
             </p>
             <div className="flex gap-2 justify-end">
-              <button onClick={() => setConfirmDelete(null)} disabled={saving} className="rounded-[10px] border border-[#E2E0D9] bg-white px-4 py-2 text-[14px] text-[#1A1916] hover:bg-[#FAFAF8] transition-colors">Annuler</button>
-              <button onClick={executeDelete} disabled={saving} className="rounded-[10px] bg-[#C0392B] px-4 py-2 text-[14px] font-semibold text-white hover:bg-[#A93226] disabled:opacity-50 transition-colors">
+              <button onClick={() => setConfirmDelete(null)} disabled={saving} className="rounded-[10px] border border-[#E7E2F0] bg-white px-4 py-2 text-[14px] text-[#191224] hover:bg-[#F6F5FA] transition-colors">Annuler</button>
+              <button onClick={executeDelete} disabled={saving} className="rounded-[10px] bg-[#B42318] px-4 py-2 text-[14px] font-semibold text-white hover:bg-[#A93226] disabled:opacity-50 transition-colors">
                 {saving ? "…" : "Supprimer"}
               </button>
             </div>
@@ -678,9 +678,9 @@ export default function BackOfficeCatalogPage() {
       )}
 
       {/* Exemple d'arborescence */}
-      <div className="rounded-[16px] border border-[#E2E0D9] bg-white p-5 shadow-sm">
-        <h3 className="font-semibold mb-3 text-[14px] text-[#1A1916]">Exemple de hiérarchie</h3>
-        <div className="font-mono text-[12px] text-[#5A5750] space-y-0.5">
+      <div className="rounded-[16px] border border-[#E7E2F0] bg-white p-5 shadow-sm">
+        <h3 className="font-semibold mb-3 text-[14px] text-[#191224]">Exemple de hiérarchie</h3>
+        <div className="font-mono text-[12px] text-[#6B6478] space-y-0.5">
           <p>🏗️ BTP</p>
           <p className="ml-4">└─ 🔧 Plombier</p>
           <p className="ml-8">├─ Débouchage</p>

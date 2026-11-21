@@ -99,7 +99,7 @@ export function BecomeProviderForm({ returnTo = null }: { returnTo?: string | nu
     <div className="min-h-screen bg-zinc-50 py-10 px-4">
       <div className="mx-auto fluid-form [--fw:720px] space-y-5">
         <div>
-          <h1 className="text-[22px] font-bold text-[#0A1931]">Bienvenue sur FlexWork 👋</h1>
+          <h1 className="text-[22px] font-bold text-[#191224]">Bienvenue sur FlexWork 👋</h1>
           <p className="mt-1 text-[13px] text-zinc-500">Votre compte est prêt.</p>
         </div>
 
@@ -107,7 +107,7 @@ export function BecomeProviderForm({ returnTo = null }: { returnTo?: string | nu
             étape à franchir, c'est un point de départ qui reste valable si l'on ne fait rien. */}
         <div className="bg-white rounded-[20px] border border-gray-100 p-5">
           <p className="text-[13px] text-zinc-500">Vous êtes actuellement :</p>
-          <p className="mt-1 inline-flex items-center rounded-full bg-[#0A1931] px-4 py-1.5 text-[12px] font-semibold uppercase tracking-wider text-white">
+          <p className="mt-1 inline-flex items-center rounded-full bg-[#191224] px-4 py-1.5 text-[12px] font-semibold uppercase tracking-wider text-white">
             Client (par défaut)
           </p>
           <p className="mt-3 text-[12px] text-zinc-500">
@@ -117,7 +117,7 @@ export function BecomeProviderForm({ returnTo = null }: { returnTo?: string | nu
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div className="bg-white rounded-[20px] border border-gray-100 p-6">
-            <h2 className="text-[15px] font-semibold text-[#0A1931]">Souhaitez-vous proposer vos services ?</h2>
+            <h2 className="text-[15px] font-semibold text-[#191224]">Souhaitez-vous proposer vos services ?</h2>
             <p className="mt-1 text-[12px] text-zinc-500">
               Ouvrir l&apos;espace prestataire vous permet de candidater aux missions et de publier des offres. Cela
               n&apos;accorde aucune vérification : votre dossier d&apos;identité reste à compléter, et c&apos;est lui qui
@@ -126,13 +126,13 @@ export function BecomeProviderForm({ returnTo = null }: { returnTo?: string | nu
 
             <fieldset className="mt-4 space-y-2">
               <legend className="text-[13px] font-medium text-zinc-700 mb-2">
-                Type d&apos;activité <span className="text-[#E8112D]">*</span>
+                Type d&apos;activité <span className="text-[#B42318]">*</span>
               </legend>
               {PROVIDER_ROLES.map((role) => (
                 <label
                   key={role}
                   className={`flex cursor-pointer items-start gap-3 rounded-xl border px-4 py-3 transition ${
-                    providerType === role ? "border-[#008751] bg-[#008751]/5" : "border-zinc-200 hover:bg-zinc-50"
+                    providerType === role ? "border-[#4C1D95] bg-[#4C1D95]/5" : "border-zinc-200 hover:bg-zinc-50"
                   }`}
                 >
                   <input
@@ -141,10 +141,10 @@ export function BecomeProviderForm({ returnTo = null }: { returnTo?: string | nu
                     value={role}
                     checked={providerType === role}
                     onChange={() => setProviderType(role)}
-                    className="mt-0.5 accent-[#008751]"
+                    className="mt-0.5 accent-[#4C1D95]"
                   />
                   <span>
-                    <span className="block text-[13px] font-medium text-[#0A1931]">
+                    <span className="block text-[13px] font-medium text-[#191224]">
                       {PROVIDER_ROLE_LABELS[role] ?? role}
                     </span>
                     <span className="mt-0.5 block text-[12px] text-zinc-500">{ROLE_DESCRIPTIONS[role]}</span>
@@ -157,7 +157,7 @@ export function BecomeProviderForm({ returnTo = null }: { returnTo?: string | nu
               <button
                 type="submit"
                 disabled={submitting}
-                className="h-10 px-5 rounded-full bg-[#008751] text-white text-[13px] font-semibold hover:bg-[#006e43] transition disabled:opacity-50"
+                className="h-10 px-5 rounded-full bg-[#4C1D95] text-white text-[13px] font-semibold hover:bg-[#3B1578] transition disabled:opacity-50"
               >
                 {submitting ? "Activation..." : "Activer l'espace prestataire"}
               </button>

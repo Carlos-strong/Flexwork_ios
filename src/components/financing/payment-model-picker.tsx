@@ -39,19 +39,19 @@ export function PaymentModelPicker({
 
   const tile = (active: boolean) =>
     `flex-1 text-left p-3 rounded-xl border transition ${
-      active ? "border-[#008751] bg-[#008751]/[0.05] ring-1 ring-[#008751]/30" : "border-[#E2E8F0] bg-white hover:border-[#CBD5E1]"
+      active ? "border-[#4C1D95] bg-[#4C1D95]/[0.05] ring-1 ring-[#4C1D95]/30" : "border-[#E7E2F0] bg-white hover:border-[#D4CCE3]"
     }`;
 
   return (
-    <fieldset className={`rounded-xl border border-[#E2E8F0] bg-[#F8FAF9] p-4 ${className}`}>
-      <legend className="px-1 text-[11px] font-semibold tracking-wide uppercase text-[#64748B]">
-        Modèle de paiement <span className="text-[#E8112D]">*</span>
+    <fieldset className={`rounded-xl border border-[#E7E2F0] bg-[#F6F5FA] p-4 ${className}`}>
+      <legend className="px-1 text-[11px] font-semibold tracking-wide uppercase text-[#6B6478]">
+        Modèle de paiement <span className="text-[#B42318]">*</span>
       </legend>
 
       <div className="flex flex-col sm:flex-row gap-2">
         <button type="button" aria-pressed={family === "fixe"} onClick={() => onChange(DEVIS_FIXED_MODE_KEY)} className={tile(family === "fixe")}>
-          <span className="block text-[13px] font-semibold text-[#0f172a]">Prix fixe</span>
-          <span className="block text-[11.5px] text-[#64748B] mt-0.5">Un seul paiement, libéré à la fin après validation.</span>
+          <span className="block text-[13px] font-semibold text-[#191224]">Prix fixe</span>
+          <span className="block text-[11.5px] text-[#6B6478] mt-0.5">Un seul paiement, libéré à la fin après validation.</span>
         </button>
         <button
           type="button"
@@ -59,8 +59,8 @@ export function PaymentModelPicker({
           onClick={() => family !== "jalon" && onChange(DEFAULT_FINANCING_MODE_KEY)}
           className={tile(family === "jalon")}
         >
-          <span className="block text-[13px] font-semibold text-[#0f172a]">Par jalons</span>
-          <span className="block text-[11.5px] text-[#64748B] mt-0.5">
+          <span className="block text-[13px] font-semibold text-[#191224]">Par jalons</span>
+          <span className="block text-[11.5px] text-[#6B6478] mt-0.5">
             {quoteMode ? "Chaque ligne du devis est payée à sa validation." : "Paiement fractionné, livrable par livrable."}
           </span>
         </button>
@@ -72,7 +72,7 @@ export function PaymentModelPicker({
             <label
               key={m.key}
               className={`flex gap-2.5 p-2.5 rounded-lg border cursor-pointer transition ${
-                value === m.key ? "border-[#008751] bg-white" : "border-transparent hover:bg-white"
+                value === m.key ? "border-[#4C1D95] bg-white" : "border-transparent hover:bg-white"
               }`}
             >
               <input
@@ -80,16 +80,16 @@ export function PaymentModelPicker({
                 name="paymentModelVariant"
                 checked={value === m.key}
                 onChange={() => onChange(m.key)}
-                className="mt-0.5 accent-[#008751]"
+                className="mt-0.5 accent-[#4C1D95]"
               />
               <span>
-                <span className="flex items-center gap-2 text-[12.5px] font-semibold text-[#0f172a]">
+                <span className="flex items-center gap-2 text-[12.5px] font-semibold text-[#191224]">
                   {m.label}
                   {m.key === DEFAULT_FINANCING_MODE_KEY && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#E6F4EE] text-[#008751] font-semibold">Recommandé</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#F0EAFF] text-[#4C1D95] font-semibold">Recommandé</span>
                   )}
                 </span>
-                <span className="block text-[11.5px] text-[#64748B] leading-snug mt-0.5">{m.definition}</span>
+                <span className="block text-[11.5px] text-[#6B6478] leading-snug mt-0.5">{m.definition}</span>
               </span>
             </label>
           ))}
@@ -97,12 +97,12 @@ export function PaymentModelPicker({
       )}
 
       {brief ? (
-        <div className="mt-3 text-[12px] text-[#334155] leading-relaxed">
+        <div className="mt-3 text-[12px] text-[#3F3850] leading-relaxed">
           <p>{brief.headline}</p>
           <ul className="mt-1.5 space-y-1">
             {brief.points.map((point) => (
-              <li key={point} className="flex gap-2 text-[11.5px] text-[#475569]">
-                <span aria-hidden className="text-[#008751] shrink-0">•</span>
+              <li key={point} className="flex gap-2 text-[11.5px] text-[#4A4258]">
+                <span aria-hidden className="text-[#4C1D95] shrink-0">•</span>
                 <span>{point}</span>
               </li>
             ))}
@@ -124,7 +124,7 @@ export function PaymentModelBadge({ modeKey, className = "" }: { modeKey: string
     <span
       title={mode.definition}
       className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold ${
-        isFixed ? "bg-[#EFF6FF] text-[#1D4ED8]" : "bg-[#E6F4EE] text-[#00623A]"
+        isFixed ? "bg-[#EAF1FF] text-[#1D4ED8]" : "bg-[#F0EAFF] text-[#3B1578]"
       } ${className}`}
     >
       {isFixed ? "Prix fixe" : "Par jalons"}

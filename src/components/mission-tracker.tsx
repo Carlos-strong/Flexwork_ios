@@ -17,8 +17,12 @@
 // la page contrat (missions/[id]/contract), hors du périmètre de cette refonte (scopée à la
 // validation des missions).
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { ShieldCheck } from "lucide-react";
 import { fetchDedupe } from "@/lib/fetch-dedupe";
+import { canOpenMediationAtStatus } from "@/lib/mediation-rules";
+import { canReviewAtStatus } from "@/lib/review-rules";
+import { MISSION_PHASES, LITIGE_INDEX } from "@/lib/mission-phases";
 
 type Mission = {
   id: string;
@@ -31,6 +35,9 @@ type Mission = {
   // interlocuteur (le prestataire ne valide jamais un livrable : "validez / rejetez" est un
   // message client, pas prestataire).
   isOwner: boolean;
+  // Prestataire partie au contrat — avec isOwner, désigne les deux seules personnes admises à
+  // ouvrir une médiation ou à laisser un avis (le responsable de chantier ne l'est pas).
+  isContractProvider: boolean;
 };
 type Contract = { id: string; clientSignedAt: string | null; providerSignedAt: string | null };
 
@@ -42,15 +49,13 @@ type PhaseInfo = {
   message: string;
 };
 
-const MISSION_PHASES = ["Offre & Candidature", "Signature", "Financement Escrow", "Pilotage Jalons", "Clôture", "Litige"] as const;
-const LITIGE_INDEX = 5;
 
-const BADGE_BLUE = "bg-[#DBEAFE] text-[#1E40AF] border border-[#BFDBFE]";
-const BADGE_GRAY = "bg-[#F1F5F9] text-[#475569] border border-[#E2E8F0]";
-const BADGE_GREEN = "bg-[#E6F4EE] text-[#008751] border border-[#A7F3D0]";
-const BADGE_AMBER = "bg-[#FEF3C7] text-[#B45309] border border-[#FDE68A]";
-const BADGE_RED = "bg-[#FEE2E2] text-[#B91C1C] border border-[#FECACA]";
-const BADGE_DARK = "bg-[#0A1931] text-white border border-[#0A1931]";
+const BADGE_BLUE = "bg-[#DBEAFE] text-[#1D4ED8] border border-[#BFDBFE]";
+const BADGE_GRAY = "bg-[#EFEAF8] text-[#4A4258] border border-[#E7E2F0]";
+const BADGE_GREEN = "bg-[#F0EAFF] text-[#4C1D95] border border-[#A7F3D0]";
+const BADGE_AMBER = "bg-[#FFF6E3] text-[#B45309] border border-[#FDE68A]";
+const BADGE_RED = "bg-[#FEECEB] text-[#B42318] border border-[#FECACA]";
+const BADGE_DARK = "bg-[#191224] text-white border border-[#191224]";
 
 function describe(mission: Mission, contract: Contract | null): PhaseInfo {
   const st = mission.status;
@@ -69,12 +74,34 @@ function describe(mission: Mission, contract: Contract | null): PhaseInfo {
         message: "Mission en préparation. Publiez-la pour la soumettre aux candidatures de prestataires vérifiés.",
       };
     }
+    // Engagement (2026-11-10) : le prestataire est retenu, le contrat reste à générer. Ce cas
+    // retombait sur « Mission ouverte — sélectionnez le prestataire », alors qu'il l'est déjà.
+    if (st === "proposition_acceptee") {
+      return {
+        step: 0,
+        badge: "Prestataire retenu",
+        badgeClass: BADGE_GREEN,
+        title: "Offre & Candidature — Contrat à générer",
+        message: client
+          ? "Le prestataire est retenu. Générez le contrat sécurisé pour lancer la signature : le prestataire signe en premier, vous contre-signez ensuite."
+          : "Vous êtes retenu sur cette mission. Le client génère le contrat ; vous le signerez en premier.",
+      };
+    }
+    if (st === "annonce_close") {
+      return {
+        step: 0,
+        badge: "Candidatures closes",
+        badgeClass: BADGE_GRAY,
+        title: "Offre & Candidature — Annonce close",
+        message: "La période de candidature est terminée. Chaque prestataire retenu poursuit sur son propre engagement.",
+      };
+    }
     return {
       step: 0,
       badge: "Mission ouverte",
       badgeClass: BADGE_BLUE,
       title: "Offre & Candidature — Sélection du prestataire",
-      message: "Mission publiée et ouverte aux candidatures. Sélectionnez le prestataire pour générer le contrat sécurisé.",
+      message: "Mission publiée et ouverte aux candidatures. Retenez le ou les prestataires recherchés : chacun aura son contrat sécurisé.",
     };
   }
 
@@ -213,8 +240,9 @@ export default function MissionTracker({ missionId }: { missionId: string }) {
           budget: m.budget,
           contractPrice: m.contractPrice ?? null,
           isOwner: !!m.isOwner,
+          isContractProvider: !!m.isContractProvider,
         });
-        if (m.status === "brouillon" || m.status === "publiee") {
+        if (m.status === "brouillon" || m.status === "publiee" || m.status === "annonce_close") {
           setContract(null);
           return;
         }
@@ -231,17 +259,42 @@ export default function MissionTracker({ missionId }: { missionId: string }) {
   const info = describe(mission, contract);
   const money = `${(mission.contractPrice ?? mission.budget).toLocaleString("fr-FR")} ${mission.currency}`;
 
+  // Accès à la médiation et aux avis (2026-11-11). Ces deux pages existaient sans qu'aucun lien
+  // n'y mène : /mediation n'était atteignable qu'en tapant l'URL, et le bandeau de clôture
+  // invitait à « laisser un avis » sans dire où — le client, dont la vue Validation remplace le
+  // détail de mission, n'avait aucun bouton ; le prestataire n'en avait un que sur grand écran.
+  // Le bandeau est affiché aux deux parties, sur toutes les tailles d'écran : c'est ici que ces
+  // accès doivent vivre. Mêmes règles de statut que les routes (mediation-rules, review-rules).
+  const isParty = !!contract && (mission.isOwner || mission.isContractProvider);
+  const actions: { href: string; label: string; tone: "primary" | "danger" | "neutral" }[] = [];
+  if (isParty) {
+    if (mission.status === "mediation_ouverte") {
+      actions.push({ href: `/missions/${mission.id}/mediation`, label: "Voir la médiation", tone: "danger" });
+    }
+    if (canReviewAtStatus(mission.status)) {
+      actions.push({ href: `/missions/${mission.id}/reviews`, label: "Donner un avis", tone: "primary" });
+    }
+    if (canOpenMediationAtStatus(mission.status)) {
+      actions.push({ href: `/missions/${mission.id}/mediation`, label: "Signaler un désaccord — médiation", tone: "neutral" });
+    }
+  }
+  const actionClass = {
+    primary: "bg-[#4C1D95] text-white hover:bg-[#3B1578] border-[#4C1D95]",
+    danger: "bg-[#B42318] text-white hover:bg-[#991B1B] border-[#B42318]",
+    neutral: "bg-white text-[#4A4258] hover:bg-[#F6F5FA] border-[#E7E2F0]",
+  } as const;
+
   return (
-    <div className="bg-white border border-[#E2E8F0] rounded-xl shadow-sm overflow-hidden">
+    <div className="bg-white border border-[#E7E2F0] rounded-xl shadow-sm overflow-hidden">
       {/* En-tête : phase + badge */}
       <div className="p-4 lg:p-5 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-[#E6F4EE] flex items-center justify-center shrink-0">
-            <ShieldCheck className="w-5 h-5 text-[#008751]" />
+          <div className="w-10 h-10 rounded-lg bg-[#F0EAFF] flex items-center justify-center shrink-0">
+            <ShieldCheck className="w-5 h-5 text-[#047857]" />
           </div>
           <div>
-            <h2 className="text-[14px] lg:text-[15px] font-bold text-[#0f172a] leading-tight">{info.title}</h2>
-            <p className="text-[11.5px] text-[#64748B] mt-0.5 font-mono truncate">
+            <h2 className="text-[14px] lg:text-[15px] font-bold text-[#191224] leading-tight">{info.title}</h2>
+            <p className="text-[11.5px] text-[#6B6478] mt-0.5 font-mono truncate">
               {contract ? `Contrat ID: ${contract.id}` : `Mission ${mission.id}`} · {money}
             </p>
           </div>
@@ -250,10 +303,25 @@ export default function MissionTracker({ missionId }: { missionId: string }) {
       </div>
 
       {/* Message d'étape */}
-      <div className="mx-4 lg:mx-5 mb-4 rounded-lg bg-[#F8FAF9] border border-[#E2E8F0] px-3.5 py-2.5 text-[12.5px] leading-relaxed text-[#475569]">
-        <strong className="text-[#0f172a]">{info.badge} — </strong>
+      <div className="mx-4 lg:mx-5 mb-4 rounded-lg bg-[#F6F5FA] border border-[#E7E2F0] px-3.5 py-2.5 text-[12.5px] leading-relaxed text-[#4A4258]">
+        <strong className="text-[#191224]">{info.badge} — </strong>
         {info.message}
       </div>
+
+      {actions.length > 0 && (
+        <div className="mx-4 lg:mx-5 mb-4 flex flex-wrap gap-2">
+          {actions.map((a) => (
+            <Link
+              key={a.label}
+              href={a.href}
+              className={`inline-flex h-9 px-4 items-center justify-center rounded-lg border text-[13px] font-semibold transition-colors ${actionClass[a.tone]}`}
+              style={{ textDecoration: "none" }}
+            >
+              {a.label}
+            </Link>
+          ))}
+        </div>
+      )}
 
       {/* Barre de progression à 6 phases : OFFRE & CANDIDATURE → SIGNATURE → FINANCEMENT
           ESCROW → PILOTAGE JALONS → CLÔTURE → LITIGE (case à part, rouge, jamais "faite"). */}
@@ -262,9 +330,9 @@ export default function MissionTracker({ missionId }: { missionId: string }) {
           {MISSION_PHASES.map((label, i) => {
             const state = phaseState(i, info.step);
             const isLitige = i === LITIGE_INDEX;
-            const barClass = state === "todo" ? "bg-[#E2E8F0]" : isLitige ? "bg-[#DC2626]" : "bg-[#008751]";
+            const barClass = state === "todo" ? "bg-[#E7E2F0]" : isLitige ? "bg-[#B42318]" : "bg-[#4C1D95]";
             const labelClass =
-              state === "todo" ? "text-[#94A3B8]" : isLitige ? "text-[#DC2626]" : state === "active" ? "text-[#008751]" : "text-[#008751]/70";
+              state === "todo" ? "text-[#9A93A8]" : isLitige ? "text-[#B42318]" : state === "active" ? "text-[#4C1D95]" : "text-[#4C1D95]/70";
             return (
               <div key={label} className="flex-1 min-w-0">
                 <div className={`h-[6px] rounded-full transition ${barClass}`} />

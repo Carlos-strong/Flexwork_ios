@@ -43,7 +43,7 @@ export default function CallPanel({
   }, [callState]);
 
   return (
-    <div className="flex-1 relative bg-[#0A1931] overflow-hidden min-h-0">
+    <div className="flex-1 relative bg-[#191224] overflow-hidden min-h-0">
       {/* Erreur */}
       {error && (
         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 px-4 py-2 rounded-full bg-red-500 text-white text-[13px] font-medium whitespace-nowrap max-w-[90%] truncate">

@@ -74,7 +74,7 @@ export default function HorizontalCarousel({
   }, [autoplay, intervalMs, step])
 
   const arrow =
-    'w-10 h-10 rounded-full border border-gray-200 bg-white text-[#0A1931] grid place-items-center shadow-sm hover:border-[#FF6B35] hover:text-[#E85A24] transition disabled:opacity-35 disabled:hover:border-gray-200 disabled:hover:text-[#0A1931] disabled:cursor-not-allowed'
+    'w-10 h-10 rounded-full border border-gray-200 bg-white text-[#191224] grid place-items-center shadow-sm hover:border-[#6D28D9] hover:text-[#5B21B6] transition disabled:opacity-35 disabled:hover:border-gray-200 disabled:hover:text-[#191224] disabled:cursor-not-allowed'
 
   return (
     <div

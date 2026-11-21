@@ -14,6 +14,7 @@ import {
   tableCell,
   tableHead,
 } from "@/components/admin/admin-ui";
+import { personFullName } from "@/lib/person-name";
 
 // File d'instruction des comptes de versement Mobile Money (2026-09-23).
 //
@@ -43,9 +44,6 @@ type PayoutItem = {
   addressProof: { docId: string; status: string } | null;
 };
 
-function fullName(u: PayoutItem["user"]): string {
-  return [u.firstname, u.lastname].filter(Boolean).join(" ") || u.email;
-}
 
 export function PayoutQueue() {
   const [items, setItems] = useState<PayoutItem[]>([]);
@@ -115,7 +113,7 @@ export function PayoutQueue() {
 
       <AdminCard title="File d'attente" subtitle="Du plus ancien au plus récent." padded={false}>
         {loading ? (
-          <p className="p-5 text-[13px] text-[#5A5750]">Chargement...</p>
+          <p className="p-5 text-[13px] text-[#6B6478]">Chargement...</p>
         ) : items.length === 0 ? (
           <div className="p-5">
             <AdminEmpty>Aucun compte de versement en attente d&apos;instruction.</AdminEmpty>
@@ -123,7 +121,7 @@ export function PayoutQueue() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full border-collapse">
-              <thead className="border-b border-[#E2E0D9] bg-[#FAFAF8]">
+              <thead className="border-b border-[#E7E2F0] bg-[#F6F5FA]">
                 <tr>
                   <th className={tableHead}>Prestataire</th>
                   <th className={tableHead}>Compte de versement</th>
@@ -136,22 +134,22 @@ export function PayoutQueue() {
                 {items.map((item) => (
                   <tr key={item.id} className="border-b border-[#F1EFE9] align-top last:border-0">
                     <td className={tableCell}>
-                      <div className="font-medium">{fullName(item.user)}</div>
-                      <div className="text-[12px] text-[#5A5750]">{item.user.email}</div>
-                      <div className="text-[12px] text-[#5A5750]">
+                      <div className="font-medium">{(personFullName(item.user) || item.user.email)}</div>
+                      <div className="text-[12px] text-[#6B6478]">{item.user.email}</div>
+                      <div className="text-[12px] text-[#6B6478]">
                         {item.user.role} · KYC {item.user.kycStatus}
                       </div>
                     </td>
                     <td className={tableCell}>
                       <div className="font-medium">{item.operatorLabel}</div>
-                      <div className="text-[12px] text-[#5A5750]">{item.number}</div>
+                      <div className="text-[12px] text-[#6B6478]">{item.number}</div>
                     </td>
                     <td className={tableCell}>{item.holder}</td>
                     <td className={tableCell}>
                       {item.addressProof ? (
                         <a
                           href={`/admin/kyc?doc=${item.addressProof.docId}`}
-                          className="text-[13px] font-medium text-[#2D5BE3] underline"
+                          className="text-[13px] font-medium text-[#4C1D95] underline"
                         >
                           Voir le justificatif
                         </a>

@@ -18,6 +18,7 @@ import {
   tableCell,
   tableHead,
 } from "@/components/admin/admin-ui";
+import { personFullName } from "@/lib/person-name";
 
 type UserRow = {
   id: string;
@@ -49,15 +50,15 @@ const ROLE_LABEL: Record<string, string> = {
 };
 
 const KYC_STYLE: Record<UserRow["kycStatus"], { label: string; cls: string }> = {
-  verifie: { label: "✅ Vérifié", cls: "bg-[#E6F5EE] text-[#1A7A4A]" },
+  verifie: { label: "✅ Vérifié", cls: "bg-[#E7F7EF] text-[#065F46]" },
   en_attente: { label: "⏳ En attente", cls: "bg-[#FEF9E7] text-[#B45309]" },
-  rejete: { label: "❌ Rejeté", cls: "bg-[#FDEDEC] text-[#B42318]" },
+  rejete: { label: "❌ Rejeté", cls: "bg-[#FEECEB] text-[#B42318]" },
 };
 
 const STATUS_STYLE: Record<UserRow["status"], { label: string; cls: string }> = {
-  active: { label: "Actif", cls: "border-[#9FD4B4] bg-[#E6F5EE] text-[#1A7A4A]" },
-  suspended: { label: "Suspendu", cls: "border-[#FCD89A] bg-[#FEF3C7] text-[#B45309]" },
-  banned: { label: "Banni", cls: "border-[#F5C2BE] bg-[#FDEDEC] text-[#B42318]" },
+  active: { label: "Actif", cls: "border-[#9FD4B4] bg-[#F0EAFF] text-[#3B1578]" },
+  suspended: { label: "Suspendu", cls: "border-[#FCD89A] bg-[#FFF6E3] text-[#B45309]" },
+  banned: { label: "Banni", cls: "border-[#F5C2BE] bg-[#FEECEB] text-[#B42318]" },
 };
 
 // Filtres repris de flexwork_job (Tous / Validés / En attente / Rejetés), plus les suspendus :
@@ -185,7 +186,7 @@ export default function UtilisateursPage() {
             key={f.id}
             onClick={() => setFilter(f.id)}
             className={`h-9 rounded-full border px-4 text-[13px] font-medium transition ${
-              filter === f.id ? "border-[#2D5BE3] bg-[#EEF2FD] text-[#2D5BE3]" : "border-[#E2E0D9] bg-white text-[#5A5750] hover:bg-[#FAFAF8]"
+              filter === f.id ? "border-[#4C1D95] bg-[#F0EAFF] text-[#4C1D95]" : "border-[#E7E2F0] bg-white text-[#6B6478] hover:bg-[#F6F5FA]"
             }`}
           >
             {f.label}
@@ -199,7 +200,7 @@ export default function UtilisateursPage() {
         padded={false}
       >
         {data === null ? (
-          <div className="p-5 text-[13px] text-[#9C9A95]">Chargement…</div>
+          <div className="p-5 text-[13px] text-[#9A93A8]">Chargement…</div>
         ) : data.items.length === 0 ? (
           <div className="p-5">
             <AdminEmpty>Aucun compte ne correspond.</AdminEmpty>
@@ -207,7 +208,7 @@ export default function UtilisateursPage() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="border-b border-[#E2E0D9] bg-[#FAFAF8]">
+              <thead className="border-b border-[#E7E2F0] bg-[#F6F5FA]">
                 <tr>
                   <th className={tableHead}>Utilisateur</th>
                   <th className={tableHead}>Profil</th>
@@ -217,34 +218,34 @@ export default function UtilisateursPage() {
                   <th className={`${tableHead} text-right`}>{canAct ? "Actions" : ""}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#E2E0D9]">
+              <tbody className="divide-y divide-[#E7E2F0]">
                 {data.items.map((u) => {
-                  const name = [u.firstname, u.lastname].filter(Boolean).join(" ");
+                  const name = personFullName(u);
                   return (
                     <tr key={u.id}>
                       <td className={tableCell}>
                         <div className="font-medium">{name || u.email}</div>
-                        <div className="text-[11.5px] text-[#9C9A95]">
+                        <div className="text-[11.5px] text-[#9A93A8]">
                           {name ? `${u.email} · ` : ""}
                           {u.tel}
                         </div>
                       </td>
                       <td className={tableCell}>
                         {u.isAdmin ? (
-                          <span className="rounded-full bg-[#EEF2FD] px-2 py-0.5 text-[11px] font-semibold text-[#2D5BE3]">
+                          <span className="rounded-full bg-[#F0EAFF] px-2 py-0.5 text-[11px] font-semibold text-[#4C1D95]">
                             Admin · {u.adminRole ?? "sans rôle"}
                           </span>
                         ) : (
                           ROLE_LABEL[u.role] ?? u.role
                         )}
-                        {u.country && <div className="text-[11px] text-[#9C9A95]">{u.country}</div>}
+                        {u.country && <div className="text-[11px] text-[#9A93A8]">{u.country}</div>}
                       </td>
                       <td className={tableCell}>
                         <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${KYC_STYLE[u.kycStatus].cls}`}>
                           {KYC_STYLE[u.kycStatus].label}
                         </span>
                       </td>
-                      <td className={`${tableCell} whitespace-nowrap text-[#5A5750]`}>{new Date(u.createdAt).toLocaleDateString("fr-FR")}</td>
+                      <td className={`${tableCell} whitespace-nowrap text-[#6B6478]`}>{new Date(u.createdAt).toLocaleDateString("fr-FR")}</td>
                       <td className={`${tableCell} text-center`}>
                         <span className={`inline-flex rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${STATUS_STYLE[u.status].cls}`}>
                           {STATUS_STYLE[u.status].label}
@@ -268,9 +269,9 @@ export default function UtilisateursPage() {
 
       {target && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4" onClick={() => setTarget(null)}>
-          <div className="w-full max-w-md rounded-[16px] border border-[#E2E0D9] bg-white p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-md rounded-[16px] border border-[#E7E2F0] bg-white p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-[16px] font-semibold">{target.status === "active" ? "Suspendre" : "Réactiver"} {target.email}</h2>
-            <p className="mt-1 text-[12.5px] leading-relaxed text-[#5A5750]">
+            <p className="mt-1 text-[12.5px] leading-relaxed text-[#6B6478]">
               {target.status === "active"
                 ? "La connexion lui sera refusée et sa session coupée dès sa prochaine requête. Ses missions, contrats et fonds sous séquestre ne sont pas touchés."
                 : "Le compte pourra de nouveau se connecter."}
@@ -280,7 +281,7 @@ export default function UtilisateursPage() {
               onChange={(e) => setJustification(e.target.value)}
               rows={4}
               placeholder="Motif (10 caractères au moins) — il figure au journal d’audit."
-              className="mt-3 w-full rounded-lg border border-[#E2E0D9] p-3 text-[13px] outline-none focus:border-[#2D5BE3]"
+              className="mt-3 w-full rounded-lg border border-[#E7E2F0] p-3 text-[13px] outline-none focus:border-[#4C1D95]"
             />
             <div className="mt-3 flex justify-end gap-2">
               <button onClick={() => setTarget(null)} className={btnSecondary}>

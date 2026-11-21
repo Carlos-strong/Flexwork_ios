@@ -21,13 +21,12 @@ import { useEffect, type ReactNode } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import DashboardLayout, { CLIENT_NAV, providerNav, type DashboardUser } from "@/components/dashboard/DashboardLayout";
-import { useSidebarBadges } from "@/components/dashboard/useSidebarBadges";
 import { useUserIdentity } from "@/components/user-identity";
 
 type Role = "client" | "expert_digital" | "expert_btp_autres" | "artisan" | "manoeuvre";
 
-const FALLBACK_CLIENT: DashboardUser = { initials: "CL", name: "Client", role: "Cliente", avatarGradient: "from-[#FF7A00] to-[#E8112D]" };
-const FALLBACK_PROVIDER: DashboardUser = { initials: "PR", name: "Prestataire", role: "Prestataire", avatarGradient: "from-[#FF7A00] to-[#E8112D]" };
+const FALLBACK_CLIENT: DashboardUser = { initials: "CL", name: "Client", role: "Cliente", avatarGradient: "from-[#6D28D9] to-[#B42318]" };
+const FALLBACK_PROVIDER: DashboardUser = { initials: "PR", name: "Prestataire", role: "Prestataire", avatarGradient: "from-[#6D28D9] to-[#B42318]" };
 
 // Rubrique sidebar dédiée à /missions/[id]/proposals, par rôle — toute autre sous-page
 // retombe sur "missions" (voir activeNav ci-dessous).
@@ -41,7 +40,6 @@ export default function MissionPageShell({ title = "Mission", children }: { titl
   const isClient = userSession?.role === "client";
   const role = userSession?.role as Role | undefined;
   const fallback = isClient ? FALLBACK_CLIENT : FALLBACK_PROVIDER;
-  const badgeCounts = useSidebarBadges(isClient ? "client" : "prestataire");
   const identity = useUserIdentity();
   // /missions/{id}/proposals → reste sur "propositions"/"candidatures" ; toute autre
   // sous-page (contract, escrow, checkin, mediation, reviews) → "missions" (défaut).
@@ -56,8 +54,8 @@ export default function MissionPageShell({ title = "Mission", children }: { titl
 
   if (status === "loading") {
     return (
-      <div className="min-h-screen bg-[#FFF8F0] flex items-center justify-center">
-        <div className="w-8 h-8 border-[3px] border-[#FF7A00] border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen bg-[#F6F5FA] flex items-center justify-center">
+        <div className="w-8 h-8 border-[3px] border-[#6D28D9] border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -69,12 +67,9 @@ export default function MissionPageShell({ title = "Mission", children }: { titl
 
   return (
     <DashboardLayout
-      mode={isClient ? "client" : "prestataire"}
       user={user}
       navItems={isClient ? CLIENT_NAV : providerNav(role ?? "expert_digital")}
       activeNav={activeNav}
-      onNavChange={() => {}}
-      badgeCounts={badgeCounts}
       title={title}
     >
       {children}

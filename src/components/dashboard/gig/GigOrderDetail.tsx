@@ -16,6 +16,7 @@ import { Avatar } from "@/components/avatar";
 import { SignContractModal } from "@/components/sign-contract-modal";
 import { SignatureQRCode } from "@/components/signature-qrcode";
 import { fetchDedupe } from "@/lib/fetch-dedupe";
+import { initialsFromName } from "@/lib/initials";
 
 // Constante locale, comme la page contrat Mission hardcode « 48 h » — ne PAS importer depuis
 // src/lib/gig-expiry.ts (qui charge Prisma côté serveur → casserait le bundle client).
@@ -57,18 +58,13 @@ type Order = {
 };
 
 const STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
-  created: { label: "Commande créée — le client signe en premier", color: "text-[#0A1931]", bg: "bg-[#E2E8F0]" },
-  client_signed: { label: "Fonds sous séquestre — en attente du prestataire (24h)", color: "text-[#92400E]", bg: "bg-[#FFFBEB] border border-[#FDE68A]" },
-  active: { label: "Commande engagée — mission en cours", color: "text-[#008751]", bg: "bg-[#f0faf5] border border-[#A7F3D0]" },
-  completed: { label: "Terminée", color: "text-[#008751]", bg: "bg-[#f0faf5]" },
-  cancelled: { label: "Annulée", color: "text-[#B91C1C]", bg: "bg-[#FEF2F2]" },
-  refunded: { label: "Remboursée — délai de 24h dépassé", color: "text-[#B91C1C]", bg: "bg-[#FEF2F2]" },
+  created: { label: "Commande créée — le client signe en premier", color: "text-[#191224]", bg: "bg-[#E7E2F0]" },
+  client_signed: { label: "Fonds sous séquestre — en attente du prestataire (24h)", color: "text-[#92400E]", bg: "bg-[#FFF6E3] border border-[#FDE68A]" },
+  active: { label: "Commande engagée — mission en cours", color: "text-[#4C1D95]", bg: "bg-[#F0EAFF] border border-[#A7F3D0]" },
+  completed: { label: "Terminée", color: "text-[#047857]", bg: "bg-[#E7F7EF]" },
+  cancelled: { label: "Annulée", color: "text-[#B42318]", bg: "bg-[#FEECEB]" },
+  refunded: { label: "Remboursée — délai de 24h dépassé", color: "text-[#B42318]", bg: "bg-[#FEECEB]" },
 };
-
-function initialsOf(p: { name: string }): string {
-  const parts = p.name.trim().split(/\s+/).filter(Boolean);
-  return (`${parts[0]?.charAt(0) ?? ""}${parts[1]?.charAt(0) ?? ""}`.toUpperCase()) || "?";
-}
 
 function SignatureCard({
   orderId,
@@ -92,19 +88,19 @@ function SignatureCard({
   onOpenSigning: () => void;
 }) {
   return (
-    <div className="bg-white border border-[#E2E8F0] rounded-xl p-4 lg:p-5">
+    <div className="bg-white border border-[#E7E2F0] rounded-xl p-4 lg:p-5">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-[13px] font-semibold">Signature {label}</h3>
-        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold ${signedAt ? "bg-[#E6F4EE] text-[#008751] border border-[#A7F3D0]" : "bg-[#F1F5F9] text-[#64748B]"}`}>
+        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold ${signedAt ? "bg-[#F0EAFF] text-[#4C1D95] border border-[#A7F3D0]" : "bg-[#EFEAF8] text-[#6B6478]"}`}>
           {signedAt ? "Signature vérifiable" : "En attente"}
         </span>
       </div>
 
       <div className="flex items-center gap-2.5 mb-4">
-        <Avatar src={party.avatarUrl} initials={initialsOf(party)} size={40} />
+        <Avatar src={party.avatarUrl} initials={initialsFromName(party.name)} size={40} />
         <div>
           <div className="text-[13px] font-semibold">{party.name || "—"}</div>
-          <div className="text-[11.5px] text-[#64748B]">{label}</div>
+          <div className="text-[11.5px] text-[#6B6478]">{label}</div>
         </div>
       </div>
 
@@ -121,25 +117,25 @@ function SignatureCard({
             size={110}
             verifyPath={`/api/gigs/orders/${orderId}`}
           />
-          <p className="mt-2.5 text-[11.5px] text-[#64748B]">
+          <p className="mt-2.5 text-[11.5px] text-[#6B6478]">
             QR généré le {new Date(signedAt).toLocaleDateString("fr-FR")} à {new Date(signedAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
           </p>
         </div>
       ) : signedAt ? (
-        <p className="text-[13px] text-[#008751]">✓ Signé le {new Date(signedAt).toLocaleString("fr-FR")}</p>
+        <p className="text-[13px] text-[#047857]">✓ Signé le {new Date(signedAt).toLocaleString("fr-FR")}</p>
       ) : isSelf ? (
         <>
           <button
             disabled={!canSignNow}
             onClick={onOpenSigning}
-            className="w-full h-10 rounded-lg text-white text-[13px] font-semibold transition-colors disabled:opacity-50 bg-[#0f172a] hover:bg-black"
+            className="w-full h-10 rounded-lg text-white text-[13px] font-semibold transition-colors disabled:opacity-50 bg-[#191224] hover:bg-black"
           >
             Signer la commande
           </button>
-          {blockedReason && <p className="mt-2 text-[11.5px] text-[#94A3B8] text-center">{blockedReason}</p>}
+          {blockedReason && <p className="mt-2 text-[11.5px] text-[#9A93A8] text-center">{blockedReason}</p>}
         </>
       ) : (
-        <p className="text-[13px] text-[#64748B]">En attente</p>
+        <p className="text-[13px] text-[#6B6478]">En attente</p>
       )}
     </div>
   );
@@ -187,7 +183,7 @@ export default function GigOrderDetail({ orderId, onBack }: { orderId: string; o
   }, [load]);
 
   const back = (
-    <button onClick={onBack} className="inline-flex items-center gap-1.5 text-[12.5px] text-zinc-500 hover:text-[#0A1931]">
+    <button onClick={onBack} className="inline-flex items-center gap-1.5 text-[12.5px] text-zinc-500 hover:text-[#191224]">
       <ArrowLeft className="w-3.5 h-3.5" /> Retour aux commandes
     </button>
   );
@@ -222,20 +218,20 @@ export default function GigOrderDetail({ orderId, onBack }: { orderId: string; o
       <div className={`rounded-xl px-4 py-3 text-[13px] font-semibold ${statusMeta.bg} ${statusMeta.color}`}>{statusMeta.label}</div>
 
       {order.status === "client_signed" && (
-        <div className="rounded-xl border border-[#FDE68A] bg-[#FFFBEB] p-3.5 text-[13px] text-[#92400E] leading-relaxed">
+        <div className="rounded-xl border border-[#FDE68A] bg-[#FFF6E3] p-3.5 text-[13px] text-[#92400E] leading-relaxed">
           ⏳ <strong>Le client a signé.</strong> Le prestataire dispose de {PROVIDER_SIGN_DEADLINE_HOURS}&nbsp;h pour
           accepter la commande ; passé ce délai, elle sera annulée et le client <strong>remboursé automatiquement</strong>.
         </div>
       )}
       {order.status === "refunded" && (
-        <div className="rounded-xl border border-[#FECACA] bg-[#FEF2F2] p-3.5 text-[13px] text-[#B91C1C] leading-relaxed">
+        <div className="rounded-xl border border-[#FECACA] bg-[#FEECEB] p-3.5 text-[13px] text-[#B42318] leading-relaxed">
           💸 <strong>Commande remboursée.</strong> Le prestataire n&apos;a pas signé sous {PROVIDER_SIGN_DEADLINE_HOURS}&nbsp;h —
           le client a été remboursé automatiquement, sans pénalité.
         </div>
       )}
       {order.status === "active" && (
-        <div className="rounded-xl border border-[#A7F3D0] bg-[#f0faf5] p-3.5 space-y-2.5">
-          <p className="text-[13px] text-[#008751] leading-relaxed">
+        <div className="rounded-xl border border-[#A7F3D0] bg-[#F0EAFF] p-3.5 space-y-2.5">
+          <p className="text-[13px] text-[#4C1D95] leading-relaxed">
             🤝 <strong>Commande engagée.</strong> Les deux parties ont signé — le prestataire réalise la prestation
             sous {order.gig.delaiJours} jour{order.gig.delaiJours > 1 ? "s" : ""}. Les fonds restent sous séquestre
             jusqu&apos;à votre validation.
@@ -244,7 +240,7 @@ export default function GigOrderDetail({ orderId, onBack }: { orderId: string; o
               prestataire capable de déclencher son propre paiement viderait le séquestre de sa
               fonction. */}
           {order.payoutPending ? (
-            <p className="rounded-lg border border-[#FDE68A] bg-[#FFFBEB] p-2.5 text-[12.5px] text-[#92400E]">
+            <p className="rounded-lg border border-[#FDE68A] bg-[#FFF6E3] p-2.5 text-[12.5px] text-[#92400E]">
               {isProvider
                 ? "Livraison validée. Votre paiement partira dès que votre compte de versement sera vérifié."
                 : "Livraison validée. Le versement partira dès que le compte de versement du prestataire sera vérifié."}
@@ -253,7 +249,7 @@ export default function GigOrderDetail({ orderId, onBack }: { orderId: string; o
             <button
               onClick={validerLivraison}
               disabled={validating}
-              className="w-full h-10 rounded-lg bg-[#008751] text-white text-[13px] font-semibold hover:bg-[#007a49] transition-colors disabled:opacity-50"
+              className="w-full h-10 rounded-lg bg-[#4C1D95] text-white text-[13px] font-semibold hover:bg-[#3B1578] transition-colors disabled:opacity-50"
             >
               {validating
                 ? "Validation…"
@@ -261,12 +257,12 @@ export default function GigOrderDetail({ orderId, onBack }: { orderId: string; o
             </button>
           )}
           {isProvider && !order.payoutPending && (
-            <p className="text-[12px] text-[#00623A]">
+            <p className="text-[12px] text-[#3B1578]">
               Le client validera la livraison pour déclencher votre paiement.
             </p>
           )}
           {validationError && (
-            <div className="rounded-lg border border-[#FECACA] bg-[#FEF2F2] p-2.5 text-[12.5px] text-[#B91C1C]">
+            <div className="rounded-lg border border-[#FECACA] bg-[#FEECEB] p-2.5 text-[12.5px] text-[#B42318]">
               {validationError}
             </div>
           )}
@@ -274,28 +270,28 @@ export default function GigOrderDetail({ orderId, onBack }: { orderId: string; o
       )}
 
       {order.status === "completed" && (
-        <div className="rounded-xl border border-[#A7F3D0] bg-[#f0faf5] p-3.5 text-[13px] text-[#008751] leading-relaxed">
+        <div className="rounded-xl border border-[#A7F3D0] bg-[#F0EAFF] p-3.5 text-[13px] text-[#4C1D95] leading-relaxed">
           ✅ <strong>Livraison validée.</strong> Les fonds sous séquestre ont été libérés au prestataire et la
           commande est clôturée.
         </div>
       )}
 
-      <div className="bg-white border border-[#E2E8F0] rounded-xl p-4 lg:p-5">
+      <div className="bg-white border border-[#E7E2F0] rounded-xl p-4 lg:p-5">
         <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
           <div>
             <h1 className="text-[13px] font-semibold">{order.gig.titre}</h1>
-            <p className="text-[11.5px] text-[#64748B] mt-0.5">{order.gig.description}</p>
+            <p className="text-[11.5px] text-[#6B6478] mt-0.5">{order.gig.description}</p>
           </div>
           <div className="text-right">
-            <div className="text-[20px] font-bold text-[#0A1931]">{order.montant.toLocaleString("fr-FR")} {order.currency}</div>
-            {hold && <div className="text-[11px] text-[#008751]">Sous séquestre · sécurisé</div>}
+            <div className="text-[20px] font-bold text-[#191224]">{order.montant.toLocaleString("fr-FR")} {order.currency}</div>
+            {hold && <div className="text-[11px] text-[#047857]">Sous séquestre · sécurisé</div>}
           </div>
         </div>
-        <div className="flex items-center gap-2 text-[12px] text-[#64748B] flex-wrap">
-          <span className="px-2 py-0.5 rounded-full bg-[#0A1931] text-white text-[10px] font-bold uppercase tracking-widest">{order.gig.domaine}</span>
+        <div className="flex items-center gap-2 text-[12px] text-[#6B6478] flex-wrap">
+          <span className="px-2 py-0.5 rounded-full bg-[#191224] text-white text-[10px] font-bold uppercase tracking-widest">{order.gig.domaine}</span>
           <span>Livraison sous {order.gig.delaiJours} j</span>
           {order.gig.formule && (
-            <span className="rounded-full bg-[#f0faf5] px-2 py-0.5 text-[11px] font-semibold text-[#008751]">
+            <span className="rounded-full bg-[#F0EAFF] px-2 py-0.5 text-[11px] font-semibold text-[#4C1D95]">
               Formule {order.gig.formule.tier.charAt(0).toUpperCase() + order.gig.formule.tier.slice(1)} · {order.gig.formule.titre} ·{" "}
               {order.gig.formule.revisions} révision{order.gig.formule.revisions > 1 ? "s" : ""}
             </span>

@@ -146,9 +146,11 @@ model User {
 
   missionsClient       Mission[]             @relation("MissionClient")
   proposalsSoumises    MissionProposal[]     @relation("ProposalProvider")
+  proposalDrafts       ProposalDraft[]
   missionNotifications MissionNotification[]
   messagesEnvoyes      Message[]
   avisRediges          Review[]              @relation("ReviewAuthor")
+  votesAvis            ReviewVote[]
   avisRecus            Review[]              @relation("ReviewTarget")
 
   contractsAsClient   PrestationContract[] @relation("ContractClient")
@@ -243,6 +245,9 @@ enum OtpPurpose {
   signup
   login
   kyc
+  // Nouveau certificat de signature alors qu'un certificat actif existe (passphrase oubliée) :
+  // code envoyé à l'e-mail du compte (POST /api/signature/certificate/reset-otp).
+  signature_reset
 }
 
 model OtpCode {
@@ -887,6 +892,13 @@ enum MissionStatus {
   // `refund` de applyPspWebhookEvent (src/lib/psp-webhook.ts) réclamait cet état depuis qu'elle
   // existe, en refusant justement d'en inventer un.
   remboursee
+  // Annonce dont la période de candidature est échue (2026-11-10) : plus aucune candidature,
+  // les candidatures non retenues ont été refusées. Les engagements, eux, suivent leur cours.
+  annonce_close
+  // Engagement annulé avant la signature complète du contrat (2026-11-11) : désistement du
+  // prestataire retenu, ou retrait par le client. Sa place se libère sur l'annonce, où le client
+  // peut retenir un candidat de sa réserve (src/lib/engagement-withdrawal.ts).
+  annulee
 }
 
 model Mission {
@@ -1023,12 +1035,34 @@ model Mission {
 
   // ── Mode devis BTP (négociation multi-round) ──────────────────────────
   maxRevisionRounds Int       @default(3) // rounds de négociation autorisés
-  dateExpiration    DateTime? // échéance de candidature/devis
+  // Fin de la période de candidature (2026-11-10) : calculée à la PUBLICATION effective à partir
+  // de `dureePublicationJours`. Seule cette date ferme une annonce aux candidatures — retenir des
+  // prestataires ne la ferme pas (src/lib/mission-expiry.ts). Null pour une mission antérieure.
+  dateExpiration    DateTime?
+  // Durée de publication choisie par le client (7, 14, 21 ou 30 jours, src/lib/mission-expiry.ts).
+  dureePublicationJours Int?
+
+  // Annonce et engagements (2026-11-10). Une mission publiée est une ANNONCE : elle reçoit des
+  // candidatures jusqu'à `dateExpiration`, et le client y retient jusqu'à `maxCandidatures`
+  // prestataires (le nombre recherché, 1 par défaut). Chaque prestataire retenu obtient un
+  // ENGAGEMENT : une mission enfant (`parentMissionId` = l'annonce) qui suit le parcours de
+  // toujours — contrat, signature, séquestre, livrable, avis — avec un seul prestataire.
+  parentMissionId   String?
+  // Cascade : aucune route ne supprime une mission ; seuls les nettoyages (tests, maintenance) le
+  // font, et un engagement n'a pas de sens sans son annonce.
+  parentMission     Mission?  @relation("MissionEngagements", fields: [parentMissionId], references: [id], onDelete: Cascade)
+  // Annulation d'un engagement (statut `annulee`, 2026-11-11) : quand, pourquoi, par qui
+  // ("client" | "prestataire").
+  annuleeAt         DateTime?
+  annulationMotif   String?
+  annuleePar        String?   @db.VarChar(20)
+  engagements       Mission[] @relation("MissionEngagements")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   proposals           MissionProposal[]
+  proposalDrafts      ProposalDraft[]
   offers              Offer[]
   notifications       MissionNotification[]
   bellNotifications   Notification[]
@@ -1043,6 +1077,7 @@ model Mission {
 
   @@index([status])
   @@index([domaine])
+  @@index([parentMissionId])
 }
 
 enum ProposalStatus {
@@ -1260,12 +1295,35 @@ model Review {
   targetId    String
   target      User     @relation("ReviewTarget", fields: [targetId], references: [id], onDelete: Cascade)
   note        Int
+  // Sous-notes (2026-11-10), saisies par le CLIENT sur le prestataire uniquement — optionnelles,
+  // 1 à 5, null pour un avis du prestataire sur le client et pour les avis antérieurs.
+  noteCommunication Int?
+  noteQualite       Int?
+  noteValeur        Int?
   commentaire String?
   suspendu    Boolean  @default(false)
   createdAt   DateTime @default(now())
 
+  votes ReviewVote[]
+
   @@unique([missionId, authorId])
   @@index([targetId])
+}
+
+// « Cet avis vous a-t-il été utile ? » (2026-11-10) — un vote par lecteur connecté et par avis,
+// modifiable. Ni l'auteur ni la cible de l'avis ne votent (POST /api/reviews/[id]/vote).
+model ReviewVote {
+  id        String   @id @default(cuid())
+  reviewId  String
+  review    Review   @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  utile     Boolean
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([reviewId, userId])
+  @@index([userId])
 }
 
 // Contenu minimal imposé — modele-skillafrica-v3-Flexwork.md §2.1. Aucun champ
@@ -2729,4 +2787,32 @@ model RevokedSession {
   createdAt DateTime @default(now())
 
   @@index([expiresAt])
+}
+
+// Candidature retenue faute de KYC vérifié (2026-11-09). Préparer sa candidature est libre,
+// l'ENVOYER exige une identité vérifiée (src/lib/kyc-policy.ts) : au lieu de perdre la saisie,
+// les routes de candidature (POST /api/missions/[id]/proposals et /devis) enregistrent ici la
+// requête exacte, validée. Elle part D'ELLE-MÊME au client à la validation du KYC
+// (sendPendingApplications) — le prestataire ne la valide qu'une fois — et reste modifiable
+// jusque-là. Distinct de
+// MissionProposal : le client ne la voit pas, et elle ne compte pas dans le plafond de
+// candidatures. Une par mission et par prestataire ; supprimée dès l'envoi réussi.
+model ProposalDraft {
+  id         String   @id @default(cuid())
+  missionId  String
+  mission    Mission  @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  providerId String
+  provider   User     @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  /// "proposal" (prix fixe / au temps) ou "devis" (mission sur devis) — décide de la route d'envoi.
+  kind       String
+  /// Corps de la requête de candidature, déjà validé par le schéma de sa route.
+  payload    Json
+  /// Raison du dernier échec de l'envoi automatique (garant manquant, mission fermée…) ; null
+  /// tant qu'aucun envoi n'a échoué. Remis à null à chaque modification.
+  lastError  String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([missionId, providerId])
+  @@index([providerId])
 }

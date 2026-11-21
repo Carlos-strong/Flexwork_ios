@@ -27,6 +27,7 @@
 
 import type { DevisData } from "@/lib/devis";
 import type { JalonInput } from "@/lib/jalons";
+import { roundAmount } from "@/lib/devis";
 
 export type FinancingModeKey =
   | "F1"
@@ -466,9 +467,6 @@ export function effectiveFinancingModeKey(input: {
 // (src/lib/devis.ts, roundAmount) : le totalTTC étant désormais entier, le découpage peut l'être
 // aussi, et toute la chaîne — devis, jalons, cibles de libération progressive, retenue de
 // garantie — partage enfin une seule maille monétaire.
-function roundAmount(value: number): number {
-  return Math.round(value);
-}
 
 export function distributeExact(weights: number[], total: number): number[] {
   const sumWeights = weights.reduce((s, w) => s + w, 0);

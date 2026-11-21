@@ -4,11 +4,17 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { canReviewAtStatus, legitimateReviewTarget, retainedProviderIds } from "@/lib/review-rules";
 import { detectMutualReviewSuspicion } from "@/lib/fraud-heuristics";
+import { personFullName } from "@/lib/person-name";
 
 const schema = z.object({
   targetId: z.string(),
   note: z.number().int().min(1).max(5),
   commentaire: z.string().optional(),
+  // Sous-notes (2026-11-10) — optionnelles, retenues seulement quand le CLIENT note le
+  // prestataire : elles décrivent une prestation, pas un donneur d'ordre.
+  noteCommunication: z.number().int().min(1).max(5).optional(),
+  noteQualite: z.number().int().min(1).max(5).optional(),
+  noteValeur: z.number().int().min(1).max(5).optional(),
 });
 
 // US-406 (F15) : avis noté 1 à 5 après la mission.
@@ -75,12 +81,16 @@ export async function POST(
     return NextResponse.json({ error: "already_reviewed" }, { status: 409 });
   }
 
+  const isClientAuthor = userId === mission.clientId;
   const review = await prisma.review.create({
     data: {
       missionId,
       authorId: userId,
       targetId: parsed.data.targetId,
       note: parsed.data.note,
+      noteCommunication: isClientAuthor ? parsed.data.noteCommunication : undefined,
+      noteQualite: isClientAuthor ? parsed.data.noteQualite : undefined,
+      noteValeur: isClientAuthor ? parsed.data.noteValeur : undefined,
       commentaire: parsed.data.commentaire,
       suspendu: mediationDejaOuverte,
     },
@@ -138,6 +148,8 @@ export async function GET(
     : null;
 
   let target: { id: string; nom: string } | null = null;
+  // Le formulaire ne propose les sous-notes qu'au client (voir le POST).
+  let sousNotes = false;
   if (userId) {
     const mission = await prisma.mission.findUnique({
       where: { id: missionId },
@@ -149,6 +161,7 @@ export async function GET(
         clientId: mission.clientId,
         acceptedProviderIds: retainedProviderIds(mission.proposals),
       });
+      sousNotes = mission.clientId === userId;
       if (allowed.length > 0) {
         const user = await prisma.user.findUnique({
           where: { id: allowed[0] },
@@ -157,12 +170,12 @@ export async function GET(
         if (user) {
           target = {
             id: user.id,
-            nom: [user.firstname, user.lastname].filter(Boolean).join(" ") || "la contrepartie",
+            nom: personFullName(user) || "la contrepartie",
           };
         }
       }
     }
   }
 
-  return NextResponse.json({ items: reviews, target });
+  return NextResponse.json({ items: reviews, target, sousNotes });
 }

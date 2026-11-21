@@ -22,6 +22,7 @@ import {
 
 import { useWebRTC } from "@/lib/webrtc/useWebRTC";
 import CallPanel from "@/components/chat/CallPanel";
+import { initialsFromName } from "@/lib/initials";
 
 type Conversation = {
   id: string;
@@ -64,11 +65,11 @@ type ApiConversation = {
 };
 
 const GRADIENTS = [
-  "from-[#FF6B35] to-[#F7C948]",
-  "from-[#1B9C6A] to-[#0A1931]",
+  "from-[#6D28D9] to-[#F7C948]",
+  "from-[#4C1D95] to-[#191224]",
   "from-[#8B2E86] to-[#FF3E6C]",
-  "from-[#0A1931] to-[#1B9C6A]",
-  "from-[#FF6B35] to-[#8B2E86]",
+  "from-[#191224] to-[#4C1D95]",
+  "from-[#6D28D9] to-[#8B2E86]",
 ];
 
 const COUNTRY_FLAGS: Record<string, string> = {
@@ -82,10 +83,6 @@ const EMOJIS = [
   "😭", "😤", "👍", "👎", "🙏", "👏", "💪", "🔥",
   "✨", "🎉", "❤️", "💯", "✅", "🚀", "🎯", "💼",
 ];
-
-function initialsOf(name: string): string {
-  return name.split(" ").filter(Boolean).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
-}
 
 function clockOf(iso: string): string {
   return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -127,7 +124,7 @@ function mapConversation(c: ApiConversation, i: number): Conversation {
     role: c.interlocutor?.role ?? "",
     location: c.interlocutor?.country ?? "",
     rating: 0,
-    initials: initialsOf(name),
+    initials: initialsFromName(name, ""),
     gradient: GRADIENTS[i % GRADIENTS.length],
     status: c.mission.status,
     peerId: c.interlocutor?.id ?? "",
@@ -356,7 +353,7 @@ export default function Messagerie({ currentUserId }: { currentUserId: string })
   if (loading) {
     return (
       <div className="h-dash-content -m-4 md:-m-6 flex items-center justify-center">
-        <div className="w-8 h-8 border-[3px] border-[#FF7A00] border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-[3px] border-[#6D28D9] border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -382,11 +379,11 @@ export default function Messagerie({ currentUserId }: { currentUserId: string })
         {/* Colonne conversations */}
         <div
           className={`${activeId ? "hidden lg:flex" : "flex"}
-            w-full lg:w-[320px] lg:min-w-[320px] xl:w-[350px] xl:min-w-[350px] bg-white rounded-[20px] border border-orange-100 flex-col overflow-hidden`}
+            w-full lg:w-[320px] lg:min-w-[320px] xl:w-[350px] xl:min-w-[350px] bg-white rounded-[20px] border border-violet-100 flex-col overflow-hidden`}
         >
           <div className="p-4 border-b border-gray-100">
             <div className="flex items-center justify-between mb-3">
-              <h1 className="text-[16px] font-bold text-[#0A1931]">Messages</h1>
+              <h1 className="text-[16px] font-bold text-[#191224]">Messages</h1>
               <span className="bg-[#FF3E6C]/10 text-[#FF3E6C] text-[11px] font-bold px-2.5 py-1 rounded-full">{conversations.filter((c) => c.unread > 0).length} non lus</span>
             </div>
             <div className="relative">
@@ -395,7 +392,7 @@ export default function Messagerie({ currentUserId }: { currentUserId: string })
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Rechercher une conversation"
-                className="w-full h-10 pl-10 pr-4 rounded-full bg-[#F8F5F2] border border-transparent focus:border-orange-200 focus:bg-white outline-none text-[13px] transition"
+                className="w-full h-10 pl-10 pr-4 rounded-full bg-[#F6F5FA] border border-transparent focus:border-violet-200 focus:bg-white outline-none text-[13px] transition"
               />
             </div>
             <div className="flex gap-1.5 mt-3">
@@ -403,7 +400,7 @@ export default function Messagerie({ currentUserId }: { currentUserId: string })
                 <button
                   key={f}
                   onClick={() => setFilter(f)}
-                  className={`px-3.5 h-7 rounded-full text-[12px] font-medium transition ${filter === f ? "bg-[#0A1931] text-white" : "bg-[#F8F5F2] text-gray-500 hover:bg-gray-100"}`}
+                  className={`px-3.5 h-7 rounded-full text-[12px] font-medium transition ${filter === f ? "bg-[#191224] text-white" : "bg-[#F6F5FA] text-gray-500 hover:bg-gray-100"}`}
                 >
                   {f}
                 </button>
@@ -416,21 +413,21 @@ export default function Messagerie({ currentUserId }: { currentUserId: string })
               <button
                 key={c.id}
                 onClick={() => setActiveId(c.id)}
-                className={`w-full text-left p-3 rounded-[14px] flex gap-3 transition border ${activeId === c.id ? "bg-[#FFF1E8] border-orange-200" : "bg-white border-transparent hover:bg-[#F8F5F2]"}`}
+                className={`w-full text-left p-3 rounded-[14px] flex gap-3 transition border ${activeId === c.id ? "bg-[#F0EAFF] border-violet-200" : "bg-white border-transparent hover:bg-[#F6F5FA]"}`}
               >
                 <div className="relative shrink-0">
                   <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${c.gradient} flex items-center justify-center text-white font-bold text-[12px]`}>{c.initials}</div>
-                  {c.online && <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-[#1B9C6A] border-2 border-white rounded-full" />}
+                  {c.online && <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-[#4C1D95] border-2 border-white rounded-full" />}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5 min-w-0">
-                      <span className="font-semibold text-[13px] text-[#0A1931] truncate">{c.name}</span>
+                      <span className="font-semibold text-[13px] text-[#191224] truncate">{c.name}</span>
                       <span className="text-[13px]">{c.flag}</span>
                     </div>
                     <span className="text-[11px] text-gray-400 shrink-0">{c.time}</span>
                   </div>
-                  <div className="text-[11px] text-[#FF6B35] font-medium truncate">{c.project}</div>
+                  <div className="text-[11px] text-[#6D28D9] font-medium truncate">{c.project}</div>
                   <div className="flex items-center justify-between gap-2 mt-0.5">
                     <span className="text-[12px] text-gray-500 truncate">{c.lastMessage}</span>
                     {c.unread > 0 && (
@@ -443,7 +440,7 @@ export default function Messagerie({ currentUserId }: { currentUserId: string })
           </div>
 
           <div className="p-3 border-t border-gray-100">
-            <div className="bg-[#0A1931] rounded-[14px] p-3 flex items-center gap-2.5 text-white">
+            <div className="bg-[#191224] rounded-[14px] p-3 flex items-center gap-2.5 text-white">
               <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
                 <ShieldCheck className="w-4 h-4" />
               </div>
@@ -456,7 +453,7 @@ export default function Messagerie({ currentUserId }: { currentUserId: string })
         </div>
 
         {/* Fenêtre de chat / visio */}
-        <div className="flex-1 bg-white rounded-[20px] border border-orange-100 flex flex-col overflow-hidden min-w-0">
+        <div className="flex-1 bg-white rounded-[20px] border border-violet-100 flex flex-col overflow-hidden min-w-0">
           {showCall ? (
             <CallPanel
               callState={callState}
@@ -483,14 +480,14 @@ export default function Messagerie({ currentUserId }: { currentUserId: string })
                   </button>
                   <div className="relative shrink-0">
                     <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${conv.gradient} flex items-center justify-center text-white font-bold text-[13px]`}>{conv.initials}</div>
-                    {conv.online && <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-[#1B9C6A] border-2 border-white rounded-full" />}
+                    {conv.online && <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-[#4C1D95] border-2 border-white rounded-full" />}
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5">
-                      <span className="font-bold text-[14px] text-[#0A1931] truncate">{conv.name} {conv.flag}</span>
+                      <span className="font-bold text-[14px] text-[#191224] truncate">{conv.name} {conv.flag}</span>
                       {conv.online && (
-                        <span className="hidden sm:inline-flex items-center gap-1 text-[11px] bg-[#1B9C6A]/10 text-[#1B9C6A] px-2 py-0.5 rounded-full font-medium">
-                          <span className="w-1.5 h-1.5 bg-[#1B9C6A] rounded-full" />
+                        <span className="hidden sm:inline-flex items-center gap-1 text-[11px] bg-[#4C1D95]/10 text-[#4C1D95] px-2 py-0.5 rounded-full font-medium">
+                          <span className="w-1.5 h-1.5 bg-[#4C1D95] rounded-full" />
                           En ligne
                         </span>
                       )}
@@ -504,27 +501,27 @@ export default function Messagerie({ currentUserId }: { currentUserId: string })
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
-                  <button className="hidden sm:flex w-9 h-9 rounded-full bg-[#F8F5F2] hover:bg-gray-100 items-center justify-center text-[#0A1931]">
+                  <button className="hidden sm:flex w-9 h-9 rounded-full bg-[#F6F5FA] hover:bg-gray-100 items-center justify-center text-[#191224]">
                     <Search className="w-4 h-4" />
                   </button>
-                  <button onClick={() => handleCall(true)} className="w-9 h-9 sm:h-9 sm:w-auto sm:px-4 rounded-full bg-gradient-to-r from-[#FF6B35] to-[#FF3E6C] text-white flex items-center justify-center gap-2 shadow-[0_4px_12px_rgba(255,62,108,0.25)] hover:scale-[1.02] transition">
+                  <button onClick={() => handleCall(true)} className="w-9 h-9 sm:h-9 sm:w-auto sm:px-4 rounded-full bg-gradient-to-r from-[#6D28D9] to-[#FF3E6C] text-white flex items-center justify-center gap-2 shadow-[0_4px_12px_rgba(255,62,108,0.25)] hover:scale-[1.02] transition">
                     <Video className="w-4 h-4" />
                     <span className="hidden sm:inline text-[13px] font-semibold">Visio</span>
                   </button>
-                  <button onClick={() => handleCall(false)} className="w-9 h-9 rounded-full bg-[#F8F5F2] hover:bg-gray-100 flex items-center justify-center text-[#0A1931]">
+                  <button onClick={() => handleCall(false)} className="w-9 h-9 rounded-full bg-[#F6F5FA] hover:bg-gray-100 flex items-center justify-center text-[#191224]">
                     <Phone className="w-4 h-4" />
                   </button>
                 </div>
               </div>
 
               {/* Messages */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#FFF8F0]/50">
+              <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#F6F5FA]/50">
                 {thread.map((m) => {
                   if (m.type === "system") {
                     return (
                       <div key={m.id} className="flex justify-center py-2">
-                        <div className="bg-white border border-orange-100 shadow-sm text-[11px] font-medium text-[#0A1931]/70 px-3.5 py-1.5 rounded-full flex items-center gap-2">
-                          <div className="w-5 h-5 rounded-full bg-gradient-to-br from-[#FF6B35] to-[#F7C948] flex items-center justify-center">
+                        <div className="bg-white border border-violet-100 shadow-sm text-[11px] font-medium text-[#191224]/70 px-3.5 py-1.5 rounded-full flex items-center gap-2">
+                          <div className="w-5 h-5 rounded-full bg-gradient-to-br from-[#6D28D9] to-[#F7C948] flex items-center justify-center">
                             <MessageSquare className="w-3 h-3 text-white" />
                           </div>
                           {m.text}
@@ -537,7 +534,7 @@ export default function Messagerie({ currentUserId }: { currentUserId: string })
                     const isImage = m.file.mime.startsWith("image/");
                     return (
                       <div key={m.id} className={`flex ${sent ? "justify-end" : "justify-start"}`}>
-                        <div className={`max-w-[75%] sm:max-w-[60%] rounded-[16px] p-3 ${sent ? "bg-gradient-to-br from-[#FF6B35] to-[#FF3E6C] text-white rounded-br-[6px] shadow-[0_2px_10px_rgba(255,107,53,0.2)]" : "bg-white border border-gray-100 text-[#0A1931] rounded-bl-[6px] shadow-sm"}`}>
+                        <div className={`max-w-[75%] sm:max-w-[60%] rounded-[16px] p-3 ${sent ? "bg-gradient-to-br from-[#6D28D9] to-[#FF3E6C] text-white rounded-br-[6px] shadow-[0_2px_10px_rgba(109,40,217,0.2)]" : "bg-white border border-gray-100 text-[#191224] rounded-bl-[6px] shadow-sm"}`}>
                           {isImage && m.file.url ? (
                             <a href={m.file.url} target="_blank" rel="noreferrer" className="block mb-2">
                               {/* Pièce jointe d'un message, servie par une route API applicative
@@ -548,7 +545,7 @@ export default function Messagerie({ currentUserId }: { currentUserId: string })
                               <img src={m.file.url} alt={m.file.name} className="w-full max-h-44 object-cover rounded-[10px]" />
                             </a>
                           ) : (
-                            <div className={`w-11 h-11 rounded-[12px] flex items-center justify-center mb-2 ${sent ? "bg-white/15 text-white" : "bg-[#FFF1E8] text-[#FF6B35]"}`}>
+                            <div className={`w-11 h-11 rounded-[12px] flex items-center justify-center mb-2 ${sent ? "bg-white/15 text-white" : "bg-[#F0EAFF] text-[#6D28D9]"}`}>
                               {isImage ? <ImageIcon className="w-5 h-5" /> : <FileIcon className="w-5 h-5" />}
                             </div>
                           )}
@@ -563,7 +560,7 @@ export default function Messagerie({ currentUserId }: { currentUserId: string })
                                 target="_blank"
                                 rel="noreferrer"
                                 download
-                                className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${sent ? "bg-white/15 hover:bg-white/25 text-white" : "bg-[#F8F5F2] hover:bg-gray-100 text-[#0A1931]"}`}
+                                className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${sent ? "bg-white/15 hover:bg-white/25 text-white" : "bg-[#F6F5FA] hover:bg-gray-100 text-[#191224]"}`}
                                 title="Télécharger"
                               >
                                 <Download className="w-4 h-4" />
@@ -580,7 +577,7 @@ export default function Messagerie({ currentUserId }: { currentUserId: string })
                   }
                   return (
                     <div key={m.id} className={`flex ${sent ? "justify-end" : "justify-start"}`}>
-                      <div className={`max-w-[75%] sm:max-w-[68%] rounded-[18px] px-4 py-2.5 text-[13px] leading-[1.45] relative ${sent ? "bg-gradient-to-br from-[#FF6B35] to-[#FF3E6C] text-white rounded-br-[6px] shadow-[0_2px_10px_rgba(255,107,53,0.2)]" : "bg-white border border-gray-100 text-[#0A1931] rounded-bl-[6px] shadow-sm"}`}>
+                      <div className={`max-w-[75%] sm:max-w-[68%] rounded-[18px] px-4 py-2.5 text-[13px] leading-[1.45] relative ${sent ? "bg-gradient-to-br from-[#6D28D9] to-[#FF3E6C] text-white rounded-br-[6px] shadow-[0_2px_10px_rgba(109,40,217,0.2)]" : "bg-white border border-gray-100 text-[#191224] rounded-bl-[6px] shadow-sm"}`}>
                         <div>{m.text}</div>
                         <div className={`flex items-center justify-end gap-1 mt-1 text-[10px] ${sent ? "text-white/80" : "text-gray-400"}`}>
                           <span>{m.time}</span>
@@ -601,7 +598,7 @@ export default function Messagerie({ currentUserId }: { currentUserId: string })
                 <div className="flex items-end gap-2">
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    className="w-10 h-10 rounded-full bg-[#F8F5F2] hover:bg-gray-100 flex items-center justify-center text-[#0A1931] shrink-0"
+                    className="w-10 h-10 rounded-full bg-[#F6F5FA] hover:bg-gray-100 flex items-center justify-center text-[#191224] shrink-0"
                     title="Joindre un fichier"
                   >
                     <Paperclip className="w-4 h-4" />
@@ -622,17 +619,17 @@ export default function Messagerie({ currentUserId }: { currentUserId: string })
                       onChange={(e) => setDraft(e.target.value)}
                       onKeyDown={(e) => { if (e.key === "Enter") send(); }}
                       placeholder={`Message à ${conv.name.split(" ")[0]}...`}
-                      className="w-full h-11 pl-4 pr-12 rounded-full bg-[#F8F5F2] border border-transparent focus:border-orange-200 focus:bg-white outline-none text-[13px] placeholder:text-gray-400 transition"
+                      className="w-full h-11 pl-4 pr-12 rounded-full bg-[#F6F5FA] border border-transparent focus:border-violet-200 focus:bg-white outline-none text-[13px] placeholder:text-gray-400 transition"
                     />
                     <button
                       onClick={() => setEmojiOpen((v) => !v)}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white border flex items-center justify-center text-gray-500 hover:text-[#0A1931]"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white border flex items-center justify-center text-gray-500 hover:text-[#191224]"
                       title="Émojis"
                     >
                       <Smile className="w-4 h-4" />
                     </button>
                   </div>
-                  <button onClick={send} className="w-11 h-11 rounded-full bg-gradient-to-r from-[#FF6B35] to-[#FF3E6C] text-white flex items-center justify-center shadow-[0_4px_12px_rgba(255,62,108,0.25)] hover:scale-105 transition shrink-0">
+                  <button onClick={send} className="w-11 h-11 rounded-full bg-gradient-to-r from-[#6D28D9] to-[#FF3E6C] text-white flex items-center justify-center shadow-[0_4px_12px_rgba(255,62,108,0.25)] hover:scale-105 transition shrink-0">
                     <Send className="w-4 h-4 ml-0.5" />
                   </button>
                 </div>
@@ -644,7 +641,7 @@ export default function Messagerie({ currentUserId }: { currentUserId: string })
                         <button
                           key={em}
                           onClick={() => { setDraft((d) => d + em); setEmojiOpen(false); }}
-                          className="w-8 h-8 rounded-[8px] hover:bg-[#FFF1E8] text-[18px] flex items-center justify-center transition"
+                          className="w-8 h-8 rounded-[8px] hover:bg-[#F0EAFF] text-[18px] flex items-center justify-center transition"
                         >
                           {em}
                         </button>

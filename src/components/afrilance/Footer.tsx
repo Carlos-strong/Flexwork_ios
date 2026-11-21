@@ -41,12 +41,12 @@ export default async function Footer() {
     <footer className="bg-white pb-6">
       {/* Gabarit Upwork : boîte sombre de 1488 px max, coins de 8 px, à 24 px des bords. */}
       <div className="footer-shell">
-        <div className="footer-box bg-[#0A1931] text-white">
+        <div className="footer-box bg-[#191224] text-white">
           <div className="page-inner">
             <div className="py-12 lg:py-16 grid grid-cols-2 md:grid-cols-5 gap-8 lg:gap-10 text-sm lg:text-base">
               <div>
                 <Link href="/" className="font-extrabold text-xl mb-4 block" style={{ textDecoration: 'none', color: 'inherit' }}>
-                  {brandHead}<span className="text-[#FF6B35]">{brandTail}</span>.
+                  {brandHead}<span className="text-[#6D28D9]">{brandTail}</span>.
                 </Link>
                 <p className="text-white/60 text-sm leading-relaxed">{baseline}</p>
               </div>
@@ -56,7 +56,7 @@ export default async function Footer() {
                   <ul className="space-y-2.5 text-white/60 text-sm">
                     {col.links.map((l) => (
                       <li key={l.href}>
-                        <Link href={l.href} className="hover:text-[#FF6B35] transition" style={{ textDecoration: 'none' }}>
+                        <Link href={l.href} className="hover:text-[#6D28D9] transition" style={{ textDecoration: 'none' }}>
                           {l.label}
                         </Link>
                       </li>

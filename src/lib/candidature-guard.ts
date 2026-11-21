@@ -3,16 +3,18 @@ import { hasRequiredGarants } from "@/lib/garant-rules";
 import { isCategorieAgeOk } from "@/lib/age-categorie";
 import { GARANT_ROLES } from "@/lib/role-dashboard";
 import type { Mission } from "@prisma/client";
+import { isOpenForApplications } from "@/lib/mission-expiry";
 
 // Gardes de candidature partagés — une seule source de vérité réutilisée par
 // POST /api/missions/[id]/proposals (candidature à prix) et POST /api/missions/[id]/devis
-// (candidature en mode QUOTE). Le KYC est géré séparément (requireVerifiedKyc).
+// (candidature en mode QUOTE). Le KYC est géré séparément (holdCandidatureForKyc, src/lib/proposal-drafts.ts).
 //   - mission ouverte (publiee)
 //   - mode présentiel/hybride : garant obligatoire requis UNIQUEMENT si l'Admin KYC a activé
 //     « garant requis » pour ce prestataire (User.garantRequired, désactivé par défaut ;
 //     l'option reste disponible pour artisan/manœuvre/expert_btp_autres)
 //   - risque HIGH : assurance RC Pro déclarée requise
 //   - catégorie de mission marquée par l'admin : âge minimum établi requis (A13, 2026-09-24)
+//   - date limite de candidature non échue (2026-11-10)
 export type CandidatureGuardResult =
   | { ok: true }
   | { ok: false; status: 403 | 409; error: string; message?: string };
@@ -55,6 +57,11 @@ export async function checkCandidatureEligibility(
   if (mission.status !== "publiee") {
     return { ok: false, status: 409, error: "mission_not_open" };
   }
+  // Seule la date limite ferme l'annonce aux candidatures (2026-11-10, src/lib/mission-expiry.ts).
+  // Elle n'était vérifiée que pour un devis : une candidature à prix fixe passait après l'échéance.
+  if (!isOpenForApplications(mission)) {
+    return { ok: false, status: 409, error: "mission_expired", message: "La période de candidature de cette mission est terminée." };
+  }
 
   if (mission.mode !== "distance") {
     // Garants : exigés UNIQUEMENT quand l'Admin KYC a activé « garant requis » pour CE
@@ -96,35 +103,18 @@ export async function checkCandidatureEligibility(
     }
   }
 
-  // Plafond de candidatures (2026-09-23) — `Mission.maxCandidatures`, `null` = illimité.
-  //
-  // Placé ici, dans la garde partagée, et non dans une seule route : les deux voies de
-  // candidature (proposition à prix et devis en mode QUOTE) doivent compter le même plafond,
-  // sinon le contourner reviendrait à passer par l'autre porte.
-  //
-  // Ne comptent PAS : les candidatures refusées et les négociations définitivement annulées.
-  // Elles ont libéré leur place — un plafond qui les retiendrait fermerait la mission alors
-  // qu'aucun prestataire n'est plus en lice.
-  //
-  // Le prestataire qui occupe déjà une place n'est jamais bloqué par le plafond : il est
-  // dedans, il ne cherche pas à entrer.
-  if (mission.maxCandidatures !== null && mission.maxCandidatures !== undefined) {
-    const occupees = await prisma.missionProposal.count({
-      where: {
-        missionId: mission.id,
-        status: { notIn: ["refusee", "annulee_definitive"] },
-        providerId: { not: providerId },
-      },
-    });
-    if (occupees >= mission.maxCandidatures) {
-      return {
-        ok: false,
-        status: 409,
-        error: "candidatures_closed",
-        message: `Cette mission a atteint le nombre de candidatures souhaité par le client (${mission.maxCandidatures}).`,
-      };
-    }
+  // Déjà retenu sur cette annonce (2026-11-10) : sa candidature a rejoint son engagement (mission
+  // enfant), elle n'est plus visible sur l'annonce — sans ce contrôle, il pouvait recandidater
+  // et se voir retenir une seconde fois.
+  const dejaRetenu = await prisma.missionProposal.count({
+    where: { providerId, mission: { parentMissionId: mission.id } },
+  });
+  if (dejaRetenu > 0) {
+    return { ok: false, status: 409, error: "already_applied", message: "Vous avez déjà été retenu sur cette mission." };
   }
 
+  // Plus de plafond de candidatures (2026-11-10) : `maxCandidatures` est désormais le nombre de
+  // prestataires que le client RETIENDRA (places, vérifiées à l'acceptation — accept-proposal.ts),
+  // pas une limite des candidatures reçues. Seule la date limite ferme l'annonce.
   return { ok: true };
 }

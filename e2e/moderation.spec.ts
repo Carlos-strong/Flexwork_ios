@@ -10,7 +10,8 @@ async function signaler(page: import("@playwright/test").Page, targetType: strin
   await page.locator("select").first().selectOption(targetType);
   await page.getByPlaceholder("ID de la déclaration, du profil ou de la mission").fill(targetId);
   await page.getByPlaceholder(/Décrivez précisément/).fill(reason);
-  await page.locator("form button[type=submit]").click();
+  // Le formulaire de signalement, pas la recherche de la barre globale.
+  await page.locator("form:not([role=search]) button[type=submit]").click();
   await expect(page.getByRole("heading", { name: "Signalement envoyé" })).toBeVisible();
 }
 

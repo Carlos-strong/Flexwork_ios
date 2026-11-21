@@ -338,7 +338,9 @@ test("S-03 déconnexion réelle ; la carte d'un service ouvre sa page publique",
     // réécrire le cookie après la déconnexion (serveur de dev lent sous charge). On attend que
     // le tableau de bord ait fini de charger, comme le ferait un utilisateur.
     await page.waitForLoadState("networkidle");
-    await page.getByRole("button", { name: "Déconnexion" }).first().click();
+    // Déconnexion depuis le menu du compte de la barre globale (l'ancien sidebar, 2026-11-09).
+    await page.getByRole("button", { name: "Menu du compte" }).click();
+    await page.getByRole("menuitem", { name: "Déconnexion" }).click();
     await expect(page).toHaveURL(/localhost:\d+\/$/, { timeout: 30_000 });
     await expect
       .poll(

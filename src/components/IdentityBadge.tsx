@@ -15,9 +15,9 @@ export function IdentityBadge({
   if (verified) {
     return (
       <span
-        className={`inline-flex items-center gap-1.5 rounded-full bg-[#008751]/10 border border-[#008751]/25 font-semibold ${
+        className={`inline-flex items-center gap-1.5 rounded-full bg-[#4C1D95]/10 border border-[#4C1D95]/25 font-semibold ${
           size === "sm" ? "px-2 py-0.5 text-[11px]" : "px-3 py-1 text-[12px]"
-        } text-[#008751]`}
+        } text-[#4C1D95]`}
       >
         <ShieldCheck className={size === "sm" ? "w-3 h-3" : "w-3.5 h-3.5"} />
         Identité vérifiée

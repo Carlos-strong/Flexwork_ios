@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { openAnnonceWhere, placesRecherchees } from "@/lib/mission-expiry";
 
 // Dernières missions publiées, pour la page d'accueil (2026-11-03).
 //
@@ -24,13 +25,17 @@ export type LatestMission = {
   /** Pays du client (ISO alpha-2) — son drapeau seul, jamais son nom. */
   clientCountry: string | null;
   candidatures: number;
+  /** Date limite de candidature (2026-11-10) et places de l'annonce. */
+  dateExpiration: Date | null;
+  placesRecherchees: number;
+  prestatairesRetenus: number;
 };
 
 /** NE LÈVE JAMAIS : une base indisponible masque la section, pas la page d'accueil. */
 export async function getLatestMissions(limit = 6): Promise<LatestMission[]> {
   try {
     const missions = await prisma.mission.findMany({
-      where: { status: "publiee" },
+      where: openAnnonceWhere(),
       orderBy: { createdAt: "desc" },
       take: limit,
       select: {
@@ -44,11 +49,13 @@ export async function getLatestMissions(limit = 6): Promise<LatestMission[]> {
         currency: true,
         createdAt: true,
         urgent: true,
+        dateExpiration: true,
+        maxCandidatures: true,
         metier: { select: { libelle: true } },
         categorie: { select: { icon: true } },
         client: { select: { kycStatus: true, country: true } },
         // Même décompte que la liste prestataire (GET /api/missions) : candidatures encore en jeu.
-        _count: { select: { proposals: { where: { status: { notIn: ["refusee", "annulee_definitive"] } } } } },
+        _count: { select: { proposals: { where: { status: { notIn: ["refusee", "annulee_definitive"] } } }, engagements: true } },
       },
     });
     return missions.map((m) => ({
@@ -64,6 +71,9 @@ export async function getLatestMissions(limit = 6): Promise<LatestMission[]> {
       clientVerified: m.client.kycStatus === "verifie",
       clientCountry: m.client.country ?? null,
       candidatures: m._count.proposals,
+      dateExpiration: m.dateExpiration,
+      placesRecherchees: placesRecherchees(m),
+      prestatairesRetenus: m._count.engagements,
     }));
   } catch {
     return [];

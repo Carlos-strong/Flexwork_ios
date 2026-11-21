@@ -5,7 +5,7 @@ import { AdminPageHeader } from "@/components/admin/admin-ui";
 
 type AgeEntry = { id: string; country: string; profileType: string; domain: string | null; minimumAge: number };
 
-const inputClass = "w-full h-10 px-3 rounded-lg border border-[#E2E0D9] text-[13px] bg-white focus:outline-none focus:ring-2 focus:ring-[#2D5BE3]/20 focus:border-[#2D5BE3]";
+const inputClass = "w-full h-10 px-3 rounded-lg border border-[#E7E2F0] text-[13px] bg-white focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20 focus:border-[#4C1D95]";
 
 // Seuils d'âge minimum par pays (A13).
 //
@@ -59,7 +59,7 @@ export default function AdminAgeRequirementsPage() {
   }
 
   return (
-    <div className="text-[#1A1916]">
+    <div className="text-[#191224]">
       <div className="space-y-5">
         <AdminPageHeader
           icon="🌍"
@@ -67,24 +67,24 @@ export default function AdminAgeRequirementsPage() {
           subtitle="Réglages par pays : âge minimum des filières chantier. Ce projet ne tient pas de référentiel de villes ni de régions — le seuil d'âge est le seul réglage de cet écran qui varie réellement d'un pays à l'autre."
         />
 
-        <div className="rounded-xl border border-[#E2E0D9] bg-white p-3.5 text-[12.5px] text-[#5A5750] leading-relaxed">
-          <strong className="text-[#1A1916]">Les paliers de risque ne sont plus ici.</strong> Ils sont portés par le métier
+        <div className="rounded-xl border border-[#E7E2F0] bg-white p-3.5 text-[12.5px] text-[#6B6478] leading-relaxed">
+          <strong className="text-[#191224]">Les paliers de risque ne sont plus ici.</strong> Ils sont portés par le métier
           lui-même et se règlent dans <a href="/backoffice/catalog" className="underline">Taxonomie</a>, au moment où l&apos;on décrit
           le métier. Indexé sur un libellé libre, le risque ne correspondait qu&apos;à 4 métiers sur 220 — et jamais à un palier
           « élevé », si bien que l&apos;assurance obligatoire ne se déclenchait jamais. Sur le métier, il ne peut plus être
           orphelin. La règle reste la même :{" "}
-          <code className="px-1 py-0.5 rounded bg-[#F4F3EF] text-[12px]">riskLevel = high</code> entraîne{" "}
-          <code className="px-1 py-0.5 rounded bg-[#F4F3EF] text-[12px]">insurance_required = true</code>, sans dérogation possible.
+          <code className="px-1 py-0.5 rounded bg-[#EFEAF8] text-[12px]">riskLevel = high</code> entraîne{" "}
+          <code className="px-1 py-0.5 rounded bg-[#EFEAF8] text-[12px]">insurance_required = true</code>, sans dérogation possible.
         </div>
 
-        {feedback && <div className="rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] p-3 text-[13px] text-[#1E40AF]">{feedback}</div>}
+        {feedback && <div className="rounded-xl border border-[#BFDBFE] bg-[#EAF1FF] p-3 text-[13px] text-[#1D4ED8]">{feedback}</div>}
 
-        <div id="age" className="bg-white border border-[#E2E0D9] rounded-xl overflow-hidden scroll-mt-6">
-          <div className="p-4 lg:p-5 border-b border-[#E2E0D9]"><h3 className="text-[13px] font-semibold font-mono">country_age_requirements (A13)</h3></div>
+        <div id="age" className="bg-white border border-[#E7E2F0] rounded-xl overflow-hidden scroll-mt-6">
+          <div className="p-4 lg:p-5 border-b border-[#E7E2F0]"><h3 className="text-[13px] font-semibold font-mono">country_age_requirements (A13)</h3></div>
           <div className="overflow-x-auto">
             <table className="w-full text-[13px]">
               <thead>
-                <tr className="text-[11px] tracking-widest text-[#5A5750] uppercase bg-[#FAFAF8] border-b border-[#E2E0D9]">
+                <tr className="text-[11px] tracking-widest text-[#6B6478] uppercase bg-[#F6F5FA] border-b border-[#E7E2F0]">
                   <th className="text-left py-2.5 px-4 lg:px-5 font-semibold">Pays</th>
                   <th className="text-left py-2.5 px-3 font-semibold">Filière</th>
                   <th className="text-left py-2.5 px-3 font-semibold">Domaine</th>
@@ -93,11 +93,11 @@ export default function AdminAgeRequirementsPage() {
               </thead>
               <tbody>
                 {ages.map((a) => (
-                  <tr key={a.id} className="border-b border-[#F4F3EF] last:border-0">
-                    <td className="py-2.5 px-4 lg:px-5 text-[#5A5750]">{a.country}</td>
-                    <td className="py-2.5 px-3 text-[#5A5750]">{a.profileType}</td>
-                    <td className="py-2.5 px-3 text-[#5A5750]">{a.domain ?? "—"}</td>
-                    <td className="py-2.5 px-4 lg:px-5 text-[#5A5750]">{a.minimumAge} ans</td>
+                  <tr key={a.id} className="border-b border-[#EFEAF8] last:border-0">
+                    <td className="py-2.5 px-4 lg:px-5 text-[#6B6478]">{a.country}</td>
+                    <td className="py-2.5 px-3 text-[#6B6478]">{a.profileType}</td>
+                    <td className="py-2.5 px-3 text-[#6B6478]">{a.domain ?? "—"}</td>
+                    <td className="py-2.5 px-4 lg:px-5 text-[#6B6478]">{a.minimumAge} ans</td>
                   </tr>
                 ))}
               </tbody>
@@ -105,18 +105,18 @@ export default function AdminAgeRequirementsPage() {
           </div>
         </div>
 
-        <div className="bg-white border border-[#E2E0D9] rounded-xl p-4 lg:p-5">
+        <div className="bg-white border border-[#E7E2F0] rounded-xl p-4 lg:p-5">
           <h3 className="text-[13px] font-semibold mb-3">Ajouter / Modifier un seuil d&apos;âge</h3>
           <form onSubmit={submitAge} className="space-y-3">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-[12px] font-medium text-[#5A5750] mb-1">Pays</label>
+                <label className="block text-[12px] font-medium text-[#6B6478] mb-1">Pays</label>
                 <select name="country" defaultValue="BJ" className={inputClass}>
                   <option value="BJ">BJ</option><option value="CI">CI</option><option value="SN">SN</option><option value="TG">TG</option>
                 </select>
               </div>
               <div>
-                <label className="block text-[12px] font-medium text-[#5A5750] mb-1">Filière chantier</label>
+                <label className="block text-[12px] font-medium text-[#6B6478] mb-1">Filière chantier</label>
                 <select name="profileType" defaultValue="manoeuvre" className={inputClass}>
                   <option value="manoeuvre">Manœuvre</option>
                   <option value="artisan">Artisan</option>
@@ -126,19 +126,19 @@ export default function AdminAgeRequirementsPage() {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-[12px] font-medium text-[#5A5750] mb-1">Domaine (optionnel — ex. conduite d&apos;engins)</label>
+                <label className="block text-[12px] font-medium text-[#6B6478] mb-1">Domaine (optionnel — ex. conduite d&apos;engins)</label>
                 <input type="text" name="domain" className={inputClass} />
               </div>
               <div>
-                <label className="block text-[12px] font-medium text-[#5A5750] mb-1">Âge minimum (18 ans plancher légal)</label>
+                <label className="block text-[12px] font-medium text-[#6B6478] mb-1">Âge minimum (18 ans plancher légal)</label>
                 <input type="number" name="minimumAge" min={18} required defaultValue={18} className={inputClass} />
               </div>
             </div>
             <div>
-              <label className="block text-[12px] font-medium text-[#5A5750] mb-1">Justification (obligatoire)</label>
+              <label className="block text-[12px] font-medium text-[#6B6478] mb-1">Justification (obligatoire)</label>
               <input type="text" name="justification" required className={inputClass} />
             </div>
-            <button type="submit" className="h-10 px-5 rounded-lg bg-[#2D5BE3] text-white text-[13px] font-semibold hover:bg-[#007a49] transition-colors">Enregistrer</button>
+            <button type="submit" className="h-10 px-5 rounded-full bg-[#4C1D95] text-white text-[13px] font-semibold hover:bg-[#3B1578] transition-colors">Enregistrer</button>
           </form>
         </div>
       </div>

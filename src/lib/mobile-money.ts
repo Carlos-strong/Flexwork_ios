@@ -26,7 +26,7 @@ export function mobileMoneyOperatorLabel(value?: string | null): string {
   return MOBILE_MONEY_OPERATORS.find((o) => o.value === value)?.label ?? "Opérateur inconnu";
 }
 
-// Numéro au format international. On accepte les espaces et les tirets de saisie (« +229 96
+// Numéro au format international. On accepte les espaces et les tirets de saisie (« +229 01 96
 // 12 34 56 ») mais on REFUSE de les normaliser : c'est le numéro tel que l'opérateur le
 // reconnaîtra qui compte, et un reformatage automatique casserait un préfixe local.
 const MOBILE_MONEY_NUMBER = /^\+?[0-9](?:[0-9\s.-]{6,22})[0-9]$/;

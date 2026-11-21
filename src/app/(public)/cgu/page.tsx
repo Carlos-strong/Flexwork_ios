@@ -55,12 +55,12 @@ export default function CguPage() {
 
       <section className="page-shell [&>*]:max-w-3xl py-12 lg:py-16 space-y-5">
         {SECTIONS.map((s) => (
-          <div key={s.t} className="bg-white border border-[#E2E8F0] rounded-2xl p-6">
-            <h2 className="font-bold text-[#0f172a] mb-2">{s.t}</h2>
-            <p className="text-sm text-[#64748B] leading-relaxed">{s.d}</p>
+          <div key={s.t} className="bg-white border border-[#E7E2F0] rounded-2xl p-6">
+            <h2 className="font-bold text-[#191224] mb-2">{s.t}</h2>
+            <p className="text-sm text-[#6B6478] leading-relaxed">{s.d}</p>
           </div>
         ))}
-        <p className="text-xs text-[#94A3B8]">
+        <p className="text-xs text-[#9A93A8]">
           Version de référence : modèle v3.1 (intermédiaire pur). Document à valider juridiquement avant mise en
           production (prérequis n° 1 et 3 de l&apos;état consolidé).
         </p>

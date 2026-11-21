@@ -4,8 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { HardHat, Users, Wallet, AlertTriangle } from "lucide-react";
-import DashboardLayout, { type DashboardUser, type NavItem } from "@/components/dashboard/DashboardLayout";
+import { AlertTriangle } from "lucide-react";
+import DashboardLayout, { type DashboardUser } from "@/components/dashboard/DashboardLayout";
 import Messagerie from "@/components/dashboard/Messagerie";
 import { AttendancePanel } from "@/components/spot-time/attendance-panel";
 import { useUserIdentity } from "@/components/user-identity";
@@ -69,22 +69,19 @@ const FALLBACK_USER: DashboardUser = {
   initials: "RC",
   name: "Responsable chantier",
   role: "Responsable chantier",
-  avatarGradient: "from-[#0A1931] to-[#008751]",
+  avatarGradient: "from-[#191224] to-[#4C1D95]",
 };
 
-// Navigation propre au rôle — trois rubriques, pas sept.
-export const SITE_MANAGER_NAV: NavItem[] = [
-  { id: "dashboard", label: "Mes chantiers", Icon: HardHat, href: "/dashboard/responsable-chantier" },
-  { id: "equipe", label: "Équipe", Icon: Users, href: "/dashboard/responsable-chantier/equipe" },
-  { id: "messages", label: "Messages", Icon: Wallet, href: "/dashboard/responsable-chantier/messages" },
-];
+// Navigation propre au rôle — trois rubriques, pas sept (src/components/dashboard/nav.ts).
+import { SITE_MANAGER_NAV } from "./nav";
+export { SITE_MANAGER_NAV };
 
 function StatCard({ label, value, sub, alert }: { label: string; value: string; sub: string; alert?: boolean }) {
   return (
     <div className="bg-white rounded-[16px] border border-gray-100 p-4 relative overflow-hidden">
-      <div className={`absolute top-0 left-0 w-full h-1 ${alert ? "bg-[#E8112D]" : "bg-[#008751]"}`} />
+      <div className={`absolute top-0 left-0 w-full h-1 ${alert ? "bg-[#B42318]" : "bg-[#4C1D95]"}`} />
       <div className="text-[11px] uppercase tracking-widest text-zinc-400 font-semibold mb-1">{label}</div>
-      <div className="text-[28px] font-bold tracking-tight text-[#0A1931]">{value}</div>
+      <div className="text-[28px] font-bold tracking-tight text-[#191224]">{value}</div>
       <div className="text-[12px] text-zinc-400 mt-0.5">{sub}</div>
     </div>
   );
@@ -113,8 +110,8 @@ export default function SiteManagerDashboard({ initialNav = "dashboard" }: { ini
 
   if (status === "loading") {
     return (
-      <div className="min-h-screen bg-[#F8FAF9] flex items-center justify-center">
-        <div className="w-8 h-8 border-[3px] border-[#008751] border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen bg-[#F6F5FA] flex items-center justify-center">
+        <div className="w-8 h-8 border-[3px] border-[#4C1D95] border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -128,20 +125,17 @@ export default function SiteManagerDashboard({ initialNav = "dashboard" }: { ini
 
   return (
     <DashboardLayout
-      mode="prestataire"
       user={user}
       navItems={SITE_MANAGER_NAV}
       activeNav={initialNav}
-      onNavChange={(id) => router.push(SITE_MANAGER_NAV.find((n) => n.id === id)?.href ?? "/dashboard/responsable-chantier")}
       title="Mes chantiers"
-      hideDocuments
     >
       {initialNav === "messages" ? (
         <Messagerie currentUserId={currentUserId} />
       ) : (
         <>
           <div className="mb-6">
-            <h1 className="text-[22px] md:text-[26px] font-bold text-[#0A1931] tracking-tight">
+            <h1 className="text-[22px] md:text-[26px] font-bold text-[#191224] tracking-tight">
               Bonjour {identity?.name ?? "Responsable"} 👷
             </h1>
             <p className="text-[13px] text-zinc-500 mt-1">
@@ -169,14 +163,14 @@ export default function SiteManagerDashboard({ initialNav = "dashboard" }: { ini
           {/* Jalons et tâches à vérifier — toutes missions confiées, au temps ou non. */}
           {(summary?.toVerify?.length ?? 0) > 0 && (
             <div className="bg-white rounded-[20px] border border-gray-100 overflow-hidden mb-4">
-              <div className="px-5 py-3 border-b border-gray-50 font-semibold text-[14px] text-[#0A1931]">
+              <div className="px-5 py-3 border-b border-gray-50 font-semibold text-[14px] text-[#191224]">
                 Jalons et tâches à vérifier
               </div>
               <ul className="divide-y divide-gray-50">
                 {summary!.toVerify!.map((v) => (
                   <li key={`${v.missionId}:${v.jalonId ?? "mission"}`} className="px-5 py-3 flex items-center justify-between gap-3">
                     <div className="min-w-0">
-                      <div className="text-[13px] font-semibold text-[#0A1931] truncate">{v.titre}</div>
+                      <div className="text-[13px] font-semibold text-[#191224] truncate">{v.titre}</div>
                       <div className="text-[12px] text-zinc-500 truncate">
                         {v.missionTitre}
                         {v.montant != null && ` · ${v.montant.toLocaleString("fr-FR")} ${v.currency}`}
@@ -184,7 +178,7 @@ export default function SiteManagerDashboard({ initialNav = "dashboard" }: { ini
                     </div>
                     <Link
                       href={`/missions/${v.missionId}`}
-                      className="h-8 px-3 inline-flex items-center rounded-full bg-[#0A1931] text-white text-[12px] font-semibold hover:bg-black"
+                      className="h-8 px-3 inline-flex items-center rounded-full bg-[#191224] text-white text-[12px] font-semibold hover:bg-black"
                       style={{ textDecoration: "none" }}
                     >
                       Vérifier
@@ -198,12 +192,12 @@ export default function SiteManagerDashboard({ initialNav = "dashboard" }: { ini
           {/* Missions confiées sans relevés (jalons/tâches) : accès direct à leur espace. */}
           {(summary?.missions?.length ?? 0) > 0 && (
             <div className="bg-white rounded-[20px] border border-gray-100 overflow-hidden mb-4">
-              <div className="px-5 py-3 border-b border-gray-50 font-semibold text-[14px] text-[#0A1931]">Missions suivies</div>
+              <div className="px-5 py-3 border-b border-gray-50 font-semibold text-[14px] text-[#191224]">Missions suivies</div>
               <ul className="divide-y divide-gray-50">
                 {summary!.missions!.map((m) => (
                   <li key={m.missionId} className="px-5 py-3 flex items-center justify-between gap-3">
-                    <span className="text-[13px] text-[#0A1931] truncate">{m.missionTitre}</span>
-                    <Link href={`/missions/${m.missionId}`} className="text-[12.5px] text-zinc-500 hover:text-[#0A1931]" style={{ textDecoration: "none" }}>
+                    <span className="text-[13px] text-[#191224] truncate">{m.missionTitre}</span>
+                    <Link href={`/missions/${m.missionId}`} className="text-[12.5px] text-zinc-500 hover:text-[#191224]" style={{ textDecoration: "none" }}>
                       Ouvrir →
                     </Link>
                   </li>
@@ -227,7 +221,7 @@ export default function SiteManagerDashboard({ initialNav = "dashboard" }: { ini
               <div key={c.missionId} className="bg-white rounded-[20px] border border-gray-100 overflow-hidden">
                 <div className="px-5 py-4 border-b border-gray-50 flex items-start justify-between gap-3 flex-wrap">
                   <div className="min-w-0">
-                    <h3 className="font-semibold text-[14px] text-[#0A1931]">{c.missionTitre}</h3>
+                    <h3 className="font-semibold text-[14px] text-[#191224]">{c.missionTitre}</h3>
                     <p className="text-[12px] text-zinc-500 mt-0.5">
                       {c.worker.name} · {c.terms.rate.toLocaleString("fr-FR")} {c.currency} /{" "}
                       {UNIT_LABEL[c.terms.rateUnit].one}
@@ -238,7 +232,7 @@ export default function SiteManagerDashboard({ initialNav = "dashboard" }: { ini
                       {unite(c.consumedQuantity, c.terms.rateUnit)} / {unite(c.terms.maxQuantity, c.terms.rateUnit)}
                     </div>
                     {c.pending.length > 0 && (
-                      <span className="inline-flex mt-1 px-2 py-0.5 rounded-full bg-[#FFFBEB] text-[#92400E] text-[10.5px] font-bold">
+                      <span className="inline-flex mt-1 px-2 py-0.5 rounded-full bg-[#FFF6E3] text-[#92400E] text-[10.5px] font-bold">
                         {c.pending.length} à vérifier
                       </span>
                     )}
@@ -248,7 +242,7 @@ export default function SiteManagerDashboard({ initialNav = "dashboard" }: { ini
                 {/* L'alerte du §19 à sa vraie place : c'est le responsable de chantier qui verra
                     l'équipe s'arrêter, donc à lui de la remonter au client avant l'arrêt. */}
                 {c.funding.low && (
-                  <div className="px-5 py-3 bg-[#FFFBEB] border-b border-[#FDE68A] flex items-start gap-2 text-[12.5px] text-[#92400E] leading-relaxed">
+                  <div className="px-5 py-3 bg-[#FFF6E3] border-b border-[#FDE68A] flex items-start gap-2 text-[12.5px] text-[#92400E] leading-relaxed">
                     <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
                     <span>
                       <strong>Financement bientôt épuisé.</strong> Le séquestre ne couvre plus que{" "}
@@ -261,13 +255,13 @@ export default function SiteManagerDashboard({ initialNav = "dashboard" }: { ini
                 <div className="px-5 py-4">
                   <button
                     onClick={() => setOuvert(ouvert === c.missionId ? null : c.missionId)}
-                    className="h-9 px-4 rounded-full bg-[#0A1931] text-white text-[12.5px] font-semibold hover:bg-black transition-colors"
+                    className="h-9 px-4 rounded-full bg-[#191224] text-white text-[12.5px] font-semibold hover:bg-black transition-colors"
                   >
                     {ouvert === c.missionId ? "Masquer les relevés" : "Voir et vérifier les relevés"}
                   </button>
                   <Link
                     href={`/missions/${c.missionId}`}
-                    className="ml-2 text-[12.5px] text-zinc-500 hover:text-[#0A1931]"
+                    className="ml-2 text-[12.5px] text-zinc-500 hover:text-[#191224]"
                     style={{ textDecoration: "none" }}
                   >
                     Détail de la mission →

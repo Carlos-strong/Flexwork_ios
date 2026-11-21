@@ -199,12 +199,15 @@ test.describe("E — découverte", () => {
 
     await expect(page).toHaveURL(new RegExp(`/missions/${mission.id}\\?candidater=1$`), { timeout: 30_000 });
     await expect(page.getByRole("button", { name: "Envoyer ma candidature" })).toBeVisible();
-    // Identité pas encore vérifiée : refus explicite, avec le chemin pour s'en sortir.
+    // Identité pas encore vérifiée (2026-11-09) : la candidature n'est pas perdue, elle est
+    // enregistrée et partira seule à la vérification, avec le chemin vers celle-ci.
     await page.getByRole("button", { name: /^Prix fixe/ }).click();
     await page.getByPlaceholder("150000").fill("140000");
     await page.getByRole("button", { name: "Envoyer ma candidature" }).click();
-    await expect(page.getByText("Votre identité doit être vérifiée avant de candidater.")).toBeVisible();
+    await expect(page).toHaveURL(/\/devis-contrats\?tab=devis&f=brouillons&envoi=en-attente&mission=/, { timeout: 30_000 });
+    await expect(page.getByRole("alert").filter({ hasText: "n'a pas été envoyée au client" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Vérifier mon identité" })).toHaveAttribute("href", "/kyc");
+    expect(await prisma.proposalDraft.count({ where: { missionId: mission.id } })).toBe(1);
   });
 
   test("E-09 « Commander » sans compte : inscription en client, puis la fiche du service", async ({ page }) => {

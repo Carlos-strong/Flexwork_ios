@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { Avatar } from "@/components/avatar";
 import { COUNTRIES } from "@/lib/countries";
+import { initials } from "@/lib/initials";
 
 // Profil client — pendant de /profile (prestataire), qui demandait jusqu'ici un « Domaine
 // principal » obligatoire à tout le monde, client compris. Un client n'a pas de domaine
@@ -89,9 +90,6 @@ const SAVE_ERROR_MESSAGES: Record<string, string> = {
   not_found: "Compte introuvable — reconnectez-vous puis réessayez.",
 };
 
-const initialsOf = (firstname: string | null, lastname: string | null) =>
-  `${firstname?.trim()?.charAt(0) ?? ""}${lastname?.trim()?.charAt(0) ?? ""}`.toUpperCase() || "?";
-
 export default function ClientProfileForm() {
   const [data, setData] = useState<ClientProfileData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -110,17 +108,28 @@ export default function ClientProfileForm() {
   const avatarInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    // Chargement abandonné (effet rejoué, remontage) : sa réponse tardive écrasait le type de
+    // client et les langues déjà choisis — même garde que FinancialKycForm (2026-11-09).
+    let stale = false;
     fetch("/api/profile/client")
       .then((r) => (r.ok ? r.json() : null))
       .then((d: ClientProfileData | null) => {
+        if (stale) return;
         setData(d);
         setClientType(d?.profile?.clientType ?? "");
         setLanguages(d?.profile?.languages ?? []);
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (!stale) setLoading(false);
+      });
     fetch("/api/users/me")
       .then((r) => (r.ok ? r.json() : null))
-      .then(setIdentity);
+      .then((d) => {
+        if (!stale) setIdentity(d);
+      });
+    return () => {
+      stale = true;
+    };
   }, []);
 
   async function handleAvatarSelect(e: React.ChangeEvent<HTMLInputElement>) {
@@ -228,15 +237,15 @@ export default function ClientProfileForm() {
   // carte dont les sections sont séparées par un filet, et une barre d'actions en pied de carte
   // — collée au bas de l'écran sur mobile, pour qu'« Enregistrer » reste à portée de pouce.
   // Le message d'enregistrement s'affiche dans cette barre, là où l'utilisateur vient de cliquer.
-  const inputClass = "w-full h-11 px-3.5 rounded-lg border border-zinc-300 bg-white text-[14px] text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-[#008751]/20 focus:border-[#008751] transition";
-  const btnPrimary = "h-11 px-6 rounded-full bg-[#008751] text-white text-[14px] font-semibold hover:bg-[#006e43] transition disabled:opacity-50";
+  const inputClass = "w-full h-11 px-3.5 rounded-lg border border-zinc-300 bg-white text-[14px] text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20 focus:border-[#4C1D95] transition";
+  const btnPrimary = "h-11 px-6 rounded-full bg-[#4C1D95] text-white text-[14px] font-semibold hover:bg-[#3B1578] transition disabled:opacity-50";
   const btnSecondary = "h-10 px-4 rounded-full border border-zinc-300 bg-white text-[13px] font-medium text-zinc-700 hover:bg-zinc-50 transition";
   const labelClass = "block text-[13px] font-medium text-zinc-700 mb-1.5";
   const section = "px-5 py-6 sm:px-8 sm:py-7";
   const sectionTitle = "text-[16px] font-semibold text-zinc-900";
   const sectionHint = "mt-1 text-[13px] text-zinc-500";
   const alertClass = (ok: boolean) =>
-    `px-4 py-3 rounded-lg text-[13px] font-medium ${ok ? "bg-[#f0fdf4] border border-[#bbf7d0] text-[#166534]" : "bg-red-50 border border-red-200 text-red-700"}`;
+    `px-4 py-3 rounded-lg text-[13px] font-medium ${ok ? "bg-[#E7F7EF] border border-[#bbf7d0] text-[#047857]" : "bg-red-50 border border-red-200 text-red-700"}`;
 
   const completion = data?.completion;
   const isOrganisation = clientType !== "" && clientType !== "particulier";
@@ -251,7 +260,7 @@ export default function ClientProfileForm() {
         </Link>
         <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h1 className="text-[24px] sm:text-[28px] font-semibold tracking-tight text-[#0A1931]">Mon profil</h1>
+            <h1 className="text-[24px] sm:text-[28px] font-semibold tracking-tight text-[#191224]">Mon profil</h1>
             <p className="mt-1 text-[14px] text-zinc-500">
               Ces informations aident les prestataires à comprendre qui vous êtes. Rien n&apos;est obligatoire.
             </p>
@@ -262,10 +271,10 @@ export default function ClientProfileForm() {
             <div className="shrink-0 sm:w-44">
               <div className="flex items-baseline justify-between text-[12px]">
                 <span className="font-medium text-zinc-600">Profil complété</span>
-                <span className="font-bold text-[#008751]">{completion.percent} %</span>
+                <span className="font-bold text-[#4C1D95]">{completion.percent} %</span>
               </div>
               <div className="mt-1.5 h-1.5 rounded-full bg-zinc-200 overflow-hidden">
-                <div className="h-full rounded-full bg-[#008751] transition-all" style={{ width: `${completion.percent}%` }} />
+                <div className="h-full rounded-full bg-[#4C1D95] transition-all" style={{ width: `${completion.percent}%` }} />
               </div>
             </div>
           )}
@@ -286,9 +295,9 @@ export default function ClientProfileForm() {
             <div className="mt-4 flex items-center gap-4">
               <Avatar
                 src={identity?.avatarUrl}
-                initials={identity ? initialsOf(identity.firstname, identity.lastname) : "?"}
+                initials={identity ? initials(identity.firstname, identity.lastname) : "?"}
                 size={64}
-                gradient="from-[#008751] to-[#FCD116]"
+                gradient="from-[#4C1D95] to-[#8B5CF6]"
               />
               <div className="flex flex-wrap items-center gap-3">
                 <input ref={avatarInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleAvatarSelect} className="hidden" />
@@ -390,7 +399,7 @@ export default function ClientProfileForm() {
                         aria-pressed={active}
                         className={`h-9 px-3.5 rounded-full text-[13px] font-medium border transition ${
                           active
-                            ? "bg-[#008751] border-[#008751] text-white"
+                            ? "bg-[#4C1D95] border-[#4C1D95] text-white"
                             : "bg-white border-zinc-300 text-zinc-700 hover:bg-zinc-50"
                         }`}
                       >

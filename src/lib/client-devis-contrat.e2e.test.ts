@@ -90,8 +90,10 @@ async function soumettreDevis(missionId: string, providerId: string, financingMo
 
 async function validerEtContracter(missionId: string, proposalId: string) {
   authAs(ids.client);
-  await expectOk(await devisValidatePost(postReq(), atProposal(missionId, proposalId)), "validation du devis");
-  const res = await expectOk(await contractPost(postReq(), at(missionId)), "génération du contrat");
+  const v = await expectOk(await devisValidatePost(postReq(), atProposal(missionId, proposalId)), "validation du devis");
+  // Le contrat se génère sur l'ENGAGEMENT du prestataire retenu (2026-11-10).
+  const engagementId = (await v.json()).engagementId as string;
+  const res = await expectOk(await contractPost(postReq(), at(engagementId)), "génération du contrat");
   return prisma.prestationContract.findUniqueOrThrow({ where: { id: (await res.json()).id }, include: { jalons: { orderBy: { ordre: "asc" } } } });
 }
 
@@ -179,11 +181,11 @@ describe("contrat : le modèle du devis accepté fait foi", () => {
   it("C-N04 — devis validé : le prestataire ne peut plus le modifier", async () => {
     authAs(presta.fixe);
     const res = await devisPost(postReq({ lineItems: LIGNES, delay: "20 jours", tvaRate: 18, laborCost: 0, financingModeKey: "J1" }), at(missionIds[0]));
-    // Refus dès la garde d'éligibilité (la mission n'est plus ouverte une fois le devis validé),
-    // avant même celle de la proposition close — dans les deux cas, rien ne change.
+    // L'annonce reste ouverte (2026-11-10), mais le prestataire y est déjà retenu : refusé, et son
+    // devis validé — désormais sur son engagement — ne change pas.
     expect(res.status).toBe(409);
-    expect(["mission_not_open", "proposal_closed"]).toContain((await res.json()).error);
-    const proposal = await prisma.missionProposal.findFirstOrThrow({ where: { missionId: missionIds[0] } });
+    expect((await res.json()).error).toBe("already_applied");
+    const proposal = await prisma.missionProposal.findFirstOrThrow({ where: { providerId: presta.fixe, mission: { parentMissionId: missionIds[0] } } });
     expect((proposal.devisData as { financingModeKey: string }).financingModeKey).toBe("F2");
   });
 
@@ -230,7 +232,8 @@ describe("paiement de bout en bout", () => {
   it(
     "C-E01 — devis à prix fixe : un séquestre de 177 000, une libération de 177 000, mission close",
     async () => {
-      const missionId = missionIds[0];
+      // L'engagement du prestataire retenu sur l'annonce « CD Notif fixe » (2026-11-10).
+      const missionId = (await prisma.mission.findFirstOrThrow({ where: { parentMissionId: missionIds[0] } })).id;
       const contract = await prisma.prestationContract.findUniqueOrThrow({ where: { missionId } });
 
       // Signatures : le prestataire d'abord (1/2), le client ensuite (2/2) — qui déclenche le

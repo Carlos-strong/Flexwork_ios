@@ -1,16 +1,12 @@
 import { NextResponse } from "next/server";
+import { reserveUntil } from "@/lib/mission-expiry";
 import type { Prisma } from "@prisma/client";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { proposalSchema } from "@/lib/validation";
-import { requireVerifiedKyc } from "@/lib/kycGuard";
-import { checkCandidatureEligibility } from "@/lib/candidature-guard";
-import { notifyMissionParties } from "@/lib/mission-notify";
-import { assertNoSelfDealing } from "@/lib/invariants";
+import { submitProposalAs } from "@/lib/candidature-submit";
+import { holdCandidatureForKyc } from "@/lib/proposal-drafts";
 import { requireMissionParty } from "@/lib/resource-guard";
-import { CLOSED_PROPOSAL_STATUSES, canProviderReviseDevis, computeDevisData } from "@/lib/devis";
-import { getFinancingMode, checkDevisPaymentMode, isDevisPaymentModeKey, DEVIS_FIXED_MODE_KEY } from "@/lib/financing-modes";
-import { RATE_UNIT_LABEL, expectedMaxAmount } from "@/lib/spot-time";
 
 // Phase 4 : un prestataire propose un prix sur une mission à prix fixe/taux (budgetType !==
 // "QUOTE" — le mode devis a sa propre route, POST /api/missions/[id]/devis).
@@ -37,193 +33,22 @@ export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const guard = await requireVerifiedKyc();
-  if (!guard.ok) {
-    return NextResponse.json({ error: guard.error }, { status: guard.status });
-  }
-  const providerId = guard.userId;
   const { id: missionId } = await params;
-
   const mission = await prisma.mission.findUnique({ where: { id: missionId } });
-  if (!mission) {
-    return NextResponse.json({ error: "not_found" }, { status: 404 });
-  }
-  if (mission.budgetType === "QUOTE") {
-    return NextResponse.json({ error: "quote_mission" }, { status: 409 });
-  }
-
-  // Famille 4 — invariant : un commanditaire ne peut pas candidater à sa propre mission
-  // (auto-attribution). Faille ouverte avant ce correctif — l'API l'acceptait, seule
-  // l'interface la masquait. À fermer AVANT toute ouverture du dual-role.
-  if (!assertNoSelfDealing(mission.clientId, providerId)) {
-    return NextResponse.json({ error: "self_dealing_forbidden" }, { status: 403 });
-  }
-
-  // Gardes de candidature partagés (mission ouverte, garant, assurance) — même source que
-  // POST /api/missions/[id]/devis (src/lib/candidature-guard.ts).
-  const eligibility = await checkCandidatureEligibility(mission, providerId);
-  if (!eligibility.ok) {
-    return NextResponse.json(
-      { error: eligibility.error, message: eligibility.message },
-      { status: eligibility.status }
-    );
-  }
-
   const body = await req.json().catch(() => null);
   const parsed = proposalSchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json({ error: "invalid_payload", details: parsed.error.flatten() }, { status: 400 });
-  }
 
-  const existing = await prisma.missionProposal.findUnique({
-    where: { missionId_providerId: { missionId, providerId } },
+  // KYC non vérifié : la candidature n'est pas perdue, elle est mise en brouillon pour être
+  // envoyée telle quelle une fois l'identité vérifiée (src/lib/proposal-drafts.ts).
+  const hold = await holdCandidatureForKyc({
+    kind: "proposal",
+    mission: mission && mission.budgetType !== "QUOTE" ? mission : null,
+    payload: parsed.success ? (body as Prisma.InputJsonValue) : null,
   });
-  if (existing && CLOSED_PROPOSAL_STATUSES.includes(existing.status)) {
-    return NextResponse.json({ error: "already_applied" }, { status: 409 });
-  }
-  if (existing && existing.roundActuel >= mission.maxRevisionRounds) {
-    return NextResponse.json({ error: "max_revisions_reached" }, { status: 409 });
-  }
-  // La toute première soumission est toujours permise ; une resoumission (round 2+) exige
-  // que le client ait explicitement demandé une révision — sinon le prestataire pourrait
-  // renégocier son propre prix à volonté sans qu'aucune demande ne l'ait motivé.
-  if (!canProviderReviseDevis({ hasDevis: !!existing?.devisData, revisionRequested: !!existing?.revisionRequestedAt })) {
-    return NextResponse.json({ error: "revision_not_requested" }, { status: 409 });
-  }
-
-  // Mission au TEMPS (S2, 2026-09-15) : le prestataire chiffre un TARIF, et le prix du contrat —
-  // le plafond séquestré — en découle (tarif × quantité maximale publiée). `montant` reste la
-  // seule valeur que la suite de la chaîne lit (acceptation, contrat, séquestre) ; `unitRate` est
-  // conservé pour que le contrat fige le tarif réellement proposé, sans le redériver.
-  //
-  // Un prix resoumis sans tarif (panneau de renégociation générique) reste accepté : le tarif se
-  // déduit alors du plafond, et le dernier relevé en soldera l'arrondi (voir checkCaps).
-  const timeMode = mission.financingModeKey ? getFinancingMode(mission.financingModeKey) : null;
-  let montant = parsed.data.montant;
-  let unitRate: number | null = null;
-  if (timeMode?.family === "temps" && timeMode.rateUnit) {
-    const maxQuantity = mission.timeMaxQuantity ?? 0;
-    if (!(maxQuantity > 0)) {
-      return NextResponse.json({ error: "time_terms_missing" }, { status: 409 });
-    }
-    if (parsed.data.unitRate) {
-      unitRate = parsed.data.unitRate;
-      montant = expectedMaxAmount({ rate: unitRate, maxQuantity });
-    } else if (montant > 0) {
-      unitRate = montant / maxQuantity;
-    } else {
-      return NextResponse.json({ error: "unit_rate_required" }, { status: 400 });
-    }
-  }
-
-  // Modèle de paiement (fixe ou par jalons, 2026-10-01) — proposé par le prestataire avec son
-  // prix, accepté par le client avec lui. Hors mission au temps uniquement : là, c'est l'unité
-  // tarifaire publiée qui fixe le régime. Même chaîne de repli que POST .../devis : une
-  // révision sans mode garde celui du round précédent, puis celui d'une mission publiée avant
-  // cette règle. En dernier recours, un montant unique proposé sans autre précision EST un prix
-  // fixe — contrairement au devis détaillé, où l'absence de choix est refusée.
-  let paymentModeKey: string | undefined;
-  if (timeMode?.family !== "temps") {
-    const previousModeKey = (existing?.devisData as { financingModeKey?: string } | null)?.financingModeKey;
-    const legacyMissionKey = isDevisPaymentModeKey(mission.financingModeKey) ? mission.financingModeKey : null;
-    const paymentMode = checkDevisPaymentMode(
-      parsed.data.financingModeKey ?? previousModeKey ?? legacyMissionKey ?? DEVIS_FIXED_MODE_KEY,
-      { lineCount: 1, quoteMode: false }
-    );
-    if (!paymentMode.ok) {
-      return NextResponse.json({ error: "payment_mode_invalid" }, { status: 400 });
-    }
-    paymentModeKey = paymentMode.mode.key;
-  }
-
-  // Ligne synthétique unique — un prix fixe/taux n'a pas de jalons, seulement un montant.
-  // tvaRate/laborCost à 0 : totalTTC === montant exactement, aucun calcul caché. Au temps, la ligne
-  // énonce le tarif et la quantité, pour que la négociation se lise dans les termes du contrat.
-  const devis = computeDevisData(
-    [
-      unitRate !== null && timeMode?.rateUnit
-        ? {
-            description: parsed.data.message?.trim() || "Prestation au temps",
-            quantity: mission.timeMaxQuantity ?? 1,
-            unit: RATE_UNIT_LABEL[timeMode.rateUnit].one,
-            unitPrice: unitRate,
-          }
-        : { description: parsed.data.message?.trim() || "Prix proposé", quantity: 1, unit: "forfait", unitPrice: montant },
-    ],
-    "",
-    "",
-    0,
-    0,
-    paymentModeKey
-  );
-  const newRound = (existing?.roundActuel ?? 0) + 1;
-
-  const proposal = await prisma.$transaction(async (tx) => {
-    const p = await tx.missionProposal.upsert({
-      where: { missionId_providerId: { missionId, providerId } },
-      create: {
-        missionId,
-        providerId,
-        montant,
-        unitRate,
-        // Contre-proposition : le délai proposé par le prestataire, figé dans la candidature
-        // et repris tel quel dans le contrat (voir POST /api/missions/[id]/contract).
-        delaiPropose: parsed.data.delaiPropose ?? null,
-        message: parsed.data.message,
-        status: "envoyee",
-        roundActuel: newRound,
-        devisData: devis as Prisma.InputJsonValue,
-      },
-      update: {
-        montant,
-        unitRate,
-        delaiPropose: parsed.data.delaiPropose ?? null,
-        message: parsed.data.message,
-        status: "en_negociation",
-        roundActuel: newRound,
-        devisData: devis as Prisma.InputJsonValue,
-        // Consommée : la demande de révision qui vient de motiver cette resoumission ne
-        // doit pas rester active pour la suivante — le client devra en redemander une.
-        revisionRequestedAt: null,
-        revisionRequestMessage: null,
-      },
-    });
-    await tx.devisRevision.create({
-      data: {
-        proposalId: p.id,
-        roundNumber: newRound,
-        authorId: providerId,
-        devisData: devis as Prisma.InputJsonValue,
-        comment: newRound === 1 ? "Candidature initiale" : `Révision ${newRound}`,
-      },
-    });
-    return p;
-  });
-
-  // Cloche + e-mail pour les DEUX parties : le client reçoit la candidature, le candidat en
-  // reçoit l'accusé (2026-09-09 — auparavant une candidature ne notifiait personne).
-  await notifyMissionParties({
-    missionId,
-    type: "candidature_recue",
-    counterpart: {
-      userId: mission.clientId,
-      message: `Nouvelle candidature reçue pour « ${mission.titre} » — ${Math.round(montant).toLocaleString("fr-FR")} ${mission.currency}${parsed.data.delaiPropose ? `, ${parsed.data.delaiPropose} jour(s)` : ""}.`,
-      email: {
-        subject: `Nouvelle candidature — ${mission.titre}`,
-        text: `Un prestataire vient de candidater à votre mission « ${mission.titre} » pour ${Math.round(montant).toLocaleString("fr-FR")} ${mission.currency}. Connectez-vous pour consulter sa proposition.`,
-      },
-    },
-    actor: {
-      userId: providerId,
-      message: `Votre candidature à « ${mission.titre} » a bien été envoyée${newRound > 1 ? ` (révision ${newRound})` : ""}.`,
-      email: {
-        subject: `Candidature envoyée — ${mission.titre}`,
-        text: `Votre candidature à la mission « ${mission.titre} » a bien été enregistrée. Vous serez notifié dès que le client y aura répondu.`,
-      },
-    },
-  });
-
-  return NextResponse.json(proposal);
+  if (hold.held) return NextResponse.json(hold.body, { status: hold.status });
+  if (hold.providerId === null) return NextResponse.json(hold.response.body, { status: hold.response.status });
+  const providerId = hold.providerId;
+  return submitProposalAs({ missionId, providerId, mission, body });
 }
 
 export async function GET(
@@ -261,7 +86,38 @@ export async function GET(
     }),
     prisma.mission.findUnique({
       where: { id: missionId },
-      select: { budgetType: true, maxRevisionRounds: true, status: true, currency: true, titre: true },
+      select: {
+        budgetType: true,
+        maxRevisionRounds: true,
+        status: true,
+        currency: true,
+        titre: true,
+        // Délai publié — repli de la colonne « Délai » quand le candidat n'en propose pas.
+        delaiJours: true,
+        // Budget publié — tuile « Budget mission » du récapitulatif du choix (2026-11-11).
+        budget: true,
+        // Annonce (2026-11-10) : période de candidature, places, et prestataires déjà retenus.
+        dateExpiration: true,
+        maxCandidatures: true,
+        parentMissionId: true,
+        // Mission déjà dans le parcours contrat (engagement, ou mission antérieure aux annonces).
+        // Côté prestataire : seulement s'il est la partie du contrat (filtré plus bas).
+        contract: { select: { clientSignedAt: true, providerSignedAt: true, providerId: true } },
+        engagements: clientView
+          ? {
+              // Un engagement annulé (désistement, 2026-11-11) libère sa place.
+              where: { status: { not: "annulee" } },
+              select: {
+                id: true,
+                status: true,
+                proposals: { select: { provider: { select: { firstname: true, lastname: true } } }, take: 1 },
+                // État de signature : libellé du bouton « contrat » de chaque engagement.
+                contract: { select: { clientSignedAt: true, providerSignedAt: true } },
+              },
+              orderBy: { createdAt: "asc" },
+            }
+          : false,
+      },
     }),
   ]);
 
@@ -269,11 +125,41 @@ export async function GET(
   // nombre d'offres déjà envoyées à ce candidat pour CETTE mission (model Offer) — alimente
   // les tuiles de pipeline réelles de la vue candidature côté client (pas de "Entretien"
   // fabriqué, cette notion n'existe pas dans le produit).
-  const providerIds = [...new Set(proposals.map((p) => p.providerId))];
-  const [reviews, offers] = await Promise.all([
+  // Candidatures RETENUES sur l'annonce (2026-11-11) — client propriétaire seulement. Retenir un
+  // prestataire déplace sa candidature sur son ENGAGEMENT (src/lib/accept-proposal.ts) : sans
+  // cette lecture, les retenus disparaissaient de la page. Chacune porte son engagement et
+  // l'état de signature de son contrat (bouton « Signature du contrat »).
+  const retainedRaw = clientView
+    ? await prisma.missionProposal.findMany({
+        where: { mission: { parentMissionId: missionId }, status: { in: ["acceptee", "devis_valide"] } },
+        include: {
+          provider: { select: { id: true, email: true, firstname: true, lastname: true, avatarPath: true, country: true } },
+          revisions: { include: { author: { select: { firstname: true, lastname: true } } }, orderBy: { roundNumber: "asc" } },
+          mission: { select: { id: true, status: true, contract: { select: { clientSignedAt: true, providerSignedAt: true } } } },
+        },
+        orderBy: { createdAt: "asc" },
+      })
+    : [];
+
+  const providerIds = [...new Set([...proposals, ...retainedRaw].map((p) => p.providerId))];
+  // Cartes « Candidatures reçues » (2026-11-11) : missions menées à terme — même définition que
+  // le profil public (GET /api/users/[id]/public-profile : mission clôturée, candidature
+  // acceptée) — et compétences déclarées du profil par défaut.
+  const [reviews, offers, completed, profiles] = await Promise.all([
     prisma.review.findMany({ where: { targetId: { in: providerIds }, suspendu: false }, select: { targetId: true, note: true } }),
     prisma.offer.findMany({ where: { missionId, providerId: { in: providerIds } }, select: { providerId: true } }),
+    prisma.missionProposal.groupBy({
+      by: ["providerId"],
+      where: { providerId: { in: providerIds }, status: "acceptee", mission: { status: "cloturee" } },
+      _count: { _all: true },
+    }),
+    prisma.profile.findMany({ where: { userId: { in: providerIds } }, select: { userId: true, isDefault: true, tags: true } }),
   ]);
+  const completedByProvider = new Map(completed.map((c) => [c.providerId, c._count._all]));
+  const skillsByProvider = new Map<string, string[]>();
+  for (const pr of [...profiles].sort((a, b) => Number(a.isDefault) - Number(b.isDefault))) {
+    skillsByProvider.set(pr.userId, pr.tags); // le profil par défaut, trié en dernier, l'emporte
+  }
   const ratingsByProvider = new Map<string, number[]>();
   for (const r of reviews) {
     (ratingsByProvider.get(r.targetId) ?? ratingsByProvider.set(r.targetId, []).get(r.targetId)!).push(r.note);
@@ -283,14 +169,35 @@ export async function GET(
     offersByProvider.set(o.providerId, (offersByProvider.get(o.providerId) ?? 0) + 1);
   }
 
-  const items = proposals.map((p) => {
+  const enrich = <P extends { providerId: string }>(p: P) => {
     const ratings = ratingsByProvider.get(p.providerId);
     return {
       ...p,
       averageRating: ratings?.length ? ratings.reduce((s, n) => s + n, 0) / ratings.length : null,
       offersSent: offersByProvider.get(p.providerId) ?? 0,
+      missionsCompleted: completedByProvider.get(p.providerId) ?? 0,
+      skills: (skillsByProvider.get(p.providerId) ?? []).slice(0, 4),
     };
-  });
+  };
+  const items = proposals.map(enrich);
+  const retained = retainedRaw.map(({ mission: engagement, ...p }) => ({
+    ...enrich(p),
+    engagement: { id: engagement.id, status: engagement.status, contract: engagement.contract },
+  }));
 
-  return NextResponse.json({ items, mission });
+  // Le contrat n'est exposé qu'à ses parties (le client, ou le prestataire retenu).
+  const meta = mission
+    ? (() => {
+        const { contract, ...rest } = mission;
+        const party = !!contract && (clientView || contract.providerId === userId);
+        return {
+          ...rest,
+          contract: party ? { clientSignedAt: contract.clientSignedAt, providerSignedAt: contract.providerSignedAt } : null,
+          // Réserve (2026-11-11) : jusqu'à quand le client peut retenir un candidat présélectionné
+          // après la clôture (null si l'annonce n'est pas close).
+          reserveUntil: reserveUntil(rest)?.toISOString() ?? null,
+        };
+      })()
+    : null;
+  return NextResponse.json({ items, retained, mission: meta });
 }
